@@ -1,0 +1,15 @@
+Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+Launching lib\main.dart on Windows in debug mode...
+Building Windows application...                                 
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: 命令“setlocal [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: "C:\Program Files\Microsoft Visual Studio\18\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DBUILD_TYPE=Debug -P cmake_install.cmake [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: if %errorlevel% neq 0 goto :cmEnd [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: :cmEnd [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: :cmErrorLevel [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: exit /b %1 [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: :cmDone [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: if %errorlevel% neq 0 goto :VCEnd [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Professional\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(166,5): error MSB3073: :VCEnd”已退出，代码为 1。 [A:\Projects\flutter_demo_deving\build\windows\x64\INSTALL.vcxproj]
+Building Windows application...                                    31.6s
+Error: Build process failed.

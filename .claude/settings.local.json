@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run:*)",
+      "Bash(flutter clean:*)",
+      "Bash(powershell:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(cmd /c \"C:\\\\Users\\\\23104\\\\AppData\\\\Local\\\\Temp\\\\rustup-init.exe\" -y --default-toolchain stable --profile minimal)",
+      "Bash(cmd /c \"C:\\\\Users\\\\23104\\\\.cargo\\\\bin\\\\rustc.exe --version\")",
+      "Bash(cmd /c \"tasklist | findstr /i dart\")",
+      "Bash(cmd /c \"tasklist | findstr /i MSBuild\")",
+      "Bash(flutter doctor:*)",
+      "WebSearch",
+      "Bash(node index.js:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

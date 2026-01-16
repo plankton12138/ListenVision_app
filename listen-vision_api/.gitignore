@@ -28,3 +28,12 @@ coverage/
 # 构建输出
 dist/
 build/
+
+# 数据库文件
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 临时文件
+*.tar.gz

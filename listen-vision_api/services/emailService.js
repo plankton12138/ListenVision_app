@@ -36,7 +36,9 @@ const sendResetCode = async (username) => {
 
   // 生成6位验证码
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10分钟后过期
+  // 10分钟后过期 - 使用 SQLite datetime 格式
+  const expiryDate = new Date(Date.now() + 10 * 60 * 1000);
+  const expiry = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
 
   console.log('发送验证码 - 邮箱:', userEmail, '验证码:', code, '有效期:', expiry.toString());
 

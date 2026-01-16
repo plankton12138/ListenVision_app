@@ -1,15 +1,14 @@
-const initSqlJs = require('sql.js');
+const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
 /**
- * SQLite 数据库配置 (使用 sql.js)
+ * better-sqlite3 数据库配置
  *
  * 知识点说明：
- * - sql.js: 纯 JavaScript 的 SQLite，通过 Emscripten 编译
- * - 优势: 无需原生编译，跨平台兼容
- * - 劣势: 性能略低于原生版本，但足够项目使用
- * - 数据存储: 内存数据库 + 文件持久化
+ * - better-sqlite3: 同步 API 的 SQLite 原生绑定
+ * - 优势: 高性能、自动持久化、事务支持
+ * - API: 同步调用，直接返回结果
  */
 
 // 数据库文件路径
@@ -21,42 +20,26 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// 全局数据库实例
-let db = null;
-let SQL = null;
-
 /**
- * 初始化数据库
+ * 创建数据库实例
+ * - verbose: 启用 SQL 执行日志（开发环境）
+ * - fileMustExist: false（不存在则创建）
  */
-const initDatabase = async () => {
-  // 初始化 sql.js
-  SQL = await initSqlJs();
+const db = new Database(dbPath, { verbose: console.log });
 
-  // 尝试加载现有数据库，或创建新的
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    db = new SQL.Database(buffer);
-    console.log('✅ 加载现有数据库');
-  } else {
-    db = new SQL.Database();
-    console.log('✅ 创建新数据库');
-  }
+// 启用外键约束
+db.pragma('foreign_keys = ON');
 
-  // 创建表结构
-  createTables();
-
-  return db;
-};
+// 性能优化设置
+db.pragma('journal_mode = WAL');  // Write-Ahead Logging，提高并发性能
+db.pragma('synchronous = NORMAL'); // 平衡性能和安全
 
 /**
  * 创建数据库表结构
  */
 const createTables = () => {
-  // 启用外键约束
-  db.run('PRAGMA foreign_keys = ON');
-
   // 创建用户表
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -69,7 +52,7 @@ const createTables = () => {
   `);
 
   // 创建收藏表
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS favorites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       url TEXT NOT NULL,
@@ -81,163 +64,123 @@ const createTables = () => {
   `);
 
   // 创建索引
-  db.run('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_favorites_username ON favorites(username)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_favorites_url ON favorites(url)');
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_favorites_username ON favorites(username);
+    CREATE INDEX IF NOT EXISTS idx_favorites_url ON favorites(url);
+  `);
 
   console.log('✅ 数据库表初始化完成');
 };
 
-/**
- * 保存数据库到文件
- */
-const saveDatabase = () => {
-  const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
-};
+createTables();
 
 /**
- * SQL 语法适配器：MySQL → SQLite
- */
-const adaptSQL = (sql) => {
-  // MySQL NOW() → SQLite datetime('now')
-  return sql.replace(/\bNOW\(\)/gi, "datetime('now')");
-};
-
-/**
- * 适配层：提供类似 mysql2 的 Promise API
- */
-class ConnectionAdapter {
-  constructor(database) {
-    this.db = database;
-  }
-
-  /**
-   * 执行 SQL 查询
-   */
-  execute(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      try {
-        sql = adaptSQL(sql);
-        const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
-
-        if (isSelect) {
-          const stmt = this.db.prepare(sql);
-          const result = stmt.all(...params);
-          resolve([result, []]);
-        } else {
-          const stmt = this.db.prepare(sql);
-          stmt.run(...params);
-          // sql.js 不直接返回 insertId，需要额外查询
-          const insertId = this.db.exec('SELECT last_insert_rowid() as id')[0]?.values[0][0];
-          resolve([{ insertId }]);
-        }
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * 释放连接（兼容性方法）
-   */
-  release() {
-    // sql.js 不需要释放连接
-  }
-}
-
-/**
- * 连接池适配器
+ * 数据库连接池（兼容原 API）
+ *
+ * better-sqlite3 不需要连接池，但为了保持代码兼容性，
+ * 提供与原 MySQL API 类似的接口
  */
 class PoolAdapter {
   constructor(database) {
     this.db = database;
   }
 
-  async getConnection() {
-    return new ConnectionAdapter(this.db);
-  }
+  /**
+   * 执行 SQL 查询（兼容 MySQL API）
+   * @param {string} sql - SQL 语句
+   * @param {Array} params - 参数数组
+   * @returns {Array} [rows, fields] - SELECT 返回 [rows, []]，其他返回 [{insertId}]
+   */
+  execute(sql, params = []) {
+    const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
 
-  async execute(sql, params = []) {
-    const conn = new ConnectionAdapter(this.db);
-    const result = await conn.execute(sql, params);
-    // 每次写操作后保存到文件
-    if (!sql.trim().toUpperCase().startsWith('SELECT')) {
-      saveDatabase();
+    if (isSelect) {
+      // SELECT 查询
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all(...params);
+      return [rows, []];
+    } else {
+      // INSERT/UPDATE/DELETE
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(...params);
+      return [{ insertId: result.lastInsertRowid }];
     }
-    return result;
   }
 
+  /**
+   * 获取连接（兼容性方法）
+   */
+  async getConnection() {
+    return this;
+  }
+
+  /**
+   * 关闭数据库
+   */
   close() {
-    saveDatabase();
     this.db.close();
   }
 }
 
-// 初始化并导出
-let pool = null;
+const pool = new PoolAdapter(db);
 
-initDatabase().then((database) => {
-  pool = new PoolAdapter(database);
-  console.log('✅ SQLite 数据库连接成功');
-  console.log(`📁 数据库位置: ${dbPath}`);
-
-  // 定期保存（每30秒）
-  setInterval(() => {
-    if (db) saveDatabase();
-  }, 30000);
-
-}).catch((error) => {
-  console.error('❌ 数据库初始化失败:', error.message);
-  process.exit(1);
-});
-
-// 优雅退出
+/**
+ * 优雅退出
+ */
 process.on('exit', () => {
-  if (pool) pool.close();
+  pool.close();
 });
 
 process.on('SIGINT', () => {
-  if (pool) pool.close();
+  pool.close();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  if (pool) pool.close();
+  pool.close();
   process.exit(0);
 });
 
 /**
- * 导出一个 Promise，等待数据库初始化完成
+ * 导出数据库连接池
+ *
+ * 使用方式（兼容原 API）：
+ * const pool = require('../config/database');
+ * const [results] = await pool.execute(sql, params);
+ *
+ * 推荐的新方式（更简洁）：
+ * const db = require('../config/database').getDb();
+ * const row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
  */
 module.exports = {
-  getPool: async () => {
-    while (!pool) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return pool;
-  },
-  // 兼容旧的同步导出方式（会等待初始化）
-  then: function(onFulfilled, onRejected) {
-    return initDatabase().then((db) => {
-      const adapter = new PoolAdapter(db);
-      pool = adapter;
-      return onFulfilled ? onFulfilled(adapter) : adapter;
-    }, onRejected);
-  }
-};
+  /**
+   * 获取数据库连接池（兼容原 API）
+   */
+  getPool: () => pool,
 
-// 为了向后兼容，同时支持同步 require
-module.exports = new Proxy({}, {
-  get(target, prop) {
-    return function(...args) {
-      return initDatabase().then((db) => {
-        const adapter = new PoolAdapter(db);
-        pool = adapter;
-        return adapter[prop](...args);
-      });
-    };
-  }
-});
+  /**
+   * 直接执行 SQL（兼容原 API）
+   */
+  execute: (sql, params) => pool.execute(sql, params),
+
+  /**
+   * 获取连接（兼容原 API）
+   */
+  getConnection: () => pool.getConnection(),
+
+  /**
+   * 关闭连接
+   */
+  close: () => pool.close(),
+
+  /**
+   * 获取原生数据库实例（推荐使用）
+   *
+   * 新代码推荐用法：
+   * const db = require('../config/database').getDb();
+   * const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+   */
+  getDb: () => db
+};

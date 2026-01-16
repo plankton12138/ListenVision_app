@@ -14,10 +14,21 @@
   "type": "commonjs",
   "jest": {
     "testEnvironment": "node",
-    "coveragePathIgnorePatterns": ["/node_modules/"],
-    "testMatch": ["**/tests/**/*.test.js"],
-    "collectCoverageFrom": ["**/*.js", "!**/node_modules/**", "!**/tests/**", "!index.js"],
-    "setupFiles": ["<rootDir>/tests/setup.js"]
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "**/*.js",
+      "!**/node_modules/**",
+      "!**/tests/**",
+      "!index.js"
+    ],
+    "setupFiles": [
+      "<rootDir>/tests/setup.js"
+    ]
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -30,6 +41,7 @@
     "express-validator": "^7.3.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^7.0.3",
+    "qrcode": "^1.5.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0"

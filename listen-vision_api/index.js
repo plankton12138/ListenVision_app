@@ -53,9 +53,36 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
 }));
 
 // API 路由
+// 调试中间件：打印所有请求
+app.use('/api', (req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/favorites', require('./routes/favorites'));
+
+try {
+  const bilibiliRouter = require('./routes/bilibili');
+  app.use('/api/bilibili', bilibiliRouter);
+  console.log('✅ Bilibili routes registered, stack length:', bilibiliRouter.stack.length);
+  bilibiliRouter.stack.forEach((layer, i) => {
+    if (layer.route) {
+      console.log(`  - Route ${i}: ${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`);
+    }
+  });
+} catch (e) {
+  console.error('❌ Failed to load bilibili routes:', e.message);
+}
+
+try {
+  const audioRouter = require('./routes/audio');
+  app.use('/api/audio', audioRouter);
+  console.log('✅ Audio routes registered');
+} catch (e) {
+  console.error('❌ Failed to load audio routes:', e.message);
+}
 
 // ========== 错误处理 ==========
 

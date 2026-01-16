@@ -23,6 +23,7 @@ db.pragma('synchronous = NORMAL');
 
 // 初始化数据库表结构
 const createTables = () => {
+  // 用户表
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,6 +36,7 @@ const createTables = () => {
     )
   `);
 
+  // 收藏表
   db.exec(`
     CREATE TABLE IF NOT EXISTS favorites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,12 +48,62 @@ const createTables = () => {
     )
   `);
 
+  // B站账号绑定表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bilibili_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      bili_user_id TEXT,
+      bili_username TEXT,
+      cookie_encrypted TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 音频元数据缓存表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audio_metadata_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bvid TEXT UNIQUE NOT NULL,
+      title TEXT,
+      artist TEXT,
+      duration INTEGER,
+      cover_url TEXT,
+      audio_url TEXT,
+      cid INTEGER,
+      metadata TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // 搜索历史表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS search_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      keyword TEXT NOT NULL,
+      result_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // 创建索引加速查询
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_favorites_username ON favorites(username);
     CREATE INDEX IF NOT EXISTS idx_favorites_url ON favorites(url);
+    CREATE INDEX IF NOT EXISTS idx_bilibili_accounts_user_id ON bilibili_accounts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_bilibili_accounts_is_active ON bilibili_accounts(user_id, is_active);
+    CREATE INDEX IF NOT EXISTS idx_audio_metadata_bvid ON audio_metadata_cache(bvid);
+    CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id);
+    CREATE INDEX IF NOT EXISTS idx_search_history_keyword ON search_history(user_id, keyword);
   `);
 
   console.log('✅ 数据库表初始化完成');

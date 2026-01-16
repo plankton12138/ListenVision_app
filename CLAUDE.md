@@ -112,11 +112,21 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 
 ## Repository Overview
 
-This workspace contains three independent projects:
+This workspace contains three projects:
 
-1. **bilibili-API-collect** - VuePress documentation site for Bilibili API collection
-2. **frontend_flutter** - Flutter mobile app for music/audio streaming and downloading (ListenVision App)
-3. **listen-vision_api** - Node.js/Express backend API server
+1. **bilibili-API-collect** - B站API文档参考（本地克隆）
+2. **frontend_flutter** - Flutter移动应用
+3. **listen-vision_api** - Node.js后端API服务器
+
+### 开发环境 ⭐
+
+- **操作系统**: Windows 11 24H2
+- **Shell**: PowerShell（优先使用PowerShell命令）
+- **IDE**: VSCode + Claude Code
+
+**命令规范**:
+- ✅ 使用 PowerShell 命令（如 `Get-ChildItem`, `Move-Item`, `Test-Path`）
+- ❌ 避免使用 Bash/Linux 命令（如 `ls`, `mv`, `rm`）
 
 ### Authentication Architecture
 
@@ -144,45 +154,51 @@ This workspace contains three independent projects:
 
 ---
 
-## 1. bilibili-API-collect (VuePress Documentation)
+## 1. bilibili-API-collect（B站API文档参考）
 
-**Location:** `A:\Projects\bilibili-API-collect\`
+**Location:** `A:\Projects\Projects_ListenVison\bilibili-API-collect\`
 
-**Technology Stack:**
-- VuePress 2 with Vite bundler
-- JavaScript/TypeScript
-- Markdown documentation
+**说明**: 这是 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 项目的本地克隆，用于开发时查阅B站API文档。
 
-### Development Commands
+### 重要使用原则 ⭐
 
-```bash
-# Navigate to project directory
-cd bilibili-API-collect
+**在需要查询B站API时**:
+1. ✅ **优先使用本地文档** - 直接读取本项目的 Markdown 文件
+2. ❌ **不要使用网页搜索** - 除非本地文档无法满足需求
+3. ✅ **使用 Read/Grep 工具** - 在本地文档中搜索相关API
 
-# Install dependencies
-npm install
+### 文档结构
 
-# Start development server
-npm run dev
-
-# Build production site (uses 8GB memory allocation)
-npm run build
+```
+bilibili-API-collect/
+├── docs/                    # API文档（Markdown格式）
+│   ├── login/              # 登录相关API（QR码登录等）
+│   ├── video/              # 视频相关API
+│   ├── audio/              # 音频相关API
+│   ├── user/               # 用户相关API
+│   ├── search/             # 搜索相关API
+│   └── ...
+└── grpc_api/               # gRPC API协议定义
 ```
 
-**Note:** The build command uses `NODE_OPTIONS='--max-old-space-size=8192'` for large-scale documentation builds.
+### 常用PowerShell命令
 
-### Architecture
+```powershell
+# 查看文档目录
+Get-ChildItem "A:\Projects\Projects_ListenVison\bilibili-API-collect\docs"
 
-- **Source Documentation:** `docs/` - Contains 30+ subdirectories with API documentation organized by topic (video, user, live, comment, etc.)
-- **VuePress Config:** `.vuepress/config.js` - Main configuration with navigation, theme, and plugins
-- **gRPC APIs:** `grpc_api/` - gRPC API protocol definitions
+# 搜索包含特定关键词的文档
+Select-String -Path "A:\Projects\Projects_ListenVison\bilibili-API-collect\docs\*" -Pattern "qrcode"
 
-### Important Notes
+# 读取特定文档
+Get-Content "A:\Projects\Projects_ListenVison\bilibili-API-collect\docs\login\login_action\QR.md"
+```
 
-- Licensed under CC-BY-NC 4.0 (non-commercial)
-- Documentation is written in Chinese
-- Uses Shiki for syntax highlighting (supports multiple languages)
-- Deployed to GitHub Pages
+### 重要提醒 ⚠️
+
+- **开源协议**: CC-BY-NC 4.0（仅限非商业使用）
+- **脱敏要求**: 上传代码时删除 `SESSDATA`、`bili_jct` 等 Cookie
+- **频率限制**: 建议每分钟请求次数 < 60次
 
 ---
 
@@ -338,27 +354,37 @@ From the README, these features are planned or in progress:
 
 **Technology Stack:**
 - Node.js with Express
-- MySQL2 with connection pooling
+- better-sqlite3 (SQLite) for database
 - JWT authentication
 - bcrypt password hashing
 - CORS enabled
+- Jest for testing
 
 **当前状态**: 🔄 **Phase 1开发中** - 正在实现B站API集成服务
 
 ### Development Commands
 
-```bash
-# Navigate to project directory
-cd listen-vision_api
+```powershell
+# 进入项目目录
+Set-Location "A:\Projects\Projects_ListenVison\listen-vision_api"
 
-# Install dependencies
+# 安装依赖
 npm install
 
-# Start server (uses default node index.js)
+# 启动服务器
 node index.js
 
-# Or run with nodemon for development (if installed)
-nodemon index.js
+# 运行测试
+npm test
+
+# 运行测试（监视模式）
+npm run test:watch
+
+# 运行测试（覆盖率报告）
+npm run test:coverage
+
+# 停止Node进程
+Get-Process node | Stop-Process -Force
 ```
 
 ### Architecture
@@ -383,9 +409,14 @@ nodemon index.js
 │   ├── userService.js
 │   ├── emailService.js
 │   └── favoriteService.js
-└── utils/              # 工具函数
-    ├── logger.js       # Winston日志
-    └── response.js     # 统一响应格式
+├── utils/              # 工具函数
+│   ├── logger.js       # Winston日志
+│   └── response.js     # 统一响应格式
+└── tests/              # 单元测试
+    ├── setup.js        # 测试环境配置
+    ├── config/         # 配置测试
+    ├── middleware/     # 中间件测试
+    └── services/       # 服务层测试
 ```
 
 **Phase 1 新增架构** (开发中):
@@ -406,38 +437,34 @@ nodemon index.js
 **核心组件:**
 
 - **Express Server** - REST API框架
-- **MySQL Connection Pool** - 数据库连接池（10连接限制）
+- **better-sqlite3** - SQLite 数据库（同步 API，高性能）
 - **Authentication System:**
   - JWT tokens for authentication
   - bcrypt with 10 salt rounds for password hashing
 - **CORS Middleware** - 跨域资源共享
 - **Winston Logger** - 日志管理系统
+- **Jest** - 单元测试框架
 
 **数据库配置:**
 ```javascript
-{
-  host: '127.0.0.1',
-  port: 3306,
-  user: 'plankton',
-  password: 'plankton',
-  database: 'listenvision_app',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-}
+// 使用 SQLite 作为数据存储
+// 数据库文件: listen-vision_api/data/listenvision.db
+// 支持外键约束、事务处理
+// 测试时使用内存数据库 (:memory:)
 ```
 
 **Key Dependencies:**
 - **express** (^5.1.0) - Web framework
-- **mysql2** (^3.14.1) - MySQL driver with Promise support
+- **better-sqlite3** (^12.6.0) - SQLite database (synchronous API)
 - **bcrypt** (^5.1.1) & **bcryptjs** (^3.0.2) - Password hashing
-- **jsonwebtoken** (^9.0.2) - JWT authentication
+- **jsonwebtoken** (^9.0.3) - JWT authentication
 - **cors** (^2.8.5) - CORS middleware
 - **nodemailer** (^7.0.3) - Email sending
 - **dotenv** (^16.5.0) - Environment variables
 - **winston** (^3.19.0) - 日志管理
-- **swagger-ui-express** (^5.0.1) - API文档
-- **axios** (^1.7.9) - HTTP客户端（用于B站API）
+- **swagger-jsdoc** (^6.2.8) - API documentation
+- **swagger-ui-express** (^5.0.1) - API UI
+- **jest** (^30.2.0) - Testing framework (dev)
 
 ### API Endpoints
 
@@ -489,7 +516,7 @@ nodemon index.js
 
 **frontend_flutter** (Flutter app) and **listen-vision_api** (Node.js backend) form the ListenVision application stack:
 - Flutter app communicates with the Express backend API
-- Backend manages MySQL database for user data and authentication
+- Backend manages SQLite database for user data and authentication
 - Flutter app handles audio playback, downloads, and UI
 
 **bilibili-API-collect** is a completely separate project for API documentation and is not related to the ListenVision app.
@@ -498,19 +525,46 @@ nodemon index.js
 
 ## Development Workflow
 
-When working on the ListenVision app (Flutter + Backend):
+### Windows PowerShell 环境
 
-1. **Backend changes:** Modify `listen-vision_api/index.js`, restart with `node index.js`
-2. **Flutter changes:**
-   - Modify relevant files in `lib/`
-   - Run `flutter run` to test
-   - Hot reload available during development (press `r` in terminal)
-3. **Database changes:** Update MySQL schema directly or create migration scripts
+**在Windows环境下开发时，优先使用PowerShell命令**：
 
-When working on bilibili-API-collect:
-1. Add/edit markdown files in `docs/`
-2. Run `npm run dev` to preview
-3. Build with `npm run build` before committing
+```powershell
+# 查看目录结构
+Get-ChildItem -Path "A:\Projects\Projects_ListenVison" -Directory
+
+# 搜索文件
+Get-ChildItem -Path "A:\Projects\Projects_ListenVison" -Recurse -Filter "*.js" | Select-String -Pattern "function"
+
+# 查看进程
+Get-Process node
+
+# 停止进程
+Stop-Process -Name node -Force
+```
+
+### ListenVision 开发流程
+
+**后端开发**:
+1. 修改 `listen-vision_api/services/` 或其他文件
+2. 停止现有Node进程：`Get-Process node | Stop-Process -Force`
+3. 重启服务器：`node index.js`
+
+**Flutter开发**:
+1. 修改 `lib/` 目录下的文件
+2. 运行 `flutter run` 测试
+3. 开发过程中按 `r` 热重载
+
+**测试**:
+- 后端：`npm test`
+- Flutter：`flutter test`
+
+### B站API查询流程
+
+**需要查询B站API时**：
+1. 使用 Grep 工具在本地 `bilibili-API-collect` 文档中搜索
+2. 使用 Read 工具读取相关 Markdown 文件
+3. 仅在本地文档无法满足时才使用网页搜索
 
 ---
 
@@ -544,14 +598,15 @@ When working on bilibili-API-collect:
 
 ## 📚 Bilibili API 参考资源
 
-### bilibili-API-collect 项目
+### bilibili-API-collect 项目（本地克隆）
 
-**重要**: 这是一个社区维护的 B站 API 文档项目,对本项目开发至关重要。
+**Location**: `A:\Projects\Projects_ListenVison\bilibili-API-collect\`
+
+**说明**: 这是 B站API的权威文档项目，已克隆到本地，开发时优先查阅本地文档。
 
 - **GitHub 仓库**: https://github.com/SocialSisterYi/bilibili-API-collect
-- **在线文档**: https://socialsisteryi.github.io/bilibili-API-collect/ ⭐⭐⭐⭐⭐
+- **本地路径**: `A:\Projects\Projects_ListenVison\bilibili-API-collect\`
 - **开源协议**: CC-BY-NC 4.0 (仅限非商业使用)
-- **维护状态**: 活跃维护中
 
 #### 项目简介
 
@@ -562,85 +617,41 @@ bilibili-API-collect 是一个社区驱动的开源项目,旨在对 B站 WEB、A
 - 拆包及反编译法
 - 网络抓包法
 
-#### 在线文档导航 ⭐⭐⭐⭐⭐
+#### 本地文档结构 ⭐⭐⭐⭐⭐
 
 **使用建议**:
-1. **优先查阅在线文档**: https://socialsisteryi.github.io/bilibili-API-collect/
-2. **搜索关键词**: 使用浏览器搜索功能（Ctrl+F）快速定位
-3. **查看示例**: 每个API都有请求/响应示例
-4. **订阅更新**: GitHub Star关注项目更新
+1. **优先使用本地文档** - 路径：`A:\Projects\Projects_ListenVison\bilibili-API-collect\docs\`
+2. **使用 Grep 工具搜索** - 快速定位相关API
+3. **使用 Read 工具阅读** - 查看完整的API说明和示例
 
 **核心API文档分类**:
 
-**认证相关** - Phase 1重点
-- [登录操作](https://socialsisteryi.github.io/bilibili-API-collect/docs/login/login_action.html)
-  - ✅ 二维码登录 - **ListenVision使用**
-  - 短信登录
-  - 密码登录
-  - SNS登录
-- [登录基本信息](https://socialsisteryi.github.io/bilibili-API-collect/docs/login/login_info.html)
-- [Web端Cookie刷新](https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html)
-- [设备唯一标识BUVID](https://socialsisteryi.github.io/bilibili-API-collect/docs/login/buvid.html)
+| 分类 | 本地路径 | 说明 |
+|------|----------|------|
+| **认证相关** | `docs/login/` | QR码登录、Cookie管理 |
+| **视频相关** | `docs/video/` | 视频信息、播放地址 |
+| **音频相关** | `docs/audio/` | 音频流、榜单 |
+| **用户相关** | `docs/user/` | 用户信息、关注关系 |
+| **搜索相关** | `docs/search/` | 视频/音频搜索 |
 
-**视频相关** - Phase 1核心
-- [视频基本信息](https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_info.html) ⭐⭐⭐
-  - ✅ 获取视频元数据 - **ListenVision核心功能**
-  - 视频分P信息
-  - UP主信息
-- [视频流地址](https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_stream.html) ⭐⭐⭐
-  - ✅ 获取播放URL - **ListenVision核心功能**
-  - DASH格式
-  - FLV格式
-- [视频推荐](https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_recommend.html)
-- [视频弹幕](https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_danmaku.html)
-- [视频合集](https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_collection.html)
-
-**音频相关** - Phase 1涉及
-- [音频区歌曲信息](https://socialsisteryi.github.io/bilibili-API-collect/docs/audio/audio_info.html)
-- [音频流地址](https://socialsisteryi.github.io/bilibili-API-collect/docs/audio/audio_stream.html)
-- [音频榜单](https://socialsisteryi.github.io/bilibili-API-collect/docs/audio/audio_ranking.html)
-
-**用户相关** - Phase 2考虑
-- [用户基本信息](https://socialsisteryi.github.io/bilibili-API-collect/docs/user/user_info.html)
-- [用户关系](https://socialsisteryi.github.io/bilibili-API-collect/docs/user/user_relation.html)
-- [用户空间](https://socialsisteryi.github.io/bilibili-API-collect/docs/user/user_space.html)
-- [用户视频列表](https://socialsisteryi.github.io/bilibili-API-collect/docs/user/user_videos.html) ⭐⭐
-
-**搜索相关** - Phase 3重点
-- [综合搜索](https://socialsisteryi.github.io/bilibili-API-collect/docs/search/search.html) ⭐⭐⭐
-  - ✅ 视频搜索 - **ListenVision使用**
-  - 音频搜索
-  - 用户搜索
+**Phase 1 常用文档**:
+- QR码登录：`docs/login/login_action/QR.md`
+- 视频信息：`docs/video/video_info.md`
+- 音频流：`docs/audio/audio_stream.md`
+- 搜索：`docs/search/search.md`
 
 #### ListenVision 项目中的使用
 
-**Phase 1 使用的API**:
+**Phase 1 实现的API**:
 
-1. **二维码登录** - TV端QR码登录（更稳定）
-   ```
-   GET https://passport.bilibili.com/x/passport-tv-login/qrcode/auth_code
-   GET https://passport.bilibili.com/x/passport-tv-login/qrcode/poll
-   ```
-
-2. **视频信息获取**
-   ```
-   GET https://api.bilibili.com/x/web-interface/view?bvid={bvid}
-   ```
-
-3. **音频流获取**
-   ```
-   GET https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16
-   ```
-
-4. **UP主视频列表**
-   ```
-   GET https://api.bilibili.com/x/space/wbi/arc/search?mid={mid}
-   ```
-
-5. **搜索功能**
-   ```
-   GET https://api.bilibili.com/x/web-interface/search/all?keyword={keyword}
-   ```
+| 功能 | API端点 | 服务层实现 |
+|------|---------|-----------|
+| QR码登录 | `POST /api/bilibili/qrcode` | `bilibiliService.getQRCode()` |
+| 检查登录状态 | `POST /api/bilibili/qrcode/check` | `bilibiliService.checkQRLoginStatus()` |
+| 视频信息 | `GET /api/bilibili/video/:bvid` | `bilibiliService.getVideoInfo()` |
+| 音频流 | `GET /api/bilibili/audio/:bvid` | `bilibiliService.getAudioStream()` |
+| UP主视频 | `GET /api/bilibili/uploader/:mid` | `bilibiliService.getUploaderVideos()` |
+| 搜索 | `GET /api/audio/search` | `bilibiliService.searchBilibili()` |
 
 #### API 技术规范
 
@@ -776,9 +787,10 @@ ListenVision Phase 1 开发流程:
   - 内置JSON Schema验证
 
 #### 数据库
-- **[MySQL文档](https://dev.mysql.com/doc/)**
+- **[SQLite文档](https://www.sqlite.org/docs.html)**
   - SQL语法、索引优化
   - 事务处理、存储引擎
+  - better-sqlite3 API: https://github.com/WiseLibs/better-sqlite3
 
 - **[Redis](https://redis.io/docs/)** (推荐添加)
   - 缓存、会话管理

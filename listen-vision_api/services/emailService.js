@@ -1,12 +1,7 @@
 const nodemailer = require('nodemailer');
-const pool = require('../config/database');
+const db = require('../config/database');
 
-/**
- * 邮件服务
- * 处理邮件发送相关业务逻辑
- */
-
-// 配置 SMTP
+// SMTP 邮件服务配置
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT) || 465,
@@ -17,36 +12,33 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-/**
- * 发送密码重置验证码
- */
+// 预编译语句
+const stmt = {
+  userEmail: db.prepare('SELECT email FROM users WHERE username = ?'),
+  setResetCode: db.prepare('UPDATE users SET reset_code = ?, code_expire = ? WHERE username = ?'),
+};
+
+// 发送密码重置验证码
 const sendResetCode = async (username) => {
   // 查询用户邮箱
-  const [users] = await pool.execute(
-    'SELECT email FROM users WHERE username = ?',
-    [username]
-  );
-
-  // 统一返回成功防止用户探测
-  if (users.length === 0) {
+  const user = stmt.userEmail.get(username);
+  // 统一返回成功，防止用户探测
+  if (!user) {
     return { success: true };
   }
 
-  const userEmail = users[0].email;
+  const userEmail = user.email;
 
-  // 生成6位验证码
+  // 生成 6 位随机验证码
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  // 10分钟后过期 - 使用 SQLite datetime 格式
+  // 10 分钟后过期（SQLite datetime 格式）
   const expiryDate = new Date(Date.now() + 10 * 60 * 1000);
   const expiry = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
 
-  console.log('发送验证码 - 邮箱:', userEmail, '验证码:', code, '有效期:', expiry.toString());
+  console.log('发送验证码 - 邮箱:', userEmail, '验证码:', code, '有效期:', expiry);
 
-  // 更新数据库
-  await pool.execute(
-    'UPDATE users SET reset_code = ?, code_expire = ? WHERE username = ?',
-    [code, expiry, username]
-  );
+  // 保存验证码到数据库
+  stmt.setResetCode.run(code, expiry, username);
 
   // 发送邮件
   const mailOptions = {
@@ -80,9 +72,7 @@ const sendResetCode = async (username) => {
   return { success: true };
 };
 
-/**
- * 发送普通邮件（通用方法）
- */
+// 发送普通邮件（通用方法）
 const sendEmail = async (to, subject, html) => {
   const mailOptions = {
     from: `"ListenVision" <${process.env.SMTP_USER}>`,

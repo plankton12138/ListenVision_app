@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  static const String _baseUrl = 'http://123.56.225.108:3000/api'; // aliyun
+  static const String _baseUrl = 'http://127.0.0.1:3000/api'; // aliyun
   // static const String _baseUrl = 'http://117.72.126.201:3000/api'; // jdyun
 
   final http.Client _client;
@@ -13,9 +13,9 @@ class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
   Future<User> login(String username, String password) async {
-    try {      
+    try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/login'),
+        Uri.parse('$_baseUrl/auth/login'),
         body: jsonEncode({'username': username, 'password': password}),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
@@ -27,16 +27,18 @@ class ApiService {
           return User.fromJson(responseBody['user']);
         } else {
           throw ApiException(
-            '$response.body',
+            responseBody['message'] ?? 'Login failed',
             response.statusCode,
           );
         }
       } else {
         throw ApiException(
-          '$response.body',
+          responseBody['message'] ?? 'Login failed',
           response.statusCode,
         );
       }
+    } on FormatException {
+      throw ApiException('Invalid server response format', 500);
     } catch (e) {
       debugPrint('login exception: $e');
       rethrow;
@@ -46,7 +48,7 @@ class ApiService {
   Future<User> register(String username, String password, String email) async {
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/register'),
+        Uri.parse('$_baseUrl/auth/register'),
         body: jsonEncode({
           'username': username,
           'password': password,
@@ -57,21 +59,23 @@ class ApiService {
 
       final responseBody = _parseResponse(response);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         if (responseBody['success'] == true) {
           return User.fromJson(responseBody['user']);
         } else {
           throw ApiException(
-            '$response.body',
+            responseBody['message'] ?? 'Registration failed',
             response.statusCode,
           );
         }
       } else {
         throw ApiException(
-          '$response.body',
+          responseBody['message'] ?? 'Registration failed',
           response.statusCode,
         );
       }
+    } on FormatException {
+      throw ApiException('Invalid server response format', 500);
     } catch (e) {
       debugPrint('register exception: $e');
       rethrow;
@@ -82,7 +86,7 @@ class ApiService {
   Future<void> sendCode(String username) async {
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/send-code'),
+        Uri.parse('$_baseUrl/auth/send-code'),
         body: jsonEncode({'username': username}),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
@@ -94,14 +98,13 @@ class ApiService {
           return;
         } else {
           throw ApiException(
-            '$response.body',
+            responseBody['message'] ?? 'Failed to send code',
             response.statusCode,
-          );            
-          // Exception(responseBody['error'] ?? 'Failed to send code');
+          );
         }
       } else {
         throw ApiException(
-          '$response.body',
+          responseBody['message'] ?? 'Failed to send code',
           response.statusCode,
         ); 
         // Exception('HTTP error: ${response.statusCode}');
@@ -119,7 +122,7 @@ class ApiService {
       debugPrint('username: $username, code: $code, newPassword: $newPassword');
       
       final response = await _client.post(
-        Uri.parse('$_baseUrl/reset-pwd'),
+        Uri.parse('$_baseUrl/auth/reset-password'),
         body: jsonEncode({
           'username': username,
           'code': code,

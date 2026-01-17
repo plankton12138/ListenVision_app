@@ -12,7 +12,9 @@
       "Bash(flutter doctor:*)",
       "WebSearch",
       "Bash(node index.js:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(dir:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }

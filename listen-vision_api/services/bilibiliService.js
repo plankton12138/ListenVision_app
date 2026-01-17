@@ -391,18 +391,32 @@ const getVideoInfo = async (bvid) => {
     }
 
     const info = data.data;
+
+    // 获取统计数据（B站API结构：data.stat）
+    const stat = info.stat || {};
+
     return {
       bvid: info.bvid,
       title: info.title,
       desc: info.desc,
-      cover: info.pic,
+      pic: info.pic,         // 封面URL (原名)
+      cover: info.pic || '', // 封面URL (别名)
       duration: info.duration,
+      pubdate: info.pubdate, // 发布时间戳
       owner: {
-        mid: info.owner.mid,
-        name: info.owner.name,
-        face: info.owner.face
+        mid: info.owner?.mid,
+        name: info.owner?.name,
+        face: info.owner?.face || ''
       },
       cid: info.cid, // 视频分P ID，用于获取播放URL
+      stat: {
+        view: stat.view || 0,      // 播放
+        like: stat.like || 0,      // 点赞
+        coin: stat.coin || 0,      // 投币
+        favorite: stat.favorite || 0, // 收藏
+        share: stat.share || 0,    // 分享
+        danmaku: stat.danmaku || 0 // 弹幕
+      },
       pages: info.pages?.map(p => ({
         cid: p.cid,
         page: p.page,
@@ -421,12 +435,20 @@ const getVideoInfo = async (bvid) => {
  * API: GET https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16
  *
  * @param {string} bvid - 视频BVID
- * @param {number} cid - 视频分P ID
+ * @param {number} cid - 视频分P ID（可选，为空时自动获取）
  * @param {number} userId - 用户ID（用于获取Cookie）
  * @returns {Object} 音频流信息
  */
-const getAudioStream = async (bvid, cid, userId = null) => {
+const getAudioStream = async (bvid, cid = null, userId = null) => {
   try {
+    let videoInfo = null;
+
+    // 如果没有提供 cid，先获取视频信息
+    if (!cid) {
+      videoInfo = await getVideoInfo(bvid);
+      cid = videoInfo.cid;
+    }
+
     // 构建请求URL
     const fnval = 16; // 16表示只返回音频流
     const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&fnval=${fnval}&qn=127`;
@@ -458,11 +480,14 @@ const getAudioStream = async (bvid, cid, userId = null) => {
     });
 
     return {
+      bvid,
+      title: videoInfo?.title,
       baseUrl: audio.baseUrl,
+      url: audio.baseUrl,
       bandwidth: audio.bandwidth,
       mimeType: audio.mimeType,
       codecs: audio.codecs,
-      duration: data.data?.timelength || 0
+      duration: Math.floor((data.data?.timelength || 0) / 1000) // 转换为秒
     };
   } catch (error) {
     throw new Error(`获取音频流失败: ${error.message}`);

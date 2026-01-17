@@ -338,4 +338,50 @@ router.get('/search', optionalAuthMiddleware, bilibiliController.searchBilibili)
  */
 router.get('/search/recent', authMiddleware, bilibiliController.getRecentSearches);
 
+/**
+ * @swagger
+ * /api/bilibili/proxy/image:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 代理图片（解决封面防盗链）
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 图片URL
+ *     responses:
+ *       200:
+ *         description: 图片数据
+ *         content:
+ *           image/*:
+ *             type: string
+ *             format: binary
+ */
+router.get('/proxy/image', optionalAuthMiddleware, bilibiliController.proxyImage);
+
+/**
+ * @swagger
+ * /api/bilibili/proxy/audio:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 代理音频流（解决防盗链）
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 音频流URL
+ *     responses:
+ *       200:
+ *         description: 音频流
+ *         content:
+ *           audio/mp4:
+ *             type: string
+ *             format: binary
+ */
+router.get('/proxy/audio', optionalAuthMiddleware, bilibiliController.proxyAudioStream);
+
 module.exports = router;

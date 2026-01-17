@@ -226,6 +226,78 @@ const getRecentSearches = async (req, res) => {
   }
 };
 
+/**
+ * 代理图片（解决封面防盗链）
+ */
+const proxyImage = async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).send('缺少 url 参数');
+    }
+
+    // 使用 fetch 获取图片
+    const response = await fetch(url, {
+      headers: {
+        'Referer': 'https://www.bilibili.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).send('获取图片失败');
+    }
+
+    // 设置正确的 Content-Type
+    const contentType = response.headers.get('Content-Type') || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 缓存24小时
+
+    // 转发图片数据
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    res.status(500).send(`代理图片失败: ${error.message}`);
+  }
+};
+
+/**
+ * 代理音频流（解决防盗链）
+ */
+const proxyAudioStream = async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ success: false, error: '缺少 url 参数' });
+    }
+
+    // 使用 fetch 获取音频流
+    const response = await fetch(url, {
+      headers: {
+        'Referer': 'https://www.bilibili.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).send('获取音频失败');
+    }
+
+    // 设置正确的 Content-Type
+    const contentType = response.headers.get('Content-Type') || 'audio/mp4';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes'); // 支持范围请求
+
+    // 转发音频流
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
+  }
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -242,5 +314,9 @@ module.exports = {
 
   // 搜索
   searchBilibili,
-  getRecentSearches
+  getRecentSearches,
+
+  // 代理
+  proxyImage,
+  proxyAudioStream
 };

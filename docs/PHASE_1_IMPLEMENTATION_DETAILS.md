@@ -214,6 +214,9 @@ CREATE INDEX idx_search_history_user_id ON search_history(user_id);
 | GET | `/audio/:bvid` | 获取音频流URL | 否* |
 | GET | `/uploader/:mid` | 获取UP主视频列表 | 否* |
 | GET | `/search` | 搜索B站视频 | 否* |
+| GET | `/search/recent` | 获取最近搜索关键词 | 是 |
+| GET | `/proxy/image` | 代理图片（解决防盗链） | 否* |
+| GET | `/proxy/audio` | 代理音频流（解决防盗链） | 否* |
 
 *optionalAuthMiddleware - 有Token则使用Cookie获取更高质量内容
 
@@ -274,6 +277,28 @@ listen-vision_api/
 #### QR码登录
 **位置**: `bilibiliService.js:150-211`
 **功能**: 获取 QR 码登录凭证并轮询登录状态
+
+#### 资源代理服务
+**位置**: `bilibiliController.js:232-299`
+**功能**: 代理B站资源请求，解决防盗链问题
+
+**知识点说明**:
+- **防盗链**: B站通过检查Referer头来防止其他网站直接引用其资源
+- **代理模式**: 服务器作为中介，添加正确的Referer头后转发资源给客户端
+
+**实现方式**:
+```javascript
+// 图片代理: GET /api/bilibili/proxy/image?url={imageUrl}
+// 音频代理: GET /api/bilibili/proxy/audio?url={audioUrl}
+
+// 服务器请求B站资源时添加Referer头
+const response = await fetch(url, {
+  headers: {
+    'Referer': 'https://www.bilibili.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  }
+});
+```
 
 ---
 

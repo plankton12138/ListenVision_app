@@ -5,7 +5,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.38.5-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.10.4-blue)](https://dart.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-green)](https://nodejs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-3.0-orange)](https://sqlite.org)
+[![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-orange)](https://sqlite.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -217,6 +217,9 @@ Projects_ListenVison/
 - ✅ 歌单管理 API
 - ✅ CORS 跨域支持
 - ✅ SQLite 数据库（better-sqlite3）
+- ✅ B站API集成（QR登录、视频信息、音频流）
+- ✅ 音频元数据缓存服务
+- ✅ 资源代理服务（解决B站防盗链）
 
 ### 规划中功能 🚧
 

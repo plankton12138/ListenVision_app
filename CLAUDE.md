@@ -102,11 +102,11 @@ When working in this repository:
 **迁移进度**:
 ```
 规划阶段: ████████████████████ 100% ✅
-Phase 1:   ██████████████░░░░░░   70% ✅ 后端完成，Flutter端待开始
+Phase 1:   ████████████████████ 100% ✅ 后端完成，Flutter端待开始
 Phase 2:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 1完成
 Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2完成
 
-总进度: 25% (后端B站API服务已完成)
+总进度: 30% (后端B站API服务已完成)
 ```
 
 **Phase 1 目标**:
@@ -150,7 +150,7 @@ This workspace contains three projects:
    - Email/password registration
    - Traditional user accounts
    - JWT token authentication
-   - Stored in MySQL database
+   - Stored in SQLite database (better-sqlite3)
    - Password hashing with bcrypt (10 rounds)
 
 2. **Platform Binding** (Optional, for enhanced features)
@@ -374,7 +374,7 @@ From the README, these features are planned or in progress:
 - CORS enabled
 - Jest for testing
 
-**当前状态**: 🔄 **Phase 1开发中** - 正在实现B站API集成服务
+**当前状态**: ✅ **Phase 1后端完成** - B站API集成服务已实现
 
 ### Development Commands
 
@@ -433,19 +433,19 @@ Get-Process node | Stop-Process -Force
     └── services/       # 服务层测试
 ```
 
-**Phase 1 新增架构** (开发中):
+**Phase 1 新增架构** (已完成):
 ```
 ├── services/
-│   ├── bilibiliService.js    ← 新增：B站API集成
-│   └── audioService.js        ← 新增：音频元数据管理
+│   ├── bilibiliService.js    ← 新增：B站API集成 (WBI签名、QR登录)
+│   └── audioService.js        ← 新增：音频元数据管理 (缓存、搜索历史)
 ├── routes/
-│   ├── bilibili.js            ← 新增
-│   └── audio.js               ← 新增
+│   ├── bilibili.js            ← 新增：11个端点 (含资源代理)
+│   └── audio.js               ← 新增：12个端点
 ├── controllers/
 │   ├── bilibiliController.js  ← 新增
 │   └── audioController.js     ← 新增
-└── models/
-    └── BilibiliAccount.js     ← 新增：数据模型
+└── config/
+    └── database.js            ← 新增：bilibili_accounts、audio_metadata_cache表
 ```
 
 **核心组件:**
@@ -497,7 +497,7 @@ Get-Process node | Stop-Process -Force
 - `GET /health` - 健康检查
 - `GET /api-docs` - Swagger API文档
 
-**Phase 1 新增端点** (开发中):
+**Phase 1 新增端点** (已完成):
 - `POST /api/bilibili/qrcode` - 获取QR码登录凭证
 - `POST /api/bilibili/qrcode/check` - 检查QR码登录状态
 - `DELETE /api/bilibili/unbind` - 解绑B站账号
@@ -505,8 +505,24 @@ Get-Process node | Stop-Process -Force
 - `GET /api/bilibili/video/:bvid` - 获取视频信息
 - `GET /api/bilibili/audio/:bvid` - 获取音频流URL
 - `GET /api/bilibili/uploader/:mid` - 获取UP主视频列表
-- `GET /api/audio/search` - 搜索B站音频
+- `GET /api/bilibili/search` - 搜索B站视频
+- `GET /api/bilibili/search/recent` - 获取最近搜索关键词
+- `GET /api/bilibili/proxy/image` - 代理图片（解决防盗链）
+- `GET /api/bilibili/proxy/audio` - 代理音频流（解决防盗链）
+
+**音频元数据API**:
 - `GET /api/audio/metadata/:bvid` - 获取缓存的元数据
+- `POST /api/audio/metadata/:bvid/refresh` - 刷新元数据缓存
+- `DELETE /api/audio/metadata/:bvid` - 删除元数据缓存
+- `GET /api/audio/metadata` - 获取所有缓存
+- `POST /api/audio/metadata/batch` - 批量获取元数据
+- `GET /api/audio/stream/:bvid` - 获取音频流URL
+- `GET /api/audio/search/history` - 获取搜索历史
+- `GET /api/audio/search/recent` - 获取最近搜索关键词
+- `DELETE /api/audio/search/history` - 清空搜索历史
+- `DELETE /api/audio/search/:keyword` - 删除特定搜索关键词
+- `GET /api/audio/stats` - 获取缓存统计
+- `POST /api/audio/clean` - 清理过期缓存
 
 ### Security Notes
 
@@ -523,6 +539,7 @@ Get-Process node | Stop-Process -Force
 - 🔒 Cookie加密存储（AES-256-CBC）
 - 🔒 B站API请求限流
 - 🔒 敏感信息日志脱敏
+- 🔒 资源代理服务（解决B站防盗链）
 
 ---
 

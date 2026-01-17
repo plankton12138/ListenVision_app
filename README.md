@@ -5,7 +5,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.38.5-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.10.4-blue)](https://dart.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-green)](https://nodejs.org)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)](https://mysql.com)
+[![SQLite](https://img.shields.io/badge/SQLite-3.0-orange)](https://sqlite.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -45,8 +45,8 @@ ListenVision 采用前后端分离架构:
 │  │  • 本地数据库    │         │  • API 代理      │         │
 │  └────────┬─────────┘         └────────┬─────────┘         │
 │           │                            │                     │
-│           │ SQLite                     │ MySQL              │
-│           │ (本地数据)                  │ (用户数据)          │
+│           │ SQLite                     │ SQLite             │
+│           │ (本地数据)                  │ (服务端数据)        │
 │           │                            │                     │
 │  ┌────────▼─────────┐         ┌────────▼─────────┐         │
 │  │  System Keychain │         │   Bilibili API   │         │
@@ -69,7 +69,7 @@ ListenVision 采用前后端分离架构:
 
 #### 后端 (Node.js)
 - **框架**: Express ^5.1.0
-- **数据库**: MySQL2 ^3.14.1 (连接池管理)
+- **数据库**: better-sqlite3 ^12.6.0 (嵌入式SQLite)
 - **认证**: bcrypt ^5.1.1 + JWT
 - **邮件**: nodemailer ^7.0.3
 - **跨域**: cors ^2.8.5
@@ -83,7 +83,6 @@ ListenVision 采用前后端分离架构:
 - Flutter SDK >= 3.38.5
 - Dart SDK >= 3.10.4
 - Node.js >= 18.0
-- MySQL >= 8.0
 
 ### 1. 克隆项目
 
@@ -101,16 +100,7 @@ cd listen-vision_api
 # 安装依赖
 npm install
 
-# 配置数据库
-# 在 MySQL 中创建数据库:
-CREATE DATABASE listenvision_app CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-# 修改 index.js 中的数据库配置
-# host: '127.0.0.1'
-# user: 'your_username'
-# password: 'your_password'
-
-# 启动服务器
+# 启动服务器（数据库文件将自动创建于 data/listenvision.db）
 node index.js
 ```
 
@@ -226,7 +216,7 @@ Projects_ListenVison/
 - ✅ 收藏管理 API
 - ✅ 歌单管理 API
 - ✅ CORS 跨域支持
-- ✅ MySQL 连接池管理
+- ✅ SQLite 数据库（better-sqlite3）
 
 ### 规划中功能 🚧
 
@@ -303,7 +293,7 @@ ListenVision 采用 **传统账号 + 可选平台绑定** 的混合认证模式:
 - JWT Token 认证
 - 用户名/密码注册和登录
 - 邮箱验证机制
-- MySQL 数据库存储
+- SQLite 数据库存储
 
 **2. 平台绑定系统（可选）**
 - 使用 `flutter_secure_storage` 实现系统级加密存储
@@ -390,18 +380,11 @@ flutter analyze
 
 ### 后端配置
 
-**数据库配置** (`listen-vision_api/index.js`):
+**数据库配置** (`listen-vision_api/config/database.js`):
 ```javascript
-const DB_CONFIG = {
-  host: '127.0.0.1',
-  port: 3306,
-  user: 'your_username',
-  password: 'your_password',
-  database: 'listenvision_app',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
+// SQLite 数据库文件位置
+const DB_PATH = path.join(__dirname, '../data/listenvision.db');
+// 数据库将自动创建，无需手动配置
 ```
 
 **邮件配置** (QQ 邮箱示例):

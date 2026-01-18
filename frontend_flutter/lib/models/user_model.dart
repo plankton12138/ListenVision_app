@@ -31,7 +31,7 @@ class User {
         platformBindings: bindings,
       );
     } catch (e) {
-      throw FormatException('Invalid user format $e');
+      throw FormatException('无效的用户格式 $e');
     }
   }
 

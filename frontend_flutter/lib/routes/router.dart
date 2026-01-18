@@ -1,4 +1,3 @@
-
 import 'package:demo/ui/pages/download_list_page.dart';
 import 'package:demo/ui/pages/explore_page.dart';
 import 'package:demo/ui/pages/home_page.dart';
@@ -10,60 +9,63 @@ import 'package:demo/ui/pages/search_page.dart';
 import 'package:demo/ui/pages/settings_page.dart';
 import 'package:go_router/go_router.dart';
 
+/// 应用路由配置
+///
+/// 使用 go_router 定义所有页面的路由
 final GoRouter router = GoRouter(
   routes: [
-    // Home page
+    // 首页
     GoRoute(
       path: '/',
-      builder: (context, state) => HomePage(),
+      builder: (context, state) => const HomePage(),
     ),
 
-    // Settings page
+    // 设置页
     GoRoute(
       path: '/settings',
-      builder: (context, state) => SettingsPage(),
+      builder: (context, state) => const SettingsPage(),
     ),
 
-    // Searche page
+    // 搜索页
     GoRoute(
       path: '/search',
-      builder: (context, state) => SearchPage(),
-    ),
-    
-    // Explore page
-    GoRoute(
-      path : '/explore',
-      builder: (context, state) => ExplorePage(),
+      builder: (context, state) => const SearchPage(),
     ),
 
-    // Playlists page
+    // 发现页
+    GoRoute(
+      path: '/explore',
+      builder: (context, state) => const ExplorePage(),
+    ),
+
+    // 播放列表页
     GoRoute(
       path: '/playlist',
-      builder: (context, state) => PlaylistPage(),
+      builder: (context, state) => const PlaylistPage(),
     ),
 
-    // Downloads page
+    // 下载列表页
     GoRoute(
       path: '/download_list',
-      builder: (context, state) => DownloadListPage(),
+      builder: (context, state) => const DownloadListPage(),
     ),
 
-    // Login page
+    // 登录页
     GoRoute(
       path: '/login',
-      builder: (context, state) => LoginPage(),
+      builder: (context, state) => const LoginPage(),
     ),
 
-    // Register page
+    // 注册页
     GoRoute(
       path: '/register',
-      builder: (context, state) => RegisterPage(),
+      builder: (context, state) => const RegisterPage(),
     ),
 
-    // Reset password page
+    // 重置密码页
     GoRoute(
       path: '/reset_password',
-      builder: (context, state) => ResetPasswordPage(),
+      builder: (context, state) => const ResetPasswordPage(),
     ),
-  ]
+  ],
 );

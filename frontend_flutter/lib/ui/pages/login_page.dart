@@ -10,34 +10,35 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+/// 登录页面
+///
+/// 用户登录界面，支持用户名/密码登录
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
   _LoginPageState createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-
-  // formkey to validate form
+  // 表单验证key
   final _formKey = GlobalKey<FormState>();
 
-  // text controllers for username and password
+  // 用户名和密码输入控制器
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  // String? _errorMessage;
 
-  Future<void> _submit() async {    
-    // Validate form
+  /// 提交登录表单
+  Future<void> _submit() async {
+    // 验证表单
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     setState(() {
       _isLoading = true;
-      // _errorMessage = null;
     });
 
     try {
@@ -50,21 +51,20 @@ class _LoginPageState extends State<LoginPage> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.setUser(user);
 
-      if(mounted) {
-        showMySnackBar(context, 'Login successful!', Colors.green, 1000);
+      if (mounted) {
+        showMySnackBar(context, '登录成功！', Colors.green, 1000);
         context.go('/');
       }
     } catch (e) {
       if (e is ApiException) {
-        String errormessage = e.message;
-        if(e.statusCode == 401) errormessage = 'Invalid username or password';
-        showMySnackBar(context, errormessage, Colors.red, 1000);
-
+        String errorMessage = e.message;
+        if (e.statusCode == 401) errorMessage = '用户名或密码无效';
+        showMySnackBar(context, errorMessage, Colors.red, 1000);
       } else if (e is SocketException) {
-        showMySnackBar(context, 'Connection refused or Network error', Colors.red, 1000);
+        showMySnackBar(context, '连接被拒绝或网络错误', Colors.red, 1000);
       }
     } finally {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -84,15 +84,15 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Login',
+          '登录',
           style: TextStyle(
-            fontSize: Dimens.fontSizeLarge,            
+            fontSize: Dimens.fontSizeLarge,
           ),
         ),
         actions: <Widget>[
-          // Home Button
+          // 返回首页按钮
           IconButton(
-            icon: Icon(Icons.home),
+            icon: const Icon(Icons.home),
             iconSize: Dimens.iconMedium,
             onPressed: () => context.go('/'),
           ),
@@ -106,44 +106,45 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            // Username Text Field
+            // 用户名输入框
             TextFormField(
               controller: _usernameController,
               decoration: const InputDecoration(
-                labelText: 'Username',
+                labelText: '用户名',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter your username';
+                  return '请输入用户名';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 20),
 
-            // Password Text Field
+            // 密码输入框
             TextFormField(
               controller: _passwordController,
+              obscureText: true,
               decoration: const InputDecoration(
-                labelText: 'Password',
+                labelText: '密码',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.lock),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter your password';
+                  return '请输入密码';
                 }
                 if (value.length < 6) {
-                  return 'Password must be at least 6 characters long';
+                  return '密码长度至少为6位';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 20),
 
-            // Submit Button
+            // 登录按钮
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -152,33 +153,33 @@ class _LoginPageState extends State<LoginPage> {
               child: _isLoading
                   ? const CircularProgressIndicator()
                   : const Text(
-                    'Login', 
-                    style: TextStyle(fontSize: 18, color: Colors.blue),
-                  ),
+                      '登录',
+                      style: TextStyle(fontSize: 18, color: Colors.blue),
+                    ),
             ),
 
-            // Register Button
+            // 注册按钮
             TextButton(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => context.go('/register'),
               child: const Text(
-                'Without account, go to register',
+                '没有账号？去注册',
                 style: TextStyle(fontSize: 18, color: Colors.blue),
               ),
             ),
 
-            // Forgot Password Button
+            // 忘记密码按钮
             TextButton(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => context.go('/reset_password'),
               child: const Text(
-                'Forgot password?',
+                '忘记密码？',
                 style: TextStyle(fontSize: 18, color: Colors.blue),
-              )
+              ),
             ),
           ],
         ),

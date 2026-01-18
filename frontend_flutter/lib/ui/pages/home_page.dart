@@ -1,3 +1,4 @@
+import 'package:demo/constants/dimens.dart';
 import 'package:demo/providers/audio_provider.dart';
 import 'package:demo/services/file_picker.dart';
 import 'package:demo/ui/components/audio_info.dart';
@@ -5,17 +6,20 @@ import 'package:demo/ui/components/controls_panel.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:demo/constants/dimens.dart';
-
 import 'package:provider/provider.dart';
 
+/// 首页
+///
+/// 应用主页面，包含音频播放器和导航功能
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   State<StatefulWidget> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  // handle file picker
+  /// 处理文件选择器
   Future<void> _handleFilePicker(BuildContext context) async {
     final filePicker = context.read<FilePickerService>();
     final audioProvider = context.read<AudioProvider>();
@@ -24,46 +28,39 @@ class _HomePageState extends State<HomePage> {
       final filePath = await filePicker.pickAudioFile();
       if (filePath != null) {
         await audioProvider.loadAudio(filePath);
-        // audioProvider.togglePlayPause();
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('错误: ${e.toString()}')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Theme data for the app
       backgroundColor: Theme.of(context).colorScheme.surface,
 
-      // Top app bar
+      // 顶部应用栏
       appBar: AppBar(
         title: const Text(
           'ListenVision',
-          style: TextStyle(
-            // fontFamily: 
-            fontSize: Dimens.fontSizeLarge,
-          )
+          style: TextStyle(fontSize: Dimens.fontSizeLarge),
         ),
         actions: <Widget>[
-          // Filepicker button
+          // 文件选择按钮
           IconButton(
             icon: const Icon(Icons.file_upload),
             iconSize: Dimens.iconMedium,
             onPressed: () => _handleFilePicker(context),
           ),
-
-          // Explore button
+          // 发现按钮
           IconButton(
             icon: const Icon(Icons.explore),
             iconSize: Dimens.iconMedium,
             onPressed: () => context.go('/explore'),
           ),
-
-          // Search button
+          // 搜索按钮
           IconButton(
             icon: const Icon(Icons.search),
             iconSize: Dimens.iconMedium,
@@ -72,21 +69,20 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
 
-      // Drawer
+      // 侧边栏抽屉
       drawer: const MyDrawer(),
 
-      // The core content:Audio player //
+      // 核心内容：音频播放器
       body: Column(
         mainAxisSize: MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Controls panel
+        children: const [
           AudioInfo(),
           ControlsPanel(),
         ],
       ),
 
-      // Persistent footer buttons
+      // 持久显示的底部按钮
       persistentFooterButtons: [
         ElevatedButton(
           onPressed: () => context.go('/playlist'),
@@ -94,10 +90,10 @@ class _HomePageState extends State<HomePage> {
             backgroundColor: Theme.of(context).secondaryHeaderColor,
             elevation: 4,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.list,
             size: Dimens.iconMedium,
-            color: Color.fromARGB(255, 20, 163, 25),
+            color: const Color.fromARGB(255, 20, 163, 25),
           ),
         ),
       ],

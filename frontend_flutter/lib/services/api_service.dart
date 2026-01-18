@@ -1,17 +1,22 @@
 import 'dart:convert';
+
 import 'package:demo/exceptions/api_exception.dart';
 import 'package:demo/models/user_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
+/// API 服务类
+///
+/// 负责与后端服务器通信，处理用户认证相关操作
 class ApiService {
-  static const String _baseUrl = 'http://127.0.0.1:3000/api'; // aliyun
-  // static const String _baseUrl = 'http://117.72.126.201:3000/api'; // jdyun
+  static const String _baseUrl = 'http://127.0.0.1:3000/api'; // 本地开发
+  // static const String _baseUrl = 'http://117.72.126.201:3000/api'; // 生产服务器
 
   final http.Client _client;
 
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
+  /// 用户登录
   Future<User> login(String username, String password) async {
     try {
       final response = await _client.post(
@@ -27,24 +32,25 @@ class ApiService {
           return User.fromJson(responseBody['user']);
         } else {
           throw ApiException(
-            responseBody['message'] ?? 'Login failed',
+            responseBody['message'] ?? '登录失败',
             response.statusCode,
           );
         }
       } else {
         throw ApiException(
-          responseBody['message'] ?? 'Login failed',
+          responseBody['message'] ?? '登录失败',
           response.statusCode,
         );
       }
     } on FormatException {
-      throw ApiException('Invalid server response format', 500);
+      throw ApiException('服务器响应格式无效', 500);
     } catch (e) {
-      debugPrint('login exception: $e');
+      debugPrint('登录异常: $e');
       rethrow;
     }
   }
 
+  /// 用户注册
   Future<User> register(String username, String password, String email) async {
     try {
       final response = await _client.post(
@@ -64,25 +70,25 @@ class ApiService {
           return User.fromJson(responseBody['user']);
         } else {
           throw ApiException(
-            responseBody['message'] ?? 'Registration failed',
+            responseBody['message'] ?? '注册失败',
             response.statusCode,
           );
         }
       } else {
         throw ApiException(
-          responseBody['message'] ?? 'Registration failed',
+          responseBody['message'] ?? '注册失败',
           response.statusCode,
         );
       }
     } on FormatException {
-      throw ApiException('Invalid server response format', 500);
+      throw ApiException('服务器响应格式无效', 500);
     } catch (e) {
-      debugPrint('register exception: $e');
+      debugPrint('注册异常: $e');
       rethrow;
     }
   }
 
-  // Send a email verification code to the user's email
+  /// 发送邮箱验证码
   Future<void> sendCode(String username) async {
     try {
       final response = await _client.post(
@@ -98,29 +104,27 @@ class ApiService {
           return;
         } else {
           throw ApiException(
-            responseBody['message'] ?? 'Failed to send code',
+            responseBody['message'] ?? '发送验证码失败',
             response.statusCode,
           );
         }
       } else {
         throw ApiException(
-          responseBody['message'] ?? 'Failed to send code',
+          responseBody['message'] ?? '发送验证码失败',
           response.statusCode,
-        ); 
-        // Exception('HTTP error: ${response.statusCode}');
+        );
       }
     } catch (e) {
-      debugPrint('sendCode exception: $e');
-
+      debugPrint('发送验证码异常: $e');
       rethrow;
     }
   }
 
-  // Verify the email verification code and reset the user's password
+  /// 验证邮箱验证码并重置密码
   Future<void> resetPassword(String username, String code, String newPassword) async {
     try {
-      debugPrint('username: $username, code: $code, newPassword: $newPassword');
-      
+      debugPrint('用户名: $username, 验证码: $code, 新密码: $newPassword');
+
       final response = await _client.post(
         Uri.parse('$_baseUrl/auth/reset-password'),
         body: jsonEncode({
@@ -131,9 +135,8 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 
-      debugPrint('response status code: ${response.statusCode}');
-      debugPrint('response body: ${response.body}');
-
+      debugPrint('响应状态码: ${response.statusCode}');
+      debugPrint('响应内容: ${response.body}');
 
       final responseBody = _parseResponse(response);
 
@@ -142,27 +145,25 @@ class ApiService {
           return;
         } else {
           throw Exception(
-            '${responseBody['error'] ?? 'Failed to reset password'}\nStatus code: ${response.statusCode}'
+            '${responseBody['error'] ?? '重置密码失败'}\n状态码: ${response.statusCode}'
           );
         }
       } else {
-        throw Exception('HTTP error: ${response.statusCode}');
+        throw Exception('HTTP错误: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('resetPassword exception: $e');
+      debugPrint('重置密码异常: $e');
       rethrow;
     }
   }
 
-
-
-  // parse response body to json
+  /// 解析响应体为JSON
   dynamic _parseResponse(http.Response response) {
     try {
       return json.decode(utf8.decode(response.bodyBytes));
     } catch (e) {
-      debugPrint('parse json exception: $e');
-      throw FormatException('invalid server response format');
+      debugPrint('JSON解析异常: $e');
+      throw FormatException('服务器响应格式无效');
     }
   }
 }

@@ -2,57 +2,90 @@ import 'dart:io';
 
 import 'package:demo/providers/audio_provider.dart';
 import 'package:demo/providers/auth_provider.dart';
+import 'package:demo/providers/bilibili_provider.dart';
 import 'package:demo/providers/theme_provider.dart';
 import 'package:demo/routes/router.dart';
 import 'package:demo/services/api_service.dart';
+import 'package:demo/services/bilibiliApiService.dart';
 import 'package:demo/services/download_manager.dart';
 import 'package:demo/services/file_picker.dart';
 import 'package:demo/utils/request_permission.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:metadata_god/metadata_god.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // check is first launch
+  // 初始化 metadata_god（用于读取/写入音频元数据）
+  MetadataGod.initialize();
+
+  // 检查是否首次启动
   final prefs = await SharedPreferences.getInstance();
   bool isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
 
   if (isFirstLaunch) {
-    // first launch, request permission
+    // 首次启动，请求存储权限
     bool hasPermission = await requestManageStoragePermission();
     if (hasPermission) {
-      debugPrint("request permission success");
+      debugPrint('权限请求成功');
     } else {
-      debugPrint("user denied permission");
-      openAppSettings(); // open app settings to grant permission_handler
+      debugPrint('用户拒绝权限');
+      openAppSettings();
     }
     await prefs.setBool('isFirstLaunch', false);
   }
 
-  // initialize database factory(desktop only)
-  if (kIsWeb) {
-  } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  // 桌面平台初始化数据库工厂
+  if (!kIsWeb &&
+      (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     databaseFactory = databaseFactoryFfi;
   }
-
-  // var databasePath = await getDatabasesPath();
-  // debugPrint("database path: $databasePath");
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => DownloadManager()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
 
+        // B站状态管理
+        ChangeNotifierProvider<BilibiliProvider>(
+          create: (context) {
+            final authProvider = context.read<AuthProvider>();
+            final provider = BilibiliProvider();
+            provider.updateToken(authProvider.user?.token);
+            // 监听登录状态变化
+            authProvider.addListener(() {
+              provider.updateToken(authProvider.user?.token);
+              if (authProvider.isLoggedIn) {
+                provider.initialize();
+              } else {
+                provider.cancelQRLogin();
+              }
+            });
+            return provider;
+          },
+        ),
+        // 下载管理器（依赖B站API服务）
+        ChangeNotifierProxyProvider<AuthProvider, DownloadManager>(
+          create: (_) => DownloadManager(),
+          update: (context, authProvider, downloadManager) {
+            if (downloadManager != null) {
+              final apiService =
+                  BilibiliApiService(token: authProvider.user?.token);
+              downloadManager.setBilibiliApiService(apiService);
+            }
+            return downloadManager!;
+          },
+        ),
+
         Provider(create: (_) => FilePickerService()),
-        Provider(create: (_) => ApiService()),  
+        Provider(create: (_) => ApiService()),
       ],
       child: const MyApp(),
     ),

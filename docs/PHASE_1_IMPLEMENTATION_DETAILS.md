@@ -6,7 +6,7 @@
 >
 > **创建日期**: 2026-01-13
 >
-> **最后更新**: 2026-01-17
+> **最后更新**: 2026-01-18
 >
 > **关联文档**: [INCREMENTAL_MIGRATION_PLAN.md](./INCREMENTAL_MIGRATION_PLAN.md)
 
@@ -47,16 +47,46 @@
 ### 1.2 前端进度
 
 ```
-后端调用适配:   ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+API 服务层:     ████████████████████ 100% ✅
+状态管理层:     ████████████████████ 100% ✅
+页面重构:       ████████████████████ 100% ✅
 ───────────────────────────────────────────
-总体完成度:     ░░░░░░░░░░░░░░░░░░░░   0%
+总体完成度:     ████████████████████ 100% ✅
 ```
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| **bilibiliApiService.dart** | ❌ 待创建 | 调用后端API |
-| **bilibiliProvider.dart** | ❌ 待创建 | B站状态管理 |
-| **移除直接B站API调用** | ❌ 待完成 | 当前Flutter仍直接调用B站 |
+| **bilibiliApiService.dart** | ✅ 完成 | 调用后端API，包含代理URL生成 |
+| **bilibiliProvider.dart** | ✅ 完成 | B站绑定状态管理、QR码登录 |
+| **audio_provider.dart 重构** | ✅ 完成 | 使用 metadata_god 读取元数据 |
+| **download_manager.dart 重构** | ✅ 完成 | 后端API优先，HTML解析降级 |
+| **main.dart Provider配置** | ✅ 完成 | 依赖注入正确设置 |
+| **移除 cookies.dart** | ✅ 完成 | 不再本地存储Cookie |
+
+### 1.3 Phase 1 任务清单
+
+**后端部分（已完成）:**
+- [x] bilibiliService.js 核心逻辑
+- [x] audioService.js 元数据缓存
+- [x] bilibiliController.js 控制器
+- [x] audioController.js 控制器
+- [x] routes/bilibili.js 路由
+- [x] routes/audio.js 路由
+- [x] 数据库表创建
+- [x] Cookie 加密存储
+- [x] WBI 签名实现
+- [x] 资源代理服务
+
+**前端部分（已完成）:**
+- [x] 创建 `services/bilibiliApiService.dart`
+- [x] 创建 `providers/bilibiliProvider.dart`
+- [x] 修改 `services/api_service.dart` 添加 JWT 头
+- [x] 修改 `providers/auth_provider.dart` 集成 B站绑定
+- [x] 重构 `services/download_manager.dart`（后端API优先）
+- [x] 重构 `services/audio_provider.dart`（metadata_god）
+- [x] 移除 `constants/cookies.dart`
+- [x] 修改 `main.dart` Provider 配置
+- [x] 添加 `MetadataGod.initialize()` 初始化
 
 ---
 
@@ -304,17 +334,54 @@ const response = await fetch(url, {
 
 ## 6. 下一步工作
 
-### 6.1 当前任务：Flutter端改造
+### 6.1 Phase 1 状态：✅ 已完成
 
-**目标**: 将Flutter的B站API调用迁移到后端
+**完成日期**: 2026-01-18
 
-| 任务 | 优先级 | 说明 |
-|------|--------|------|
-| 创建 `bilibiliApiService.dart` | 🔴 高 | 调用后端 `/api/bilibili/*` |
-| 创建 `bilibiliProvider.dart` | 🔴 高 | QR登录、绑定状态管理 |
-| 重构 `search_page.dart` | 🔴 高 | 使用后端搜索API |
-| 重构 `download_manager.dart` | 🟡 中 | 使用后端音频流API |
-| 移除 `cookies.dart` | 🟡 中 | 不再本地存储Cookie |
+#### 6.1.1 已实现文件
+
+**新建文件:**
+
+| 文件 | 说明 | 代码量 |
+|------|------|--------|
+| `services/bilibiliApiService.dart` | 调用后端 B站 API | ~250 行 |
+| `providers/bilibiliProvider.dart` | B站绑定状态管理 | ~180 行 |
+
+**修改文件:**
+
+| 文件 | 修改内容 |
+|------|----------|
+| `services/api_service.dart` | 添加 JWT Token 请求头 |
+| `services/download_manager.dart` | 后端API优先，HTML解析降级 |
+| `providers/audio_provider.dart` | 使用 metadata_god 读取元数据 |
+| `providers/auth_provider.dart` | 添加 B站绑定状态字段 |
+| `main.dart` | Provider 配置 + MetadataGod 初始化 |
+
+**移除文件:**
+
+| 文件 | 原因 |
+|------|------|
+| `constants/cookies.dart` | Cookie 由后端管理 |
+
+#### 6.1.2 技术亮点
+
+**metadata_god 集成**
+- 支持 MP4/M4A、MP3、FLAC 等多种格式
+- Rust FFI 实现，性能优异
+- 封面图片读写正常工作
+
+**降级策略**
+- 后端API优先 → HTML解析降级 → Dio防盗链绕过
+- 保证在后端不可用时仍能正常下载
+
+#### 6.1.3 风险应对
+
+| 风险 | 应对方案 | 状态 |
+|------|----------|------|
+| 图片防盗链 | 使用 `getProxyImageUrl()` 代理 | ✅ 已实现 |
+| 音频流防盗链 | 使用 `getProxyAudioUrl()` 代理 | ✅ 已实现 |
+| 元数据获取失败 | 后端缓存 + HTML降级 | ✅ 已实现 |
+| .m4a 元数据 | 使用 metadata_god | ✅ 已解决 |
 
 ### 6.2 可选增强功能
 
@@ -387,6 +454,6 @@ BILI_COOKIE_KEY=<64位hex密钥>
 
 ---
 
-**文档版本**: 2.0.0
-**最后更新**: 2026-01-17
+**文档版本**: 3.0.0
+**最后更新**: 2026-01-18
 **维护者**: Claude Code

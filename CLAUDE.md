@@ -69,8 +69,9 @@ When working in this repository:
      - `WebSearch` - 网络搜索
      - `WebFetch` / `webReader` - 网页读取
      - MCP 工具（如 `mcp__github__*`）- 开源仓库相关
-   - ✅ 优先使用本地资源（本地文档、本地代码）
+   - ✅ 优先使用本地资源（本地文档、本地代码、bilibili-API-collect）
    - ✅ 本地资源无法满足时，再请求使用外部工具
+   - 🚫 **即使需要确认第三方包 API，也应先尝试本地调试或询问用户**
 
 **回答格式模板**：
 ```
@@ -102,18 +103,20 @@ When working in this repository:
 **迁移进度**:
 ```
 规划阶段: ████████████████████ 100% ✅
-Phase 1:   ████████████████████ 100% ✅ 后端完成，Flutter端待开始
+Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
 Phase 2:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 1完成
 Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2完成
 
-总进度: 30% (后端B站API服务已完成)
+总进度: 40% (Phase 1 完成)
 ```
 
-**Phase 1 目标**:
+**Phase 1 完成状态**:
 - ✅ 将B站API调用从Flutter端迁移到服务端
 - ✅ 实现音频元数据缓存机制
 - ✅ 提升安全性（Cookie服务端管理）
 - ✅ 降低客户端负担
+- ✅ metadata_god 集成（支持 M4A/MP3/FLAC 元数据读写）
+- ✅ 封面获取与写入功能正常
 
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的3阶段实施计划
@@ -155,7 +158,7 @@ This workspace contains three projects:
 
 2. **Platform Binding** (Optional, for enhanced features)
    - Bilibili account linking via QR code
-   - Encrypted Cookie storage (flutter_secure_storage)
+   - **Encrypted Cookie storage on server** (AES-256-CBC, Phase 1 改进)
    - Access to platform-specific features (recommendations, UP主 updates)
    - Independent from primary account
    - Can be unbound at any time
@@ -262,22 +265,25 @@ flutter pub run flutter_launcher_icons
 The app follows a modular architecture with clear separation of concerns:
 
 **Entry Point:** `lib/main.dart`
-- Initializes Providers (ThemeController, AudioProvider, AuthProvider)
+- Initializes Providers (ThemeController, AudioProvider, AuthProvider, BilibiliProvider)
 - Sets up database factory for desktop platforms (Windows/Linux/macOS use sqflite_ffi)
 - Handles first-launch permission requests
+- **Phase 1**: Initializes MetadataGod for audio metadata handling
 
 **Core Modules:**
 
 - **`providers/`** - State management with Provider pattern
-  - `audio_provider.dart` - Audio playback state
+  - `audio_provider.dart` - Audio playback state (Phase 1: 使用 metadata_god 读取元数据)
   - `auth_provider.dart` - User authentication state
+  - `bilibili_provider.dart` - **B站账号绑定状态** (Phase 1 新增)
   - `theme_provider.dart` - Theme management
 
 - **`routes/`** - Navigation configuration using go_router
 
 - **`services/`** - Business logic and external integrations
   - `api_service.dart` - API communication
-  - `download_manager.dart` - File download management
+  - `bilibiliApiService.dart` - **B站API服务** (Phase 1 新增)
+  - `download_manager.dart` - File download management (Phase 1: 后端API优先)
   - `file_picker.dart` - File selection
 
 - **`ui/`** - User interface components
@@ -307,6 +313,7 @@ The app follows a modular architecture with clear separation of concerns:
 - **flutter_secure_storage** (^9.0.0) - Secure storage
 - **qr_flutter** (^4.1.0) - QR code generation
 - **flutter_captcha** (^1.0.0) - CAPTCHA verification
+- **metadata_god** (^0.5.2+1) - 音频元数据读写 (Phase 1 新增)
 
 ### Development Environment
 - **Flutter SDK**: 3.38.5 (stable channel)

@@ -1,32 +1,34 @@
-
 import 'package:demo/constants/dimens.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class ExplorePage extends StatefulWidget{
+/// 发现页面
+///
+/// 展示推荐内容和分类浏览功能
+class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
   @override
   _ExplorePageState createState() => _ExplorePageState();
 }
 
-class _ExplorePageState extends State<ExplorePage>{
+class _ExplorePageState extends State<ExplorePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar
+      // 顶部应用栏
       appBar: AppBar(
         title: Text(
-          'Explore Page',
+          '发现',
           style: TextStyle(
             fontSize: Dimens.fontSizeLarge,
           ),
         ),
         actions: <Widget>[
-          // Home Button
+          // 返回首页按钮
           IconButton(
-            icon: Icon(Icons.home),
+            icon: const Icon(Icons.home),
             iconSize: Dimens.iconMedium,
             onPressed: () => context.go('/'),
           ),

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+/// 下载列表页面
+///
+/// 显示和管理下载任务，支持暂停/恢复/删除操作
 class DownloadListPage extends StatefulWidget {
   const DownloadListPage({super.key});
 
@@ -17,8 +20,6 @@ class _DownloadListPageState extends State<DownloadListPage> {
   bool _isLoading = true;
   final _formKey = GlobalKey<FormState>();
   final _urlTextController = TextEditingController();
- 
-
 
   @override
   void initState() {
@@ -32,7 +33,6 @@ class _DownloadListPageState extends State<DownloadListPage> {
 
   @override
   void dispose() {
-    // final downloadManager = Provider.of<DownloadManager>(context, listen: false);
     downloadManager.removeListener(_loadDownloads);
     super.dispose();
   }
@@ -46,7 +46,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading downloads: $e');
+      debugPrint('加载下载列表错误: $e');
       setState(() {
         _isLoading = false;
       });
@@ -56,9 +56,8 @@ class _DownloadListPageState extends State<DownloadListPage> {
   Future<void> _deleteDownload(int id) async {
     try {
       await downloadManager.deleteDownload(id);
-      // await _loadDownloads();
     } catch (e) {
-      debugPrint('Error deleting download: $e');
+      debugPrint('删除下载任务错误: $e');
     }
   }
 
@@ -72,11 +71,8 @@ class _DownloadListPageState extends State<DownloadListPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text(
-          'DOWNLOADS',
-          style: TextStyle(
-            fontSize: Dimens.fontSizeLarge
-          )
-          
+          '下载列表',
+          style: TextStyle(fontSize: Dimens.fontSizeLarge),
         ),
         actions: <Widget>[
           IconButton(
@@ -90,39 +86,34 @@ class _DownloadListPageState extends State<DownloadListPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
-              padding: EdgeInsets.only(bottom: 100),
+              padding: const EdgeInsets.only(bottom: 100),
               itemCount: downloads.length,
               itemBuilder: (context, index) {
                 final download = downloads[index];
                 final id = download['id'];
                 final title = download['title'] ?? download['originalUrl'];
-                // final originalUrl = download['originalUrl'];
                 final downloadedBytes = download['downloadedBytes'] ?? 0;
                 final totalBytes = download['totalBytes'] ?? 0;
                 final isPaused = download['isPaused'] == 1;
-                
-                // calculate progress
-                double progress = totalBytes > 0 
-                    ? (downloadedBytes / totalBytes) * 100 
-                    : 0;
-                
+
+                // 计算进度
+                double progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+
                 return Card(
                   color: Theme.of(context).colorScheme.primary,
                   margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   elevation: 2,
                   child: ListTile(
                     title: Text(
-                      title, 
+                      title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: Dimens.fontSizeSmall
-                      ),
+                      style: TextStyle(fontSize: Dimens.fontSizeSmall),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // display progress bar
+                        // 显示进度条
                         LinearProgressIndicator(
                           value: totalBytes > 0 ? downloadedBytes / totalBytes : 0,
                           backgroundColor: Colors.grey[200],
@@ -131,7 +122,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // display download progress text (formatted MB/GB)
+                        // 显示下载进度文本（格式化为 MB/GB）
                         Text(
                           '${_formatBytes(downloadedBytes)}/${_formatBytes(totalBytes)}'
                           ' (${progress.toStringAsFixed(1)}%)',
@@ -157,11 +148,11 @@ class _DownloadListPageState extends State<DownloadListPage> {
                             backgroundColor: isPaused ? Colors.green : Colors.red,
                           ),
                           child: Text(
-                            isPaused ? 'Resume' : 'Pause',
+                            isPaused ? '继续' : '暂停',
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).colorScheme.onSurface,
-                            )
+                            ),
                           ),
                         ),
                         IconButton(
@@ -174,7 +165,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
                 );
               },
             ),
-            
+
       drawer: const MyDrawer(),
 
       bottomSheet: Container(
@@ -188,11 +179,11 @@ class _DownloadListPageState extends State<DownloadListPage> {
                 child: TextFormField(
                   controller: _urlTextController,
                   decoration: const InputDecoration(
-                    labelText: 'Enter URL',
+                    labelText: '输入视频链接',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a URL';
+                      return '请输入链接';
                     }
                     return null;
                   },
@@ -202,11 +193,9 @@ class _DownloadListPageState extends State<DownloadListPage> {
             IconButton(
               onPressed: () {
                 if (!_formKey.currentState!.validate()) {
-                  // _formKey.currentState!.reset();
                   return;
                 }
                 downloadManager.addDownload(context, _urlTextController.text);
-                // print(_urlTextController.text);
               },
               icon: const Icon(Icons.download),
             ),
@@ -216,7 +205,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
     );
   }
 
-  // helper method: format bytes to MB/GB display
+  /// 辅助方法：格式化字节为 MB/GB 显示
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
@@ -224,4 +213,3 @@ class _DownloadListPageState extends State<DownloadListPage> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
-    

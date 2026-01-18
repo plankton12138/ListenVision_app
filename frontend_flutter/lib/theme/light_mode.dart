@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// 浅色主题配置
+///
+/// 定义应用在浅色模式下的颜色方案和样式
 ThemeData lightMode = ThemeData(
-  dividerTheme: DividerThemeData(
+  dividerTheme: const DividerThemeData(
     color: Colors.transparent,
     space: 0,
   ),

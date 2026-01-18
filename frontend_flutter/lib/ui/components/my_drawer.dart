@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-class MyDrawer extends StatelessWidget{
+/// 应用侧边栏抽屉
+///
+/// 显示用户信息、主菜单导航和登录/登出按钮
+class MyDrawer extends StatelessWidget {
   const MyDrawer({super.key});
 
   @override
@@ -17,49 +20,51 @@ class MyDrawer extends StatelessWidget{
           _buildMainMenu(context),
           _buildAuthSection(context, authProvider),
         ],
-      ) ,
+      ),
     );
   }
 
+  /// 构建抽屉头部（用户信息）
   Widget _buildDrawerHeader(AuthProvider auth) {
     return auth.isLoggedIn
-      ? UserAccountsDrawerHeader(
-          decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.1),
-          ),
-          accountName: Text(
-            auth.user?.username ?? 'Unlogged User',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
+        ? UserAccountsDrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+            ),
+            accountName: Text(
+              auth.user?.username ?? '未登录用户',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
               ),
-          ),
-          accountEmail: Text(
-            auth.user?.email ?? '',
-            style: const TextStyle(color: Colors.blue),
-          ),
-          currentAccountPicture: CircleAvatar(
-            backgroundColor: Colors.blue[100],
-            child: Icon(
-              Icons.person,
-              size: 40,
-              color: Colors.blue[800],
             ),
-          ),
-        )
-      : const DrawerHeader(
-          child: CircleAvatar(
-            radius: 60,
-            backgroundColor: Colors.grey,
-            child: Icon(
-              Icons.person_outline,
-              size: 50,
-              color: Colors.white,
+            accountEmail: Text(
+              auth.user?.email ?? '',
+              style: const TextStyle(color: Colors.blue),
             ),
-          ),
-        );
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: Colors.blue[100],
+              child: Icon(
+                Icons.person,
+                size: 40,
+                color: Colors.blue[800],
+              ),
+            ),
+          )
+        : const DrawerHeader(
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey,
+              child: Icon(
+                Icons.person_outline,
+                size: 50,
+                color: Colors.white,
+              ),
+            ),
+          );
   }
 
+  /// 构建主菜单
   Widget _buildMainMenu(BuildContext context) {
     return Expanded(
       child: ListView(
@@ -67,19 +72,19 @@ class MyDrawer extends StatelessWidget{
         children: [
           _buildListTile(
             context: context,
-            title: 'H O M E',
+            title: '首页',
             icon: Icons.home,
             route: '/',
           ),
           _buildListTile(
             context: context,
-            title: 'S E T T I N G S',
+            title: '设置',
             icon: Icons.settings,
             route: '/settings',
           ),
           _buildListTile(
             context: context,
-            title: 'D O W N L O A D',
+            title: '下载',
             icon: Icons.download_rounded,
             route: '/download_list',
           ),
@@ -88,6 +93,7 @@ class MyDrawer extends StatelessWidget{
     );
   }
 
+  /// 构建认证区域（登录/登出）
   Widget _buildAuthSection(BuildContext context, AuthProvider auth) {
     return Column(
       children: [
@@ -95,18 +101,18 @@ class MyDrawer extends StatelessWidget{
         if (auth.isLoggedIn)
           _buildListTile(
             context: context,
-            title: 'L O G O U T',
+            title: '退出登录',
             icon: Icons.exit_to_app,
             onTap: () {
               auth.logout();
-              Navigator.pop(context);  
-              context.go('/');       
+              Navigator.pop(context);
+              context.go('/');
             },
           )
         else
           _buildListTile(
             context: context,
-            title: 'L O G I N',
+            title: '登录',
             icon: Icons.login,
             onTap: () {
               Navigator.pop(context);
@@ -117,6 +123,7 @@ class MyDrawer extends StatelessWidget{
     );
   }
 
+  /// 构建列表项
   Widget _buildListTile({
     required BuildContext context,
     required String title,
@@ -137,7 +144,4 @@ class MyDrawer extends StatelessWidget{
       ),
     );
   }
-
-
-
 }

@@ -14,7 +14,8 @@
       "Bash(node index.js:*)",
       "Bash(curl:*)",
       "Bash(dir:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// 深色主题配置
+///
+/// 定义应用在深色模式下的颜色方案和样式
 ThemeData darkMode = ThemeData(
-  dividerTheme: DividerThemeData(
+  dividerTheme: const DividerThemeData(
     color: Colors.transparent,
     space: 0,
   ),

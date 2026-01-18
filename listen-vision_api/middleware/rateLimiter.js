@@ -29,12 +29,12 @@ const generalLimiter = rateLimit({
 
 /**
  * 严格限流配置（用于敏感操作）
- * 限制每个 IP 每小时最多 10 个请求
+ * 限制每个 IP 每小时最多 100 个请求
  * 适用于：登录、注册、密码重置等
  */
 const strictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 小时
-  max: 10,
+  max: 100,
   message: {
     success: false,
     error: '操作过于频繁，请 1 小时后再试'

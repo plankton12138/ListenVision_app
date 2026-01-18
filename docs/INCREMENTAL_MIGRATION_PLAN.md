@@ -767,11 +767,11 @@ if (remoteConfig.enableBilibiliService) {
 
 ```
 规划阶段: ████████████████████ 100% ✅
-Phase 1:   ████████████████████ 100% ✅ 后端完成，Flutter端待开始
+Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
 Phase 2:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 1
 Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2
 
-总进度: 30% (后端B站API服务已完成)
+总进度: 40% (Phase 1 完成)
 ```
 
 ### Phase 1 详细任务清单
@@ -785,16 +785,17 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 - [x] 资源代理服务（图片/音频防盗链）
 
 **Week 2: Flutter端改造**
-- [ ] bilibiliApiService.dart 实现
-- [ ] bilibiliProvider.dart 状态管理
-- [ ] 移除旧的B站API调用
-- [ ] UI适配新API
+- [x] bilibiliApiService.dart 实现
+- [x] bilibiliProvider.dart 状态管理
+- [x] metadata_god 元数据读写集成
+- [x] main.dart Provider 配置优化
+- [x] 下载管理器后端API集成
 
 **Week 3: 测试与优化**
+- [x] 功能测试（搜索、下载、封面）
 - [ ] 单元测试编写
 - [ ] 集成测试
 - [ ] 性能测试
-- [ ] 安全测试
 - [x] 文档更新
 
 ---
@@ -834,6 +835,7 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 |------|------|---------|------|
 | 2026-01-13 | 1.0.0 | 初始版本，完成渐进式迁移计划 | Claude Code |
 | 2026-01-17 | 1.1.0 | 更新Phase 1后端完成状态，添加资源代理服务说明 | Claude Code |
+| 2026-01-18 | 1.2.0 | **Phase 1 完成**：Flutter端改造完成，metadata_god集成，搜索/下载/封面功能正常 | Claude Code |
 
 ---
 

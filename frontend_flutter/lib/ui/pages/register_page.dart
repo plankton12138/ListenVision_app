@@ -3,17 +3,20 @@ import 'dart:math';
 
 import 'package:demo/constants/dimens.dart';
 import 'package:demo/exceptions/api_exception.dart';
+import 'package:demo/providers/auth_provider.dart';
+import 'package:demo/services/api_service.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:demo/utils/show_notes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_captcha/flutter_captcha.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:demo/services/api_service.dart';
-import 'package:demo/providers/auth_provider.dart';
 
+/// 注册页面
+///
+/// 用户注册界面，包含表单验证和验证码功能
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({Key? key}) : super(key: key);
+  const RegisterPage({super.key});
 
   @override
   _RegisterPageState createState() => _RegisterPageState();
@@ -24,19 +27,18 @@ class _RegisterPageState extends State<RegisterPage> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
-    final _Captchacontroller = FlutterCaptchaController(
+  final _captchaController = FlutterCaptchaController(
     random: Random.secure(),
   )..init();
 
   bool _isLoading = false;
   String? _errorMessage;
 
-  // submit form data to server
+  /// 提交注册表单到服务器
   Future<void> _submit() async {
-
-    // validate form
+    // 验证表单
     if (!_formKey.currentState!.validate()) return;
-    // check if captcha is correct
+    // 检查验证码是否正确
     if (!_onCheck(context)) return;
 
     setState(() {
@@ -56,23 +58,18 @@ class _RegisterPageState extends State<RegisterPage> {
       await authProvider.setUser(user);
 
       if (mounted) {
-        showMySnackBar(context, 'Registered successfully!', Colors.green, 1000);
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(content: Text('Registered successfully!')),
-        // );
+        showMySnackBar(context, '注册成功！', Colors.green, 1000);
         context.go('/');
       }
     } catch (e) {
       setState(() {
         if (e is ApiException) {
-          // print(e.statusCode);
-          String errormessage = e.message;
-          if (e.statusCode == 409) errormessage = 'Username or Email already exists';
-          showMySnackBar(context, errormessage, Colors.red, 1000);
+          String errorMessage = e.message;
+          if (e.statusCode == 409) errorMessage = '用户名或邮箱已存在';
+          showMySnackBar(context, errorMessage, Colors.red, 1000);
+        } else if (e is SocketException) {
+          showMySnackBar(context, '连接被拒绝或网络错误', Colors.red, 1000);
         }
-        else if (e is SocketException) {
-          showMySnackBar(context, 'Connection refused or Network error', Colors.red, 1000);
-        } 
       });
     } finally {
       if (mounted) {
@@ -81,13 +78,13 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  // check captcha
+  /// 检查验证码
   bool _onCheck(BuildContext context) {
-    if (_Captchacontroller.checkSolution()) {
+    if (_captchaController.checkSolution()) {
       return true;
     }
 
-    showMySnackBar(context, 'Captcha is not correct, please complete it', Colors.red, 1000);
+    showMySnackBar(context, '验证码不正确，请完成验证', Colors.red, 1000);
     return false;
   }
 
@@ -104,14 +101,14 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Register',
+          '注册',
           style: TextStyle(
             fontSize: Dimens.fontSizeLarge,
-          ),  
+          ),
         ),
         actions: <Widget>[
           IconButton(
-            icon: Icon(Icons.home),
+            icon: const Icon(Icons.home),
             iconSize: Dimens.iconMedium,
             onPressed: () => context.go('/'),
           ),
@@ -127,7 +124,7 @@ class _RegisterPageState extends State<RegisterPage> {
           children: [
             _buildForm(),
             _buildCaptcha(),
-          ]
+          ],
         ),
       ),
     );
@@ -135,24 +132,24 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Widget _buildCaptcha() {
     setState(() {
-      // not to randomize positions on each build
-      _Captchacontroller.randomizePositions = false;
+      // 不在每次构建时随机化位置
+      _captchaController.randomizePositions = false;
     });
     return SizedBox(
       height: 300,
       width: 300,
       child: FlutterCaptcha(
-        controller: _Captchacontroller,
-          crossLine: (color: Colors.white, width: 5),
-          fit: BoxFit.cover,
-          partsBuilder: (context, part) {
-            return ColoredBox(
-              color: Colors.red,
-              child: part,
-            );
-          },
-          draggingBuilder: (_, child) => Opacity(opacity: 0.5, child: child),
-          child: Image.asset('assets/images/1.png'),
+        controller: _captchaController,
+        crossLine: (color: Colors.white, width: 5),
+        fit: BoxFit.cover,
+        partsBuilder: (context, part) {
+          return ColoredBox(
+            color: Colors.red,
+            child: part,
+          );
+        },
+        draggingBuilder: (_, child) => Opacity(opacity: 0.5, child: child),
+        child: Image.asset('assets/images/1.png'),
       ),
     );
   }
@@ -164,54 +161,54 @@ class _RegisterPageState extends State<RegisterPage> {
         children: [
           TextFormField(
             controller: _usernameController,
-            decoration: const InputDecoration(labelText: 'username'),
+            decoration: const InputDecoration(labelText: '用户名'),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter a username';
-              if (value.length < 4) return 'Username must be at least 4 characters long';
+              if (value == null || value.isEmpty) return '请输入用户名';
+              if (value.length < 4) return '用户名长度至少为4位';
               return null;
             },
           ),
           TextFormField(
             controller: _passwordController,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'password'),
+            decoration: const InputDecoration(labelText: '密码'),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter a password';
-              if (value.length < 6) return 'Password must be at least 6 characters long';
+              if (value == null || value.isEmpty) return '请输入密码';
+              if (value.length < 6) return '密码长度至少为6位';
               return null;
             },
           ),
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'email'),
+            decoration: const InputDecoration(labelText: '邮箱'),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter an email';
-              if (!value.contains('@')) return 'Please enter a valid email address';
+              if (value == null || value.isEmpty) return '请输入邮箱';
+              if (!value.contains('@')) return '请输入有效的邮箱地址';
               return null;
             },
           ),
           if (_errorMessage == 'HTTP refused: 409')
-            Text('username already exists', style: TextStyle(color: Colors.red)),
+            const Text('用户名已存在', style: TextStyle(color: Colors.red)),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: _isLoading ? null : _submit,
             child: _isLoading
                 ? const CircularProgressIndicator()
                 : const Text(
-                  'Register',
-                  style: TextStyle(color: Colors.blue),
+                    '注册',
+                    style: TextStyle(color: Colors.blue),
                   ),
           ),
           TextButton(
             onPressed: () => context.go('/login'),
             child: const Text(
-              'Already have an account? Login',
+              '已有账号？去登录',
               style: TextStyle(color: Colors.blue),
             ),
           ),
-          // alert user if captcha is not correct
-          Text('Please solve the captcha before submitting')
+          // 提示用户完成验证码
+          const Text('提交前请先完成验证码')
         ],
       ),
     );

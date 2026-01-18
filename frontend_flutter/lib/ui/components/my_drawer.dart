@@ -76,6 +76,31 @@ class MyDrawer extends StatelessWidget {
             icon: Icons.home,
             route: '/',
           ),
+          // Phase 2: 新增页面入口
+          _buildListTile(
+            context: context,
+            title: '发现',
+            icon: Icons.explore,
+            route: '/explore',
+          ),
+          _buildListTile(
+            context: context,
+            title: '歌单',
+            icon: Icons.playlist_play,
+            route: '/playlists',
+          ),
+          _buildListTile(
+            context: context,
+            title: '播放历史',
+            icon: Icons.history,
+            route: '/history',
+          ),
+          _buildListTile(
+            context: context,
+            title: '搜索',
+            icon: Icons.search,
+            route: '/search',
+          ),
           _buildListTile(
             context: context,
             title: '设置',

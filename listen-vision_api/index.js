@@ -1,5 +1,6 @@
-// 加载环境变量
-require('dotenv').config();
+// 加载环境变量（明确指定 .env 文件路径）
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -82,6 +83,32 @@ try {
   console.log('✅ Audio routes registered');
 } catch (e) {
   console.error('❌ Failed to load audio routes:', e.message);
+}
+
+// ========== Phase 2: 歌单、历史、推荐路由 ==========
+
+try {
+  const playlistsRouter = require('./routes/playlists');
+  app.use('/api/playlists', playlistsRouter);
+  console.log('✅ Playlists routes registered');
+} catch (e) {
+  console.error('❌ Failed to load playlists routes:', e.message);
+}
+
+try {
+  const historyRouter = require('./routes/history');
+  app.use('/api/history', historyRouter);
+  console.log('✅ History routes registered');
+} catch (e) {
+  console.error('❌ Failed to load history routes:', e.message);
+}
+
+try {
+  const recommendationsRouter = require('./routes/recommendations');
+  app.use('/api/recommendations', recommendationsRouter);
+  console.log('✅ Recommendations routes registered');
+} catch (e) {
+  console.error('❌ Failed to load recommendations routes:', e.message);
 }
 
 // ========== 错误处理 ==========

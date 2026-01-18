@@ -93,6 +93,59 @@ const createTables = () => {
     )
   `);
 
+  // ========== Phase 2: 歌单系统 ==========
+
+  // 歌单表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS playlists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      cover_url TEXT,
+      type TEXT DEFAULT 'user',
+      system_type TEXT,
+      is_public INTEGER DEFAULT 0,
+      play_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 歌单项表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS playlist_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      bvid TEXT NOT NULL,
+      title TEXT,
+      artist TEXT,
+      duration INTEGER,
+      cover_url TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      added_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+      UNIQUE(playlist_id, bvid)
+    )
+  `);
+
+  // 播放历史表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS play_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      bvid TEXT NOT NULL,
+      title TEXT,
+      artist TEXT,
+      duration INTEGER,
+      cover_url TEXT,
+      played_at TEXT DEFAULT (datetime('now')),
+      progress INTEGER DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // 创建索引加速查询
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -104,6 +157,14 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_audio_metadata_bvid ON audio_metadata_cache(bvid);
     CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id);
     CREATE INDEX IF NOT EXISTS idx_search_history_keyword ON search_history(user_id, keyword);
+    -- Phase 2: 歌单系统索引
+    CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON playlists(user_id);
+    CREATE INDEX IF NOT EXISTS idx_playlists_type ON playlists(user_id, type);
+    CREATE INDEX IF NOT EXISTS idx_playlists_system_type ON playlists(user_id, system_type);
+    CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist_id ON playlist_items(playlist_id);
+    CREATE INDEX IF NOT EXISTS idx_playlist_items_position ON playlist_items(playlist_id, position);
+    CREATE INDEX IF NOT EXISTS idx_play_history_user_id ON play_history(user_id);
+    CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
   `);
 
   console.log('✅ 数据库表初始化完成');

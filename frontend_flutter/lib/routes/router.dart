@@ -2,7 +2,9 @@ import 'package:demo/ui/pages/download_list_page.dart';
 import 'package:demo/ui/pages/explore_page.dart';
 import 'package:demo/ui/pages/home_page.dart';
 import 'package:demo/ui/pages/login_page.dart';
+import 'package:demo/ui/pages/play_history_page.dart';
 import 'package:demo/ui/pages/play_list_page.dart';
+import 'package:demo/ui/pages/playlist_library_page.dart';
 import 'package:demo/ui/pages/register_page.dart';
 import 'package:demo/ui/pages/reset_password_page.dart';
 import 'package:demo/ui/pages/search_page.dart';
@@ -48,6 +50,18 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/download_list',
       builder: (context, state) => const DownloadListPage(),
+    ),
+
+    // 歌单库页面 (Phase 2)
+    GoRoute(
+      path: '/playlists',
+      builder: (context, state) => const PlaylistLibraryPage(),
+    ),
+
+    // 播放历史页面 (Phase 2)
+    GoRoute(
+      path: '/history',
+      builder: (context, state) => const PlayHistoryPage(),
     ),
 
     // 登录页

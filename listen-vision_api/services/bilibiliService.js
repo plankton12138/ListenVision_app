@@ -622,57 +622,137 @@ let wbiKeyExpireTime = 0;
 
 /**
  * 获取WBI密钥
+ * @param {number} userId - 用户ID（可选，用于获取Cookie）
  */
-const getWbiKey = async () => {
-  // 检查缓存
-  if (wbiKeyCache && Date.now() < wbiKeyExpireTime) {
+const getWbiKey = async (userId = null) => {
+  // 检查缓存（基于用户的缓存）
+  const cacheKey = userId ? `user_${userId}` : 'global';
+
+  if (wbiKeyCache && wbiKeyCache.key === cacheKey && Date.now() < wbiKeyExpireTime) {
+    console.log('[getWbiKey] Using cached key for', cacheKey);
     return wbiKeyCache;
   }
 
-  // 获取WBI签名信息
-  const data = await httpGet('https://api.bilibili.com/x/web-interface/nav');
+  console.log('[getWbiKey] Fetching WBI key from Bilibili...');
 
-  if (data.code !== 0 || !data.data?.wbi_img) {
-    // 如果获取失败，返回空
+  // 构建请求头
+  const headers = {};
+  if (userId) {
+    const cookie = getCookie(userId);
+    if (cookie) {
+      headers['Cookie'] = cookie;
+      console.log('[getWbiKey] Using user cookie');
+    }
+  }
+
+  // 获取WBI签名信息
+  let data;
+  try {
+    data = await httpGet('https://api.bilibili.com/x/web-interface/nav', headers);
+  } catch (error) {
+    console.error('[getWbiKey] HTTP request failed:', error.message);
+    return { imgKey: '', subKey: '' };
+  }
+
+  console.log('[getWbiKey] Response code:', data.code);
+  console.log('[getWbiKey] Has wbi_img:', !!data.data?.wbi_img);
+
+  if (data.code !== 0) {
+    console.error('[getWbiKey] API returned error:', data.message);
+    return { imgKey: '', subKey: '' };
+  }
+
+  if (!data.data?.wbi_img) {
+    console.error('[getWbiKey] No wbi_img in response');
+    console.log('[getWbiKey] Response data keys:', Object.keys(data.data || {}));
     return { imgKey: '', subKey: '' };
   }
 
   const wbiImg = data.data.wbi_img;
+  console.log('[getWbiKey] wbi_img:', wbiImg);
+
   const imgKey = wbiImg.img_url.split('/').pop().replace('.png', '');
   const subKey = wbiImg.sub_url.split('/').pop().replace('.png', '');
 
-  wbiKeyCache = { imgKey, subKey };
+  console.log('[getWbiKey] Extracted keys - imgKey:', imgKey, 'subKey:', subKey);
+
+  wbiKeyCache = { key: cacheKey, imgKey, subKey };
   wbiKeyExpireTime = Date.now() + 2 * 60 * 60 * 1000; // 2小时过期
 
   return wbiKeyCache;
 };
 
 /**
+ * WBI签名混合密钥重排表
+ * 来自 bilibili-API-collect/docs/misc/sign/wbi.md
+ */
+const MIXIN_KEY_ENC_TAB = [
+  46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+  33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+  61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+  36, 20, 34, 44, 52
+];
+
+/**
+ * 生成混合密钥
+ * @param {string} imgKey - 图片密钥
+ * @param {string} subKey - 子密钥
+ * @returns {string} 混合后的32位密钥
+ */
+const getMixinKey = (imgKey, subKey) => {
+  const rawWbiKey = imgKey + subKey;
+  return MIXIN_KEY_ENC_TAB
+    .map(n => rawWbiKey[n])
+    .join('')
+    .slice(0, 32);
+};
+
+/**
  * WBI签名
+ * @param {Object} params - 请求参数
+ * @param {Object} wbiKey - WBI密钥对象 {imgKey, subKey}
+ * @returns {Object} 签名后的参数
  */
 const signWbi = (params, { imgKey, subKey }) => {
-  // 混合密钥
-  const key = imgKey + subKey;
-  // 过滤排序
-  const filtered = Object.keys(params)
-    .filter(k => !['wts', 'w_rid'].includes(k))
-    .sort()
-    .reduce((obj, k) => {
-      obj[k] = params[k];
-      return obj;
-    }, {});
+  // 生成混合密钥
+  const mixinKey = getMixinKey(imgKey, subKey);
+  console.log('[signWbi] mixinKey:', mixinKey);
 
   // 添加时间戳
-  filtered.wts = Math.floor(Date.now() / 1000);
+  const wts = Math.floor(Date.now() / 1000);
 
-  // 生成签名
-  const toSign = new URLSearchParams(filtered).toString();
+  // 构建参数对象（包含wts）
+  const paramsWithWts = {
+    ...params,
+    wts
+  };
+
+  // 按key排序
+  const sortedKeys = Object.keys(paramsWithWts).sort();
+
+  // 过滤并编码参数
+  const chrFilter = /[!'()*]/g;
+  const query = sortedKeys
+    .map(key => {
+      const value = paramsWithWts[key].toString().replace(chrFilter, '');
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+
+  console.log('[signWbi] query:', query);
+
+  // 计算签名
   const w_rid = crypto
     .createHash('md5')
-    .update(toSign + key)
+    .update(query + mixinKey)
     .digest('hex');
 
-  return { ...filtered, w_rid };
+  console.log('[signWbi] w_rid:', w_rid);
+
+  return {
+    ...paramsWithWts,
+    w_rid
+  };
 };
 
 // ==================== 搜索功能 ====================
@@ -840,6 +920,10 @@ module.exports = {
   // 搜索功能
   searchBilibili,
   getRecentSearches,
+
+  // WBI签名（用于分区推荐）
+  getWbiKey,
+  signWbi,
 
   // 工具函数
   encryptCookie,

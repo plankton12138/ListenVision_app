@@ -29,7 +29,15 @@ class ApiService {
 
       if (response.statusCode == 200) {
         if (responseBody['success'] == true) {
-          return User.fromJson(responseBody['user']);
+          // 后端返回结构: { success: true, data: { token, user } }
+          final data = responseBody['data'];
+          if (data == null || data['user'] == null) {
+            throw ApiException('登录响应数据无效', 500);
+          }
+          // 合并 token 和 user 数据
+          final userData = Map<String, dynamic>.from(data['user']);
+          userData['token'] = data['token'];
+          return User.fromJson(userData);
         } else {
           throw ApiException(
             responseBody['message'] ?? '登录失败',
@@ -160,6 +168,160 @@ class ApiService {
       debugPrint('重置密码异常: $e');
       rethrow;
     }
+  }
+
+  /// 通用 GET 请求
+  Future<Map<String, dynamic>> get({
+    required String endpoint,
+    String? token,
+    Map<String, String>? query,
+  }) async {
+    try {
+      final uri = _buildUri(endpoint, query);
+      final headers = _buildHeaders(token);
+
+      final response = await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 30));
+
+      final responseBody = _parseResponse(response);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return responseBody;
+      } else {
+        throw ApiException(
+          responseBody['message'] ?? '请求失败',
+          response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('GET 请求异常 ($endpoint): $e');
+      rethrow;
+    }
+  }
+
+  /// 通用 POST 请求
+  Future<Map<String, dynamic>> post({
+    required String endpoint,
+    String? token,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final uri = _buildUri(endpoint);
+      final headers = _buildHeaders(token);
+
+      final response = await _client
+          .post(
+            uri,
+            headers: headers,
+            body: data != null ? jsonEncode(data) : null,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final responseBody = _parseResponse(response);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return responseBody;
+      } else {
+        throw ApiException(
+          responseBody['message'] ?? '请求失败',
+          response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('POST 请求异常 ($endpoint): $e');
+      rethrow;
+    }
+  }
+
+  /// 通用 PUT 请求
+  Future<Map<String, dynamic>> put({
+    required String endpoint,
+    String? token,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final uri = _buildUri(endpoint);
+      final headers = _buildHeaders(token);
+
+      final response = await _client
+          .put(
+            uri,
+            headers: headers,
+            body: data != null ? jsonEncode(data) : null,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final responseBody = _parseResponse(response);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return responseBody;
+      } else {
+        throw ApiException(
+          responseBody['message'] ?? '请求失败',
+          response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('PUT 请求异常 ($endpoint): $e');
+      rethrow;
+    }
+  }
+
+  /// 通用 DELETE 请求
+  Future<Map<String, dynamic>> delete({
+    required String endpoint,
+    String? token,
+  }) async {
+    try {
+      final uri = _buildUri(endpoint);
+      final headers = _buildHeaders(token);
+
+      final response = await _client
+          .delete(uri, headers: headers)
+          .timeout(const Duration(seconds: 30));
+
+      final responseBody = _parseResponse(response);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return responseBody;
+      } else {
+        throw ApiException(
+          responseBody['message'] ?? '请求失败',
+          response.statusCode,
+        );
+      }
+    } catch (e) {
+      debugPrint('DELETE 请求异常 ($endpoint): $e');
+      rethrow;
+    }
+  }
+
+  /// 构建完整的 URI（包含 query 参数）
+  Uri _buildUri(String endpoint, [Map<String, String>? query]) {
+    final path = endpoint.startsWith('/') ? endpoint : '/$endpoint';
+    final url = '$_baseUrl$path';
+
+    if (query != null && query.isNotEmpty) {
+      final queryString = query.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      return Uri.parse('$url?$queryString');
+    }
+    return Uri.parse(url);
+  }
+
+  /// 构建请求头（包含认证 token）
+  Map<String, String> _buildHeaders([String? token]) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
   }
 
   /// 解析响应体为JSON

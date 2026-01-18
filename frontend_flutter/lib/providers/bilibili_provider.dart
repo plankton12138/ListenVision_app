@@ -388,6 +388,198 @@ class BilibiliProvider with ChangeNotifier {
     }
   }
 
+  // ==================== 推荐内容 ====================
+
+  /// 推荐状态
+  List<Map<String, dynamic>> _hotPlaylists = [];
+  List<Map<String, dynamic>> _hotRank = [];
+  List<Map<String, dynamic>> _personalizedRecommendations = [];
+  Map<String, dynamic> _musicCategories = {};
+  List<Map<String, dynamic>> _categoryRecommendations = [];
+
+  List<Map<String, dynamic>> get hotPlaylists => _hotPlaylists;
+  List<Map<String, dynamic>> get hotRank => _hotRank;
+  List<Map<String, dynamic>> get personalizedRecommendations => _personalizedRecommendations;
+  Map<String, dynamic> get musicCategories => _musicCategories;
+  List<Map<String, dynamic>> get categoryRecommendations => _categoryRecommendations;
+
+  /// 获取热门歌单
+  Future<bool> loadHotPlaylists({int page = 1, int pageSize = 10}) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final result = await _apiService!.getHotPlaylists(page: page, pageSize: pageSize);
+      _hotPlaylists = List<Map<String, dynamic>>.from(result['playlists'] ?? []);
+
+      debugPrint('【BilibiliProvider】Hot playlists loaded: ${_hotPlaylists.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load hot playlists error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取热歌榜单
+  Future<bool> loadHotRank({int page = 1, int pageSize = 10}) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final result = await _apiService!.getHotRank(page: page, pageSize: pageSize);
+      _hotRank = List<Map<String, dynamic>>.from(result['playlists'] ?? []);
+
+      debugPrint('【BilibiliProvider】Hot rank loaded: ${_hotRank.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load hot rank error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取个性化推荐
+  Future<bool> loadPersonalizedRecommendations({int limit = 20}) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final result = await _apiService!.getPersonalizedRecommendations(limit: limit);
+      _personalizedRecommendations = List<Map<String, dynamic>>.from(
+        result['videos'] ?? result['playlists'] ?? [],
+      );
+
+      debugPrint('【BilibiliProvider】Personalized recommendations loaded: ${_personalizedRecommendations.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load personalized recommendations error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取音乐分区列表
+  Future<bool> loadMusicCategories() async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      _musicCategories = await _apiService!.getCategoryTids();
+
+      debugPrint('【BilibiliProvider】Music categories loaded: ${_musicCategories.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load music categories error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取音乐区推荐
+  Future<bool> loadMusicRecommendation({int limit = 20}) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final result = await _apiService!.getMusicRecommendation(limit: limit);
+      _categoryRecommendations = result;
+
+      debugPrint('【BilibiliProvider】Music recommendation loaded: ${_categoryRecommendations.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load music recommendation error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取分区推荐
+  Future<bool> loadByCategory(
+    int tid, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final result = await _apiService!.getByCategory(
+        tid,
+        page: page,
+        pageSize: pageSize,
+      );
+      _categoryRecommendations = List<Map<String, dynamic>>.from(result['videos'] ?? []);
+
+      debugPrint('【BilibiliProvider】Category $tid loaded: ${_categoryRecommendations.length}');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      debugPrint('【BilibiliProvider】Load category $tid error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // ==================== 资源URL ====================
 
   /// 获取图片代理URL

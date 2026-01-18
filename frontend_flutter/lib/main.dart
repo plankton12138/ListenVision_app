@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:demo/providers/audio_provider.dart';
 import 'package:demo/providers/auth_provider.dart';
 import 'package:demo/providers/bilibili_provider.dart';
+import 'package:demo/providers/play_history_provider.dart';
+import 'package:demo/providers/playlist_provider.dart';
 import 'package:demo/providers/theme_provider.dart';
 import 'package:demo/routes/router.dart';
 import 'package:demo/services/api_service.dart';
@@ -99,6 +101,33 @@ void main() async {
 
         Provider(create: (_) => FilePickerService()),
         Provider(create: (_) => ApiService()),
+
+        // Phase 2: 歌单和播放历史管理
+        ChangeNotifierProxyProvider2<AuthProvider, ApiService, PlaylistProvider>(
+          create: (context) => PlaylistProvider(context.read<ApiService>()),
+          update: (context, authProvider, apiService, playlistProvider) {
+            // 当用户登录时初始化歌单数据
+            Future.microtask(() {
+              if (authProvider.isLoggedIn && authProvider.user?.token != null) {
+                playlistProvider?.initialize(authProvider.user!.token);
+              }
+            });
+            return playlistProvider!;
+          },
+        ),
+
+        ChangeNotifierProxyProvider2<AuthProvider, ApiService, PlayHistoryProvider>(
+          create: (context) => PlayHistoryProvider(context.read<ApiService>()),
+          update: (context, authProvider, apiService, historyProvider) {
+            // 当用户登录时加载播放历史
+            Future.microtask(() {
+              if (authProvider.isLoggedIn && authProvider.user?.token != null) {
+                historyProvider?.loadHistory(authProvider.user!.token);
+              }
+            });
+            return historyProvider!;
+          },
+        ),
       ],
       child: const MyApp(),
     ),

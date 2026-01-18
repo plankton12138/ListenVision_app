@@ -391,4 +391,135 @@ class BilibiliApiService {
       return {};
     }
   }
+
+  // ==================== 推荐内容 ====================
+
+  /// 获取热门歌单
+  Future<Map<String, dynamic>> getHotPlaylists({int page = 1, int pageSize = 10}) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/hot-playlists').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'pageSize': pageSize.toString(),
+        },
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getHotPlaylists exception: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取热歌榜单
+  Future<Map<String, dynamic>> getHotRank({int page = 1, int pageSize = 10}) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/rank').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'pageSize': pageSize.toString(),
+        },
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getHotRank exception: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取个性化推荐
+  Future<Map<String, dynamic>> getPersonalizedRecommendations({int limit = 20}) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/personalized').replace(
+        queryParameters: {'limit': limit.toString()},
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getPersonalizedRecommendations exception: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取音乐分区推荐
+  ///
+  /// 返回分类推荐数组，每个元素包含 {category, tid, videos}
+  Future<List<Map<String, dynamic>>> getMusicRecommendation({int limit = 20}) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/music').replace(
+        queryParameters: {'limit': limit.toString()},
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      final data = _handleResponse(response);
+      // 后端返回的是数组
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('getMusicRecommendation exception: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取分区推荐
+  Future<Map<String, dynamic>> getByCategory(
+    int tid, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/category/$tid').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'pageSize': pageSize.toString(),
+        },
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getByCategory exception: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取可用的分区ID列表
+  Future<Map<String, int>> getCategoryTids() async {
+    try {
+      final response = await _client
+          .get(
+            Uri.parse('$_baseUrl/../recommendations/categories'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = _handleResponse(response);
+      final categories = data['categories'] as Map<String, dynamic>?;
+      return categories?.cast<String, int>() ?? {};
+    } catch (e) {
+      debugPrint('getCategoryTids exception: $e');
+      return {};
+    }
+  }
 }

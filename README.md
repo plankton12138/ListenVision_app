@@ -422,7 +422,10 @@ class LocalConfig {
 
 - **[PRD.md](./PRD.md)** - 产品需求文档
 - **[CLAUDE.md](./CLAUDE.md)** - Claude Code 开发指导文档
-- **[frontenf_flutter/README.md](./frontenf_flutter/README.md)** - 前端详细文档 (包含 Bilibili 认证架构)
+- **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 架构迁移计划
+- **[docs/PHASE_1_IMPLEMENTATION_DETAILS.md](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md)** - Phase 1 实施细节
+- **[docs/PHASE_2_PLAYLIST_PLAN.md](./docs/PHASE_2_PLAYLIST_PLAN.md)** - Phase 2 实施计划
+- **[frontenf_flutter/README.md](./frontenf_flutter/README.md)** - 前端详细文档
 
 ---
 

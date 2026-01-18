@@ -67,7 +67,12 @@ class ApiService {
 
       if (response.statusCode == 201) {
         if (responseBody['success'] == true) {
-          return User.fromJson(responseBody['user']);
+          // 注册成功返回 { token, user } 格式（与登录一致）
+          final data = responseBody['data'];
+          return User.fromJson({
+            ...data['user'],
+            'token': data['token'],
+          });
         } else {
           throw ApiException(
             responseBody['message'] ?? '注册失败',

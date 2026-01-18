@@ -27,7 +27,8 @@ class User {
         id: int.parse(json['id'].toString()),
         username: json['username'].toString(),
         email: json['email'].toString(),
-        token: json['token'].toString(),
+        // token 可能为空（如注册响应），使用默认值
+        token: json['token']?.toString() ?? '',
         platformBindings: bindings,
       );
     } catch (e) {

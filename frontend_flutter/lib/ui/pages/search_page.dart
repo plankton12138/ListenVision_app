@@ -30,35 +30,38 @@ class _SearchPageState extends State<SearchPage> {
   bool _isLoading = false;
   String? _searchError;
 
+  // 保存 Provider 引用，避免在 dispose 中使用 context
+  BilibiliProvider? _bilibiliProvider;
+
   @override
   void initState() {
     super.initState();
     _downloadManager.initDatabase();
 
-    // 从 Provider 获取初始状态
-    final provider = context.read<BilibiliProvider>();
-    _results = provider.searchResults;
-    _isLoading = provider.isSearching;
-    _searchError = provider.searchError;
+    // 从 Provider 获取初始状态，并保存引用
+    _bilibiliProvider = context.read<BilibiliProvider>();
+    _results = _bilibiliProvider!.searchResults;
+    _isLoading = _bilibiliProvider!.isSearching;
+    _searchError = _bilibiliProvider!.searchError;
 
     // 监听 Provider 变化
-    provider.addListener(_onProviderChanged);
+    _bilibiliProvider!.addListener(_onProviderChanged);
   }
 
   @override
   void dispose() {
-    context.read<BilibiliProvider>().removeListener(_onProviderChanged);
+    // 使用保存的引用，而不是通过 context 获取
+    _bilibiliProvider?.removeListener(_onProviderChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onProviderChanged() {
-    if (!mounted) return;
-    final provider = context.read<BilibiliProvider>();
+    if (!mounted || _bilibiliProvider == null) return;
     setState(() {
-      _results = provider.searchResults;
-      _isLoading = provider.isSearching;
-      _searchError = provider.searchError;
+      _results = _bilibiliProvider!.searchResults;
+      _isLoading = _bilibiliProvider!.isSearching;
+      _searchError = _bilibiliProvider!.searchError;
     });
   }
 
@@ -268,14 +271,24 @@ class _SearchPageState extends State<SearchPage> {
               trailing: IconButton(
                 icon: const Icon(Icons.download),
                 onPressed: () {
-                  String url = item['arcurl'] ?? item['url'] ?? '';
-                  if (url.isNotEmpty) {
-                    _downloadManager.addDownload(context, url);
+                  // 优先使用 bvid，如果不存在则使用 arcurl
+                  String bvid = item['bvid'] ?? '';
+                  if (bvid.isNotEmpty) {
+                    // 构造标准B站视频URL
+                    _downloadManager.addDownload(context, 'https://www.bilibili.com/video/$bvid');
+                  } else {
+                    String url = item['arcurl'] ?? item['url'] ?? '';
+                    if (url.isNotEmpty) {
+                      _downloadManager.addDownload(context, url);
+                    }
                   }
                 },
               ),
               onTap: () async {
                 String url = item['arcurl'] ?? item['url'] ?? '';
+                if (url.isEmpty && item['bvid'] != null) {
+                  url = 'https://www.bilibili.com/video/${item['bvid']}';
+                }
                 if (url.isNotEmpty) {
                   final Uri uri = Uri.parse(url);
                   await launchUrl(uri);

@@ -32,7 +32,13 @@ class _RegisterPageState extends State<RegisterPage> {
   )..init();
 
   bool _isLoading = false;
-  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // 初始化时设置验证码不随机化位置
+    _captchaController.randomizePositions = false;
+  }
 
   /// 提交注册表单到服务器
   Future<void> _submit() async {
@@ -43,7 +49,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
@@ -58,21 +63,31 @@ class _RegisterPageState extends State<RegisterPage> {
       await authProvider.setUser(user);
 
       if (mounted) {
-        showMySnackBar(context, '注册成功！', Colors.green, 1000);
+        showMySnackBar(context, '注册成功！', Colors.green, 2000);
         context.go('/');
       }
     } catch (e) {
-      setState(() {
-        if (e is ApiException) {
-          String errorMessage = e.message;
-          if (e.statusCode == 409) errorMessage = '用户名或邮箱已存在';
-          showMySnackBar(context, errorMessage, Colors.red, 1000);
-        } else if (e is SocketException) {
-          showMySnackBar(context, '连接被拒绝或网络错误', Colors.red, 1000);
+      // 停止加载状态
+      setState(() => _isLoading = false);
+
+      // 在 setState 外部显示 SnackBar
+      if (!mounted) return;
+
+      if (e is ApiException) {
+        String errorMessage = e.message;
+        if (e.statusCode == 409) {
+          errorMessage = '用户名或邮箱已存在';
         }
-      });
+        showMySnackBar(context, errorMessage, Colors.red, 3000);
+      } else if (e is SocketException) {
+        showMySnackBar(context, '连接被拒绝或网络错误，请检查后端是否启动', Colors.red, 3000);
+      } else {
+        // 通用错误处理（如 FormatException 等）
+        showMySnackBar(context, '注册失败: $e', Colors.red, 3000);
+      }
     } finally {
-      if (mounted) {
+      // 确保加载状态被重置（如果 try 块成功）
+      if (_isLoading && mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -131,10 +146,6 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildCaptcha() {
-    setState(() {
-      // 不在每次构建时随机化位置
-      _captchaController.randomizePositions = false;
-    });
     return SizedBox(
       height: 300,
       width: 300,
@@ -188,8 +199,6 @@ class _RegisterPageState extends State<RegisterPage> {
               return null;
             },
           ),
-          if (_errorMessage == 'HTTP refused: 409')
-            const Text('用户名已存在', style: TextStyle(color: Colors.red)),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: _isLoading ? null : _submit,

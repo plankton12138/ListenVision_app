@@ -54,7 +54,7 @@ class AudioInfo extends StatelessWidget {
       children: [
         const SizedBox(height: 15),
         Text(
-          '标题：${controller.title}',
+          controller.title,
           style: const TextStyle(
             fontSize: Dimens.fontSizeMedium,
             fontWeight: FontWeight.bold,
@@ -63,7 +63,7 @@ class AudioInfo extends StatelessWidget {
         ),
         const SizedBox(height: 15),
         Text(
-          '艺术家：${controller.artist}',
+          controller.artist,
           style: const TextStyle(
             fontSize: Dimens.fontSizeSmall,
           ),

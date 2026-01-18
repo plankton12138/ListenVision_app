@@ -118,7 +118,7 @@ class AudioProvider extends ChangeNotifier {
 
         if (metadata.picture != null) {
           fileCover = metadata.picture!.data;
-          debugPrint('【loadAudio】找到封面: ${fileCover!.length} 字节');
+          debugPrint('【loadAudio】找到封面: ${fileCover.length} 字节');
         }
       } catch (e, s) {
         debugPrint('【loadAudio】元数据解析失败: $e\n$s');

@@ -43,7 +43,15 @@ const registerUser = async (username, password, email) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   const result = stmt.insertUser.run(username, hashedPassword, email);
 
-  return { id: result.lastInsertRowid, username, email };
+  const userId = result.lastInsertRowid;
+
+  // 注册成功后自动生成 token，实现"注册即登录"
+  const token = generateToken({ userId, username });
+
+  return {
+    token,
+    user: { id: userId, username, email }
+  };
 };
 
 // 用户登录

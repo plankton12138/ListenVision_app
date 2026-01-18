@@ -36,21 +36,25 @@ const checkQRLoginStatus = async (req, res) => {
 
     const result = await bilibiliService.checkQRLoginStatus(qrcodeKey);
 
-    // 如果登录成功，保存Cookie到数据库
-    if (result.code === 0 && result.cookie && req.user) {
-      await bilibiliService.saveCookie(req.user.id, result.cookie, result.userInfo);
+    // 使用 result.statusCode (QR码状态码) 而不是 result.code (API调用状态码)
+    // statusCode: 0=成功, 86101=未扫码, 86090=已扫描, 86038=已过期
+    if (result.statusCode === 0) {
+      // 登录成功，保存Cookie（如果有）
+      if (result.cookie && req.user) {
+        await bilibiliService.saveCookie(req.user.id, result.cookie, result.userInfo);
+      }
       successResponse(res, {
         status: 'success',
         userInfo: result.userInfo
       }, '登录成功');
-    } else if (result.code === 86038) {
+    } else if (result.statusCode === 86038) {
       // QR码已过期
       successResponse(res, { status: 'expired' }, 'QR码已过期');
-    } else if (result.code === 86090) {
+    } else if (result.statusCode === 86090) {
       // 已扫描待确认
       successResponse(res, { status: 'scanned' }, '已扫描，请确认');
     } else {
-      // 未扫码
+      // 未扫码或其他状态
       successResponse(res, { status: 'pending' }, '等待扫码');
     }
   } catch (error) {

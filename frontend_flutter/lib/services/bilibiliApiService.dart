@@ -77,9 +77,12 @@ class BilibiliApiService {
           .timeout(const Duration(seconds: 10));
 
       final data = _handleResponse(response);
+      debugPrint('【QR码获取】data keys: ${data.keys.toList()}');
+      debugPrint('【QR码获取】qrcodeKey: ${data['qrcodeKey']}');
+      debugPrint('【QR码获取】qrCodeUrl: ${data['qrCodeUrl']}');
       return {
         'qrcodeKey': data['qrcodeKey'] ?? '',
-        'qrcodeUrl': data['qrcodeUrl'] ?? '',
+        'qrcodeUrl': data['qrCodeUrl'] ?? '',  // 修复：后端返回的是 qrCodeUrl（驼峰式）
         'expiresAt': data['expiresAt'] != null
             ? DateTime.parse(data['expiresAt'])
             : DateTime.now().add(const Duration(minutes: 3)),
@@ -106,12 +109,15 @@ class BilibiliApiService {
           .timeout(const Duration(seconds: 10));
 
       final responseBody = _parseResponse(response);
+      debugPrint('【QR码检查】原始响应: $responseBody');
 
       if (response.statusCode == 200) {
         if (responseBody['success'] == true) {
           final data = responseBody['data'] as Map<String, dynamic>?;
+          final status = data?['status'] ?? 'pending';
+          debugPrint('【QR码检查】解析状态: $status, userInfo: ${data?['userInfo']}');
           return {
-            'status': data?['status'] ?? 'pending',
+            'status': status,
             'userInfo': data?['userInfo'],
           };
         }

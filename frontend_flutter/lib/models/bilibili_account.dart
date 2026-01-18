@@ -15,12 +15,23 @@ class BilibiliUserInfo {
   });
 
   factory BilibiliUserInfo.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>;
+    // 兼容两种格式：
+    // 1. 后端直接返回: { mid, uid, uname }
+    // 2. B站 API 返回: { data: { mid, uname, face } }
+    final isDirectFormat = json.containsKey('mid') || json.containsKey('uid');
+
+    final Map<String, dynamic> data;
+    if (isDirectFormat) {
+      data = json;
+    } else {
+      data = json['data'] as Map<String, dynamic>;
+    }
+
     return BilibiliUserInfo(
-      uid: data['mid']?.toString() ?? '',
+      uid: data['uid']?.toString() ?? data['mid']?.toString() ?? '',
       uname: data['uname'] ?? '',
-      avatar: data['face'] ?? '',
-      mid: data['mid']?.toString() ?? '',
+      avatar: data['face'] ?? data['avatar'] ?? '',
+      mid: data['mid']?.toString() ?? data['uid']?.toString() ?? '',
     );
   }
 }

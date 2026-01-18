@@ -59,15 +59,28 @@ void main() async {
             final authProvider = context.read<AuthProvider>();
             final provider = BilibiliProvider();
             provider.updateToken(authProvider.user?.token);
+
             // 监听登录状态变化
-            authProvider.addListener(() {
+            VoidCallback? listener;
+            listener = () {
               provider.updateToken(authProvider.user?.token);
               if (authProvider.isLoggedIn) {
                 provider.initialize();
               } else {
                 provider.cancelQRLogin();
               }
+            };
+            authProvider.addListener(listener);
+
+            // 处理已登录用户初始化：AuthProvider._loadUser() 是异步的，
+            // 需要等待其完成后再初始化 BilibiliProvider
+            Future.delayed(Duration.zero, () {
+              if (authProvider.isLoggedIn) {
+                provider.updateToken(authProvider.user?.token);
+                provider.initialize();
+              }
             });
+
             return provider;
           },
         ),

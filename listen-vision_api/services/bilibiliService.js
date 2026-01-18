@@ -17,7 +17,10 @@ const db = require('../config/database');
 
 // ==================== 加密工具 ====================
 
-const ENCRYPTION_KEY = process.env.BILI_COOKIE_KEY || crypto.randomBytes(32);
+// 使用固定密钥（生产环境应通过环境变量设置）
+// 通过 SHA256 哈希确保密钥长度为 32 字节（AES-256 要求）
+const keyMaterial = process.env.BILI_COOKIE_KEY || 'ListenVisionBilibiliCookieKey2024';
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(keyMaterial).digest();
 const IV_LENGTH = 16;
 const ALGORITHM = 'aes-256-cbc';
 
@@ -26,26 +29,27 @@ const ALGORITHM = 'aes-256-cbc';
  */
 const encryptCookie = (cookie) => {
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY), iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   let encrypted = cipher.update(cookie, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   return `${iv.toString('hex')}:${encrypted}`;
 };
 
 /**
- * 解密Cookie
+ * 解密Cookie（返回null表示解密失败）
  */
 const decryptCookie = (encryptedData) => {
   try {
     const parts = encryptedData.split(':');
     const iv = Buffer.from(parts.shift(), 'hex');
     const encrypted = parts.join(':');
-    const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY), iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
-    throw new Error('Cookie解密失败');
+    console.error('Cookie解密失败:', error.message);
+    return null;  // 返回null而不是抛出异常
   }
 };
 
@@ -67,6 +71,9 @@ const stmt = {
   `),
   getBiliAccountById: db.prepare(`
     SELECT * FROM bilibili_accounts WHERE id = ?
+  `),
+  getAllBiliAccounts: db.prepare(`
+    SELECT * FROM bilibili_accounts WHERE is_active = 1
   `),
   deactivateBiliAccount: db.prepare(`
     UPDATE bilibili_accounts SET is_active = 0 WHERE user_id = ?
@@ -179,13 +186,16 @@ const checkQRLoginStatus = async (qrcodeKey) => {
     const url = `https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=${qrcodeKey}`;
     const data = await httpGet(url);
 
-    // Web端状态码在 data.code (数字类型):
+    console.log('[QR码检查] 响应:', JSON.stringify(data));
+
+    // Web端状态码在 data.data.code (数字类型):
     // 0: 登录成功
     // 86038: 二维码已失效
     // 86090: 二维码已扫描待确认
     // 86101: 未扫码
 
     const statusCode = data.data?.code;
+    console.log('[QR码检查] 状态码:', statusCode);
 
     const statusMap = {
       86101: 'pending',
@@ -196,11 +206,59 @@ const checkQRLoginStatus = async (qrcodeKey) => {
 
     const status = statusMap[statusCode] || 'unknown';
 
+    let cookie = null;
+    let userInfo = null;
+
+    // 登录成功，从响应体的 url 字段提取 Cookie
+    if (statusCode === 0 && data.data?.url) {
+      const loginUrl = data.data.url;
+
+      // URL 格式: https://passport.biligame.com/crossDomain?DedeUserID=xxx&DedeUserID__ckMd5=xxx&SESSDATA=xxx&bili_jct=xxx&...
+      try {
+        const urlObj = new URL(loginUrl);
+        const params = new URLSearchParams(urlObj.search);
+
+        const cookieParts = [];
+        const cookieKeys = ['DedeUserID', 'DedeUserID__ckMd5', 'SESSDATA', 'bili_jct', 'sid'];
+
+        cookieKeys.forEach(key => {
+          const value = params.get(key);
+          if (value) {
+            cookieParts.push(`${key}=${value}`);
+          }
+        });
+
+        if (cookieParts.length > 0) {
+          cookie = cookieParts.join('; ');
+          console.log('[QR码检查] Cookie提取成功:', cookie);
+
+          // 提取用户信息
+          const dedeUserId = params.get('DedeUserID');
+          if (dedeUserId) {
+            userInfo = {
+              mid: dedeUserId,
+              uid: dedeUserId,
+              uname: '' // 用户名需要额外API获取
+            };
+            console.log('[QR码检查] 用户信息:', userInfo);
+          }
+        } else {
+          console.log('[QR码检查] 未找到Cookie参数');
+        }
+      } catch (e) {
+        console.error('解析登录URL失败:', e);
+      }
+    }
+
+    console.log('[QR码检查] 返回状态:', status, 'Cookie存在:', !!cookie);
+
     return {
       code: data.code,
       message: data.message,
       status,
       statusCode,
+      cookie,
+      userInfo,
       refreshUrl: data.data?.url || null,
       refreshToken: data.data?.refresh_token || null,
       timestamp: data.data?.timestamp || 0
@@ -325,7 +383,13 @@ const getCookie = (userId) => {
     }
   }
 
-  return decryptCookie(account.cookie_encrypted);
+  const cookie = decryptCookie(account.cookie_encrypted);
+  // 解密失败则停用该账号
+  if (cookie === null) {
+    console.log(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
+    stmt.deactivateBiliAccount.run(userId);
+  }
+  return cookie;
 };
 
 /**
@@ -344,7 +408,7 @@ const refreshCookie = async (userId) => {
  * 获取绑定状态
  *
  * @param {number} userId - 用户ID
- * @returns {Object|null} 绑定信息
+ * @returns {Object} 绑定信息
  */
 const getBindStatus = (userId) => {
   const account = stmt.getActiveBiliAccount.get(userId);
@@ -352,11 +416,23 @@ const getBindStatus = (userId) => {
     return { isBound: false };
   }
 
+  // 检查Cookie是否能正常解密
+  const cookie = decryptCookie(account.cookie_encrypted);
+  if (cookie === null) {
+    // 解密失败，停用账号
+    console.log(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
+    stmt.deactivateBiliAccount.run(userId);
+    return { isBound: false };
+  }
+
   return {
     isBound: true,
-    biliUserId: account.bili_user_id,
-    biliUsername: account.bili_username,
-    createdAt: account.created_at
+    userInfo: {
+      mid: account.bili_user_id,
+      uid: account.bili_user_id,
+      uname: account.bili_username,
+      avatar: '' // 头像需要从B站API获取
+    }
   };
 };
 
@@ -717,6 +793,31 @@ const getRecentSearches = (userId) => {
   return stmt.getRecentSearches.all(userId).map(row => row.keyword);
 };
 
+// 启动时清理无效的绑定（使用旧密钥加密的数据）
+const cleanupInvalidBindings = () => {
+  try {
+    const accounts = stmt.getAllBiliAccounts.all();
+    let cleanedCount = 0;
+
+    accounts.forEach(account => {
+      // 尝试解密Cookie
+      const cookie = decryptCookie(account.cookie_encrypted);
+      if (cookie === null) {
+        // 解密失败，停用该账号
+        db.prepare('UPDATE bilibili_accounts SET is_active = 0 WHERE id = ?').run(account.id);
+        cleanedCount++;
+        console.log(`清理无效绑定: 用户ID ${account.user_id}`);
+      }
+    });
+
+    if (cleanedCount > 0) {
+      console.log(`清理了 ${cleanedCount} 个无效的B站绑定`);
+    }
+  } catch (error) {
+    console.error('清理无效绑定失败:', error.message);
+  }
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -742,5 +843,11 @@ module.exports = {
 
   // 工具函数
   encryptCookie,
-  decryptCookie
+  decryptCookie,
+
+  // 初始化
+  cleanupInvalidBindings
 };
+
+// 自动执行清理
+cleanupInvalidBindings();

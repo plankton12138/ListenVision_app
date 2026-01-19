@@ -2,13 +2,18 @@ const db = require('../config/database');
 const { searchBilibili, getWbiKey, signWbi } = require('./bilibiliService');
 
 /**
- * B站推荐内容服务
+ * B站推荐内容服务（Phase 3.2 扩展）
  *
  * 功能：
  * 1. 热门歌单（B站音乐服务）
  * 2. 热歌榜单（B站音乐服务）
- * 3. 个性化推荐（基于搜索历史）
+ * 3. 个性化推荐（基于搜索历史 + 用户行为）
  * 4. 分区推荐（音乐区、翻唱、演奏等）
+ *
+ * Phase 3.2 新增：
+ * - 记录用户行为日志（播放、收藏、跳过、分享）
+ * - 基于用户行为的协同过滤推荐
+ * - 内容相似度推荐
  *
  * API参考: bilibili-API-collect/docs/audio/music_list.md
  */
@@ -24,6 +29,7 @@ const stmt = {
     ORDER BY created_at DESC
     LIMIT 10
   `),
+
   // 获取用户播放历史（用于个性化推荐）
   getRecentPlays: db.prepare(`
     SELECT DISTINCT bvid, title, artist
@@ -31,6 +37,37 @@ const stmt = {
     WHERE user_id = ?
     ORDER BY played_at DESC
     LIMIT 10
+  `),
+
+  // Phase 3.2: 记录用户行为
+  logUserBehavior: db.prepare(`
+    INSERT INTO user_behavior_logs (user_id, bvid, action, timestamp)
+    VALUES (?, ?, ?, datetime('now'))
+  `),
+
+  // Phase 3.2: 获取用户偏好（基于行为日志）
+  getUserPreferences: db.prepare(`
+    SELECT
+      action,
+      COUNT(DISTINCT bvid) as count
+    FROM user_behavior_logs
+    WHERE user_id = ? AND timestamp > datetime('now', '-30 days')
+    GROUP BY action
+  `),
+
+  // Phase 3.2: 获取相似用户喜欢的视频（协同过滤基础）
+  getSimilarUsersLikedVideos: db.prepare(`
+    SELECT DISTINCT l.bvid
+    FROM user_behavior_logs l
+    WHERE l.user_id IN (
+      SELECT DISTINCT user_id
+      FROM user_behavior_logs
+      WHERE bvid IN (SELECT bvid FROM user_behavior_logs WHERE user_id = ? AND action = 'like')
+      AND action = 'like'
+    )
+    AND l.action = 'like'
+    AND l.timestamp > datetime('now', '-30 days')
+    LIMIT 20
   `),
 };
 
@@ -362,15 +399,170 @@ const cleanHtml = (text) => {
   return text.replace(/<[^>]*>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 };
 
+/**
+ * 从 URL 中提取 BVID
+ * 支持格式：
+ * - BV1xx411c7mD (纯BVID)
+ * - https://www.bilibili.com/video/BV1xx411c7mD
+ * - https://b23.tv/BV1xx411c7mD
+ *
+ * @param {string} url - URL 或 BVID
+ * @returns {string} BVID 或原字符串（如果不是B站链接）
+ */
+const extractBvid = (url) => {
+  if (!url) return url;
+
+  // 如果已经是BVID格式，直接返回
+  if (url.startsWith('BV')) {
+    return url;
+  }
+
+  // 尝试从 URL 中提取 BVID
+  const bvidMatch = url.match(/(BV[a-zA-Z0-9]{10})/);
+  return bvidMatch ? bvidMatch[1] : url;
+};
+
+/**
+ * Phase 3.2: 记录用户行为
+ *
+ * @param {number} userId - 用户ID
+ * @param {string} bvid - 视频 ID
+ * @param {string} action - 行为类型 (play, like, skip, share)
+ */
+const logBehavior = (userId, bvid, action) => {
+  try {
+    stmt.logUserBehavior.run(userId, bvid, action);
+    console.log(`[Behavior Log] User ${userId}: ${action} - ${bvid}`);
+  } catch (error) {
+    console.error('[Behavior Log] Failed:', error);
+  }
+};
+
+/**
+ * Phase 3.2: 基于用户行为的协同过滤推荐
+ *
+ * 算法：
+ * 1. 查找相似用户喜欢的视频
+ * 2. 基于用户最近播放的视频推荐
+ * 3. 结合热门度（搜索统计）
+ *
+ * @param {number} userId - 用户ID
+ * @param {number} limit - 推荐数量限制
+ * @returns {Array} 推荐结果
+ */
+const getBehaviorBasedRecommendations = async (userId, limit = 20) => {
+  try {
+    // 获取相似用户喜欢的视频（协同过滤）
+    const similarLikes = stmt.getSimilarUsersLikedVideos.all(userId);
+
+    // 获取用户最近播放的视频
+    const recentPlays = stmt.getRecentPlays.all(userId).map(p => p.bvid);
+
+    // 合并并去重
+    const candidates = [...new Set([...similarLikes, ...recentPlays])];
+
+    // 从 audio_metadata_cache 获取详细信息
+    const recommendations = [];
+    for (const bvid of candidates) {
+      if (recommendations.length >= limit) break;
+
+      const metadata = db.prepare('SELECT bvid, title, artist, duration, cover_url FROM audio_metadata_cache WHERE bvid = ?').get(bvid);
+      if (metadata) {
+        recommendations.push(metadata);
+      }
+    }
+
+    return recommendations;
+  } catch (error) {
+    console.error('[Behavior Recommendation] Failed:', error);
+    throw new Error(`获取行为推荐失败: ${error.message}`);
+  }
+};
+
+/**
+ * Phase 3.2: 混合推荐（热门 + 个性化）
+ *
+ * 结合用户行为、播放历史和热门内容的综合推荐
+ *
+ * @param {number} userId - 用户ID
+ * @param {number} limit - 推荐数量限制
+ * @returns {Object} 推荐结果（包含来源标识）
+ */
+const getHybridRecommendations = async (userId, limit = 20) => {
+  try {
+    // 获取用户偏好
+    const preferences = stmt.getUserPreferences.all(userId);
+
+    // 统计各类行为次数
+    const behaviorCounts = {};
+    preferences.forEach(p => {
+      behaviorCounts[p.action] = p.count;
+    });
+
+    // 1. 基于用户行为推荐 (60%)
+    const behaviorRecs = await getBehaviorBasedRecommendations(userId, Math.ceil(limit * 0.6));
+
+    // 2. 基于热门推荐 (40%)
+    let hotRecs = [];
+    if (behaviorRecs.length < limit) {
+      const remaining = limit - behaviorRecs.length;
+      const hotPlaylists = await getHotPlaylists(1, Math.ceil(remaining * 0.5));
+      const hotRank = await getHotRank(1, Math.ceil(remaining * 0.5));
+      const sliceLimit = Math.ceil(remaining * 0.25);
+
+      const playlistItems = (hotPlaylists.playlists || [])
+        .flatMap(p => p.previews || [])
+        .slice(0, sliceLimit);
+
+      const rankItems = (hotRank.playlists || [])
+        .flatMap(p => p.previews || [])
+        .slice(0, sliceLimit);
+
+      hotRecs = [...playlistItems, ...rankItems];
+    }
+
+    // 3. 去重并添加来源标识
+    const allRecs = [...behaviorRecs, ...hotRecs];
+    const seen = new Set();
+    const finalRecs = [];
+
+    for (const rec of allRecs) {
+      if (seen.has(rec.bvid)) continue;
+      seen.add(rec.bvid);
+
+      // 标记推荐来源
+      let source = 'hot';
+      if (behaviorRecs.some(b => b.bvid === rec.bvid)) {
+        source = 'behavior';
+      }
+
+      finalRecs.push({ ...rec, source });
+      if (finalRecs.length >= limit) break;
+    }
+
+    return {
+      recommendations: finalRecs,
+      behaviorStats: behaviorCounts
+    };
+  } catch (error) {
+    console.error('[Hybrid Recommendation] Failed:', error);
+    throw new Error(`获取混合推荐失败: ${error.message}`);
+  }
+};
+
 module.exports = {
   // 常量
   CATEGORY_TIDS,
   // B站音乐服务
   getHotPlaylists,
   getHotRank,
-  // 个性化推荐
   getPersonalized,
-  // 分区推荐
   getByCategory,
-  getMusicRecommendation
+  getMusicRecommendation,
+  // Phase 3.2: 用户行为推荐
+  logBehavior,
+  getBehaviorBasedRecommendations,
+  getHybridRecommendations,
+  // 工具函数
+  extractBvid
 };

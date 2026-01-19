@@ -1,3 +1,4 @@
+import 'package:demo/ui/pages/backend_download_page.dart';
 import 'package:demo/ui/pages/download_list_page.dart';
 import 'package:demo/ui/pages/explore_page.dart';
 import 'package:demo/ui/pages/home_page.dart';
@@ -50,6 +51,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/download_list',
       builder: (context, state) => const DownloadListPage(),
+    ),
+
+    // 后端下载任务管理页 (Phase 3)
+    GoRoute(
+      path: '/downloads',
+      builder: (context, state) => const BackendDownloadPage(),
     ),
 
     // 歌单库页面 (Phase 2)

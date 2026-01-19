@@ -146,6 +146,74 @@ const createTables = () => {
     )
   `);
 
+  // ========== Phase 3: 搜索优化与推荐 ==========
+
+  // FTS5 全文搜索虚拟表
+  // 使用 unicode61 分词器（SQLite 内置，支持中文）
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS audio_metadata_cache_fts USING fts5(
+      title,
+      artist,
+      content='audio_metadata_cache',
+      tokenize='unicode61'
+    )
+  `);
+
+  // FTS 同步触发器
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS fts_insert AFTER INSERT ON audio_metadata_cache BEGIN
+      INSERT INTO audio_metadata_cache_fts(rowid, title, artist) VALUES (NEW.id, NEW.title, NEW.artist);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS fts_delete AFTER DELETE ON audio_metadata_cache BEGIN
+      INSERT INTO audio_metadata_cache_fts(audio_metadata_cache_fts, rowid, title, artist) VALUES ('delete', OLD.id, OLD.title, OLD.artist);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS fts_update AFTER UPDATE ON audio_metadata_cache BEGIN
+      INSERT INTO audio_metadata_cache_fts(audio_metadata_cache_fts, rowid, title, artist) VALUES ('delete', OLD.id, OLD.title, OLD.artist);
+      INSERT INTO audio_metadata_cache_fts(rowid, title, artist) VALUES (NEW.id, NEW.title, NEW.artist);
+    END;
+  `);
+
+  // 搜索统计表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS search_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      keyword TEXT NOT NULL UNIQUE,
+      search_count INTEGER DEFAULT 1,
+      last_searched TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // 用户行为日志表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_behavior_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      bvid TEXT NOT NULL,
+      action TEXT CHECK(action IN ('play', 'like', 'skip', 'share')),
+      timestamp TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 下载任务表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS download_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      bvid TEXT NOT NULL,
+      status TEXT CHECK(status IN ('pending', 'downloading', 'paused', 'completed', 'failed')) DEFAULT 'pending',
+      progress INTEGER DEFAULT 0,
+      file_size INTEGER,
+      downloaded_size INTEGER DEFAULT 0,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // 创建索引加速查询
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -164,7 +232,14 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist_id ON playlist_items(playlist_id);
     CREATE INDEX IF NOT EXISTS idx_playlist_items_position ON playlist_items(playlist_id, position);
     CREATE INDEX IF NOT EXISTS idx_play_history_user_id ON play_history(user_id);
-    CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
+     CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
+    -- Phase 3: 搜索与推荐索引
+    CREATE INDEX IF NOT EXISTS idx_search_stats_keyword ON search_stats(keyword);
+    CREATE INDEX IF NOT EXISTS idx_search_stats_count ON search_stats(search_count);
+    CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_user_action ON user_behavior_logs(user_id, action, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_bvid ON user_behavior_logs(bvid);
+    CREATE INDEX IF NOT EXISTS idx_download_tasks_user_status ON download_tasks(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_download_tasks_created_at ON download_tasks(created_at);
   `);
 
   console.log('✅ 数据库表初始化完成');
@@ -172,20 +247,10 @@ const createTables = () => {
 
 createTables();
 
-// 优雅退出处理
-const gracefulShutdown = () => {
+// 优雅退出处理（由 index.js 统一管理）
+const closeDatabase = () => {
   db.close();
   console.log('数据库连接已关闭');
 };
-
-process.on('exit', gracefulShutdown);
-process.on('SIGINT', () => {
-  gracefulShutdown();
-  process.exit(0);
-});
-process.on('SIGTERM', () => {
-  gracefulShutdown();
-  process.exit(0);
-});
 
 module.exports = db;

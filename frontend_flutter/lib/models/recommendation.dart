@@ -28,9 +28,10 @@ class RecommendationItem {
       title: json['title'] as String?,
       description: json['description'] as String?,
       cover: json['cover'] as String? ?? json['pic'] as String?,
-      duration: json['duration'] as String?,
+      // 兼容 int（秒数）和 String（格式化时长）两种格式
+      duration: json['duration']?.toString(),
       author: json['author'] as String? ?? json['uname'] as String?,
-      play: json['play'] as int?,
+      play: json['play'] is int ? json['play'] as int? : int.tryParse(json['play']?.toString() ?? ''),
       arcurl: json['arcurl'] as String?,
     );
   }
@@ -46,6 +47,24 @@ class RecommendationItem {
       'play': play,
       'arcurl': arcurl,
     };
+  }
+
+  /// 格式化时长显示
+  /// 如果 duration 是秒数（如 "180"），转换为 "03:00" 格式
+  /// 如果已经是格式化字符串（如 "03:00"），直接返回
+  String get formattedDuration {
+    if (duration == null || duration!.isEmpty) return '--:--';
+
+    // 尝试解析为整数（秒数）
+    final seconds = int.tryParse(duration!);
+    if (seconds != null) {
+      final minutes = seconds ~/ 60;
+      final secs = seconds % 60;
+      return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    }
+
+    // 已经是格式化字符串，直接返回
+    return duration!;
   }
 }
 

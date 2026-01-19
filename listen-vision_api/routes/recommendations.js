@@ -1,149 +1,132 @@
-const express = require('express');
-const router = express.Router();
-const recommendationController = require('../controllers/recommendationController');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
-
 /**
  * 推荐内容相关路由
- * Prefix: /api/recommendations
+ *
+ * Phase 2 - 推荐页面 API 端点
  */
+
+const express = require('express');
+const router = express.Router();
+const recommendationService = require('../services/recommendationService');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { successResponse } = require('../utils/response');
+const { catchAsync, AppError } = require('../middleware/errorHandler');
 
 // ==================== 热门推荐 ====================
 
 /**
- * @swagger
- * /api/recommendations/hot-playlists:
- *   get:
- *     tags: [推荐]
- *     summary: 获取热门歌单
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 10
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/hot-playlists
+ *
+ * 获取热门歌单
+ *
+ * Authentication: 可选
  */
-router.get('/hot-playlists', optionalAuthMiddleware, recommendationController.getHotPlaylists);
+const getHotPlaylists = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+
+  const result = await recommendationService.getHotPlaylists(page, pageSize);
+
+  return successResponse(res, result, '获取热门歌单成功');
+});
 
 /**
- * @swagger
- * /api/recommendations/rank:
- *   get:
- *     tags: [推荐]
- *     summary: 获取热歌榜单
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 10
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/rank
+ *
+ * 获取热歌榜单
+ *
+ * Authentication: 可选
  */
-router.get('/rank', optionalAuthMiddleware, recommendationController.getHotRank);
+const getHotRank = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+
+  const result = await recommendationService.getHotRank(page, pageSize);
+
+  return successResponse(res, result, '获取热歌榜单成功');
+});
 
 // ==================== 个性化推荐 ====================
 
 /**
- * @swagger
- * /api/recommendations/personalized:
- *   get:
- *     tags: [推荐]
- *     summary: 获取个性化推荐
- *     description: |
- *       未登录：返回热门推荐
- *       已登录：基于搜索历史和播放历史推荐
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/personalized
+ *
+ * 获取推荐内容
+ *
+ * 直接使用热门歌单API（无需WBI签名，稳定可靠）
+ *
+ * 返回格式：{ source: string, playlists: array }
  */
-router.get('/personalized', optionalAuthMiddleware, recommendationController.getPersonalized);
+const getPersonalized = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+
+  // 使用热门歌单API获取推荐内容
+  const hotPlaylists = await recommendationService.getHotPlaylists(page, pageSize);
+
+  const result = {
+    playlists: hotPlaylists.playlists || [],
+    source: 'hot'
+  };
+
+  return successResponse(res, result, '获取推荐成功');
+});
 
 // ==================== 分区推荐 ====================
 
 /**
- * @swagger
- * /api/recommendations/category/{tid}:
- *   get:
- *     tags: [推荐]
- *     summary: 获取分区推荐
- *     parameters:
- *       - in: path
- *         name: tid
- *         required: true
- *         schema:
- *           type: integer
- *           description: 分区ID
- *           example: 3
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: pageSize
- *         schema:
- *           type: integer
- *           default: 20
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/category/:tid
+ *
+ * 获取分区推荐
+ *
+ * Authentication: 可选
  */
-router.get('/category/:tid', optionalAuthMiddleware, recommendationController.getByCategory);
+const getByCategory = catchAsync(async (req, res) => {
+  const tid = parseInt(req.params.tid);
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 20;
+
+  if (isNaN(tid)) {
+    throw new AppError('无效的分区ID', 400);
+  }
+
+  const result = await recommendationService.getByCategory(tid, page, pageSize);
+
+  return successResponse(res, result, '获取分区推荐成功');
+});
 
 /**
- * @swagger
- * /api/recommendations/music:
- *   get:
- *     tags: [推荐]
- *     summary: 获取音乐区推荐（综合）
- *     description: 组合音乐区、原创音乐、翻唱等多个分区的内容
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/music
+ *
+ * 获取音乐区推荐（综合）
+ *
+ * Authentication: 可选
  */
-router.get('/music', optionalAuthMiddleware, recommendationController.getMusicRecommendation);
+const getMusicRecommendation = catchAsync(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+
+  const result = await recommendationService.getMusicRecommendation(limit);
+
+  return successResponse(res, result, '获取音乐推荐成功');
+});
 
 // ==================== 常量 ====================
 
 /**
- * @swagger
- * /api/recommendations/categories:
- *   get:
- *     tags: [推荐]
- *     summary: 获取可用的分区ID列表
- *     responses:
- *       200:
- *         description: 获取成功
+ * GET /api/recommendations/categories
+ *
+ * 获取可用的分区ID列表
  */
-router.get('/categories', recommendationController.getCategoryTids);
+const getCategoryTids = catchAsync(async (req, res) => {
+  return successResponse(res, recommendationService.CATEGORY_TIDS, '获取分区列表成功');
+});
+
+// ==================== 注册路由 ====================
+
+router.get('/hot-playlists', optionalAuthMiddleware, getHotPlaylists);
+router.get('/rank', optionalAuthMiddleware, getHotRank);
+router.get('/personalized', optionalAuthMiddleware, getPersonalized);
+router.get('/category/:tid', optionalAuthMiddleware, getByCategory);
+router.get('/music', optionalAuthMiddleware, getMusicRecommendation);
+router.get('/categories', getCategoryTids);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import 'package:demo/constants/dimens.dart';
+import 'package:demo/models/playlist.dart';
 import 'package:demo/providers/bilibili_provider.dart';
 import 'package:demo/providers/auth_provider.dart';
 import 'package:demo/providers/playlist_provider.dart';
@@ -243,6 +244,64 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 构建添加到歌单按钮
+  Widget _buildAddToPlaylistButton(BuildContext context, dynamic item) {
+    final authProvider = context.watch<AuthProvider>();
+    final playlistProvider = context.watch<PlaylistProvider>();
+
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // 获取用户歌单（排除系统歌单中的"我喜欢"和"正在播放"）
+    final userPlaylists = playlistProvider.userPlaylists;
+
+    return IconButton(
+      icon: const Icon(Icons.playlist_add),
+      onPressed: () async {
+        if (!authProvider.isLoggedIn) {
+          showMySnackBar(context, '请先登录', Colors.orange, 1500);
+          return;
+        }
+
+        if (userPlaylists.isEmpty) {
+          showMySnackBar(context, '请先创建歌单', Colors.orange, 2000);
+          return;
+        }
+
+        // 显示歌单选择对话框
+        final selectedPlaylistId = await showDialog<int>(
+          context: context,
+          builder: (context) => _PlaylistSelectDialog(playlists: userPlaylists),
+        );
+
+        if (selectedPlaylistId != null) {
+          try {
+            final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+            final author = item['author'] ?? 'Unknown';
+
+            await playlistProvider.addItem(
+              authProvider.user!.token,
+              selectedPlaylistId,
+              bvid,
+              title: title,
+              artist: author,
+            );
+
+            if (mounted) {
+              showMySnackBar(context, '已添加到歌单', Colors.green, 1500);
+            }
+          } catch (e) {
+            if (mounted) {
+              showMySnackBar(context, '添加失败: $e', Colors.red, 2000);
+            }
+          }
+        }
+      },
+    );
+  }
+
   Widget _buildSearchResults() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -319,6 +378,8 @@ class _SearchPageState extends State<SearchPage> {
                 children: [
                   // 收藏按钮
                   _buildFavoriteButton(context, item),
+                  // 添加到歌单按钮
+                  _buildAddToPlaylistButton(context, item),
                   // 下载按钮
                   IconButton(
                     icon: const Icon(Icons.download),
@@ -342,6 +403,43 @@ class _SearchPageState extends State<SearchPage> {
           );
         },
       ),
+    );
+  }
+}
+
+/// 歌单选择对话框
+class _PlaylistSelectDialog extends StatelessWidget {
+  final List<Playlist> playlists;
+
+  const _PlaylistSelectDialog({required this.playlists});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加到歌单'),
+      content: playlists.isEmpty
+          ? const Text('暂无歌单，请先创建')
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: playlists.length,
+              itemBuilder: (context, index) {
+                final playlist = playlists[index];
+                return ListTile(
+                  leading: const Icon(Icons.playlist_play),
+                  title: Text(playlist.name ?? '未命名歌单'),
+                  subtitle: Text('${playlist.itemCount ?? 0} 首歌曲'),
+                  onTap: () {
+                    Navigator.of(context).pop(playlist.id);
+                  },
+                );
+              },
+            ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
     );
   }
 }

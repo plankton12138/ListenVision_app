@@ -99,6 +99,13 @@ class MyDrawer extends StatelessWidget {
               icon: Icons.history,
               route: '/history',
             ),
+            // Phase 3: 下载任务管理
+            _buildListTile(
+              context: context,
+              title: '下载任务',
+              icon: Icons.cloud_download,
+              route: '/downloads',
+            ),
           ],
           _buildListTile(
             context: context,
@@ -111,12 +118,6 @@ class MyDrawer extends StatelessWidget {
             title: '设置',
             icon: Icons.settings,
             route: '/settings',
-          ),
-          _buildListTile(
-            context: context,
-            title: '下载',
-            icon: Icons.download_rounded,
-            route: '/download_list',
           ),
         ],
       ),

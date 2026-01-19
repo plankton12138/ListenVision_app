@@ -1,4 +1,5 @@
 const playHistoryService = require('../services/playHistoryService');
+const { logBehavior } = require('../services/recommendationService');
 const { successResponse } = require('../utils/response');
 const { AppError, catchAsync } = require('../middleware/errorHandler');
 
@@ -21,6 +22,11 @@ const recordPlay = catchAsync(async (req, res) => {
 
   const metadata = { title, artist, duration, coverUrl };
   const record = playHistoryService.recordPlay(userId, bvid, metadata, progress || 0);
+
+  // Phase 3.2: 记录播放行为（仅登录用户）
+  if (userId) {
+    logBehavior(userId, bvid, 'play');
+  }
 
   return successResponse(res, record, '记录播放成功', 201);
 });

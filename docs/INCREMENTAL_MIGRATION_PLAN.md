@@ -462,9 +462,10 @@ if (remoteConfig.enableBilibiliService) {
 规划阶段: ████████████████████ 100% ✅
 Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
 Phase 2:   ████████████████████ 100% ✅ 歌单/收藏/推荐/历史完成
-Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0% 🚧 等待开始
+Phase 2A:  ██░░░░░░░░░░░░░░░░░░  10% 🚧 播放功能改进（进行中）
+Phase 3:   ██████████░░░░░░░░░░  50% 🚧 后端完成，前端待集成
 
-总进度: 60% (Phase 1+2 完成)
+总进度: 70% (Phase 1+2+3后端完成)
 ```
 
 ### Phase 1 详细任务清单
@@ -522,25 +523,30 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0% �
 
 ### Phase 3 详细任务清单 🚧
 
-**后端开发:**
-- [ ] searchService.js - 全文搜索实现
-- [ ] recommendationService.js 扩展 - 智能推荐算法
-- [ ] downloadService.js - 下载任务管理
-- [ ] routes/search.js - 搜索API路由
-- [ ] routes/downloads.js - 下载管理API路由
-- [ ] 数据库表创建 (audio_metadata_cache_fts, search_stats, user_behavior_logs, download_tasks)
+**后端开发** ✅ (已完成):
+- [x] searchService.js - FTS5 全文搜索实现
+- [x] downloadService.js - 下载任务管理
+- [x] routes/search.js - 搜索API路由（4个端点）
+- [x] routes/downloads.js - 下载管理API路由（8个端点）
+- [x] 数据库表创建 (audio_metadata_cache_fts, search_stats, download_tasks)
 
-**前端开发:**
-- [ ] providers/search_provider.dart - 搜索状态管理
-- [ ] providers/download_task_provider.dart - 下载任务状态
+**前端开发** 🚧 (已完成，待集成):
+- [x] providers/search_provider.dart - 搜索状态管理
+- [x] providers/download_task_provider.dart - 下载任务状态
+- [ ] 集成到 main.dart (注册 Provider)
 - [ ] ui/pages/download_management_page.dart - 下载管理页面
 - [ ] 集成全文搜索UI
+
+**智能推荐算法** ❌ (待开始):
+- [ ] recommendationService.js 扩展
+- [ ] 基于用户行为的推荐逻辑
+- [ ] 数据库表创建 (user_behavior_logs)
 
 **测试与优化:**
 - [ ] 单元测试编写
 - [ ] 集成测试
 - [ ] 性能测试
-- [ ] 文档更新
+- [x] 文档更新
 
 ---
 

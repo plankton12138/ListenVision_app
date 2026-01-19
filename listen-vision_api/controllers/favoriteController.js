@@ -1,4 +1,5 @@
 const favoriteService = require('../services/favoriteService');
+const { logBehavior, extractBvid } = require('../services/recommendationService');
 const { successResponse } = require('../utils/response');
 const { AppError, catchAsync } = require('../middleware/errorHandler');
 
@@ -42,6 +43,10 @@ const addFavorite = catchAsync(async (req, res) => {
 
   // req.user 来自 authMiddleware
   const favorite = await favoriteService.addFavorite(req.user.id, url, title);
+
+  // Phase 3.2: 记录喜欢行为
+  const bvid = extractBvid(url);
+  logBehavior(req.user.id, bvid, 'like');
 
   return successResponse(res, favorite, '添加收藏成功', 201);
 });

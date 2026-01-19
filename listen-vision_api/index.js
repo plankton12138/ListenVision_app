@@ -111,6 +111,24 @@ try {
   console.error('❌ Failed to load recommendations routes:', e.message);
 }
 
+// ========== Phase 3: 搜索、推荐与下载路由 ==========
+
+try {
+  const searchRouter = require('./routes/search');
+  app.use('/api/search', searchRouter);
+  console.log('✅ Search routes registered');
+} catch (e) {
+  console.error('❌ Failed to load search routes:', e.message);
+}
+
+try {
+  const downloadsRouter = require('./routes/downloads');
+  app.use('/api/downloads', downloadsRouter);
+  console.log('✅ Downloads routes registered');
+} catch (e) {
+  console.error('❌ Failed to load downloads routes:', e.message);
+}
+
 // ========== 错误处理 ==========
 
 // 404 处理
@@ -124,34 +142,38 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, () => {
-  logger.info(`
-╔══════════════════════════════════════════════╗
-║   ListenVision API Server                    ║
-╠══════════════════════════════════════════════╣
-║   Status: ✅ Running                          ║
-║   Port: ${PORT}                                ║
-║   Env: ${process.env.NODE_ENV || 'development'}                           ║
-║   Time: ${new Date().toLocaleString('zh-CN')}    ║
-╠══════════════════════════════════════════════╣
-║   API 文档: http://localhost:${PORT}/api-docs     ║
-║   健康检查: http://localhost:${PORT}/health        ║
-╚══════════════════════════════════════════════╝
-  `);
+  console.log('\n========================================');
+  console.log('  ListenVision API Server');
+  console.log('========================================');
+  console.log(`  Status: Running`);
+  console.log(`  Port: ${PORT}`);
+  console.log(`  Env: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`  Time: ${new Date().toLocaleString('zh-CN')}`);
+  console.log('========================================');
+  console.log(`  API Docs: http://localhost:${PORT}/api-docs`);
+  console.log(`  Health: http://localhost:${PORT}/health`);
+  console.log('========================================\n');
 });
 
 // ========== 优雅退出 ==========
 
 const gracefulShutdown = (signal) => {
-  logger.info(`⚠️  ${signal} 信号接收，正在关闭服务器...`);
+  console.log(`\n⚠️  ${signal} 信号接收，正在关闭服务器...`);
 
   server.close(() => {
-    logger.info('✅ 服务器已关闭');
+    // 关闭数据库连接
+    const db = require('./config/database');
+    if (db && typeof db.close === 'function') {
+      db.close();
+      console.log('数据库连接已关闭');
+    }
+    console.log('✅ 服务器已关闭');
     process.exit(0);
   });
 
   // 如果 10 秒后还没关闭，强制退出
   setTimeout(() => {
-    logger.error('❌ 服务器关闭超时，强制退出');
+    console.error('❌ 服务器关闭超时，强制退出');
     process.exit(1);
   }, 10000);
 };

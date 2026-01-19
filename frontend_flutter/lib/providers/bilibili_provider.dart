@@ -227,24 +227,17 @@ class BilibiliProvider with ChangeNotifier {
         pageSize: 20,
       );
 
-      if (page == 1) {
-        // 后端返回的是 'videos' 字段
-        _searchResults = List<Map<String, dynamic>>.from(
-          result['videos'] ?? [],
-        );
-        // 添加到搜索历史
-        if (!_searchHistory.contains(keyword)) {
-          _searchHistory.insert(0, keyword);
-          if (_searchHistory.length > 10) {
-            _searchHistory = _searchHistory.sublist(0, 10);
-          }
+      // 始终替换结果（分页模式）
+      _searchResults = List<Map<String, dynamic>>.from(
+        result['videos'] ?? [],
+      );
+
+      // 只在第一页时添加到搜索历史
+      if (page == 1 && !_searchHistory.contains(keyword)) {
+        _searchHistory.insert(0, keyword);
+        if (_searchHistory.length > 10) {
+          _searchHistory = _searchHistory.sublist(0, 10);
         }
-      } else {
-        // 追加更多结果
-        final moreResults = List<Map<String, dynamic>>.from(
-          result['videos'] ?? [],
-        );
-        _searchResults.addAll(moreResults);
       }
 
       // 更新搜索历史（从服务器获取）
@@ -394,12 +387,14 @@ class BilibiliProvider with ChangeNotifier {
   List<Map<String, dynamic>> _hotPlaylists = [];
   List<Map<String, dynamic>> _hotRank = [];
   List<Map<String, dynamic>> _personalizedRecommendations = [];
+  Map<String, dynamic> _personalizedResponse = {}; // 完整的推荐响应数据
   Map<String, dynamic> _musicCategories = {};
   List<Map<String, dynamic>> _categoryRecommendations = [];
 
   List<Map<String, dynamic>> get hotPlaylists => _hotPlaylists;
   List<Map<String, dynamic>> get hotRank => _hotRank;
   List<Map<String, dynamic>> get personalizedRecommendations => _personalizedRecommendations;
+  Map<String, dynamic> get personalizedResponseData => _personalizedResponse;
   Map<String, dynamic> get musicCategories => _musicCategories;
   List<Map<String, dynamic>> get categoryRecommendations => _categoryRecommendations;
 
@@ -473,11 +468,16 @@ class BilibiliProvider with ChangeNotifier {
       notifyListeners();
 
       final result = await _apiService!.getPersonalizedRecommendations(limit: limit);
+
+      // 保存完整的响应数据
+      _personalizedResponse = Map<String, dynamic>.from(result);
+
+      // 兼容旧逻辑：保存推荐的items到personalizedRecommendations
       _personalizedRecommendations = List<Map<String, dynamic>>.from(
         result['videos'] ?? result['playlists'] ?? [],
       );
 
-      debugPrint('【BilibiliProvider】Personalized recommendations loaded: ${_personalizedRecommendations.length}');
+      debugPrint('【BilibiliProvider】Personalized response: source=${result['source']}, videos=${result['videos']?.length ?? 0}, playlists=${result['playlists']?.length ?? 0}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();

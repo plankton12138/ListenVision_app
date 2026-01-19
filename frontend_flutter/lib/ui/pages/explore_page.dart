@@ -127,16 +127,55 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       return;
     }
 
-    // 从provider获取数据并转换为模型
-    final items = provider.personalizedRecommendations;
+    // 从provider获取完整的响应数据
+    final responseData = provider.personalizedResponseData;
+    final source = responseData['source'] as String? ?? 'unknown';
+
+    // 根据数据类型构建响应
+    final List<RecommendationItem> videos = [];
+    final List<BiliPlaylist> playlists = [];
+    final List<String> keywords = [];
+
+    // 处理视频列表
+    if (responseData['videos'] != null) {
+      final videoList = responseData['videos'] as List;
+      for (var item in videoList) {
+        try {
+          videos.add(RecommendationItem.fromJson(item as Map<String, dynamic>));
+        } catch (e) {
+          debugPrint('【ExplorePage】Failed to parse video item: $e');
+        }
+      }
+    }
+
+    // 处理歌单列表
+    if (responseData['playlists'] != null) {
+      final playlistList = responseData['playlists'] as List;
+      for (var item in playlistList) {
+        try {
+          playlists.add(BiliPlaylist.fromJson(item as Map<String, dynamic>));
+        } catch (e) {
+          debugPrint('【ExplorePage】Failed to parse playlist item: $e');
+        }
+      }
+    }
+
+    // 处理关键词
+    if (responseData['keywords'] != null) {
+      final keywordList = responseData['keywords'] as List;
+      keywords.addAll(keywordList.map((k) => k.toString()));
+    }
+
     setState(() {
       _personalizedResponse = PersonalizedResponse(
-        source: 'personalized',
-        keywords: [],
-        videos: items.map((item) => RecommendationItem.fromJson(item)).toList(),
-        playlists: [],
+        source: source,
+        keywords: keywords,
+        videos: videos,
+        playlists: playlists,
       );
     });
+
+    debugPrint('【ExplorePage】Personalized loaded: ${videos.length} videos, ${playlists.length} playlists');
   }
 
   /// 加载榜单数据
@@ -277,26 +316,8 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 个性化推荐提示
-        if (_personalizedResponse!.keywords != null &&
-            _personalizedResponse!.keywords!.isNotEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Icon(Icons.person, color: Colors.blue),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '基于你的兴趣: ${_personalizedResponse!.keywords!.join('、')}',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // 来源提示卡片
+        _buildSourceCard(),
         // 推荐视频列表
         if (_personalizedResponse!.videos != null &&
             _personalizedResponse!.videos!.isNotEmpty)
@@ -306,6 +327,54 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
             _personalizedResponse!.playlists!.isNotEmpty)
           ..._personalizedResponse!.playlists!.map((playlist) => _buildPlaylistCard(playlist)),
       ],
+    );
+  }
+
+  /// 构建来源提示卡片
+  Widget _buildSourceCard() {
+    String sourceText = '推荐内容';
+    IconData sourceIcon = Icons.recommend;
+    Color sourceColor = Colors.blue;
+
+    switch (_personalizedResponse!.source) {
+      case 'music':
+        sourceText = 'B站音乐区推荐';
+        sourceIcon = Icons.music_note;
+        sourceColor = Colors.purple;
+        break;
+      case 'rank_fallback':
+        sourceText = '热歌榜单';
+        sourceIcon = Icons.trending_up;
+        sourceColor = Colors.orange;
+        break;
+      case 'hot':
+        sourceText = '热门推荐';
+        sourceIcon = Icons.whatshot;
+        sourceColor = Colors.red;
+        break;
+      case 'personalized':
+        sourceText = '个性化推荐';
+        sourceIcon = Icons.person;
+        sourceColor = Colors.green;
+        break;
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(sourceIcon, color: sourceColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                sourceText,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

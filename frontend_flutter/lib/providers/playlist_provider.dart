@@ -53,6 +53,10 @@ class PlaylistProvider with ChangeNotifier {
     try {
       await loadPlaylists(token);
       await _loadFavoritesFromLocal();
+      // 加载播放队列（如果系统歌单已创建）
+      if (_nowPlayingPlaylist?.id != null) {
+        await loadNowPlaying(token);
+      }
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -293,6 +297,27 @@ class PlaylistProvider with ChangeNotifier {
           _playlists[playlistIndex] = playlist.copyWith(itemCount: (playlist.itemCount - 1).clamp(0, 999999));
         }
 
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    }
+    return false;
+  }
+
+  /// 调整歌单项顺序
+  Future<bool> reorderItems(String token, int playlistId, List<PlaylistItem> items) async {
+    try {
+      final response = await _apiService.put(
+        endpoint: '/playlists/$playlistId/items/reorder',
+        token: token,
+        data: {
+          'items': items.map((item) => {'id': item.id, 'bvid': item.bvid}).toList(),
+        },
+      );
+
+      if (response['success'] == true) {
         notifyListeners();
         return true;
       }

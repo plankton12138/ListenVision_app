@@ -134,21 +134,34 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   Future<void> _reorderItems(int oldIndex, int newIndex) async {
-    // 局部更新UI
-    if (_detail != null) {
-      final items = List<PlaylistItem>.from(_detail!.items);
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
-      final item = items.removeAt(oldIndex);
-      items.insert(newIndex, item);
+    if (_detail == null) return;
 
-      setState(() {
-        _detail = PlaylistDetail(playlist: _detail!.playlist, items: items);
-      });
+    // 局部更新UI（乐观更新）
+    final items = List<PlaylistItem>.from(_detail!.items);
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
     }
+    final item = items.removeAt(oldIndex);
+    items.insert(newIndex, item);
 
-    // TODO: 调用后端API保存新顺序
+    setState(() {
+      _detail = PlaylistDetail(playlist: _detail!.playlist, items: items);
+    });
+
+    // 调用后端API保存新顺序
+    final authProvider = context.read<AuthProvider>();
+    final playlistProvider = context.read<PlaylistProvider>();
+
+    try {
+      await playlistProvider.reorderItems(
+        authProvider.user!.token,
+        widget.playlistId,
+        items,
+      );
+    } catch (e) {
+      // 失败时重新加载
+      _loadDetail();
+    }
   }
 
   @override

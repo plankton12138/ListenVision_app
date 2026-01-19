@@ -98,16 +98,17 @@ When working in this repository:
 
 ### 架构迁移进行中
 
-**当前阶段**: **Phase 2** - 歌单、收藏、推荐、播放历史功能
+**当前阶段**: **Phase 3** - 搜索优化、推荐算法、下载任务管理
 
 **迁移进度**:
 ```
 规划阶段: ████████████████████ 100% ✅
 Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
 Phase 2:   ████████████████████ 100% ✅ 歌单/收藏/推荐/历史完成
-Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2完成
+Phase 2A:  ██░░░░░░░░░░░░░░░░░░  10% 🚧 播放功能改进（进行中）
+Phase 3:   ████████████████████ 100% ✅ 搜索/下载/推荐完成
 
-总进度: 60% (Phase 1+2 完成)
+总进度: 80% (Phase 1+2+3前端集成完成)
 ```
 
 **Phase 1 完成状态** (2026-01-18):
@@ -126,8 +127,25 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 - ✅ 登录访问控制（未登录无法访问需要登录的功能）
 - ✅ B站账号绑定设置页面优化
 
+**Phase 2A 进行中** (播放功能改进):
+- 🚧 在线音频播放支持（AudioProvider 扩展）
+- 🚧 播放列表持久化（online_queue 表）
+- 🚧 循环模式切换（列表/单曲/随机）
+- 🚧 播放进度自动保存
+
+**Phase 3 完成状态** (2026-01-19):
+- ✅ 后端 FTS5 全文搜索（searchService.js）
+- ✅ 后端下载任务管理（downloadService.js）
+- ✅ 推荐功能（使用热门歌单API，稳定可靠）
+- ✅ 前端搜索 Provider（search_provider.dart）
+- ✅ 前端下载 Provider（download_task_provider.dart）
+- ✅ Provider 已集成到 main.dart
+- ✅ 下载任务管理页面（backend_download_page.dart）
+- ✅ 发现页面推荐功能完善
+
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的3阶段实施计划
+- 📄 [Phase 2A 播放功能改进](./docs/PHASE_2A_PLAYBACK_PLAN.md) - 播放列表持久化和播放控制
 - 📄 [Phase 2 歌单收藏推荐计划](./docs/PHASE_2_PLAYLIST_PLAN.md) - 歌单系统、收藏功能、推荐页面实施计划
 - 📄 [Phase 1 实施细节](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md) - B站API集成技术细节
 
@@ -288,6 +306,8 @@ The app follows a modular architecture with clear separation of concerns:
   - `bilibili_provider.dart` - **B站账号绑定状态** (Phase 1 新增)
   - `playlist_provider.dart` - **歌单/收藏状态管理** (Phase 2 新增)
   - `play_history_provider.dart` - **播放历史状态管理** (Phase 2 新增)
+  - `search_provider.dart` - **搜索状态管理** (Phase 3 新增)
+  - `download_task_provider.dart` - **下载任务管理** (Phase 3 新增)
   - `theme_provider.dart` - Theme management
 
 - **`routes/`** - Navigation configuration using go_router
@@ -303,6 +323,7 @@ The app follows a modular architecture with clear separation of concerns:
   - `pages/playlist_library_page.dart` - **歌单库页面** (Phase 2 新增)
   - `pages/playlist_detail_page.dart` - **歌单详情页面** (Phase 2 新增)
   - `pages/play_history_page.dart` - **播放历史页面** (Phase 2 新增)
+  - `pages/backend_download_page.dart` - **下载任务管理页面** (Phase 3 新增)
   - `pages/settings_page.dart` - **设置页面（含B站绑定）** (Phase 2 优化)
   - `components/my_drawer.dart` - **侧边栏（登录状态控制入口显示）** (Phase 2 优化)
 
@@ -490,6 +511,18 @@ Get-Process node | Stop-Process -Force
     └── database.js            ← 扩展：playlists、playlist_items、play_history表
 ```
 
+**Phase 3 新增架构** (80% 完成):
+```
+├── services/
+│   ├── searchService.js       ← 新增：FTS5 全文搜索服务
+│   └── downloadService.js     ← 新增：下载任务管理服务
+├── routes/
+│   ├── search.js              ← 新增：搜索 API 路由（4个端点）
+│   └── downloads.js           ← 新增：下载任务路由（9个端点）
+└── config/
+    └── database.js            ← 扩展：audio_metadata_fts、search_stats、download_tasks 表
+```
+
 **核心组件:**
 
 - **Express Server** - REST API框架
@@ -587,6 +620,23 @@ Get-Process node | Stop-Process -Force
 - `GET /api/recommendations/hot-playlists` - 获取B站热门歌单
 - `GET /api/recommendations/rank` - 获取B站热歌榜单
 - `GET /api/recommendations/personalized` - 获取个性化推荐
+
+**Phase 3 搜索API**:
+- `GET /api/search/local` - 本地音频全文搜索（FTS5）
+- `GET /api/search/suggestions` - 搜索建议（前缀匹配）
+- `GET /api/search/trending` - 热门关键词（Top 10）
+- `GET /api/search/history` - 用户搜索历史
+
+**Phase 3 下载任务API**:
+- `POST /api/downloads` - 创建下载任务
+- `GET /api/downloads` - 获取用户所有下载任务
+- `GET /api/downloads/:id` - 获取任务详情
+- `PUT /api/downloads/:id/pause` - 暂停下载
+- `PUT /api/downloads/:id/resume` - 恢复下载
+- `PUT /api/downloads/:id/complete` - 标记完成
+- `PUT /api/downloads/:id/progress` - 更新进度
+- `DELETE /api/downloads/:id` - 删除任务
+- `DELETE /api/downloads/completed` - 清空已完成任务
 
 ### Security Notes
 

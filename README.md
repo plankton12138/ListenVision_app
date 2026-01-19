@@ -136,26 +136,36 @@ flutter build macos        # macOS
 
 ```
 Projects_ListenVison/
-├── frontenf_flutter/              # Flutter 前端应用
+├── frontend_flutter/              # Flutter 前端应用
 │   ├── lib/
 │   │   ├── main.dart             # 应用入口
 │   │   ├── models/               # 数据模型
 │   │   │   ├── audio_model.dart
 │   │   │   ├── bilibili_account.dart
-│   │   │   ├── platform_account.dart
+│   │   │   ├── playlist.dart           # 歌单模型 (Phase 2)
+│   │   │   ├── play_history.dart       # 播放历史模型 (Phase 2)
+│   │   │   ├── recommendation.dart     # 推荐内容模型 (Phase 2)
 │   │   │   └── user_model.dart
 │   │   ├── providers/            # 状态管理
 │   │   │   ├── audio_provider.dart
 │   │   │   ├── auth_provider.dart
+│   │   │   ├── bilibili_provider.dart     # B站绑定状态 (Phase 1)
+│   │   │   ├── playlist_provider.dart     # 歌单状态 (Phase 2)
+│   │   │   ├── play_history_provider.dart # 播放历史状态 (Phase 2)
 │   │   │   └── theme_provider.dart
 │   │   ├── services/             # 业务服务
 │   │   │   ├── api_service.dart
+│   │   │   ├── bilibiliApiService.dart    # B站API服务 (Phase 1)
 │   │   │   ├── download_manager.dart
-│   │   │   ├── secure_storage_service.dart
 │   │   │   └── file_picker.dart
 │   │   ├── routes/               # 路由配置
 │   │   ├── ui/                   # 用户界面
-│   │   │   ├── pages/            # 页面
+│   │   │   ├── pages/
+│   │   │   │   ├── explore_page.dart           # 发现页面 (Phase 2)
+│   │   │   │   ├── playlist_library_page.dart  # 歌单库 (Phase 2)
+│   │   │   │   ├── playlist_detail_page.dart   # 歌单详情 (Phase 2)
+│   │   │   │   ├── play_history_page.dart      # 播放历史 (Phase 2)
+│   │   │   │   └── settings_page.dart          # 设置页面
 │   │   │   └── components/       # 组件
 │   │   ├── theme/                # 主题配置
 │   │   ├── config/               # 配置文件
@@ -167,10 +177,25 @@ Projects_ListenVison/
 │
 ├── listen-vision_api/            # Node.js 后端服务
 │   ├── index.js                  # 主服务器文件
+│   ├── services/
+│   │   ├── bilibiliService.js    # B站API集成 (Phase 1)
+│   │   ├── audioService.js       # 音频元数据服务 (Phase 1)
+│   │   ├── playlistService.js    # 歌单管理服务 (Phase 2)
+│   │   ├── playHistoryService.js # 播放历史服务 (Phase 2)
+│   │   └── recommendationService.js # 推荐服务 (Phase 2)
+│   ├── routes/
+│   │   ├── bilibili.js           # B站API路由 (Phase 1)
+│   │   ├── audio.js              # 音频API路由 (Phase 1)
+│   │   ├── playlists.js          # 歌单API路由 (Phase 2)
+│   │   ├── history.js            # 历史API路由 (Phase 2)
+│   │   └── recommendations.js    # 推荐API路由 (Phase 2)
+│   ├── config/
+│   │   └── database.js           # 数据库配置 (含Phase 1+2表结构)
 │   ├── package.json              # 依赖配置
 │   └── node_modules/             # 依赖包
 │
-├── docs/                         # 项目文档 (可选)
+├── docs/                         # 项目文档
+├── bilibili-API-collect/         # B站API文档 (本地克隆)
 ├── PRD.md                        # 产品需求文档
 ├── CLAUDE.md                     # Claude Code 指导文档
 └── README.md                     # 本文件
@@ -192,6 +217,7 @@ Projects_ListenVison/
 - ✅ 文件浏览与选择
 - ✅ 跳转到原内容页面（B站）
 - ✅ 视频章节/选集/分P 跳转支持
+- ✅ 音频元数据显示（封面、标题、艺术家）
 
 #### 登录用户
 **账号管理**：
@@ -199,41 +225,51 @@ Projects_ListenVison/
 - ✅ 用户名/密码登录
 - ✅ 忘记密码（邮箱验证码找回）
 
-**额外功能**：
-- ✅ 创建和管理歌单
-- ✅ 收藏音频内容
-- ✅ 查看播放历史
-- ✅ 个人统计数据
+**歌单与收藏** (Phase 2)：
+- ✅ 创建/编辑/删除歌单
+- ✅ "我喜欢"收藏歌单（系统歌单）
+- ✅ 添加/移除歌单项
+- ✅ 收藏快捷操作（搜索结果/播放器）
+- ✅ 播放历史记录与清空
+- ✅ 歌单详情查看
 
-**可选 - Bilibili 账号绑定**：
+**发现与推荐** (Phase 2)：
+- ✅ 热门歌单推荐
+- ✅ 热歌榜单
+- ✅ 个性化推荐内容
+- ✅ 登录访问控制（需要登录才能访问）
+
+**可选 - Bilibili 账号绑定** (Phase 1)：
 - ✅ Bilibili 二维码登录
 - ✅ 账号绑定与解绑
-- ✅ 系统级加密 Cookie 存储
+- ✅ 服务端加密 Cookie 存储 (AES-256-CBC)
 - ✅ 获取 B站 推荐内容
-- ✅ 查看关注 UP 主的更新
+- ✅ 设置页面优化
 
 #### 后端服务
 - ✅ 用户注册/登录（JWT 认证）
 - ✅ 邮箱验证码服务
 - ✅ 密码找回功能
 - ✅ 收藏管理 API
-- ✅ 歌单管理 API
+- ✅ 歌单管理 API (Phase 2)
+- ✅ 播放历史 API (Phase 2)
+- ✅ 推荐内容 API (Phase 2)
 - ✅ CORS 跨域支持
 - ✅ SQLite 数据库（better-sqlite3）
-- ✅ B站API集成（QR登录、视频信息、音频流）
-- ✅ 音频元数据缓存服务
-- ✅ 资源代理服务（解决B站防盗链）
+- ✅ B站API集成（QR登录、视频信息、音频流）(Phase 1)
+- ✅ 音频元数据缓存服务 (Phase 1)
+- ✅ 资源代理服务（解决B站防盗链）(Phase 1)
 
 ### 规划中功能 🚧
 
 - 🎵 音频可视化 (波形图/频谱图)
 - 🎨 简易音频剪辑功能
 - 🌐 多语言支持
-- 📊 播放历史记录
-- 🎵 音乐平台推荐集成
+- 🎵 音乐平台推荐扩展
 - 📝 播放列表导入/导出
 - 🔄 多线程下载优化
 - 🎵 在线流式播放 (边下边播)
+- 🔄 播放队列跨设备同步
 
 ---
 

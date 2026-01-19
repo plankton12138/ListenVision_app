@@ -26,19 +26,26 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   @override
   void initState() {
     super.initState();
+    // 延迟到 build 完成后检查登录
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLoginAndLoad();
+    });
+  }
+
+  /// 检查登录状态，未登录则跳转到登录页
+  void _checkLoginAndLoad() {
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isLoggedIn) {
+      showMySnackBar(context, '请先登录', Colors.orange, 1500);
+      context.go('/login');
+      return;
+    }
     _loadHistory();
   }
 
   Future<void> _loadHistory() async {
     final authProvider = context.read<AuthProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
-
-    if (authProvider.user?.token == null) {
-      setState(() {
-        _errorMessage = '请先登录';
-      });
-      return;
-    }
 
     setState(() {
       _isLoading = true;

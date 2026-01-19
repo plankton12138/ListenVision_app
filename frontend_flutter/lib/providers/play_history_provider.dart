@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:demo/models/play_history.dart';
 import 'package:demo/services/api_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 播放历史状态管理

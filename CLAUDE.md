@@ -98,19 +98,19 @@ When working in this repository:
 
 ### 架构迁移进行中
 
-**当前阶段**: **Phase 1** - B站API集成与元数据服务迁移
+**当前阶段**: **Phase 2** - 歌单、收藏、推荐、播放历史功能
 
 **迁移进度**:
 ```
 规划阶段: ████████████████████ 100% ✅
 Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
-Phase 2:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 1完成
+Phase 2:   ████████████████████ 100% ✅ 歌单/收藏/推荐/历史完成
 Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2完成
 
-总进度: 40% (Phase 1 完成)
+总进度: 60% (Phase 1+2 完成)
 ```
 
-**Phase 1 完成状态**:
+**Phase 1 完成状态** (2026-01-18):
 - ✅ 将B站API调用从Flutter端迁移到服务端
 - ✅ 实现音频元数据缓存机制
 - ✅ 提升安全性（Cookie服务端管理）
@@ -118,9 +118,18 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 - ✅ metadata_god 集成（支持 M4A/MP3/FLAC 元数据读写）
 - ✅ 封面获取与写入功能正常
 
+**Phase 2 完成状态** (2026-01-19):
+- ✅ 歌单系统（创建/编辑/删除/管理）
+- ✅ 收藏功能（"我喜欢"系统歌单）
+- ✅ 发现页面（热门榜单 + 个性化推荐）
+- ✅ 播放历史（记录/查看/清空）
+- ✅ 登录访问控制（未登录无法访问需要登录的功能）
+- ✅ B站账号绑定设置页面优化
+
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的3阶段实施计划
 - 📄 [Phase 2 歌单收藏推荐计划](./docs/PHASE_2_PLAYLIST_PLAN.md) - 歌单系统、收藏功能、推荐页面实施计划
+- 📄 [Phase 1 实施细节](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md) - B站API集成技术细节
 
 **知识说明**:
 - **渐进式迁移**: 逐步将业务逻辑从客户端迁移到服务端，每个Phase独立可测试、可回滚
@@ -266,7 +275,7 @@ flutter pub run flutter_launcher_icons
 The app follows a modular architecture with clear separation of concerns:
 
 **Entry Point:** `lib/main.dart`
-- Initializes Providers (ThemeController, AudioProvider, AuthProvider, BilibiliProvider)
+- Initializes Providers (ThemeController, AudioProvider, AuthProvider, BilibiliProvider, PlaylistProvider, PlayHistoryProvider)
 - Sets up database factory for desktop platforms (Windows/Linux/macOS use sqflite_ffi)
 - Handles first-launch permission requests
 - **Phase 1**: Initializes MetadataGod for audio metadata handling
@@ -277,6 +286,8 @@ The app follows a modular architecture with clear separation of concerns:
   - `audio_provider.dart` - Audio playback state (Phase 1: 使用 metadata_god 读取元数据)
   - `auth_provider.dart` - User authentication state
   - `bilibili_provider.dart` - **B站账号绑定状态** (Phase 1 新增)
+  - `playlist_provider.dart` - **歌单/收藏状态管理** (Phase 2 新增)
+  - `play_history_provider.dart` - **播放历史状态管理** (Phase 2 新增)
   - `theme_provider.dart` - Theme management
 
 - **`routes/`** - Navigation configuration using go_router
@@ -288,8 +299,17 @@ The app follows a modular architecture with clear separation of concerns:
   - `file_picker.dart` - File selection
 
 - **`ui/`** - User interface components
+  - `pages/explore_page.dart` - **发现页面（推荐/榜单）** (Phase 2 新增)
+  - `pages/playlist_library_page.dart` - **歌单库页面** (Phase 2 新增)
+  - `pages/playlist_detail_page.dart` - **歌单详情页面** (Phase 2 新增)
+  - `pages/play_history_page.dart` - **播放历史页面** (Phase 2 新增)
+  - `pages/settings_page.dart` - **设置页面（含B站绑定）** (Phase 2 优化)
+  - `components/my_drawer.dart` - **侧边栏（登录状态控制入口显示）** (Phase 2 优化)
 
 - **`models/`** - Data models and entities
+  - `playlist.dart` - **歌单数据模型** (Phase 2 新增)
+  - `play_history.dart` - **播放历史数据模型** (Phase 2 新增)
+  - `recommendation.dart` - **推荐内容数据模型** (Phase 2 新增)
 
 - **`utils/`** - Utility functions and helpers
 
@@ -382,7 +402,7 @@ From the README, these features are planned or in progress:
 - CORS enabled
 - Jest for testing
 
-**当前状态**: ✅ **Phase 1后端完成** - B站API集成服务已实现
+**当前状态**: ✅ **Phase 1+2 后端完成** - B站API集成 + 歌单系统已实现
 
 ### Development Commands
 
@@ -454,6 +474,20 @@ Get-Process node | Stop-Process -Force
 │   └── audioController.js     ← 新增
 └── config/
     └── database.js            ← 新增：bilibili_accounts、audio_metadata_cache表
+```
+
+**Phase 2 新增架构** (已完成):
+```
+├── services/
+│   ├── playlistService.js     ← 新增：歌单管理服务
+│   ├── playHistoryService.js  ← 新增：播放历史服务
+│   └── recommendationService.js ← 新增：推荐内容服务
+├── routes/
+│   ├── playlists.js           ← 新增：歌单管理路由
+│   ├── history.js             ← 新增：播放历史路由
+│   └── recommendations.js     ← 新增：推荐内容路由
+└── config/
+    └── database.js            ← 扩展：playlists、playlist_items、play_history表
 ```
 
 **核心组件:**
@@ -531,6 +565,28 @@ Get-Process node | Stop-Process -Force
 - `DELETE /api/audio/search/:keyword` - 删除特定搜索关键词
 - `GET /api/audio/stats` - 获取缓存统计
 - `POST /api/audio/clean` - 清理过期缓存
+
+**Phase 2 歌单API**:
+- `GET /api/playlists` - 获取用户所有歌单
+- `POST /api/playlists` - 创建新歌单
+- `GET /api/playlists/:id` - 获取歌单详情（包含items）
+- `PUT /api/playlists/:id` - 更新歌单信息
+- `DELETE /api/playlists/:id` - 删除歌单
+- `POST /api/playlists/:id/items` - 添加音频到歌单
+- `DELETE /api/playlists/:id/items/:bvid` - 从歌单移除音频
+- `POST /api/playlists/favorites/toggle` - 切换收藏状态
+- `GET /api/playlists/favorites/check/:bvid` - 检查是否已收藏
+
+**Phase 2 播放历史API**:
+- `GET /api/history` - 获取播放历史
+- `POST /api/history` - 记录播放
+- `DELETE /api/history` - 清空播放历史
+- `DELETE /api/history/:id` - 删除单条历史记录
+
+**Phase 2 推荐API**:
+- `GET /api/recommendations/hot-playlists` - 获取B站热门歌单
+- `GET /api/recommendations/rank` - 获取B站热歌榜单
+- `GET /api/recommendations/personalized` - 获取个性化推荐
 
 ### Security Notes
 

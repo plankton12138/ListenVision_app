@@ -1,5 +1,7 @@
 import 'package:demo/constants/dimens.dart';
 import 'package:demo/providers/bilibili_provider.dart';
+import 'package:demo/providers/auth_provider.dart';
+import 'package:demo/providers/playlist_provider.dart';
 import 'package:demo/services/download_manager.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:demo/utils/show_notes.dart';
@@ -8,11 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// 搜索页面
-///
-/// 搜索B站视频并支持下载
 class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
+  const SearchPage({Key? key}) : super(key: key);
 
   @override
   _SearchPageState createState() => _SearchPageState();
@@ -30,38 +29,35 @@ class _SearchPageState extends State<SearchPage> {
   bool _isLoading = false;
   String? _searchError;
 
-  // 保存 Provider 引用，避免在 dispose 中使用 context
-  BilibiliProvider? _bilibiliProvider;
-
   @override
   void initState() {
     super.initState();
     _downloadManager.initDatabase();
 
-    // 从 Provider 获取初始状态，并保存引用
-    _bilibiliProvider = context.read<BilibiliProvider>();
-    _results = _bilibiliProvider!.searchResults;
-    _isLoading = _bilibiliProvider!.isSearching;
-    _searchError = _bilibiliProvider!.searchError;
+    // 从 Provider 获取初始状态
+    final provider = context.read<BilibiliProvider>();
+    _results = provider.searchResults;
+    _isLoading = provider.isSearching;
+    _searchError = provider.searchError;
 
     // 监听 Provider 变化
-    _bilibiliProvider!.addListener(_onProviderChanged);
+    provider.addListener(_onProviderChanged);
   }
 
   @override
   void dispose() {
-    // 使用保存的引用，而不是通过 context 获取
-    _bilibiliProvider?.removeListener(_onProviderChanged);
+    context.read<BilibiliProvider>().removeListener(_onProviderChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onProviderChanged() {
-    if (!mounted || _bilibiliProvider == null) return;
+    if (!mounted) return;
+    final provider = context.read<BilibiliProvider>();
     setState(() {
-      _results = _bilibiliProvider!.searchResults;
-      _isLoading = _bilibiliProvider!.isSearching;
-      _searchError = _bilibiliProvider!.searchError;
+      _results = provider.searchResults;
+      _isLoading = provider.isSearching;
+      _searchError = provider.searchError;
     });
   }
 
@@ -73,9 +69,9 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    // 最大页数限制
+    // Max page size
     if (page > 50) {
-      showMySnackBar(context, '已达到最大页数', Colors.red, 1000);
+      showMySnackBar(context, 'Reached max page size', Colors.red, 1000);
       return;
     }
 
@@ -87,8 +83,8 @@ class _SearchPageState extends State<SearchPage> {
     final success = await provider.searchBilibili(keyword, page: page);
 
     if (!success && mounted) {
-      final error = provider.searchError ?? '未知错误';
-      showMySnackBar(context, '搜索失败: $error', Colors.red, 2000);
+      final error = provider.searchError ?? 'Unknown error';
+      showMySnackBar(context, 'Search failed: $error', Colors.red, 2000);
     }
   }
 
@@ -97,15 +93,15 @@ class _SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '搜索',
+          'Search',
           style: TextStyle(
             fontSize: Dimens.fontSizeLarge,
           ),
         ),
         actions: <Widget>[
-          // 返回首页按钮
+          // Home Button
           IconButton(
-            icon: const Icon(Icons.home),
+            icon: Icon(Icons.home),
             iconSize: Dimens.iconMedium,
             onPressed: () => context.go('/'),
           ),
@@ -113,22 +109,22 @@ class _SearchPageState extends State<SearchPage> {
       ),
       body: Column(
         children: [
-          // 搜索栏
+          // Search Bar
           _buildSearchBar(context),
-          // 搜索结果
+          // Search Results
           _buildSearchResults(),
         ],
       ),
       drawer: const MyDrawer(),
       persistentFooterButtons: _results.isEmpty
-          ? [] // 无搜索结果
+          ? [] // No search results
           : [
-              // 页码显示
+              // Page number
               Text(
-                '第 $_currentPage 页',
+                'Page $_currentPage',
                 style: const TextStyle(color: Colors.black),
               ),
-              // 上一页按钮
+              // Prev Page Button
               if (_currentPage > 1)
                 TextButton(
                   style: TextButton.styleFrom(
@@ -138,11 +134,11 @@ class _SearchPageState extends State<SearchPage> {
                     _searchBilibili(context, _searchController.text, page: _currentPage - 1);
                   },
                   child: const Text(
-                    '上一页',
+                    'Prev Page',
                     style: TextStyle(color: Colors.black),
                   ),
                 ),
-              // 下一页按钮
+              // Next Page Button
               TextButton(
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.blue,
@@ -151,7 +147,7 @@ class _SearchPageState extends State<SearchPage> {
                   _searchBilibili(context, _searchController.text, page: _currentPage + 1);
                 },
                 child: const Text(
-                  '下一页',
+                  'Next Page',
                   style: TextStyle(color: Colors.black),
                 ),
               ),
@@ -170,11 +166,11 @@ class _SearchPageState extends State<SearchPage> {
               child: TextFormField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  labelText: '搜索视频',
+                  labelText: 'search for videos',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请输入搜索关键词';
+                    return 'Please enter a keyword';
                   }
                   return null;
                 },
@@ -195,6 +191,58 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 构建收藏按钮
+  Widget _buildFavoriteButton(BuildContext context, dynamic item) {
+    final authProvider = context.watch<AuthProvider>();
+    final playlistProvider = context.watch<PlaylistProvider>();
+
+    // 优先使用后端返回的 bvid 字段
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) {
+      return const SizedBox.shrink(); // 没有 bvid 则不显示按钮
+    }
+
+    final isFavorited = playlistProvider.isFavorited(bvid);
+
+    // 获取视频元数据
+    final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+    final author = item['author'] ?? 'Unknown';
+
+    return IconButton(
+      icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border),
+      color: isFavorited ? Colors.red : Colors.grey,
+      onPressed: () async {
+        if (!authProvider.isLoggedIn) {
+          showMySnackBar(context, '请先登录', Colors.orange, 1500);
+          return;
+        }
+
+        try {
+          final token = authProvider.user!.token;
+          final added = await playlistProvider.toggleFavorite(
+            token,
+            bvid,
+            title: title,
+            artist: author,
+          );
+
+          if (mounted) {
+            showMySnackBar(
+              context,
+              added ? '已添加到我喜欢' : '已从我喜欢移除',
+              Colors.green,
+              1000,
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            showMySnackBar(context, '操作失败: $e', Colors.red, 2000);
+          }
+        }
+      },
+    );
+  }
+
   Widget _buildSearchResults() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -204,19 +252,19 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('错误: $_searchError'),
+            Text('Error: $_searchError'),
             ElevatedButton(
               onPressed: () {
                 context.read<BilibiliProvider>().clearError();
               },
-              child: const Text('关闭'),
+              child: const Text('Dismiss'),
             ),
           ],
         ),
       );
     }
     if (_results.isEmpty) {
-      return const Center(child: Text('未找到结果'));
+      return const Center(child: Text('No results found'));
     }
     return Expanded(
       child: ListView.builder(
@@ -240,9 +288,7 @@ class _SearchPageState extends State<SearchPage> {
             child: ListTile(
               // Phase 1 改进：使用代理URL加载图片，解决防盗链问题
               leading: Image.network(
-                context.read<BilibiliProvider>().getProxyImageUrl(
-                  picUrl.startsWith('http') ? picUrl : 'https:$picUrl',
-                ),
+                context.read<BilibiliProvider>().getProxyImageUrl(picUrl.startsWith('http') ? picUrl : 'https:$picUrl'),
                 width: 100,
                 height: 80,
                 fit: BoxFit.cover,
@@ -265,30 +311,28 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
               subtitle: Text(
-                'UP: ${item['author'] ?? '未知'} \n播放: ${item['play'] ?? '0'} \n时长: ${item['duration'] ?? '--:--'}',
+                'UP: ${item['author'] ?? 'Unknown'} \nPLAY: ${item['play'] ?? '0'} \nDURATION: ${item['duration'] ?? '--:--'}',
                 style: const TextStyle(fontSize: 8),
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.download),
-                onPressed: () {
-                  // 优先使用 bvid，如果不存在则使用 arcurl
-                  String bvid = item['bvid'] ?? '';
-                  if (bvid.isNotEmpty) {
-                    // 构造标准B站视频URL
-                    _downloadManager.addDownload(context, 'https://www.bilibili.com/video/$bvid');
-                  } else {
-                    String url = item['arcurl'] ?? item['url'] ?? '';
-                    if (url.isNotEmpty) {
-                      _downloadManager.addDownload(context, url);
-                    }
-                  }
-                },
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 收藏按钮
+                  _buildFavoriteButton(context, item),
+                  // 下载按钮
+                  IconButton(
+                    icon: const Icon(Icons.download),
+                    onPressed: () {
+                      String url = item['arcurl'] ?? item['url'] ?? '';
+                      if (url.isNotEmpty) {
+                        _downloadManager.addDownload(context, url);
+                      }
+                    },
+                  ),
+                ],
               ),
               onTap: () async {
                 String url = item['arcurl'] ?? item['url'] ?? '';
-                if (url.isEmpty && item['bvid'] != null) {
-                  url = 'https://www.bilibili.com/video/${item['bvid']}';
-                }
                 if (url.isNotEmpty) {
                   final Uri uri = Uri.parse(url);
                   await launchUrl(uri);

@@ -45,10 +45,20 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     _bilibiliProvider = context.read<BilibiliProvider>();
     _authProvider = context.read<AuthProvider>();
 
-    // 页面初始化时加载数据
+    // 页面初始化时检查登录状态并加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      _checkLoginAndLoad();
     });
+  }
+
+  /// 检查登录状态，未登录则跳转到登录页
+  void _checkLoginAndLoad() {
+    if (_authProvider == null || !_authProvider!.isLoggedIn) {
+      showMySnackBar(context, '请先登录', Colors.orange, 1500);
+      context.go('/login');
+      return;
+    }
+    _loadData();
   }
 
   @override

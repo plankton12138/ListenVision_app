@@ -2,6 +2,7 @@ import 'package:demo/constants/dimens.dart';
 import 'package:demo/models/playlist.dart';
 import 'package:demo/providers/auth_provider.dart';
 import 'package:demo/providers/playlist_provider.dart';
+import 'package:demo/services/api_service.dart';
 import 'package:demo/utils/show_notes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +36,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   Future<void> _loadDetail() async {
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
+    final apiService = context.read<ApiService>();
 
     if (authProvider.user?.token == null) {
       setState(() {
@@ -62,15 +64,16 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
         ),
       );
 
-      // 调用API获取详情
-      final response = await playlistProvider.addItem(
-        authProvider.user!.token,
-        widget.playlistId,
-        '', // dummy bvid for API call structure
+      // 调用API获取详情（包含歌单项列表）
+      final response = await apiService.get(
+        endpoint: '/playlists/${widget.playlistId}',
+        token: authProvider.user!.token,
       );
 
-      // 这里应该调用专门的获取详情方法
-      // 暂时使用现有数据
+      if (response['success'] == true && response['data'] != null) {
+        _detail = PlaylistDetail.fromJson(response['data'] as Map<String, dynamic>);
+      }
+
       setState(() {
         _isLoading = false;
       });

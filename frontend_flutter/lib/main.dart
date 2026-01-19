@@ -106,10 +106,16 @@ void main() async {
         ChangeNotifierProxyProvider2<AuthProvider, ApiService, PlaylistProvider>(
           create: (context) => PlaylistProvider(context.read<ApiService>()),
           update: (context, authProvider, apiService, playlistProvider) {
-            // 当用户登录时初始化歌单数据
-            Future.microtask(() {
+            // 当用户登录时初始化歌单数据和收藏列表
+            Future.microtask(() async {
               if (authProvider.isLoggedIn && authProvider.user?.token != null) {
-                playlistProvider?.initialize(authProvider.user!.token);
+                final token = authProvider.user!.token;
+                try {
+                  await playlistProvider?.initialize(token);
+                  await playlistProvider?.loadFavorites(token);
+                } catch (e) {
+                  debugPrint('歌单初始化失败: $e');
+                }
               }
             });
             return playlistProvider!;

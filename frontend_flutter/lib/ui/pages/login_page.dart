@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:demo/constants/dimens.dart';
 import 'package:demo/exceptions/api_exception.dart';
 import 'package:demo/providers/auth_provider.dart';
+import 'package:demo/providers/playlist_provider.dart';
 import 'package:demo/services/api_service.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:demo/utils/show_notes.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -50,6 +52,16 @@ class _LoginPageState extends State<LoginPage> {
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.setUser(user);
+
+      // 初始化歌单Provider
+      final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
+      try {
+        await playlistProvider.initialize(user.token);
+        await playlistProvider.loadFavorites(user.token);
+      } catch (e) {
+        // 歌单初始化失败不影响登录
+        debugPrint('歌单初始化失败: $e');
+      }
 
       if (mounted) {
         showMySnackBar(context, '登录成功！', Colors.green, 1000);

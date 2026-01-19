@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:demo/constants/dimens.dart';
+import 'package:demo/providers/auth_provider.dart';
 import 'package:demo/providers/bilibili_provider.dart';
 import 'package:demo/providers/theme_provider.dart';
 import 'package:demo/ui/components/my_drawer.dart';
@@ -92,6 +93,70 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// B站账号绑定卡片
   Widget _buildBilibiliBindCard(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    // 未登录时显示提示信息
+    if (!authProvider.isLoggedIn) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.secondary,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.link, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'B站账号绑定',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '需要登录',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '请先登录后才能绑定B站账号',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => context.go('/login'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('去登录'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 已登录，显示绑定界面
     return Consumer<BilibiliProvider>(
       builder: (context, bilibiliProvider, child) {
         final isBound = bilibiliProvider.isBound;

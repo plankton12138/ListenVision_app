@@ -768,10 +768,10 @@ if (remoteConfig.enableBilibiliService) {
 ```
 规划阶段: ████████████████████ 100% ✅
 Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
-Phase 2:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 1
-Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2
+Phase 2:   ████████████████████ 100% ✅ 歌单/收藏/推荐/历史完成
+Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    等待Phase 2完成
 
-总进度: 40% (Phase 1 完成)
+总进度: 60% (Phase 1+2 完成)
 ```
 
 ### Phase 1 详细任务清单
@@ -796,6 +796,35 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 - [ ] 单元测试编写
 - [ ] 集成测试
 - [ ] 性能测试
+- [x] 文档更新
+
+### Phase 2 详细任务清单
+
+**后端开发** (2026-01-19 完成):
+- [x] playlistService.js - 歌单管理服务
+- [x] playHistoryService.js - 播放历史服务
+- [x] recommendationService.js - 推荐内容服务
+- [x] routes/playlists.js - 歌单API路由
+- [x] routes/history.js - 播放历史API路由
+- [x] routes/recommendations.js - 推荐API路由
+- [x] 数据库表扩展 (playlists, playlist_items, play_history)
+
+**前端开发** (2026-01-19 完成):
+- [x] models/playlist.dart - 歌单数据模型
+- [x] models/play_history.dart - 播放历史数据模型
+- [x] models/recommendation.dart - 推荐内容数据模型
+- [x] providers/playlist_provider.dart - 歌单状态管理
+- [x] providers/play_history_provider.dart - 播放历史状态管理
+- [x] ui/pages/explore_page.dart - 发现页面
+- [x] ui/pages/playlist_library_page.dart - 歌单库页面
+- [x] ui/pages/playlist_detail_page.dart - 歌单详情页面
+- [x] ui/pages/play_history_page.dart - 播放历史页面
+- [x] 登录访问控制（需要登录才能访问特定功能）
+
+**测试与优化**:
+- [x] 功能测试（歌单CRUD、收藏、历史）
+- [ ] 单元测试编写
+- [ ] 集成测试
 - [x] 文档更新
 
 ---
@@ -836,6 +865,7 @@ Phase 3:   ░░░░░░░░░░░░░░░░░░░░   0%    
 | 2026-01-13 | 1.0.0 | 初始版本，完成渐进式迁移计划 | Claude Code |
 | 2026-01-17 | 1.1.0 | 更新Phase 1后端完成状态，添加资源代理服务说明 | Claude Code |
 | 2026-01-18 | 1.2.0 | **Phase 1 完成**：Flutter端改造完成，metadata_god集成，搜索/下载/封面功能正常 | Claude Code |
+| 2026-01-19 | 1.3.0 | **Phase 2 完成**：歌单/收藏/推荐/历史功能完成 | Claude Code |
 
 ---
 

@@ -317,7 +317,7 @@ class DownloadExecutor {
       debugPrint(stack.toString());
       debugPrint('【DownloadExecutor】目标文件路径: $savePath');
       if (tempFile != null) {
-        debugPrint('【DownloadExecutor】临时文件路径: ${tempFile!.path}');
+        debugPrint('【DownloadExecutor】临时文件路径: ${tempFile.path}');
         try {
           debugPrint('【DownloadExecutor】临时文件存在: ${await tempFile.exists()}');
         } catch (_) {}

@@ -53,7 +53,17 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeController()),
-        ChangeNotifierProvider(create: (_) => AudioProvider()),
+        // Phase 2A: AudioProvider 创建后延迟恢复播放状态
+        ChangeNotifierProvider<AudioProvider>(
+          create: (_) {
+            final provider = AudioProvider();
+            // 延迟恢复播放状态，确保播放列表已加载
+            Future.delayed(const Duration(milliseconds: 500), () {
+              provider.restorePlaybackState();
+            });
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
 
         // B站状态管理

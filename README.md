@@ -460,7 +460,8 @@ class LocalConfig {
 - **[CLAUDE.md](./CLAUDE.md)** - Claude Code 开发指导文档
 - **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 架构迁移计划
 - **[docs/PHASE_1_IMPLEMENTATION_DETAILS.md](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md)** - Phase 1 实施细节
-- **[docs/PHASE_2_PLAYLIST_PLAN.md](./docs/PHASE_2_PLAYLIST_PLAN.md)** - Phase 2 实施计划
+- **[docs/PHASE_2_PLAYLIST_PLAN.md](./docs/PHASE_2_PLAYLIST_PLAN.md)** - Phase 2 歌单收藏推荐计划
+- **[docs/PHASE_2A_PLAYBACK_PLAN.md](./docs/PHASE_2A_PLAYBACK_PLAN.md)** - Phase 2A 播放列表页面改进计划
 - **[frontenf_flutter/README.md](./frontenf_flutter/README.md)** - 前端详细文档
 
 ---

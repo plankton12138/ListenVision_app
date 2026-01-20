@@ -8,6 +8,8 @@ import 'package:demo/services/playlist_manager.dart';
 import 'package:flutter/foundation.dart';
 
 /// 音频播放状态管理
+///
+/// Phase 2A: 新增播放进度持久化功能
 class AudioProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
 
@@ -28,6 +30,10 @@ class AudioProvider extends ChangeNotifier {
   late StreamSubscription _durationSub;
   late StreamSubscription _stateSub;
 
+  // Phase 2A: 播放状态持久化
+  Timer? _savePositionTimer;
+  static const Duration _saveInterval = Duration(seconds: 5);
+
   AudioProvider() {
     _loadPlaylist();
     _initListeners();
@@ -42,10 +48,83 @@ class AudioProvider extends ChangeNotifier {
     _player.onPlayerComplete.listen((_) => playNext());
   }
 
+  /// 加载播放列表（从数据库）
   Future<void> _loadPlaylist() async {
     final db = PlaylistManager();
     _playlist = await db.getAllAudios();
     notifyListeners();
+  }
+
+  /// 公开方法：重新加载播放列表
+  /// Phase 2A: 用于拖拽排序后刷新
+  Future<void> loadPlaylist() async {
+    await _loadPlaylist();
+  }
+
+  // ==================== Phase 2A: 播放状态持久化 ====================
+
+  /// 启动播放位置定时保存
+  void _startPositionSaveTimer() {
+    _savePositionTimer?.cancel();
+    _savePositionTimer = Timer.periodic(_saveInterval, (_) {
+      if (_currentIndex >= 0 && _isPlaying) {
+        _savePlaybackState();
+      }
+    });
+    debugPrint('【AudioProvider】播放位置定时保存已启动');
+  }
+
+  /// 停止定时保存
+  void _stopPositionSaveTimer() {
+    _savePositionTimer?.cancel();
+    _savePositionTimer = null;
+    debugPrint('【AudioProvider】播放位置定时保存已停止');
+  }
+
+  /// 保存播放状态到数据库
+  Future<void> _savePlaybackState() async {
+    if (_currentIndex < 0 || _playlist.isEmpty) return;
+    final audio = _playlist[_currentIndex];
+    if (audio.id == null) {
+      debugPrint('【AudioProvider】音频ID为空，无法保存播放状态');
+      return;
+    }
+    final db = PlaylistManager();
+    await db.savePlaybackState(
+      audioId: audio.id!,
+      position: _position.inSeconds,
+      currentIndex: _currentIndex,
+    );
+  }
+
+  /// 恢复播放状态（应用启动时调用）
+  Future<void> restorePlaybackState() async {
+    final db = PlaylistManager();
+    final state = await db.getPlaybackState();
+    if (state != null) {
+      final savedIndex = state['current_index'] as int;
+      final savedPosition = Duration(seconds: state['position'] as int);
+      if (savedIndex >= 0 && savedIndex < _playlist.length) {
+        _currentIndex = savedIndex;
+        final audio = _playlist[savedIndex];
+        // 只设置音频源，不自动播放
+        try {
+          await _player.setSource(DeviceFileSource(audio.filePath));
+          await _player.seek(savedPosition);
+          _title = audio.title;
+          _artist = audio.artist;
+          _albumArt = audio.albumArt;
+          debugPrint('【AudioProvider】播放状态已恢复: ${audio.title}, 位置: $savedPosition');
+          notifyListeners();
+        } catch (e) {
+          debugPrint('【AudioProvider】恢复播放状态失败: $e');
+        }
+      } else {
+        debugPrint('【AudioProvider】保存的索引 $savedIndex 超出范围，当前列表长度: ${_playlist.length}');
+      }
+    } else {
+      debugPrint('【AudioProvider】没有找到保存的播放状态');
+    }
   }
 
   // ==================== 状态更新 ====================
@@ -179,15 +258,19 @@ class AudioProvider extends ChangeNotifier {
   }
 
   /// 播放/暂停
+  /// Phase 2A: 添加播放状态保存和定时器控制
   void togglePlayPause() async {
     try {
       if (_isPlaying) {
         await _player.pause();
+        _stopPositionSaveTimer(); // 暂停时停止定时器
+        await _savePlaybackState(); // 暂停时立即保存
       } else {
         if (_player.state == PlayerState.completed) {
           await _player.seek(Duration.zero);
         }
         await _player.resume();
+        _startPositionSaveTimer(); // 播放时启动定时器
       }
     } catch (e) {
       rethrow;
@@ -198,12 +281,14 @@ class AudioProvider extends ChangeNotifier {
   void seek(Duration position) => _player.seek(position);
 
   /// 播放指定索引的音频
+  /// Phase 2A: 添加定时保存启动
   Future<void> playAudio(int index) async {
     if (index < 0 || index >= _playlist.length) return;
     await _player.stop();
     final audio = _playlist[index];
     await loadAudio(audio.filePath);
     _currentIndex = _playlist.indexWhere((a) => a.filePath == audio.filePath);
+    _startPositionSaveTimer(); // 启动定时保存
     notifyListeners();
   }
 
@@ -321,6 +406,10 @@ class AudioProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Phase 2A: 释放前停止定时器并保存播放状态
+    _stopPositionSaveTimer();
+    // 注意: dispose 是同步方法，不能直接调用 async 的 _savePlaybackState
+    // 如果需要在 dispose 时保存，应该使用同步方式或标记
     _positionSub.cancel();
     _durationSub.cancel();
     _stateSub.cancel();

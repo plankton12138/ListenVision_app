@@ -1,15 +1,15 @@
 import 'package:demo/constants/dimens.dart';
-import 'package:demo/providers/download_task_provider.dart';
+import 'package:demo/services/download/download_repository.dart';
+import 'package:demo/services/download_manager.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:demo/utils/show_notes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-/// 后端下载任务管理页面
+/// 下载任务管理页面
 ///
-/// Phase 3 - 服务器端下载任务管理
-/// - 显示用户的所有下载任务
+/// 显示本地下载任务
 /// - 支持暂停/恢复/删除操作
 /// - 支持查看下载进度
 class BackendDownloadPage extends StatefulWidget {
@@ -20,18 +20,26 @@ class BackendDownloadPage extends StatefulWidget {
 }
 
 class _BackendDownloadPageState extends State<BackendDownloadPage> {
+  late DownloadManager _downloadManager;
+
   @override
   void initState() {
     super.initState();
-    // 初始化时加载任务列表
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadTasks();
-    });
+    _downloadManager = context.read<DownloadManager>();
+    // 初始化数据库（如果还没有初始化）
+    _downloadManager.initDatabase();
+    // 监听下载状态变化
+    _downloadManager.addListener(_onDownloadsChanged);
   }
 
-  Future<void> _loadTasks() async {
-    final provider = context.read<DownloadTaskProvider>();
-    await provider.loadTasks();
+  @override
+  void dispose() {
+    _downloadManager.removeListener(_onDownloadsChanged);
+    super.dispose();
+  }
+
+  void _onDownloadsChanged() {
+    setState(() {}); // 触发重建
   }
 
   /// 格式化字节为 MB/GB 显示
@@ -45,73 +53,67 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
-  /// 格式化时长
-  String _formatDuration(int? seconds) {
-    if (seconds == null || seconds <= 0) return '--:--';
-    final mins = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  /// 从 status 字段获取状态
+  DownloadStatus _getStatus(Map<String, dynamic> task) {
+    final statusStr = task['status'] as String?;
+    return DownloadStatusExtension.fromString(statusStr);
   }
 
   /// 获取状态颜色
-  Color _getStatusColor(String? status) {
+  Color _getStatusColor(DownloadStatus status) {
     switch (status) {
-      case 'pending':
+      case DownloadStatus.pending:
         return Colors.orange;
-      case 'downloading':
+      case DownloadStatus.downloading:
         return Colors.blue;
-      case 'paused':
+      case DownloadStatus.paused:
         return Colors.grey;
-      case 'completed':
+      case DownloadStatus.completed:
         return Colors.green;
-      case 'failed':
+      case DownloadStatus.failed:
         return Colors.red;
-      default:
-        return Colors.grey;
     }
   }
 
   /// 获取状态文本
-  String _getStatusText(String? status) {
+  String _getStatusText(DownloadStatus status) {
     switch (status) {
-      case 'pending':
+      case DownloadStatus.pending:
         return '等待中';
-      case 'downloading':
+      case DownloadStatus.downloading:
         return '下载中';
-      case 'paused':
+      case DownloadStatus.paused:
         return '已暂停';
-      case 'completed':
+      case DownloadStatus.completed:
         return '已完成';
-      case 'failed':
+      case DownloadStatus.failed:
         return '失败';
-      default:
-        return '未知';
     }
+  }
+
+  /// 计算进度百分比
+  int _getProgress(Map<String, dynamic> task) {
+    final downloaded = task['downloaded_bytes'] as int? ?? 0;
+    final total = task['total_bytes'] as int? ?? 0;
+    if (total <= 0) return 0;
+    return ((downloaded / total) * 100).toInt();
   }
 
   /// 暂停/恢复任务
   Future<void> _toggleTask(Map<String, dynamic> task) async {
-    final provider = context.read<DownloadTaskProvider>();
-    final taskId = task['id'] as int;
-    final status = task['status'] as String?;
+    final id = task['id'] as int;
+    final status = _getStatus(task);
 
-    bool success;
-    if (status == 'downloading') {
-      success = await provider.pauseTask(taskId);
-      if (mounted && success) {
+    if (status == DownloadStatus.downloading || status == DownloadStatus.pending) {
+      await _downloadManager.pauseDownload(id);
+      if (mounted) {
         showMySnackBar(context, '已暂停', Colors.green, 1000);
       }
-    } else if (status == 'paused') {
-      success = await provider.resumeTask(taskId);
-      if (mounted && success) {
+    } else if (status == DownloadStatus.paused) {
+      await _downloadManager.resumeDownload(id);
+      if (mounted) {
         showMySnackBar(context, '已恢复', Colors.green, 1000);
       }
-    } else {
-      return;
-    }
-
-    if (!success && mounted) {
-      showMySnackBar(context, provider.errorMessage ?? '操作失败', Colors.red, 2000);
     }
   }
 
@@ -136,15 +138,9 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     );
 
     if (confirmed == true) {
-      final provider = context.read<DownloadTaskProvider>();
-      final success = await provider.deleteTask(task['id'] as int);
+      await _downloadManager.deleteDownload(task['id'] as int);
       if (mounted) {
-        showMySnackBar(
-          context,
-          success ? '已删除' : (provider.errorMessage ?? '删除失败'),
-          success ? Colors.green : Colors.red,
-          2000,
-        );
+        showMySnackBar(context, '已删除', Colors.green, 1000);
       }
     }
   }
@@ -170,16 +166,20 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     );
 
     if (confirmed == true) {
-      final provider = context.read<DownloadTaskProvider>();
-      final success = await provider.clearCompletedTasks();
+      await _downloadManager.clearCompleted();
       if (mounted) {
-        showMySnackBar(
-          context,
-          success ? '已清空' : '清空失败',
-          success ? Colors.green : Colors.red,
-          2000,
-        );
+        final completedCount = _downloadManager.completedCount;
+        showMySnackBar(context, '已清空 $completedCount 个任务', Colors.green, 1000);
       }
+    }
+  }
+
+  /// 重试失败的任务
+  Future<void> _retryTask(Map<String, dynamic> task) async {
+    final id = task['id'] as int;
+    await _downloadManager.resumeDownload(id);
+    if (mounted) {
+      showMySnackBar(context, '已重新开始下载', Colors.green, 1000);
     }
   }
 
@@ -196,10 +196,12 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
           // 刷新按钮
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadTasks,
+            onPressed: () async {
+              await _downloadManager.refreshDownloads();
+            },
           ),
           // 清空已完成
-          if (context.watch<DownloadTaskProvider>().completedTaskCount > 0)
+          if (_downloadManager.completedCount > 0)
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'clear_completed') {
@@ -222,15 +224,11 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: Consumer<DownloadTaskProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Builder(
+        builder: (context) {
+          final downloads = _downloadManager.downloads;
 
-          final tasks = provider.tasks;
-
-          if (tasks.isEmpty) {
+          if (downloads.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -238,11 +236,6 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
                   const Icon(Icons.download_outlined, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
                   const Text('暂无下载任务', style: TextStyle(fontSize: 16)),
-                  const SizedBox(height: 8),
-                  Text(
-                    '已下载 ${provider.completedTaskCount} 个任务',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
                 ],
               ),
             );
@@ -251,14 +244,14 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
           return Column(
             children: [
               // 统计信息
-              _buildStatsBar(provider),
+              _buildStatsBar(downloads),
               // 任务列表
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.only(bottom: 100),
-                  itemCount: tasks.length,
+                  itemCount: downloads.length,
                   itemBuilder: (context, index) {
-                    final task = tasks[index];
+                    final task = downloads[index];
                     return _buildTaskItem(task);
                   },
                 ),
@@ -271,7 +264,22 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
   }
 
   /// 统计信息栏
-  Widget _buildStatsBar(DownloadTaskProvider provider) {
+  Widget _buildStatsBar(List<Map<String, dynamic>> downloads) {
+    int activeCount = 0;
+    int completedCount = 0;
+    int failedCount = 0;
+
+    for (var task in downloads) {
+      final status = _getStatus(task);
+      if (status == DownloadStatus.downloading || status == DownloadStatus.pending) {
+        activeCount++;
+      } else if (status == DownloadStatus.completed) {
+        completedCount++;
+      } else if (status == DownloadStatus.failed) {
+        failedCount++;
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -283,9 +291,9 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('进行中', provider.activeTaskCount, Colors.blue),
-          _buildStatItem('已完成', provider.completedTaskCount, Colors.green),
-          _buildStatItem('失败', provider.failedTaskCount, Colors.red),
+          _buildStatItem('进行中', activeCount, Colors.blue),
+          _buildStatItem('已完成', completedCount, Colors.green),
+          if (failedCount > 0) _buildStatItem('失败', failedCount, Colors.red),
         ],
       ),
     );
@@ -312,10 +320,10 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
 
   /// 单个任务卡片
   Widget _buildTaskItem(Map<String, dynamic> task) {
-    final status = task['status'] as String?;
-    final progress = task['progress'] as int? ?? 0;
-    final downloadedSize = task['downloaded_size'] as int?;
-    final fileSize = task['file_size'] as int?;
+    final status = _getStatus(task);
+    final progress = _getProgress(task);
+    final downloaded = task['downloaded_bytes'] as int? ?? 0;
+    final total = task['total_bytes'] as int? ?? 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -329,7 +337,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
               children: [
                 Expanded(
                   child: Text(
-                    task['title'] ?? task['bvid'] ?? '未知任务',
+                    task['title'] ?? '未知任务',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -357,20 +365,25 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
             ),
             const SizedBox(height: 8),
 
-            // 艺术家和时长
-            if (task['artist'] != null || task['duration'] != null)
-              Text(
-                '${task['artist'] ?? '未知艺术家'} · ${_formatDuration(task['duration'])}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+            // 错误信息
+            if (status == DownloadStatus.failed && task['error_message'] != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  task['error_message'].toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red[700],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
 
-            const SizedBox(height: 8),
-
             // 进度条
-            if (status == 'downloading' || status == 'paused' || status == 'pending')
+            if (status == DownloadStatus.downloading ||
+                status == DownloadStatus.paused ||
+                status == DownloadStatus.pending)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -378,12 +391,14 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
                     value: progress / 100,
                     backgroundColor: Colors.grey[200],
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      status == 'paused' ? Colors.grey : _getStatusColor(status),
+                      status == DownloadStatus.paused
+                          ? Colors.grey
+                          : _getStatusColor(status),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$progress% · ${_formatBytes(downloadedSize)}/${_formatBytes(fileSize)}',
+                    '$progress% · ${_formatBytes(downloaded)}/${_formatBytes(total)}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
@@ -398,17 +413,42 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // 重试按钮（仅失败任务）
+                if (status == DownloadStatus.failed)
+                  TextButton.icon(
+                    onPressed: () => _retryTask(task),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('重试'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                    ),
+                  ),
+
                 // 暂停/恢复按钮
-                if (status == 'downloading' || status == 'paused')
+                if (status == DownloadStatus.downloading ||
+                    status == DownloadStatus.paused ||
+                    status == DownloadStatus.pending)
                   TextButton.icon(
                     onPressed: () => _toggleTask(task),
                     icon: Icon(
-                      status == 'downloading' ? Icons.pause : Icons.play_arrow,
+                      status == DownloadStatus.downloading ||
+                              status == DownloadStatus.pending
+                          ? Icons.pause
+                          : Icons.play_arrow,
                       size: 18,
                     ),
-                    label: Text(status == 'downloading' ? '暂停' : '继续'),
+                    label: Text(
+                      status == DownloadStatus.downloading ||
+                              status == DownloadStatus.pending
+                          ? '暂停'
+                          : '继续',
+                    ),
                     style: TextButton.styleFrom(
-                      foregroundColor: status == 'downloading' ? Colors.orange : Colors.green,
+                      foregroundColor:
+                          status == DownloadStatus.downloading ||
+                                  status == DownloadStatus.pending
+                              ? Colors.orange
+                              : Colors.green,
                     ),
                   ),
 

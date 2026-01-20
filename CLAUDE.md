@@ -135,13 +135,16 @@ Phase 3:   ████████████████████ 100% ✅
 
 **Phase 3 完成状态** (2026-01-19):
 - ✅ 后端 FTS5 全文搜索（searchService.js）
-- ✅ 后端下载任务管理（downloadService.js）
 - ✅ 推荐功能（使用热门歌单API，稳定可靠）
 - ✅ 前端搜索 Provider（search_provider.dart）
-- ✅ 前端下载 Provider（download_task_provider.dart）
-- ✅ Provider 已集成到 main.dart
-- ✅ 下载任务管理页面（backend_download_page.dart）
 - ✅ 发现页面推荐功能完善
+- ✅ 下载功能 Bug 修复：
+  - 修复 auth.js 中 user_id 类型问题（parseInt 确保整数）
+  - 修复 search_page.dart dispose 中的 widget 生命周期错误
+
+**Phase 2B 进行中**:
+- ✅ 音乐区爬虫服务（musicCrawlerService.js）
+- ✅ 下载架构重构（本地化到前端）
 
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的3阶段实施计划
@@ -307,7 +310,6 @@ The app follows a modular architecture with clear separation of concerns:
   - `playlist_provider.dart` - **歌单/收藏状态管理** (Phase 2 新增)
   - `play_history_provider.dart` - **播放历史状态管理** (Phase 2 新增)
   - `search_provider.dart` - **搜索状态管理** (Phase 3 新增)
-  - `download_task_provider.dart` - **下载任务管理** (Phase 3 新增)
   - `theme_provider.dart` - Theme management
 
 - **`routes/`** - Navigation configuration using go_router
@@ -315,7 +317,11 @@ The app follows a modular architecture with clear separation of concerns:
 - **`services/`** - Business logic and external integrations
   - `api_service.dart` - API communication
   - `bilibiliApiService.dart` - **B站API服务** (Phase 1 新增)
-  - `download_manager.dart` - File download management (Phase 1: 后端API优先)
+  - `download/` - **下载模块** (Phase 2B 重构)
+    - `download_executor.dart` - 下载执行器（支持断点续传、进度追踪）
+    - `download_repository.dart` - 下载数据仓储
+    - `metadata_writer.dart` - 音频元数据写入
+  - `download_manager.dart` - 文件下载管理（调用 download_executor）
   - `file_picker.dart` - File selection
 
 - **`ui/`** - User interface components
@@ -511,17 +517,18 @@ Get-Process node | Stop-Process -Force
     └── database.js            ← 扩展：playlists、playlist_items、play_history表
 ```
 
-**Phase 3 新增架构** (80% 完成):
+**Phase 3 新增架构** (50% 完成):
 ```
 ├── services/
 │   ├── searchService.js       ← 新增：FTS5 全文搜索服务
-│   └── downloadService.js     ← 新增：下载任务管理服务
+│   └── musicCrawlerService.js ← Phase 2B: 音乐区爬虫服务
 ├── routes/
-│   ├── search.js              ← 新增：搜索 API 路由（4个端点）
-│   └── downloads.js           ← 新增：下载任务路由（9个端点）
+│   └── search.js              ← 新增：搜索 API 路由（4个端点）
 └── config/
-    └── database.js            ← 扩展：audio_metadata_fts、search_stats、download_tasks 表
+    └── database.js            ← 扩展：audio_metadata_fts、search_stats 表
 ```
+
+**注意**: 下载任务管理已从后端移除，迁移到前端本地实现（Phase 2B 重构）
 
 **核心组件:**
 
@@ -626,17 +633,6 @@ Get-Process node | Stop-Process -Force
 - `GET /api/search/suggestions` - 搜索建议（前缀匹配）
 - `GET /api/search/trending` - 热门关键词（Top 10）
 - `GET /api/search/history` - 用户搜索历史
-
-**Phase 3 下载任务API**:
-- `POST /api/downloads` - 创建下载任务
-- `GET /api/downloads` - 获取用户所有下载任务
-- `GET /api/downloads/:id` - 获取任务详情
-- `PUT /api/downloads/:id/pause` - 暂停下载
-- `PUT /api/downloads/:id/resume` - 恢复下载
-- `PUT /api/downloads/:id/complete` - 标记完成
-- `PUT /api/downloads/:id/progress` - 更新进度
-- `DELETE /api/downloads/:id` - 删除任务
-- `DELETE /api/downloads/completed` - 清空已完成任务
 
 ### Security Notes
 

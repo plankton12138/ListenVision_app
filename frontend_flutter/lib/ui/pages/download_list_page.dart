@@ -1,4 +1,5 @@
 import 'package:demo/constants/dimens.dart';
+import 'package:demo/services/download/download_repository.dart';
 import 'package:demo/services/download_manager.dart';
 import 'package:demo/ui/components/my_drawer.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,6 @@ class DownloadListPage extends StatefulWidget {
 
 class _DownloadListPageState extends State<DownloadListPage> {
   late DownloadManager downloadManager;
-  bool _isLoading = true;
   final _formKey = GlobalKey<FormState>();
   final _urlTextController = TextEditingController();
 
@@ -25,45 +25,33 @@ class _DownloadListPageState extends State<DownloadListPage> {
   void initState() {
     super.initState();
     downloadManager = Provider.of<DownloadManager>(context, listen: false);
-    downloadManager.initDatabase().then((_) {
-      _loadDownloads();
-      downloadManager.addListener(_loadDownloads);
-    });
+    downloadManager.initDatabase();
   }
 
   @override
   void dispose() {
-    downloadManager.removeListener(_loadDownloads);
+    _urlTextController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadDownloads() async {
-    try {
-      final downloadManager = Provider.of<DownloadManager>(context, listen: false);
-      final downloads = await downloadManager.getDownloads();
-      setState(() {
-        downloadManager.downloads = downloads;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('加载下载列表错误: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
+  /// 从 status 字段获取状态
+  DownloadStatus _getStatus(Map<String, dynamic> task) {
+    final statusStr = task['status'] as String?;
+    return DownloadStatusExtension.fromString(statusStr);
   }
 
-  Future<void> _deleteDownload(int id) async {
-    try {
-      await downloadManager.deleteDownload(id);
-    } catch (e) {
-      debugPrint('删除下载任务错误: $e');
+  /// 格式化字节为 MB/GB 显示
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
     }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   @override
   Widget build(BuildContext context) {
-    _loadDownloads();
     final downloadManager = Provider.of<DownloadManager>(context, listen: true);
     final downloads = downloadManager.downloads;
 
@@ -82,22 +70,32 @@ class _DownloadListPageState extends State<DownloadListPage> {
           ),
         ],
       ),
-
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: downloads.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.download_outlined, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('暂无下载任务', style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            )
           : ListView.builder(
               padding: const EdgeInsets.only(bottom: 100),
               itemCount: downloads.length,
               itemBuilder: (context, index) {
                 final download = downloads[index];
-                final id = download['id'];
-                final title = download['title'] ?? download['originalUrl'];
-                final downloadedBytes = download['downloadedBytes'] ?? 0;
-                final totalBytes = download['totalBytes'] ?? 0;
-                final isPaused = download['isPaused'] == 1;
+                final id = download['id'] as int;
+                final title = download['title'] ?? download['original_url'] ?? '未知任务';
+                final downloadedBytes = download['downloaded_bytes'] as int? ?? 0;
+                final totalBytes = download['total_bytes'] as int? ?? 0;
+                final status = _getStatus(download);
 
                 // 计算进度
-                double progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+                final progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0.0;
+                final isPaused = status == DownloadStatus.paused;
+                final isCompleted = status == DownloadStatus.completed;
 
                 return Card(
                   color: Theme.of(context).colorScheme.primary,
@@ -136,28 +134,30 @@ class _DownloadListPageState extends State<DownloadListPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (isPaused) {
-                              await downloadManager.resumeDownload(id);
-                            } else {
-                              await downloadManager.pauseDownload(id);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isPaused ? Colors.green : Colors.red,
-                          ),
-                          child: Text(
-                            isPaused ? '继续' : '暂停',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface,
+                        // 暂停/继续按钮（已完成任务不显示）
+                        if (!isCompleted)
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (isPaused) {
+                                await downloadManager.resumeDownload(id);
+                              } else {
+                                await downloadManager.pauseDownload(id);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isPaused ? Colors.green : Colors.red,
+                            ),
+                            child: Text(
+                              isPaused ? '继续' : '暂停',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                           ),
-                        ),
                         IconButton(
                           icon: const Icon(Icons.delete),
-                          onPressed: () => _deleteDownload(id),
+                          onPressed: () => downloadManager.deleteDownload(id),
                         ),
                       ],
                     ),
@@ -165,9 +165,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
                 );
               },
             ),
-
       drawer: const MyDrawer(),
-
       bottomSheet: Container(
         color: Theme.of(context).colorScheme.surface,
         padding: const EdgeInsets.all(16),
@@ -196,6 +194,7 @@ class _DownloadListPageState extends State<DownloadListPage> {
                   return;
                 }
                 downloadManager.addDownload(context, _urlTextController.text);
+                _urlTextController.clear();
               },
               icon: const Icon(Icons.download),
             ),
@@ -203,13 +202,5 @@ class _DownloadListPageState extends State<DownloadListPage> {
         ),
       ),
     );
-  }
-
-  /// 辅助方法：格式化字节为 MB/GB 显示
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }

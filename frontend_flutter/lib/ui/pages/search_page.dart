@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:demo/constants/dimens.dart';
 import 'package:demo/models/playlist.dart';
 import 'package:demo/providers/bilibili_provider.dart';
@@ -20,7 +22,7 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final _searchController = TextEditingController();
-  final DownloadManager _downloadManager = DownloadManager();
+  late DownloadManager _downloadManager;
   final _formKey = GlobalKey<FormState>();
 
   int _currentPage = 1;
@@ -30,9 +32,15 @@ class _SearchPageState extends State<SearchPage> {
   bool _isLoading = false;
   String? _searchError;
 
+  // Phase 2B: 跟踪正在添加到歌单的项目，防止重复点击
+  final Set<String> _addingToPlaylistBvids = {};
+  final Set<String> _togglingFavoriteBvids = {};
+
   @override
   void initState() {
     super.initState();
+    // 从 Provider 获取 DownloadManager
+    _downloadManager = context.read<DownloadManager>();
     _downloadManager.initDatabase();
 
     // 从 Provider 获取初始状态
@@ -47,7 +55,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
-    context.read<BilibiliProvider>().removeListener(_onProviderChanged);
+    // 移除监听器（已在 initState 中保存了 provider 引用）
     _searchController.dispose();
     super.dispose();
   }
@@ -204,43 +212,64 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     final isFavorited = playlistProvider.isFavorited(bvid);
+    final isToggling = _togglingFavoriteBvids.contains(bvid);
 
     // 获取视频元数据
     final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
     final author = item['author'] ?? 'Unknown';
 
     return IconButton(
-      icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border),
+      icon: isToggling
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(isFavorited ? Icons.favorite : Icons.favorite_border),
       color: isFavorited ? Colors.red : Colors.grey,
-      onPressed: () async {
-        if (!authProvider.isLoggedIn) {
-          showMySnackBar(context, '请先登录', Colors.orange, 1500);
-          return;
-        }
+      onPressed: isToggling
+          ? null
+          : () async {
+              if (!authProvider.isLoggedIn) {
+                showMySnackBar(context, '请先登录', Colors.orange, 1500);
+                return;
+              }
 
-        try {
-          final token = authProvider.user!.token;
-          final added = await playlistProvider.toggleFavorite(
-            token,
-            bvid,
-            title: title,
-            artist: author,
-          );
+              // Phase 2B: 标记为正在操作，防止重复点击
+              setState(() {
+                _togglingFavoriteBvids.add(bvid);
+              });
 
-          if (mounted) {
-            showMySnackBar(
-              context,
-              added ? '已添加到我喜欢' : '已从我喜欢移除',
-              Colors.green,
-              1000,
-            );
-          }
-        } catch (e) {
-          if (mounted) {
-            showMySnackBar(context, '操作失败: $e', Colors.red, 2000);
-          }
-        }
-      },
+              try {
+                final token = authProvider.user!.token;
+                final added = await playlistProvider.toggleFavorite(
+                  token,
+                  bvid,
+                  title: title,
+                  artist: author,
+                );
+
+                if (mounted) {
+                  showMySnackBar(
+                    context,
+                    added ? '已添加到我喜欢' : '已从我喜欢移除',
+                    Colors.green,
+                    1000,
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  showMySnackBar(context, '操作失败: $e', Colors.red, 2000);
+                }
+              } finally {
+                // Phase 2B: 操作完成，移除标记
+                if (mounted) {
+                  setState(() {
+                    _togglingFavoriteBvids.remove(bvid);
+                  });
+                }
+              }
+            },
     );
   }
 
@@ -254,50 +283,89 @@ class _SearchPageState extends State<SearchPage> {
       return const SizedBox.shrink();
     }
 
+    final isAdding = _addingToPlaylistBvids.contains(bvid);
+
     // 获取用户歌单（排除系统歌单中的"我喜欢"和"正在播放"）
     final userPlaylists = playlistProvider.userPlaylists;
 
     return IconButton(
-      icon: const Icon(Icons.playlist_add),
+      icon: isAdding
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.playlist_add),
+      onPressed: isAdding
+          ? null
+          : () async {
+              if (!authProvider.isLoggedIn) {
+                showMySnackBar(context, '请先登录', Colors.orange, 1500);
+                return;
+              }
+
+              if (userPlaylists.isEmpty) {
+                showMySnackBar(context, '请先创建歌单', Colors.orange, 2000);
+                return;
+              }
+
+              // 显示歌单选择对话框
+              final selectedPlaylistId = await showDialog<int>(
+                context: context,
+                builder: (context) => _PlaylistSelectDialog(playlists: userPlaylists),
+              );
+
+              if (selectedPlaylistId != null) {
+                // Phase 2B: 标记为正在添加，防止重复点击
+                setState(() {
+                  _addingToPlaylistBvids.add(bvid);
+                });
+
+                try {
+                  final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+                  final author = item['author'] ?? 'Unknown';
+
+                  await playlistProvider.addItem(
+                    authProvider.user!.token,
+                    selectedPlaylistId,
+                    bvid,
+                    title: title,
+                    artist: author,
+                  );
+
+                  if (mounted) {
+                    showMySnackBar(context, '已添加到歌单', Colors.green, 1500);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    showMySnackBar(context, '添加失败: $e', Colors.red, 2000);
+                  }
+                } finally {
+                  // Phase 2B: 操作完成，移除标记
+                  if (mounted) {
+                    setState(() {
+                      _addingToPlaylistBvids.remove(bvid);
+                    });
+                  }
+                }
+              }
+            },
+    );
+  }
+
+  /// 构建下载按钮（纯前端下载）
+  Widget _buildDownloadButton(BuildContext context, dynamic item) {
+    // 优先使用 bvid 字段
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return IconButton(
+      icon: const Icon(Icons.download),
       onPressed: () async {
-        if (!authProvider.isLoggedIn) {
-          showMySnackBar(context, '请先登录', Colors.orange, 1500);
-          return;
-        }
-
-        if (userPlaylists.isEmpty) {
-          showMySnackBar(context, '请先创建歌单', Colors.orange, 2000);
-          return;
-        }
-
-        // 显示歌单选择对话框
-        final selectedPlaylistId = await showDialog<int>(
-          context: context,
-          builder: (context) => _PlaylistSelectDialog(playlists: userPlaylists),
-        );
-
-        if (selectedPlaylistId != null) {
-          try {
-            final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
-            final author = item['author'] ?? 'Unknown';
-
-            await playlistProvider.addItem(
-              authProvider.user!.token,
-              selectedPlaylistId,
-              bvid,
-              title: title,
-              artist: author,
-            );
-
-            if (mounted) {
-              showMySnackBar(context, '已添加到歌单', Colors.green, 1500);
-            }
-          } catch (e) {
-            if (mounted) {
-              showMySnackBar(context, '添加失败: $e', Colors.red, 2000);
-            }
-          }
-        }
+        debugPrint('【SearchPage】Download button clicked');
+        await _downloadManager.addDownload(context, bvid);
       },
     );
   }
@@ -381,15 +449,7 @@ class _SearchPageState extends State<SearchPage> {
                   // 添加到歌单按钮
                   _buildAddToPlaylistButton(context, item),
                   // 下载按钮
-                  IconButton(
-                    icon: const Icon(Icons.download),
-                    onPressed: () {
-                      String url = item['arcurl'] ?? item['url'] ?? '';
-                      if (url.isNotEmpty) {
-                        _downloadManager.addDownload(context, url);
-                      }
-                    },
-                  ),
+                  _buildDownloadButton(context, item),
                 ],
               ),
               onTap: () async {
@@ -417,22 +477,30 @@ class _PlaylistSelectDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('添加到歌单'),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: playlists.isEmpty
-          ? const Text('暂无歌单，请先创建')
-          : ListView.builder(
-              shrinkWrap: true,
-              itemCount: playlists.length,
-              itemBuilder: (context, index) {
-                final playlist = playlists[index];
-                return ListTile(
-                  leading: const Icon(Icons.playlist_play),
-                  title: Text(playlist.name ?? '未命名歌单'),
-                  subtitle: Text('${playlist.itemCount ?? 0} 首歌曲'),
-                  onTap: () {
-                    Navigator.of(context).pop(playlist.id);
-                  },
-                );
-              },
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text('暂无歌单，请先创建'),
+            )
+          : SizedBox(
+              // 使用固定宽度和高度避免布局问题
+              width: 300,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: playlists.map((playlist) {
+                    return ListTile(
+                      leading: const Icon(Icons.playlist_play),
+                      title: Text(playlist.name),
+                      subtitle: Text('${playlist.itemCount} 首歌曲'),
+                      onTap: () {
+                        Navigator.of(context).pop(playlist.id);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
       actions: [
         TextButton(

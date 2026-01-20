@@ -1,73 +1,90 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:demo/services/bilibiliApiService.dart';
+import 'package:demo/services/download/download_repository.dart';
+import 'package:demo/services/download/download_executor.dart';
+import 'package:demo/services/download/metadata_writer.dart';
 import 'package:demo/utils/show_notes.dart';
-import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
-import 'package:http/http.dart' as http;
-import 'package:metadata_god/metadata_god.dart';
-import 'package:flutter/foundation.dart';
-import 'package:html/parser.dart' show parse;
 
 /// 下载管理器
 ///
-/// Phase 1 改进：
-/// - 优先使用后端 API 获取视频信息，HTML 解析作为降级方案
-/// - 使用后端代理 URL 解决防盗链问题
-/// - 保持原有的下载管理功能（断点续传、暂停/恢复等）
+/// 重构后的职责：
+/// - 协调各模块完成下载流程
+/// - 提供统一的 API 给 UI 层
+/// - 状态管理（通过 ChangeNotifier）
 class DownloadManager with ChangeNotifier {
-  late Database _database;
-  List<Map<String, dynamic>> downloads = [];
-  final Map<int, CancelToken> _cancelTokens = {};
+  // ==================== 依赖注入 ====================
+
+  final DownloadRepository _repository = DownloadRepository();
+  final DownloadExecutorManager _executorManager;
+  final MetadataWriter _metadataWriter;
 
   BilibiliApiService? _bilibiliApiService;
 
-  /// 设置B站API服务
-  void setBilibiliApiService(BilibiliApiService service) {
-    _bilibiliApiService = service;
-    debugPrint('【DownloadManager】已设置BilibiliApiService');
+  // ==================== 状态 ====================
+
+  /// 所有下载任务（内存缓存，从数据库加载）
+  List<Map<String, dynamic>> _downloads = [];
+
+  /// 是否已初始化
+  bool _isInitialized = false;
+
+  // ==================== 构造函数 ====================
+
+  DownloadManager() : _metadataWriter = MetadataWriter(), _executorManager = DownloadExecutorManager(
+    repository: DownloadRepository(),
+    maxConcurrent: 3,
+  ) {
+    // 初始化仓库
+    _repository.init().then((_) {
+      _loadDownloads();
+    });
   }
 
-  Future<void> _loadDownloads() async {
-    downloads = await _database.query('downloads');
-    notifyListeners();
-  }
+  // ==================== 公开方法 ====================
 
+  /// 初始化数据库（向后兼容）
   Future<void> initDatabase() async {
-    final directory = await getApplicationDocumentsDirectory();
-    debugPrint('数据库路径: ${path.join(directory.path, 'downloads.db')}');
-    _database = await openDatabase(
-      path.join(directory.path, 'downloads.db'),
-      onCreate: (db, version) {
-        return db.execute(
-          '''CREATE TABLE downloads(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          url TEXT,
-          savePath TEXT,
-          downloadedBytes INTEGER,
-          totalBytes INTEGER,
-          isPaused INTEGER,
-          originalUrl TEXT,
-          title TEXT
-          )''',
-        );
-      },
-      version: 1,
-    );
+    await _repository.init();
     await _loadDownloads();
   }
 
-  // ==================== 下载管理 ====================
+  /// 刷新下载列表
+  Future<void> refreshDownloads() async {
+    await _loadDownloads();
+  }
+
+  /// 获取所有下载任务
+  List<Map<String, dynamic>> get downloads => List.unmodifiable(_downloads);
+
+  /// 设置 B站 API 服务
+  void setBilibiliApiService(BilibiliApiService service) {
+    _bilibiliApiService = service;
+    _metadataWriter.setBilibiliApiService(service);
+    debugPrint('【DownloadManager】已设置 BilibiliApiService');
+  }
+
+  // ==================== 下载操作 ====================
 
   /// 添加下载任务
+  ///
+  /// 支持：
+  /// 1. 完整URL: https://www.bilibili.com/video/BVxxx
+  /// 2. 纯BVID: BVxxx
   Future<void> addDownload(BuildContext context, String url) async {
-    // 检查是否为B站视频
+    // 确保已初始化
+    if (!_isInitialized) {
+      await initDatabase();
+    }
+
+    // 处理直接传入 BVID 的情况
+    if (url.startsWith('BV') && url.length == 12) {
+      await _downloadByBvid(context, url);
+      return;
+    }
+
+    // 检查 URL 格式
     if (!url.startsWith('https://www.bilibili.com/video/') &&
         !url.startsWith('http://www.bilibili.com/video/')) {
       showMySnackBar(context, '仅支持B站视频下载', Colors.red, 500);
@@ -80,310 +97,193 @@ class DownloadManager with ChangeNotifier {
         showMySnackBar(context, '无法解析视频ID', Colors.red, 500);
         return;
       }
-
-      String title;
-      String author;
-      String? picUrl;
-      String audioBaseUrl;
-
-      // 优先使用后端API
-      final videoData = await _getVideoInfoFromBackend(bvid);
-      if (videoData != null) {
-        title = videoData['title'];
-        author = videoData['author'];
-        picUrl = videoData['pic'];
-        audioBaseUrl = _bilibiliApiService!.getProxyAudioUrl(videoData['audioUrl']);
-        debugPrint('【DownloadManager】使用后端API: $title');
-      } else {
-        // 降级：HTML解析
-        final htmlData = await _getVideoInfoFromHtml(url);
-        if (htmlData == null) {
-          showMySnackBar(context, '获取视频信息失败', Colors.red, 500);
-          return;
-        }
-        title = htmlData['title'];
-        author = htmlData['author'];
-        picUrl = htmlData['pic'];
-        audioBaseUrl = htmlData['audioUrl'];
-        debugPrint('【DownloadManager】使用HTML降级: $title');
-      }
-
-      final sanitizedTitle = sanitizeTitle(title);
-      final savePath = await _pickDirectory();
-      if (savePath == null) return;
-
-      final audioFilePath = File('$savePath/$sanitizedTitle.m4a');
-
-      int id = await _database.insert(
-        'downloads',
-        {
-          'url': audioBaseUrl,
-          'savePath': audioFilePath.path,
-          'downloadedBytes': 0,
-          'totalBytes': 0,
-          'isPaused': 0,
-          'originalUrl': url,
-          'title': title,
-        },
-      );
-      showMySnackBar(context, '已添加到下载列表: $title', Colors.green, 1000);
-      await startDownload(audioBaseUrl, audioFilePath.path, url, id,
-          videoData: {'title': title, 'author': author, 'pic': picUrl, 'bvid': bvid});
-      await _loadDownloads();
+      await _downloadByBvid(context, bvid);
     } catch (e) {
-      debugPrint('下载失败: $e');
+      debugPrint('【DownloadManager】下载失败: $e');
       showMySnackBar(context, '下载失败: $e', Colors.red, 1000);
     }
   }
 
-  /// 开始下载
-  Future<void> startDownload(
-    String audioBaseUrl,
-    String savePath,
-    String originalUrl,
-    int id, {
-    Map<String, dynamic>? videoData,
-  }) async {
-    final cancelToken = CancelToken();
-    _cancelTokens[id] = cancelToken;
-    RandomAccessFile? raf;
-    int totalBytes = 0;
+  /// 通过 BVID 下载
+  Future<void> _downloadByBvid(BuildContext context, String bvid) async {
+    debugPrint('【DownloadManager】开始下载: $bvid');
 
     try {
-      var response = await _database.query(
-        'downloads',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      int downloadedBytes = response.first['downloadedBytes'] as int;
-      totalBytes = response.first['totalBytes'] as int;
-
-      // 检查是否已下载完成
-      if (downloadedBytes >= totalBytes && totalBytes > 0) {
-        debugPrint('已下载完成');
-        await _database.update('downloads', {'isPaused': 0},
-            where: 'id = ?', whereArgs: [id]);
+      // 1. 获取视频信息
+      final videoData = await _getVideoInfo(bvid);
+      if (videoData == null) {
+        showMySnackBar(context, '获取视频信息失败', Colors.red, 500);
         return;
       }
 
-      var dio = Dio();
-      var options = Options(
-        headers: {
-          'Range': totalBytes > 0 ? 'bytes=$downloadedBytes-' : 'bytes=0-',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://www.bilibili.com/',
-        },
-        responseType: ResponseType.stream,
-      );
+      final title = videoData['title'] as String;
+      final artist = videoData['artist'] as String;
+      final pic = videoData['pic'] as String?;
+      final audioUrl = videoData['audioUrl'] as String;
 
-      var resp = await dio.getUri(
-        Uri.parse(audioBaseUrl),
-        options: options,
-        cancelToken: cancelToken,
-      );
-
-      // 处理content-range
-      final contentRange = resp.headers.value('content-range');
-      if (contentRange != null) {
-        totalBytes = int.parse(contentRange.split('/').last);
-      } else {
-        final contentLength = resp.headers.value('content-length');
-        if (contentLength != null) {
-          totalBytes = int.parse(contentLength);
-        }
+      // 2. 检查是否已存在
+      final exists = await _repository.existsByBvid(bvid);
+      if (exists) {
+        showMySnackBar(context, '该任务已存在', Colors.orange, 1000);
+        return;
       }
 
-      final file = File(savePath);
-      raf = await file.open(mode: FileMode.writeOnlyAppend);
+      // 3. 选择保存目录
+      final saveDir = await _pickDirectory();
+      if (saveDir == null) return;
 
-      await for (var chunk in resp.data.stream) {
-        if (cancelToken.isCancelled ||
-            (await _database.query('downloads', where: 'id = ?', whereArgs: [id]))
-                    .first['isPaused'] ==
-                1) {
-          break;
-        }
+      // 4. 确定文件路径
+      final sanitizedTitle = sanitizeTitle(title);
+      final fileName = '$sanitizedTitle.m4a';
+      final savePath = path.join(saveDir, fileName);
 
-        await raf.writeFrom(chunk);
-        downloadedBytes += chunk.length as int;
+      // 5. 创建下载任务记录
+      final taskId = await _repository.insertTask({
+        'url': audioUrl,
+        'save_path': savePath,
+        'downloaded_bytes': 0,
+        'total_bytes': 0,
+        'status': DownloadStatus.pending.value,
+        'original_url': 'https://www.bilibili.com/video/$bvid',
+        'title': title,
+        'artist': artist,
+        'cover_url': pic,
+        'bvid': bvid,
+      });
 
-        await _database.update(
-          'downloads',
-          {'downloadedBytes': downloadedBytes, 'totalBytes': totalBytes},
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-        notifyListeners();
-      }
+      debugPrint('【DownloadManager】任务创建成功: $taskId');
 
-      // 下载完成
-      if (downloadedBytes >= totalBytes) {
-        await _database.update('downloads', {'isPaused': 0},
-            where: 'id = ?', whereArgs: [id]);
-        await afterDownload(originalUrl, savePath, videoData: videoData);
-      }
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.badResponse &&
-          e.response?.statusCode == 416) {
-        debugPrint('下载已完成');
-        await _database.update(
-          'downloads',
-          {'downloadedBytes': totalBytes, 'totalBytes': totalBytes, 'isPaused': 0},
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-    } finally {
-      await raf?.close();
-      _cancelTokens.remove(id);
+      // 6. 启动下载
+      _startDownload(taskId, audioUrl, savePath, videoData);
+
+      // 7. 刷新列表
       await _loadDownloads();
+
+      showMySnackBar(context, '已添加到下载列表: $title', Colors.green, 1000);
+    } catch (e) {
+      debugPrint('【DownloadManager】_downloadByBvid 失败: $e');
+      showMySnackBar(context, '下载失败: $e', Colors.red, 1000);
+    }
+  }
+
+  /// 启动下载执行
+  void _startDownload(
+    int taskId,
+    String audioUrl,
+    String savePath,
+    Map<String, dynamic> videoData,
+  ) {
+    final executor = _executorManager.startTask(
+      taskId: taskId,
+      url: audioUrl,
+      savePath: savePath,
+      onProgress: (downloaded, total) async {
+        // 直接更新数据库
+        await _repository.updateProgress(taskId, downloaded, total);
+        
+        // 更新内存中的进度（创建新的列表副本以触发 UI 更新）
+        final newDownloads = [..._downloads];
+        final index = newDownloads.indexWhere((d) => d['id'] == taskId);
+        if (index != -1) {
+          newDownloads[index] = {
+            ...newDownloads[index],
+            'downloaded_bytes': downloaded,
+            'total_bytes': total,
+          };
+          _downloads = newDownloads;
+        }
+        
+        notifyListeners();
+      },
+      onCompletion: (filePath, success) async {
+        // 下载完成后刷新列表
+        await _loadDownloads();
+
+        if (success) {
+          // 写入元数据
+          await _writeMetadataAfterDownload(filePath, videoData);
+        }
+      },
+    );
+
+    if (executor == null) {
+      debugPrint('【DownloadManager】无法启动下载，达到并发限制');
     }
   }
 
   /// 暂停下载
   Future<void> pauseDownload(int id) async {
-    await _database.update('downloads', {'isPaused': 1},
-        where: 'id = ?', whereArgs: [id]);
-    _cancelTokens[id]?.cancel();
-    _cancelTokens.remove(id);
+    // 1. 更新数据库状态
+    await _repository.updateStatus(id, DownloadStatus.paused);
+
+    // 2. 通知执行器暂停
+    _executorManager.pauseTask(id);
+
+    // 3. 刷新列表
     await _loadDownloads();
+
+    debugPrint('【DownloadManager】已暂停任务: $id');
   }
 
   /// 恢复下载
   Future<void> resumeDownload(int id) async {
-    await _database.update('downloads', {'isPaused': 0},
-        where: 'id = ?', whereArgs: [id]);
-    var download = await _database.query('downloads',
-        where: 'id = ?', whereArgs: [id]);
-    String url = download.first['url'] as String;
-    String savePath = download.first['savePath'] as String;
-    String originalUrl = download.first['originalUrl'] as String;
-    startDownload(url, savePath, originalUrl, id);
+    final task = await _repository.getTask(id);
+    if (task == null) return;
+
+    final url = task['url'] as String;
+    final savePath = task['save_path'] as String;
+
+    // 更新状态
+    await _repository.updateStatus(id, DownloadStatus.pending);
+
+    // 启动下载
+    _startDownload(id, url, savePath, {
+      'title': task['title'],
+      'artist': task['artist'],
+      'pic': task['cover_url'],
+      'bvid': task['bvid'],
+    });
+
     await _loadDownloads();
+    debugPrint('【DownloadManager】已恢复任务: $id');
   }
 
   /// 删除下载
   Future<void> deleteDownload(int id) async {
-    await _database.delete('downloads', where: 'id = ?', whereArgs: [id]);
+    // 1. 取消正在进行的下载
+    _executorManager.cancelTask(id);
+
+    // 2. 删除数据库记录
+    await _repository.deleteTask(id);
+
+    // 3. 刷新列表
     await _loadDownloads();
+
+    debugPrint('【DownloadManager】已删除任务: $id');
   }
 
-  Future<List<Map<String, dynamic>>> getDownloads() async {
-    return await _database.query('downloads');
+  /// 清空已完成任务
+  Future<void> clearCompleted() async {
+    final count = await _repository.clearCompletedTasks();
+    await _loadDownloads();
+    debugPrint('【DownloadManager】已清空 $count 个已完成任务');
   }
 
-  // ==================== 元数据写入 ====================
+  // ==================== 私有方法 ====================
 
-  /// 下载后处理：写入元数据
-  Future<void> afterDownload(String url, String audioFilePath,
-      {Map<String, dynamic>? videoData}) async {
-    debugPrint('【afterDownload】处理文件: $audioFilePath');
+  /// 加载下载列表
+  Future<void> _loadDownloads() async {
+    _downloads = await _repository.getAllTasks();
+    _isInitialized = true;
+    notifyListeners();
+  }
 
-    String title;
-    String author;
-    String imageUrl;
-
-    // 优先使用传入的视频数据
-    if (videoData != null) {
-      title = videoData['title'] ?? '未知标题';
-      author = videoData['author'] ?? '未知艺术家';
-      imageUrl = videoData['pic'] ?? '';
-    } else if (_bilibiliApiService != null) {
-      final bvid = _extractBvid(url);
-      if (bvid != null) {
-        try {
-          final info = await _bilibiliApiService!.getVideoInfo(bvid);
-          title = info['title'] ?? '未知标题';
-          author = info['owner']?['name'] ?? '未知艺术家';
-          imageUrl = info['pic'] ?? '';
-        } catch (e) {
-          final htmlData = await _getVideoInfoFromHtml(url);
-          if (htmlData != null) {
-            title = htmlData['title'];
-            author = htmlData['author'];
-            imageUrl = htmlData['pic'] ?? '';
-          } else {
-            title = '未知标题';
-            author = '未知艺术家';
-            imageUrl = '';
-          }
-        }
-      } else {
-        title = '未知标题';
-        author = '未知艺术家';
-        imageUrl = '';
-      }
-    } else {
-      final htmlData = await _getVideoInfoFromHtml(url);
-      if (htmlData != null) {
-        title = htmlData['title'];
-        author = htmlData['author'];
-        imageUrl = htmlData['pic'] ?? '';
-      } else {
-        title = '未知标题';
-        author = '未知艺术家';
-        imageUrl = '';
-      }
+  /// 获取视频信息
+  Future<Map<String, dynamic>?> _getVideoInfo(String bvid) async {
+    if (_bilibiliApiService == null) {
+      debugPrint('【DownloadManager】BilibiliApiService 未设置');
+      return null;
     }
-
-    // 下载封面图片
-    Uint8List? imageBytes;
-    try {
-      if (_bilibiliApiService != null) {
-        final picUrl = _bilibiliApiService!.getProxyImageUrl(imageUrl);
-        final imageResponse = await http.get(Uri.parse(picUrl));
-        imageBytes = imageResponse.bodyBytes;
-      } else {
-        final dio = Dio();
-        final response = await dio.get(
-          imageUrl,
-          options: Options(
-            responseType: ResponseType.bytes,
-            headers: {
-              'Referer': 'https://www.bilibili.com/',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            },
-          ),
-        );
-        imageBytes = response.data as Uint8List;
-      }
-    } catch (e) {
-      debugPrint('【afterDownload】封面下载失败: $e');
-    }
-
-    // 写入元数据
-    try {
-      final picture = imageBytes != null
-          ? Picture(data: imageBytes, mimeType: 'image/jpeg')
-          : null;
-
-      await MetadataGod.writeMetadata(
-        file: audioFilePath,
-        metadata: Metadata(
-          title: title,
-          artist: author,
-          album: url,
-          picture: picture,
-        ),
-      );
-      debugPrint('【afterDownload】元数据写入成功');
-    } catch (e) {
-      debugPrint('【afterDownload】元数据写入失败: $e');
-    }
-  }
-
-  // ==================== 工具方法 ====================
-
-  /// 从URL中提取BVID
-  String? _extractBvid(String url) {
-    final bvidRegex = RegExp(r'(BV[a-zA-Z0-9]{10})');
-    final match = bvidRegex.firstMatch(url);
-    return match?.group(1);
-  }
-
-  /// 通过后端API获取视频信息
-  Future<Map<String, dynamic>?> _getVideoInfoFromBackend(String bvid) async {
-    if (_bilibiliApiService == null) return null;
 
     try {
       final videoInfo = await _bilibiliApiService!.getVideoInfo(bvid);
@@ -391,69 +291,41 @@ class DownloadManager with ChangeNotifier {
 
       return {
         'title': videoInfo['title'] ?? '未知标题',
-        'author': videoInfo['owner']?['name'] ?? '未知艺术家',
+        'artist': videoInfo['owner']?['name'] ?? '未知艺术家',
         'pic': videoInfo['pic'],
         'audioUrl': audioStream['url'],
         'bvid': bvid,
       };
     } catch (e) {
-      debugPrint('【DownloadManager】后端API失败: $e');
+      debugPrint('【DownloadManager】获取视频信息失败: $e');
       return null;
     }
   }
 
-  /// 从HTML获取视频信息（降级方案）
-  Future<Map<String, dynamic>?> _getVideoInfoFromHtml(String url) async {
+  /// 下载完成后写入元数据
+  Future<void> _writeMetadataAfterDownload(
+    String filePath,
+    Map<String, dynamic> videoData,
+  ) async {
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://www.bilibili.com/',
-        },
+      await _metadataWriter.writeMetadata(
+        filePath: filePath,
+        title: videoData['title']?.toString() ?? '未知标题',
+        artist: videoData['artist']?.toString() ?? '未知艺术家',
+        coverUrl: videoData['pic']?.toString(),
+        album: videoData['bvid']?.toString(),
       );
-
-      final document = parse(response.body);
-      final title = document.querySelector('h1.video-title')?.attributes['title'];
-      final author = document
-              .querySelector('meta[itemprop="author"][name="author"]')
-              ?.attributes['content'];
-
-      // 获取封面URL
-      String? picUrl = document.querySelector('meta[itemprop="image"]')?.attributes['content'];
-      picUrl ??= document.querySelector('meta[property="og:image"]')?.attributes['content'];
-      picUrl ??= document.querySelector('meta[name="twitter:image"]')?.attributes['content'];
-
-      if (picUrl != null && picUrl.startsWith('//')) {
-        picUrl = 'https:$picUrl';
-      }
-
-      // 获取音频URL
-      final scripts = document.querySelectorAll('script');
-      String? playInfoScript;
-      for (final script in scripts) {
-        if (script.text.contains('window.__playinfo__')) {
-          playInfoScript = script.text;
-          break;
-        }
-      }
-      if (playInfoScript == null) return null;
-
-      final jsonStr =
-          playInfoScript.split('window.__playinfo__=')[1].split(';')[0].trim();
-      final playInfo = jsonDecode(jsonStr);
-      final audioBaseUrl = playInfo['data']['dash']['audio'][0]['baseUrl'];
-
-      return {
-        'title': title ?? '未知标题',
-        'author': author ?? '未知艺术家',
-        'audioUrl': audioBaseUrl,
-        'pic': picUrl ?? '',
-      };
+      debugPrint('【DownloadManager】元数据写入成功');
     } catch (e) {
-      debugPrint('【DownloadManager】HTML解析失败: $e');
-      return null;
+      debugPrint('【DownloadManager】元数据写入失败: $e');
     }
+  }
+
+  /// 从 URL 提取 BVID
+  String? _extractBvid(String url) {
+    final bvidRegex = RegExp(r'(BV[a-zA-Z0-9]{10})');
+    final match = bvidRegex.firstMatch(url);
+    return match?.group(1);
   }
 
   /// 选择保存目录
@@ -461,15 +333,34 @@ class DownloadManager with ChangeNotifier {
     try {
       return await getDirectoryPath();
     } catch (e) {
+      debugPrint('【DownloadManager】选择目录失败: $e');
       return null;
     }
   }
 
-  /// 清理标题字符串
+  /// 清理标题字符串（移除非法字符）
   String sanitizeTitle(String input) {
+    // 保留中文、英文、数字和常用符号
     const pattern =
         r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
+
+  // ==================== 统计信息 ====================
+
+  /// 获取指定状态的任务数
+  int getCountByStatus(DownloadStatus status) {
+    return _downloads.where((d) => d['status'] == status.value).length;
+  }
+
+  /// 进行中的任务数
+  int get activeCount => getCountByStatus(DownloadStatus.downloading) +
+      getCountByStatus(DownloadStatus.pending);
+
+  /// 已完成的任务数
+  int get completedCount => getCountByStatus(DownloadStatus.completed);
+
+  /// 失败的任务数
+  int get failedCount => getCountByStatus(DownloadStatus.failed);
 }

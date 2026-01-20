@@ -109,6 +109,40 @@ const getMusicRecommendation = catchAsync(async (req, res) => {
   return successResponse(res, result, '获取音乐推荐成功');
 });
 
+// ==================== Phase 2B: 音乐区爬虫 ====================
+
+/**
+ * GET /api/recommendations/music-zone
+ *
+ * 获取音乐区个性化推荐（爬虫方式）
+ *
+ * 爬取 bilibili.com/c/music 页面获取用户绑定的B站账户的个性化推荐内容
+ *
+ * Authentication: 必需（需要用户绑定的B站 Cookie）
+ */
+const getMusicZoneRecommendations = catchAsync(async (req, res) => {
+  // 必须登录
+  if (!req.user) {
+    throw new AppError('请先登录', 401);
+  }
+
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 20;
+
+  const result = await recommendationService.getMusicZoneRecommendations(
+    req.user.id,
+    page,
+    pageSize
+  );
+
+  if (result.fallback) {
+    // 爬取失败，返回降级提示
+    return successResponse(res, result, '爬取失败，请稍后重试');
+  }
+
+  return successResponse(res, result, '获取音乐区推荐成功');
+});
+
 // ==================== 常量 ====================
 
 /**
@@ -127,6 +161,8 @@ router.get('/rank', optionalAuthMiddleware, getHotRank);
 router.get('/personalized', optionalAuthMiddleware, getPersonalized);
 router.get('/category/:tid', optionalAuthMiddleware, getByCategory);
 router.get('/music', optionalAuthMiddleware, getMusicRecommendation);
+// Phase 2B: 音乐区爬虫路由（需要登录）
+router.get('/music-zone', authMiddleware, getMusicZoneRecommendations);
 router.get('/categories', getCategoryTids);
 
 module.exports = router;

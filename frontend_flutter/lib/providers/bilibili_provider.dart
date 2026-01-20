@@ -391,12 +391,19 @@ class BilibiliProvider with ChangeNotifier {
   Map<String, dynamic> _musicCategories = {};
   List<Map<String, dynamic>> _categoryRecommendations = [];
 
+  // Phase 2B: 音乐区爬虫推荐
+  List<Map<String, dynamic>> _musicZoneRecommendations = [];
+  bool _musicZoneFallback = false;
+
   List<Map<String, dynamic>> get hotPlaylists => _hotPlaylists;
   List<Map<String, dynamic>> get hotRank => _hotRank;
   List<Map<String, dynamic>> get personalizedRecommendations => _personalizedRecommendations;
   Map<String, dynamic> get personalizedResponseData => _personalizedResponse;
   Map<String, dynamic> get musicCategories => _musicCategories;
   List<Map<String, dynamic>> get categoryRecommendations => _categoryRecommendations;
+  // Phase 2B: 音乐区爬虫推荐Getters
+  List<Map<String, dynamic>> get musicZoneRecommendations => _musicZoneRecommendations;
+  bool get musicZoneFallback => _musicZoneFallback;
 
   /// 获取热门歌单
   Future<bool> loadHotPlaylists({int page = 1, int pageSize = 10}) async {
@@ -573,6 +580,51 @@ class BilibiliProvider with ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       debugPrint('【BilibiliProvider】Load category $tid error: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ==================== Phase 2B: 音乐区爬虫推荐 ====================
+
+  /// 获取音乐区个性化推荐（爬虫方式）
+  ///
+  /// 爬取 bilibili.com/c/music 页面获取用户绑定的B站账户的个性化推荐内容
+  /// 需要用户已登录并绑定B站账号
+  Future<bool> loadMusicZoneRecommendations({int page = 1, int pageSize = 20}) async {
+    if (_apiService == null) {
+      _errorMessage = 'BilibiliApiService not initialized';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      _musicZoneFallback = false;
+      notifyListeners();
+
+      final result = await _apiService!.getMusicZoneRecommendations(
+        page: page,
+        pageSize: pageSize,
+      );
+
+      // 检查是否降级
+      _musicZoneFallback = result['fallback'] ?? false;
+
+      // 获取数据列表
+      _musicZoneRecommendations = List<Map<String, dynamic>>.from(
+        result['data'] ?? [],
+      );
+
+      debugPrint('【BilibiliProvider】Music zone loaded: ${_musicZoneRecommendations.length}, fallback: $_musicZoneFallback');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _musicZoneFallback = true;
+      debugPrint('【BilibiliProvider】Load music zone error: $e');
       return false;
     } finally {
       _isLoading = false;

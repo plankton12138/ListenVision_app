@@ -522,4 +522,33 @@ class BilibiliApiService {
       return {};
     }
   }
+
+  // ==================== Phase 2B: 音乐区爬虫 ====================
+
+  /// 获取音乐区个性化推荐（爬虫方式）
+  ///
+  /// 爬取 bilibili.com/c/music 页面获取用户绑定的B站账户的个性化推荐内容
+  /// 需要用户已登录并绑定B站账号
+  Future<Map<String, dynamic>> getMusicZoneRecommendations({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/../recommendations/music-zone').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'pageSize': pageSize.toString(),
+        },
+      );
+
+      final response = await _client
+          .get(uri, headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getMusicZoneRecommendations exception: $e');
+      rethrow;
+    }
+  }
 }

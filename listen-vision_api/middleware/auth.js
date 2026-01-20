@@ -38,7 +38,7 @@ const authMiddleware = async (req, res, next) => {
 
     // 4. 将用户信息附加到请求对象
     req.user = {
-      id: decoded.userId,
+      id: parseInt(decoded.userId, 10),  // 确保是整数
       username: decoded.username
     };
 
@@ -89,7 +89,7 @@ const optionalAuthMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     req.user = {
-      id: decoded.userId,
+      id: parseInt(decoded.userId, 10),  // 确保是整数
       username: decoded.username
     };
 

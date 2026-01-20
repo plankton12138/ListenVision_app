@@ -121,14 +121,6 @@ try {
   console.error('❌ Failed to load search routes:', e.message);
 }
 
-try {
-  const downloadsRouter = require('./routes/downloads');
-  app.use('/api/downloads', downloadsRouter);
-  console.log('✅ Downloads routes registered');
-} catch (e) {
-  console.error('❌ Failed to load downloads routes:', e.message);
-}
-
 // ========== 错误处理 ==========
 
 // 404 处理

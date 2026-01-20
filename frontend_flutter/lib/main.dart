@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:demo/providers/audio_provider.dart';
 import 'package:demo/providers/auth_provider.dart';
 import 'package:demo/providers/bilibili_provider.dart';
-import 'package:demo/providers/download_task_provider.dart';
 import 'package:demo/providers/play_history_provider.dart';
 import 'package:demo/providers/playlist_provider.dart';
 import 'package:demo/providers/search_provider.dart';
@@ -137,7 +136,7 @@ void main() async {
           },
         ),
 
-        // Phase 3: 搜索和下载任务管理
+        // Phase 3: 搜索功能
         ChangeNotifierProxyProvider2<AuthProvider, ApiService, SearchProvider>(
           create: (context) => SearchProvider(context.read<ApiService>()),
           update: (context, authProvider, apiService, searchProvider) {
@@ -148,21 +147,6 @@ void main() async {
               searchProvider?.initialize();
             });
             return searchProvider!;
-          },
-        ),
-
-        ChangeNotifierProxyProvider2<AuthProvider, ApiService, DownloadTaskProvider>(
-          create: (context) => DownloadTaskProvider(context.read<ApiService>()),
-          update: (context, authProvider, apiService, downloadProvider) {
-            // 当 Token 变化时更新
-            downloadProvider?.updateToken(authProvider.user?.token);
-            // 当用户登录时初始化下载任务
-            Future.microtask(() async {
-              if (authProvider.isLoggedIn && authProvider.user?.token != null) {
-                await downloadProvider?.initialize();
-              }
-            });
-            return downloadProvider!;
           },
         ),
       ],

@@ -197,23 +197,6 @@ const createTables = () => {
     )
   `);
 
-  // 下载任务表
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS download_tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      bvid TEXT NOT NULL,
-      status TEXT CHECK(status IN ('pending', 'downloading', 'paused', 'completed', 'failed')) DEFAULT 'pending',
-      progress INTEGER DEFAULT 0,
-      file_size INTEGER,
-      downloaded_size INTEGER DEFAULT 0,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
   // 创建索引加速查询
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -238,8 +221,6 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_search_stats_count ON search_stats(search_count);
     CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_user_action ON user_behavior_logs(user_id, action, timestamp);
     CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_bvid ON user_behavior_logs(bvid);
-    CREATE INDEX IF NOT EXISTS idx_download_tasks_user_status ON download_tasks(user_id, status);
-    CREATE INDEX IF NOT EXISTS idx_download_tasks_created_at ON download_tasks(created_at);
   `);
 
   console.log('✅ 数据库表初始化完成');

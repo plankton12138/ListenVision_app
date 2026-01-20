@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { searchBilibili, getWbiKey, signWbi } = require('./bilibiliService');
+const { searchBilibili, getWbiKey, signWbi, getCookie } = require('./bilibiliService');
 
 /**
  * B站推荐内容服务（Phase 3.2 扩展）
@@ -400,6 +400,21 @@ const cleanHtml = (text) => {
 };
 
 /**
+ * 格式化视频时长（秒数转 MM:SS 或 HH:MM:SS）
+ */
+const formatDuration = (seconds) => {
+  if (!seconds) return '';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+/**
  * 从 URL 中提取 BVID
  * 支持格式：
  * - BV1xx411c7mD (纯BVID)
@@ -563,6 +578,64 @@ module.exports = {
   logBehavior,
   getBehaviorBasedRecommendations,
   getHybridRecommendations,
+  // Phase 2B: 音乐区推荐（使用分区最新视频API）
+  // API: https://api.bilibili.com/x/web-interface/dynamic/region?rid=3&pn=1&ps=20
+  // rid=3 是音乐区tid，无需WBI签名
+  getMusicZoneRecommendations: async (userId, page = 1, pageSize = 20) => {
+    try {
+      // 构建请求头（使用用户Cookie提升稳定性）
+      const headers = {};
+      if (userId) {
+        const cookie = getCookie(userId);
+        if (cookie) {
+          headers['Cookie'] = cookie;
+        }
+      }
+
+      const url = `https://api.bilibili.com/x/web-interface/dynamic/region?rid=3&pn=${page}&ps=${pageSize}`;
+      console.log('[MusicZone] URL:', url);
+
+      const data = await httpGet(url, headers);
+      console.log('[MusicZone] Response code:', data.code);
+
+      if (data.code !== 0) {
+        throw new Error(data.message || '获取音乐区推荐失败');
+      }
+
+      // 转换数据格式以兼容前端
+      const archives = data.data?.archives || [];
+      const videos = archives.map(item => ({
+        bvid: item.bvid,
+        title: cleanHtml(item.title),
+        description: cleanHtml(item.desc || ''),
+        cover: item.pic.startsWith('//') ? `https:${item.pic}` : item.pic,
+        duration: formatDuration(item.duration),
+        author: item.owner?.name || 'Unknown',
+        playCount: item.stat?.view || 0,  // 前端使用 playCount 字段
+        arcurl: `https://www.bilibili.com/video/${item.bvid}`
+      }));
+
+      console.log('[MusicZone] Found', videos.length, 'videos');
+
+      return {
+        data: videos,
+        page: page,
+        hasMore: videos.length === pageSize,
+        fallback: false,
+        source: 'region_api'
+      };
+    } catch (error) {
+      console.error('[MusicZone] API error:', error.message);
+      // 返回降级状态
+      return {
+        data: [],
+        page: page,
+        hasMore: false,
+        fallback: true,
+        error: error.message
+      };
+    }
+  },
   // 工具函数
   extractBvid
 };

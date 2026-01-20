@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:demo/exceptions/api_exception.dart';
@@ -182,7 +183,10 @@ class ApiService {
 
       final response = await _client
           .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 30));
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('请求超时，请检查网络连接'),
+          );
 
       final responseBody = _parseResponse(response);
 
@@ -194,6 +198,9 @@ class ApiService {
           response.statusCode,
         );
       }
+    } on TimeoutException {
+      debugPrint('GET 请求超时 ($endpoint)');
+      rethrow;
     } catch (e) {
       debugPrint('GET 请求异常 ($endpoint): $e');
       rethrow;
@@ -216,7 +223,10 @@ class ApiService {
             headers: headers,
             body: data != null ? jsonEncode(data) : null,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('请求超时，请检查网络连接'),
+          );
 
       final responseBody = _parseResponse(response);
 
@@ -228,6 +238,9 @@ class ApiService {
           response.statusCode,
         );
       }
+    } on TimeoutException {
+      debugPrint('POST 请求超时 ($endpoint)');
+      rethrow;
     } catch (e) {
       debugPrint('POST 请求异常 ($endpoint): $e');
       rethrow;
@@ -250,7 +263,10 @@ class ApiService {
             headers: headers,
             body: data != null ? jsonEncode(data) : null,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('请求超时，请检查网络连接'),
+          );
 
       final responseBody = _parseResponse(response);
 
@@ -262,6 +278,9 @@ class ApiService {
           response.statusCode,
         );
       }
+    } on TimeoutException {
+      debugPrint('PUT 请求超时 ($endpoint)');
+      rethrow;
     } catch (e) {
       debugPrint('PUT 请求异常 ($endpoint): $e');
       rethrow;
@@ -279,7 +298,10 @@ class ApiService {
 
       final response = await _client
           .delete(uri, headers: headers)
-          .timeout(const Duration(seconds: 30));
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('请求超时，请检查网络连接'),
+          );
 
       final responseBody = _parseResponse(response);
 
@@ -291,6 +313,9 @@ class ApiService {
           response.statusCode,
         );
       }
+    } on TimeoutException {
+      debugPrint('DELETE 请求超时 ($endpoint)');
+      rethrow;
     } catch (e) {
       debugPrint('DELETE 请求异常 ($endpoint): $e');
       rethrow;

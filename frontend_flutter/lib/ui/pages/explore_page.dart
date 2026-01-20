@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 ///
 /// 展示推荐内容和榜单功能
 /// Phase 2: 实现推荐/榜单Tab切换
-/// TODO: 分区推荐功能待加入（需要WBI签名优化）
+/// Phase 2B: 推荐Tab使用音乐区爬虫内容
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
@@ -27,8 +27,9 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
   bool _isLoading = false;
   String? _errorMessage;
 
-  // 推荐数据
-  PersonalizedResponse? _personalizedResponse;
+  // 推荐数据（Phase 2B: 改为音乐区爬虫数据）
+  List<Map<String, dynamic>> _musicZoneData = [];
+  bool _musicZoneFallback = false;
   BiliPlaylistsResponse? _hotPlaylists;
   BiliPlaylistsResponse? _hotRank;
 
@@ -96,8 +97,8 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
 
     try {
       switch (index) {
-        case 0: // 推荐
-          await _loadPersonalized();
+        case 0: // Phase 2B: 推荐 - 使用音乐区爬虫数据
+          await _loadMusicZone();
           break;
         case 1: // 榜单
           await _loadRankings();
@@ -112,70 +113,6 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         _isLoading = false;
       });
     }
-  }
-
-  /// 加载个性化推荐
-  Future<void> _loadPersonalized() async {
-    final provider = _bilibiliProvider!;
-
-    // 调用后端个性化推荐API
-    final success = await provider.loadPersonalizedRecommendations();
-    if (!success) {
-      setState(() {
-        _errorMessage = provider.errorMessage ?? '加载推荐失败';
-      });
-      return;
-    }
-
-    // 从provider获取完整的响应数据
-    final responseData = provider.personalizedResponseData;
-    final source = responseData['source'] as String? ?? 'unknown';
-
-    // 根据数据类型构建响应
-    final List<RecommendationItem> videos = [];
-    final List<BiliPlaylist> playlists = [];
-    final List<String> keywords = [];
-
-    // 处理视频列表
-    if (responseData['videos'] != null) {
-      final videoList = responseData['videos'] as List;
-      for (var item in videoList) {
-        try {
-          videos.add(RecommendationItem.fromJson(item as Map<String, dynamic>));
-        } catch (e) {
-          debugPrint('【ExplorePage】Failed to parse video item: $e');
-        }
-      }
-    }
-
-    // 处理歌单列表
-    if (responseData['playlists'] != null) {
-      final playlistList = responseData['playlists'] as List;
-      for (var item in playlistList) {
-        try {
-          playlists.add(BiliPlaylist.fromJson(item as Map<String, dynamic>));
-        } catch (e) {
-          debugPrint('【ExplorePage】Failed to parse playlist item: $e');
-        }
-      }
-    }
-
-    // 处理关键词
-    if (responseData['keywords'] != null) {
-      final keywordList = responseData['keywords'] as List;
-      keywords.addAll(keywordList.map((k) => k.toString()));
-    }
-
-    setState(() {
-      _personalizedResponse = PersonalizedResponse(
-        source: source,
-        keywords: keywords,
-        videos: videos,
-        playlists: playlists,
-      );
-    });
-
-    debugPrint('【ExplorePage】Personalized loaded: ${videos.length} videos, ${playlists.length} playlists');
   }
 
   /// 加载榜单数据
@@ -201,6 +138,29 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         total: provider.hotRank.length,
       );
     });
+  }
+
+  /// Phase 2B: 加载音乐区数据（爬虫方式）
+  Future<void> _loadMusicZone() async {
+    final provider = _bilibiliProvider!;
+
+    final success = await provider.loadMusicZoneRecommendations();
+
+    if (!success) {
+      setState(() {
+        _errorMessage = provider.errorMessage ?? '加载音乐区推荐失败';
+        _musicZoneFallback = true;
+      });
+      return;
+    }
+
+    // 从provider获取数据
+    setState(() {
+      _musicZoneData = provider.musicZoneRecommendations;
+      _musicZoneFallback = provider.musicZoneFallback;
+    });
+
+    debugPrint('【ExplorePage】Music zone loaded: ${_musicZoneData.length} items');
   }
 
   @override
@@ -307,9 +267,9 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     );
   }
 
-  /// 推荐Tab
+  /// 推荐Tab（Phase 2B: 显示音乐区爬虫数据）
   Widget _buildRecommendTab() {
-    if (_personalizedResponse == null) {
+    if (_musicZoneData.isEmpty) {
       return const Center(child: Text('暂无推荐内容'));
     }
 
@@ -318,61 +278,128 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       children: [
         // 来源提示卡片
         _buildSourceCard(),
-        // 推荐视频列表
-        if (_personalizedResponse!.videos != null &&
-            _personalizedResponse!.videos!.isNotEmpty)
-          ..._personalizedResponse!.videos!.map((item) => _buildVideoCard(item)),
-        // 推荐歌单列表
-        if (_personalizedResponse!.playlists != null &&
-            _personalizedResponse!.playlists!.isNotEmpty)
-          ..._personalizedResponse!.playlists!.map((playlist) => _buildPlaylistCard(playlist)),
+        // 音乐区推荐视频列表
+        ..._musicZoneData.map((item) => _buildMusicZoneCard(item)),
       ],
     );
   }
 
-  /// 构建来源提示卡片
+  /// 构建来源提示卡片（Phase 2B）
   Widget _buildSourceCard() {
-    String sourceText = '推荐内容';
-    IconData sourceIcon = Icons.recommend;
-    Color sourceColor = Colors.blue;
-
-    switch (_personalizedResponse!.source) {
-      case 'music':
-        sourceText = 'B站音乐区推荐';
-        sourceIcon = Icons.music_note;
-        sourceColor = Colors.purple;
-        break;
-      case 'rank_fallback':
-        sourceText = '热歌榜单';
-        sourceIcon = Icons.trending_up;
-        sourceColor = Colors.orange;
-        break;
-      case 'hot':
-        sourceText = '热门推荐';
-        sourceIcon = Icons.whatshot;
-        sourceColor = Colors.red;
-        break;
-      case 'personalized':
-        sourceText = '个性化推荐';
-        sourceIcon = Icons.person;
-        sourceColor = Colors.green;
-        break;
-    }
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(sourceIcon, color: sourceColor),
+            Icon(Icons.music_note, color: _musicZoneFallback ? Colors.orange : Colors.purple),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                sourceText,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _musicZoneFallback ? 'B站音乐区（当前使用热门推荐）' : 'B站音乐区个性化推荐',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  if (_musicZoneFallback)
+                    const Text(
+                      '爬取失败，已降级到热门推荐',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Phase 2B: 音乐区视频卡片
+  Widget _buildMusicZoneCard(Map<String, dynamic> item) {
+    final bvid = item['bvid'] ?? '';
+    final title = item['title'] ?? '';
+    final cover = item['cover'] ?? '';
+    final author = item['author'] ?? 'Unknown';
+    final playCount = item['playCount'] ?? 0;
+    final arcurl = item['arcurl'] ?? '';
+
+    // 处理封面URL
+    String coverUrl = cover;
+    if (coverUrl.startsWith('//')) {
+      coverUrl = 'https:$coverUrl';
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () async {
+          if (arcurl.isNotEmpty) {
+            showMySnackBar(context, '即将播放: $title', Colors.blue, 1500);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面图
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  coverUrl.isNotEmpty ? coverUrl : '',
+                  width: 100,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 100,
+                      height: 70,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.broken_image, size: 32),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 右侧信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 标题
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    // 作者和播放量
+                    Text(
+                      'UP: $author  ·  播放: $playCount',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 播放按钮
+              IconButton(
+                icon: const Icon(Icons.play_circle_outline),
+                onPressed: () {
+                  showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
+                },
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
         ),
       ),
     );

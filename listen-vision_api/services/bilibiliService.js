@@ -657,9 +657,15 @@ const getWbiKey = async (userId = null) => {
   console.log('[getWbiKey] Response code:', data.code);
   console.log('[getWbiKey] Has wbi_img:', !!data.data?.wbi_img);
 
-  if (data.code !== 0) {
+  // 根据 bilibili-API-collect/docs/misc/sign/wbi.md
+  // 未登录时 code=-101，但 wbi_img 仍然有效
+  if (data.code !== 0 && data.code !== -101) {
     console.error('[getWbiKey] API returned error:', data.message);
     return { imgKey: '', subKey: '' };
+  }
+
+  if (data.code === -101) {
+    console.log('[getWbiKey] User not logged in, but WBI key is available');
   }
 
   if (!data.data?.wbi_img) {

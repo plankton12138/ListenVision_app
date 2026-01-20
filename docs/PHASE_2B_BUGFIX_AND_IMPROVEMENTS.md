@@ -10,19 +10,19 @@
 
 ## 一、问题概述
 
-| 问题类型 | 描述 | 用户期望 | 优先级 |
-|---------|------|----------|--------|
-| Bug | 搜索结果点击加入歌单后页面卡死 | 正常添加并给予反馈 | 🔴 高 |
-| 功能 | 发现页面推荐内容不是个性化 | 使用绑定B站账户的音乐区推荐 | 🟡 中 |
-| 功能 | 播放列表功能匮乏 | 添加变更播放顺序和添加歌曲功能 | 🟡 中 |
+| 问题类型 | 描述 | 用户期望 | 优先级 | 状态 |
+|---------|------|----------|--------|------|
+| Bug | 搜索结果点击加入歌单后页面卡死 | 正常添加并给予反馈 | 🔴 高 | ✅ 已解决 |
+| 功能 | 发现页面榜单内容单一 | 未来接入QQ音乐榜单 | 🟢 低 | 📋 计划中 |
+| 功能 | 播放列表功能匮乏 | 添加变更播放顺序和添加歌曲功能 | 🟡 中 | ⏸️ 待实施 |
+| 架构 | 下载任务管理依赖后端 | 前端本地化实现，减少网络开销 | 🟡 中 | ✅ 已完成 |
 
 ---
 
-## 二、问题1：搜索结果加入歌单后页面卡死
+## 二、问题1：搜索结果加入歌单后页面卡死 ✅
 
-### 2.1 问题分析
+### 2.1 问题描述（已解决）
 
-**【设计思路】**
 这是一个典型的异步操作缺少状态管理导致的问题。根本原因：
 - 没有loading状态，用户可能重复点击
 - API超时设置30秒，如果后端无响应会长时间等待
@@ -83,7 +83,7 @@ Future<PlaylistItem?> addItem(...) async {
 
 ---
 
-## 三、问题2：发现页面推荐改为B站音乐区爬取
+## 三、问题2：发现页面榜单扩展计划 📋
 
 ### 3.1 当前实现分析
 
@@ -106,172 +106,47 @@ Future<PlaylistItem?> addItem(...) async {
 | 热歌榜单 | `bilibili.com/audio/music-service-c/web/menu/rank` | 非个性化 |
 | 个性化推荐 | 实际调用热门歌单API | 非真正个性化 |
 
-### 3.2 新方案设计
+### 3.2 未来方案设计：QQ音乐榜单
 
 **【设计思路】**
-爬取 `https://www.bilibili.com/c/music` 页面获取用户绑定的B站账户的个性化推荐内容。
+接入QQ音乐榜单API，为发现页面榜单Tab提供更丰富的内容来源。
 
 **【技术选型】**
-```
-方案: axios + cheerio（轻量级HTML解析）
-├── 优势: 无需浏览器，性能高
-├── 劣势: 只能解析静态HTML
-└── 备选: puppeteer（动态内容，但资源消耗大）
-```
+- QQ音乐开放平台 API
+- 需要申请开发者密钥
 
-### 3.3 实施步骤
+### 3.3 计划实施内容
 
-#### 步骤1：安装依赖
-```bash
-cd listen-vision_api
-npm install cheerio
-```
+#### 功能1：QQ音乐榜单集成
+- 新歌榜
+- 热歌榜
+- 古典榜
+- 流行榜
 
-#### 步骤2：创建爬虫服务
-**文件**: `listen-vision_api/services/musicCrawlerService.js` (新建)
+#### 功能2：账号绑定（可选）
+- 用户可绑定QQ音乐账号
+- 获取个性化推荐
 
-```javascript
-const axios = require('axios');
-const cheerio = require('cheerio');
-
-class MusicCrawlerService {
-  /**
-   * 爬取B站音乐区页面
-   * @param {string} cookie - 用户绑定的B站 Cookie
-   * @param {number} page - 页码
-   * @param {number} pageSize - 每页数量
-   */
-  async crawlMusicPage(cookie, page = 1, pageSize = 20) {
-    try {
-      const url = `https://www.bilibili.com/c/music?pn=${page}`;
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Cookie': cookie,
-          'Referer': 'https://www.bilibili.com'
-        },
-        timeout: 10000
-      });
-
-      const $ = cheerio.load(response.data);
-      const items = [];
-
-      // 解析音乐卡片（具体选择器需根据实际页面结构确定）
-      $('.video-card, .bili-video-card').each((index, element) => {
-        if (items.length >= pageSize) return false;
-
-        const $el = $(element);
-        items.push({
-          bvid: $el.find('a').attr('href')?.match(/BV\w+/)?.[0],
-          title: $el.find('.title, .bili-video-card__info--tit').text().trim(),
-          cover: $el.find('img').attr('data-src') || $el.find('img').attr('src'),
-          author: $el.find('.author, .bili-video-card__info--author').text().trim(),
-          playCount: this._parseCount($el.find('.play-count, .bili-video-card__stats--item').first().text()),
-        });
-      });
-
-      return {
-        success: true,
-        data: items,
-        page: page,
-        hasMore: items.length === pageSize
-      };
-    } catch (error) {
-      throw new Error(`爬取音乐区失败: ${error.message}`);
-    }
-  }
-
-  /**
-   * 解析播放量（如 "10.5万" -> 10500）
-   */
-  _parseCount(text) {
-    // 实现播放量解析逻辑
-  }
-}
-
-module.exports = new MusicCrawlerService();
-```
-
-#### 步骤3：更新推荐服务
-**文件**: `listen-vision_api/services/recommendationService.js` (修改)
-
-添加新方法：
-```javascript
-const musicCrawlerService = require('./musicCrawlerService');
-
-/**
- * 获取个性化音乐区推荐
- */
-async getPersonalizedMusic(userId) {
-  // 获取用户绑定的B站 Cookie
-  const account = await bilibiliService.getUserAccount(userId);
-  if (!account) {
-    throw new Error('请先绑定B站账号');
-  }
-
-  // 爬取音乐区页面
-  return await musicCrawlerService.crawlMusicPage(account.cookie, 1, 20);
-}
-```
-
-#### 步骤4：添加API路由
-**文件**: `listen-vision_api/routes/recommendations.js` (修改)
-
-```javascript
-// GET /api/recommendations/music-zone - 音乐区推荐
-router.get('/music-zone', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const result = await recommendationService.getPersonalizedMusic(userId, page);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-```
-
-#### 步骤5：前端集成
-**文件**: `frontend_flutter/lib/ui/pages/explore_page.dart` (修改)
-
-添加新的Tab用于展示音乐区推荐：
-```dart
-// 在 TabBar 中添加
-Tab(text: '音乐区', icon: Icon(Icons.music_note)),
-
-// 在 TabBarView 中添加
-_buildMusicZoneTab(),
-```
-
-### 3.4 注意事项
-
-1. **反爬虫策略**:
-   - 使用真实User-Agent
-   - 设置Referer
-   - 控制请求频率
-
-2. **Cookie管理**:
-   - 使用用户绑定的B站Cookie
-   - Cookie过期时提示用户重新绑定
-
-3. **缓存策略**:
-   - 爬取结果缓存30分钟
-   - 减少对B站的请求压力
-
-4. **降级方案**:
-   - 爬取失败时回退到热门歌单API
-   - 未绑定时显示绑定引导
-
-### 3.5 验收标准
-- [ ] 绑定B站账号后能看到个性化推荐
-- [ ] 推荐内容与用户B站音乐区内容一致
-- [ ] 未绑定时显示绑定引导
-- [ ] 爬取失败时能降级到热门推荐
-- [ ] 翻页功能正常工作
+### 3.4 验收标准
+- [ ] 发现页榜单Tab可切换来源（B站/QQ音乐）
+- [ ] QQ音乐榜单数据正常展示
+- [ ] 支持多种榜单类型
+- [ ] 榜单数据缓存策略
 
 ---
 
-## 四、问题3：播放列表功能扩展
+## ~~三、问题2：发现页面推荐改为B站音乐区爬取~~ (已废弃)
+
+> **注**: 音乐区爬虫方案已完成开发（`musicCrawlerService.js`），但前端集成已取消。未来将采用QQ音乐榜单方案替代。
+
+**已完成**:
+- ✅ `musicCrawlerService.js` - 爬虫服务实现
+- ✅ 支持降级方案
+- ✅ 反爬虫策略
+
+---
+
+## 四、问题3：播放列表功能扩展（待实施）
 
 ### 4.1 当前状态分析
 
@@ -487,29 +362,37 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 
 ## 五、关键文件清单
 
-### 问题1：加入歌单卡死
-| 文件 | 操作 | 优先级 |
-|------|------|--------|
-| `lib/ui/pages/search_page.dart` | 修改 - 添加loading状态 | 🔴 高 |
-| `lib/providers/playlist_provider.dart` | 修改 - 优化异步操作 | 🔴 高 |
-| `lib/services/api_service.dart` | 修改 - 缩短超时时间 | 🟡 中 |
+### 问题1：加入歌单卡死 ✅
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `lib/ui/pages/search_page.dart` | 修改 - 添加loading状态 | 🔴 高 | ✅ 已完成 |
+| `lib/providers/playlist_provider.dart` | 修改 - 优化异步操作 | 🔴 高 | ✅ 已完成 |
+| `lib/services/api_service.dart` | 修改 - 缩短超时时间 | 🟡 中 | ✅ 已完成 |
 
-### 问题2：音乐区爬取
-| 文件 | 操作 | 优先级 |
-|------|------|--------|
-| `listen-vision_api/services/musicCrawlerService.js` | 新建 | 🔴 高 |
-| `listen-vision_api/services/recommendationService.js` | 修改 - 集成爬虫 | 🔴 高 |
-| `listen-vision_api/routes/recommendations.js` | 修改 - 添加路由 | 🔴 高 |
-| `lib/ui/pages/explore_page.dart` | 修改 - 添加音乐区Tab | 🟡 中 |
-| `lib/services/bilibiliApiService.dart` | 修改 - 添加API调用 | 🟡 中 |
+### 问题2：QQ音乐榜单计划 📋
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| ~~`musicCrawlerService.js`~~ | 已完成（但废弃） | - | ✅ 后端完成 |
+| `recommendationService.js` | 修改 - 集成QQ音乐API | 🟢 低 | 📋 计划中 |
+| `routes/recommendations.js` | 修改 - 添加QQ音乐路由 | 🟢 低 | 📋 计划中 |
+| `lib/ui/pages/explore_page.dart` | 修改 - 榜单来源切换 | 🟢 低 | 📋 计划中 |
 
-### 问题3：播放列表扩展
-| 文件 | 操作 | 优先级 |
-|------|------|--------|
-| `lib/ui/pages/playlist_detail_page.dart` | 修改 - 添加按钮 | 🔴 高 |
-| `lib/ui/dialogs/add_song_dialog.dart` | 新建 | 🟡 中 |
-| `lib/ui/dialogs/sort_options_dialog.dart` | 新建 | 🟢 低 |
-| `listen-vision_api/routes/playlists.js` | 修改 - 排序API | 🟢 低 |
+### 问题3：播放列表扩展 ⏸️
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `lib/ui/pages/playlist_detail_page.dart` | 修改 - 添加按钮 | 🔴 高 | ⏸️ 待实施 |
+| `lib/ui/dialogs/add_song_dialog.dart` | 新建 | 🟡 中 | ⏸️ 待实施 |
+| `lib/ui/dialogs/sort_options_dialog.dart` | 新建 | 🟢 低 | ⏸️ 待实施 |
+| `listen-vision_api/routes/playlists.js` | 修改 - 排序API | 🟢 低 | ⏸️ 待实施 |
+
+### 附加：下载架构重构 ✅
+| 文件 | 操作 | 状态 |
+|------|------|------|
+| `lib/services/download/download_executor.dart` | 新建 | ✅ 已完成 |
+| `lib/services/download/download_repository.dart` | 新建 | ✅ 已完成 |
+| `lib/services/download/metadata_writer.dart` | 新建 | ✅ 已完成 |
+| ~~`listen-vision_api/services/downloadService.js`~~ | 删除 | ✅ 已清理 |
+| ~~`listen-vision_api/routes/downloads.js`~~ | 删除 | ✅ 已清理 |
 
 ---
 
@@ -517,9 +400,10 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 
 1. **Flutter状态管理**: 使用 `notifyListeners()` 触发UI更新，loading状态防止重复点击
 2. **异步操作优化**: 使用 `compute` 将耗时操作放到Isolate执行
-3. **网络爬虫基础**: cheerio是服务端jQuery，用于解析HTML
-4. **反爬虫应对**: User-Agent、Referer、Cookie、请求频率控制
-5. **降级策略**: 爬取失败时回退到API，保证用户体验
+3. **下载架构设计**: 前端本地化 vs 后端任务队列的权衡
+4. **断点续传**: HTTP Range 请求实现分段下载
+5. **临时文件策略**: 避免Windows文件锁定问题
+6. **第三方API集成**: QQ音乐开放平台（未来计划）
 
 ---
 
@@ -527,36 +411,40 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 
 | 问题 | 步骤 | 状态 | 完成日期 |
 |------|------|------|----------|
-| 问题1: 加入歌单卡死 | 添加loading状态 | ⏸️ 待开始 | |
-| 问题1: 加入歌单卡死 | 优化异步操作 | ⏸️ 待开始 | |
-| 问题1: 加入歌单卡死 | 缩短超时时间 | ⏸️ 待开始 | |
-| 问题2: 音乐区爬取 | 创建爬虫服务 | ⏸️ 待开始 | |
-| 问题2: 音乐区爬取 | 更新推荐服务 | ⏸️ 待开始 | |
-| 问题2: 音乐区爬取 | 添加API路由 | ⏸️ 待开始 | |
-| 问题2: 音乐区爬取 | 前端集成 | ⏸️ 待开始 | |
+| 问题1: 加入歌单卡死 | 添加loading状态 | ✅ 已完成 | 2026-01-20 |
+| 问题1: 加入歌单卡死 | 优化异步操作 | ✅ 已完成 | 2026-01-20 |
+| 问题1: 加入歌单卡死 | 缩短超时时间 | ✅ 已完成 | 2026-01-20 |
+| ~~问题2: 音乐区爬取~~ | ~~创建爬虫服务~~ | ✅ 已完成（废弃） | 2026-01-20 |
+| 问题2: QQ音乐榜单 | 申请API密钥 | 📋 计划中 | |
+| 问题2: QQ音乐榜单 | 后端集成 | 📋 计划中 | |
+| 问题2: QQ音乐榜单 | 前端集成 | 📋 计划中 | |
 | 问题3: 播放列表扩展 | 添加"添加歌曲"按钮 | ⏸️ 待开始 | |
 | 问题3: 播放列表扩展 | 创建添加歌曲对话框 | ⏸️ 待开始 | |
 | 问题3: 播放列表扩展 | 创建排序选项对话框 | ⏸️ 待开始 | |
+| 附加: 下载架构重构 | 前端本地化实现 | ✅ 已完成 | 2026-01-20 |
 
 ---
 
 ## 八、验收标准汇总
 
-### Bug修复验收
-- [ ] 搜索结果点击加入歌单不再卡死
-- [ ] 操作过程有loading状态反馈
-- [ ] 超时有友好提示
+### Bug修复验收 ✅
+- [x] 搜索结果点击加入歌单不再卡死
+- [x] 操作过程有loading状态反馈
+- [x] 超时有友好提示
 
 ### 功能改进验收
-- [ ] 发现页面新增"音乐区"Tab
-- [ ] 音乐区内容与B站账号一致
+- [ ] ~~发现页面新增"音乐区"Tab~~ (已取消，改用QQ音乐方案)
+- [x] ~~音乐区爬虫服务后端完成~~ (已完成但废弃)
+- [ ] QQ音乐榜单集成（未来计划）
 - [ ] 歌单详情页可添加歌曲
 - [ ] 歌单支持多种排序方式
+- [x] 下载架构重构（前端本地化）
 
 ### 文档验收
-- [ ] CLAUDE.md 更新完成
-- [ ] INCREMENTAL_MIGRATION_PLAN.md 更新完成
+- [x] CLAUDE.md 更新完成
+- [x] INCREMENTAL_MIGRATION_PLAN.md 更新完成
+- [x] PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md 更新完成
 
 ---
 
-*本文档由 Claude Code 生成 | 创建: 2026-01-19*
+*本文档由 Claude Code 生成 | 创建: 2026-01-19 | 更新: 2026-01-20*

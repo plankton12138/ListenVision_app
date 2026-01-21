@@ -243,7 +243,11 @@ class _SearchPageState extends State<SearchPage> {
                   });
 
                   try {
-                    final token = authProvider.user!.token;
+                    final token = authProvider.user?.token ?? '';
+                    if (token.isEmpty) {
+                      showMySnackBar(context, '请先登录', Colors.red, 2000);
+                      return;
+                    }
                     final added = await playlistProvider.toggleFavorite(
                       token,
                       bvid,
@@ -326,12 +330,17 @@ class _SearchPageState extends State<SearchPage> {
                     });
 
                     try {
+                      final token = authProvider.user?.token ?? '';
+                      if (token.isEmpty) {
+                        showMySnackBar(context, '请先登录', Colors.red, 2000);
+                        return;
+                      }
                       final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
                       final author = item['author'] ?? 'Unknown';
 
                       await playlistProvider.addItem(
-                        authProvider.user!.token,
-                        selectedPlaylistId,
+                        token,
+                        selectedPlaylistId.toString(),
                         bvid,
                         title: title,
                         artist: author,

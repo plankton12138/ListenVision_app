@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:metadata_god/metadata_god.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/models/audio_model.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:flutter/foundation.dart';
 

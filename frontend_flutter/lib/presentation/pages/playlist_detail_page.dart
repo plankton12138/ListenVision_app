@@ -13,7 +13,7 @@ import 'package:provider/provider.dart';
 /// 展示歌单信息和歌单项列表
 /// Phase 2: 完整的歌单项管理功能
 class PlaylistDetailPage extends StatefulWidget {
-  final int playlistId;
+  final String playlistId;
 
   const PlaylistDetailPage({super.key, required this.playlistId});
 
@@ -56,9 +56,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       final playlists = playlistProvider.playlists;
       _playlist = playlists.firstWhere(
         (p) => p.id == widget.playlistId,
-        orElse: () => Playlist(
-          id: widget.playlistId,
-          userId: 0,
+        orElse: () => const Playlist(
+          id: '0',
+          userId: '0',
           name: '歌单详情',
           type: PlaylistType.user,
         ),
@@ -105,10 +105,16 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
 
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
+    final token = authProvider.user?.token ?? '';
+
+    if (token.isEmpty) {
+      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      return;
+    }
 
     try {
       final success = await playlistProvider.removeItem(
-        authProvider.user!.token,
+        token,
         widget.playlistId,
         item.bvid,
       );
@@ -148,10 +154,16 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     // 调用后端API保存新顺序
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
+    final token = authProvider.user?.token ?? '';
+
+    if (token.isEmpty) {
+      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      return;
+    }
 
     try {
       await playlistProvider.reorderItems(
-        authProvider.user!.token,
+        token,
         widget.playlistId,
         items,
       );

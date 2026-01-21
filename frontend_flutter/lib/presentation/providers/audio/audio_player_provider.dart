@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/models/audio_model.dart';
 
 /// 音频播放状态管理
 ///

@@ -1,6 +1,6 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/models/audio_model.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';

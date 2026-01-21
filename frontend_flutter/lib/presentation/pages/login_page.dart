@@ -57,8 +57,11 @@ class _LoginPageState extends State<LoginPage> {
       // 初始化歌单Provider
       final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
       try {
-        await playlistProvider.initialize(user.token);
-        await playlistProvider.loadFavorites(user.token);
+        final token = user.token ?? '';
+        if (token.isNotEmpty) {
+          await playlistProvider.initialize(token);
+          await playlistProvider.loadFavorites(token);
+        }
       } catch (e) {
         // 歌单初始化失败不影响登录
         debugPrint('歌单初始化失败: $e');

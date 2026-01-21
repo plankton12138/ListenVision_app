@@ -121,7 +121,13 @@ class AudioInfo extends StatelessWidget {
             }
 
             try {
-              final token = authProvider.user!.token;
+              final token = authProvider.user?.token ?? '';
+              if (token.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('请先登录')),
+                );
+                return;
+              }
               final added = await playlistProvider.toggleFavorite(
                 token,
                 bvid,

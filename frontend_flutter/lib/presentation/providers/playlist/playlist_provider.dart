@@ -83,9 +83,9 @@ class PlaylistProvider with ChangeNotifier {
           (p) => p.isFavorites,
           orElse: () => _playlists.firstWhere(
             (p) => p.systemType == SystemPlaylistType.favorites,
-            orElse: () => Playlist(
-              id: null,
-              userId: 0,
+            orElse: () => const Playlist(
+              id: '1',
+              userId: '0',
               name: '我喜欢',
               type: PlaylistType.system,
               systemType: SystemPlaylistType.favorites,
@@ -97,9 +97,9 @@ class PlaylistProvider with ChangeNotifier {
           (p) => p.isNowPlaying,
           orElse: () => _playlists.firstWhere(
             (p) => p.systemType == SystemPlaylistType.nowPlaying,
-            orElse: () => Playlist(
-              id: null,
-              userId: 0,
+            orElse: () => const Playlist(
+              id: '2',
+              userId: '0',
               name: '正在播放',
               type: PlaylistType.system,
               systemType: SystemPlaylistType.nowPlaying,
@@ -180,7 +180,7 @@ class PlaylistProvider with ChangeNotifier {
   }
 
   /// 更新歌单
-  Future<bool> updatePlaylist(String token, int id, {String? name, String? description}) async {
+  Future<bool> updatePlaylist(String token, String id, {String? name, String? description}) async {
     try {
       final response = await _dioProvider.put(
         '/playlists/$id',
@@ -206,7 +206,7 @@ class PlaylistProvider with ChangeNotifier {
   }
 
   /// 删除歌单
-  Future<bool> deletePlaylist(String token, int id) async {
+  Future<bool> deletePlaylist(String token, String id) async {
     try {
       final response = await _dioProvider.delete('/playlists/$id');
 
@@ -224,7 +224,7 @@ class PlaylistProvider with ChangeNotifier {
   /// 添加音频到歌单
   Future<PlaylistItem?> addItem(
     String token,
-    int playlistId,
+    String playlistId,
     String bvid, {
     String? title,
     String? artist,
@@ -270,7 +270,7 @@ class PlaylistProvider with ChangeNotifier {
   }
 
   /// 从歌单移除音频
-  Future<bool> removeItem(String token, int playlistId, String bvid) async {
+  Future<bool> removeItem(String token, String playlistId, String bvid) async {
     try {
       final response = await _dioProvider.delete('/playlists/$playlistId/items/$bvid');
 
@@ -299,7 +299,7 @@ class PlaylistProvider with ChangeNotifier {
   }
 
   /// 调整歌单项顺序
-  Future<bool> reorderItems(String token, int playlistId, List<PlaylistItem> items) async {
+  Future<bool> reorderItems(String token, String playlistId, List<PlaylistItem> items) async {
     try {
       final response = await _dioProvider.put(
         '/playlists/$playlistId/items/reorder',
@@ -365,11 +365,11 @@ class PlaylistProvider with ChangeNotifier {
   Future<bool> saveNowPlaying(String token, List<Audio> queue) async {
     try {
       final items = queue.map((audio) => {
-        'bvid': audio.url ?? '', // 使用 url 作为 bvid
+        'bvid': audio.id, // 使用 id (BV号)
         'title': audio.title,
-        'artist': audio.artist,
-        'duration': audio.duration,
-        'coverUrl': audio.albumArt,
+        'artist': audio.artist ?? '',
+        'duration': audio.duration ?? 0,
+        'coverUrl': audio.coverUrl,
       }).toList();
 
       final response = await _dioProvider.post(

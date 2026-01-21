@@ -1,6 +1,6 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
@@ -108,7 +108,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     final historyProvider = context.read<PlayHistoryProvider>();
     await historyProvider.removeHistoryItem(
       authProvider.user?.token,
-      item.bvid,
+      item.audio.id,
     );
   }
 
@@ -206,7 +206,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
 
   Widget _buildHistoryCard(PlayHistoryItem item, int index) {
     return Dismissible(
-      key: ValueKey(item.id ?? item.bvid),
+      key: ValueKey(item.id ?? item.audio.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
         _removeItem(item);
@@ -222,7 +222,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         child: ListTile(
           leading: _buildItemCover(item),
           title: Text(
-            item.title ?? item.bvid,
+            item.audio.title ?? item.audio.id,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -231,14 +231,14 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
             children: [
               Text(
                 [
-                  if (item.artist != null) item.artist,
-                  item.formattedDuration,
+                  if (item.audio.artist != null) item.audio.artist,
+                  _formatDuration(item.audio.duration ?? 0),
                 ].join(' · '),
                 style: const TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 4),
               // 播放进度条
-              if (item.duration != null && item.duration! > 0)
+              if (item.audio.duration != null && item.audio.duration! > 0)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -251,7 +251,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '播放至 ${_formatProgress(item.progress, item.duration!)}',
+                      '播放至 ${_formatProgress(item.progress, item.audio.duration!)}',
                       style: const TextStyle(fontSize: 10, color: Colors.grey),
                     ),
                   ],
@@ -280,7 +280,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   }
 
   Widget _buildItemCover(PlayHistoryItem item) {
-    final coverUrl = item.coverUrl;
+    final coverUrl = item.audio.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -316,5 +316,11 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     final durationMin = duration ~/ 60;
     final durationSec = duration % 60;
     return '${progressMin.toString().padLeft(2, '0')}:${progressSec.toString().padLeft(2, '0')} / ${durationMin.toString().padLeft(2, '0')}:${durationSec.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 }

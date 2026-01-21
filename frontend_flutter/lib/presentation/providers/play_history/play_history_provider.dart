@@ -10,8 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PlayHistoryProvider with ChangeNotifier {
   late final DioProvider _dioProvider;
 
-  // 数据状态
-  List<PlayHistoryItem> _history = [];
+  // 数据状态 - 使用 PlayHistory 作为类型
+  List<PlayHistory> _history = [];
   PlayHistoryStats? _stats;
 
   // 加载状态
@@ -23,7 +23,7 @@ class PlayHistoryProvider with ChangeNotifier {
   }
 
   // Getters
-  List<PlayHistoryItem> get history => _history;
+  List<PlayHistory> get history => _history;
   PlayHistoryStats? get stats => _stats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -58,7 +58,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        _history = data.map((json) => PlayHistoryItem.fromJson(json as Map<String, dynamic>)).toList();
+        _history = data.map((json) => PlayHistory.fromJson(json as Map<String, dynamic>)).toList();
         _saveHistoryToLocal();
       }
     } catch (e) {
@@ -77,7 +77,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        _history = data.map((json) => PlayHistoryItem.fromJson(json as Map<String, dynamic>)).toList();
+        _history = data.map((json) => PlayHistory.fromJson(json as Map<String, dynamic>)).toList();
         _saveHistoryToLocal();
         notifyListeners();
       }
@@ -111,13 +111,22 @@ class PlayHistoryProvider with ChangeNotifier {
     int progress = 0,
   }) async {
     // 先更新本地列表（乐观更新）
-    final existingIndex = _history.indexWhere((item) => item.bvid == bvid);
-    final newItem = PlayHistoryItem(
-      bvid: bvid,
-      title: title,
+    // 新的 PlayHistory 实体包含 Audio 对象，而不是直接的 bvid/title 属性
+    final existingIndex = _history.indexWhere((item) => item.audio.id == bvid);
+
+    // 创建新的 Audio 对象
+    final audio = Audio(
+      id: bvid,
+      title: title ?? '',
       artist: artist,
       duration: duration,
       coverUrl: coverUrl,
+    );
+
+    final newItem = PlayHistory(
+      id: '', // 新建时 ID 由后端生成
+      userId: '', // 用户 ID 从 token 获取
+      audio: audio,
       playedAt: DateTime.now(),
       progress: progress,
     );
@@ -125,7 +134,7 @@ class PlayHistoryProvider with ChangeNotifier {
     if (existingIndex >= 0) {
       // 更新现有记录
       _history[existingIndex] = newItem;
-      _history.sort((a, b) => (b.playedAt ?? DateTime.now()).compareTo(a.playedAt ?? DateTime.now()));
+      _history.sort((a, b) => b.playedAt.compareTo(a.playedAt));
     } else {
       // 添加新记录到开头
       _history.insert(0, newItem);
@@ -156,7 +165,6 @@ class PlayHistoryProvider with ChangeNotifier {
         // 更新统计
         _stats = PlayHistoryStats(
           totalPlays: (_stats?.totalPlays ?? 0) + 1,
-          lastPlayed: newItem,
         );
       } catch (e) {
         debugPrint('记录播放失败: $e');
@@ -166,7 +174,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
   /// 删除指定记录
   Future<bool> removeHistoryItem(String? token, String bvid) async {
-    _history.removeWhere((item) => item.bvid == bvid);
+    _history.removeWhere((item) => item.audio.id == bvid);
     _saveHistoryToLocal();
     notifyListeners();
 
@@ -182,7 +190,7 @@ class PlayHistoryProvider with ChangeNotifier {
   }
 
   /// 按ID删除记录
-  Future<bool> removeHistoryById(String? token, int id) async {
+  Future<bool> removeHistoryById(String? token, String id) async {
     _history.removeWhere((item) => item.id == id);
     _saveHistoryToLocal();
     notifyListeners();
@@ -218,21 +226,21 @@ class PlayHistoryProvider with ChangeNotifier {
   }
 
   /// 获取去重后的历史（按bvid）
-  List<PlayHistoryItem> get uniqueHistory {
+  List<PlayHistory> get uniqueHistory {
     final seen = <String>{};
     return _history.where((item) {
-      if (seen.contains(item.bvid)) {
+      if (seen.contains(item.audio.id)) {
         return false;
       }
-      seen.add(item.bvid);
+      seen.add(item.audio.id);
       return true;
     }).toList();
   }
 
   /// 根据bvid查找历史记录
-  PlayHistoryItem? findByBvid(String bvid) {
+  PlayHistory? findByBvid(String bvid) {
     try {
-      return _history.firstWhere((item) => item.bvid == bvid);
+      return _history.firstWhere((item) => item.audio.id == bvid);
     } catch (e) {
       return null;
     }
@@ -249,7 +257,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
       if (historyJson != null) {
         final data = jsonDecode(historyJson) as List;
-        _history = data.map((json) => PlayHistoryItem.fromJson(json as Map<String, dynamic>)).toList();
+        _history = data.map((json) => PlayHistory.fromJson(json as Map<String, dynamic>)).toList();
         notifyListeners();
       }
     } catch (e) {

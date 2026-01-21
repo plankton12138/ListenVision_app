@@ -1,5 +1,6 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
@@ -475,7 +476,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
 
   /// 视频卡片
   Widget _buildVideoCard(RecommendationItem item) {
-    String coverUrl = item.cover ?? '';
+    String coverUrl = item.coverUrl ?? '';
     if (coverUrl.startsWith('//')) {
       coverUrl = 'https:$coverUrl';
     }
@@ -506,7 +507,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
           ),
         ),
         subtitle: Text(
-          'UP: ${item.author ?? '未知'}\n播放: ${item.play ?? 0}',
+          'UP: ${item.artist ?? '未知'}\n播放: ${item.playCount ?? 0}',
           style: const TextStyle(fontSize: 12),
         ),
         trailing: IconButton(
@@ -527,7 +528,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       return const SizedBox.shrink();
     }
 
-    String coverUrl = biliPlaylist.cover ?? '';
+    String coverUrl = biliPlaylist.coverUrl ?? '';
     if (coverUrl.startsWith('//')) {
       coverUrl = 'https:$coverUrl';
     }

@@ -26,7 +26,12 @@ class AuthProvider with ChangeNotifier {
     final userData = prefs.getString(_authKey);
 
     if (userData != null) {
-      _user = User.fromJson(jsonDecode(userData));
+      final json = jsonDecode(userData);
+      // 确保 id 是 String 类型（兼容旧数据中可能的 int 类型）
+      if (json['id'] is int) {
+        json['id'] = json['id'].toString();
+      }
+      _user = User.fromJson(json);
 
       // 恢复 token 到 DioProvider
       if (_user?.token != null) {

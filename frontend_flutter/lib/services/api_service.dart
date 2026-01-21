@@ -38,7 +38,8 @@ class ApiService {
           // 合并 token 和 user 数据
           final userData = Map<String, dynamic>.from(data['user']);
           userData['token'] = data['token'];
-          return User.fromJson(userData);
+          // 使用 fromDto 处理后端 int id 类型问题
+          return User.fromDto(userData);
         } else {
           throw ApiException(
             responseBody['message'] ?? '登录失败',
@@ -78,7 +79,8 @@ class ApiService {
         if (responseBody['success'] == true) {
           // 注册成功返回 { token, user } 格式（与登录一致）
           final data = responseBody['data'];
-          return User.fromJson({
+          // 使用 fromDto 处理后端 int id 类型问题
+          return User.fromDto({
             ...data['user'],
             'token': data['token'],
           });

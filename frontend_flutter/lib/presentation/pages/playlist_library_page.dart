@@ -55,7 +55,10 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     });
 
     try {
-      await playlistProvider.initialize(authProvider.user!.token);
+      final token = authProvider.user?.token ?? '';
+      if (token.isNotEmpty) {
+        await playlistProvider.initialize(token);
+      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -126,8 +129,13 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     });
 
     try {
+      final token = authProvider.user?.token ?? '';
+      if (token.isEmpty) {
+        showMySnackBar(context, '用户未登录', Colors.red, 2000);
+        return;
+      }
       final newPlaylist = await playlistProvider.createPlaylist(
-        authProvider.user!.token,
+        token,
         name,
         description: description.isEmpty ? null : description,
       );
@@ -224,10 +232,14 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
   }
 
   Future<void> _updatePlaylist(Playlist playlist, String name, String description) async {
-    if (playlist.id == null) return;
-
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
+    final token = authProvider.user?.token ?? '';
+
+    if (token.isEmpty) {
+      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -235,8 +247,8 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
 
     try {
       final success = await playlistProvider.updatePlaylist(
-        authProvider.user!.token,
-        playlist.id!,
+        token,
+        playlist.id,
         name: name,
         description: description.isEmpty ? null : description,
       );
@@ -256,8 +268,6 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
   }
 
   Future<void> _deletePlaylist(Playlist playlist) async {
-    if (playlist.id == null) return;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -281,6 +291,12 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
 
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
+    final token = authProvider.user?.token ?? '';
+
+    if (token.isEmpty) {
+      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -288,8 +304,8 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
 
     try {
       final success = await playlistProvider.deletePlaylist(
-        authProvider.user!.token,
-        playlist.id!,
+        token,
+        playlist.id,
       );
 
       if (success && mounted) {
@@ -500,14 +516,12 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
         ),
         onTap: () {
           // 跳转到歌单详情页
-          if (playlist.id != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PlaylistDetailPage(playlistId: playlist.id!),
-              ),
-            );
-          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlaylistDetailPage(playlistId: playlist.id),
+            ),
+          );
         },
         onLongPress: () {
           _showPlaylistOptions(playlist);

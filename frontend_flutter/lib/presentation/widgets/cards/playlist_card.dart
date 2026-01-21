@@ -76,7 +76,7 @@ class PlaylistCard extends StatelessWidget {
     return PlaylistCard(
       title: playlist.title,
       description: playlist.intro,
-      coverUrl: playlist.cover,
+      coverUrl: playlist.coverUrl,
       itemCount: playlist.songCount,
       playCount: 0, // B站歌单没有播放次数
       onTap: onTap,

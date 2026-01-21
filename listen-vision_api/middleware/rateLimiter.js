@@ -7,11 +7,11 @@ const rateLimit = require('express-rate-limit');
 
 /**
  * 通用限流配置
- * 限制每个 IP 每小时最多 100 个请求
+ * 限制每个 IP 每分钟最多 300 个请求
  */
 const generalLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 小时
-  max: 100,
+  windowMs: 60 * 1000, // 1 分钟
+  max: 300,
   message: {
     success: false,
     error: '请求过于频繁，请稍后再试'
@@ -22,22 +22,22 @@ const generalLimiter = rateLimit({
     res.status(429).json({
       success: false,
       error: '请求过于频繁，请稍后再试',
-      retryAfter: '1小时'
+      retryAfter: '1分钟'
     });
   }
 });
 
 /**
  * 严格限流配置（用于敏感操作）
- * 限制每个 IP 每小时最多 100 个请求
+ * 限制每个 IP 每分钟最多 100 个请求
  * 适用于：登录、注册、密码重置等
  */
 const strictLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 小时
+  windowMs: 60 * 1000, // 1 分钟
   max: 100,
   message: {
     success: false,
-    error: '操作过于频繁，请 1 小时后再试'
+    error: '操作过于频繁，请稍后再试'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -45,74 +45,74 @@ const strictLimiter = rateLimit({
   handler: (req, res) => {
     res.status(429).json({
       success: false,
-      error: '操作过于频繁，请 1 小时后再试',
-      retryAfter: '1小时'
+      error: '操作过于频繁，请稍后再试',
+      retryAfter: '1分钟'
     });
   }
 });
 
 /**
  * 登录限流配置
- * 限制每个 IP 每 15 分钟最多 5 次登录尝试
+ * 限制每个 IP 每分钟最多 20 次登录尝试
  */
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 分钟
-  max: 5,
+  windowMs: 60 * 1000, // 1 分钟
+  max: 20,
   message: {
     success: false,
-    error: '登录尝试次数过多，请 15 分钟后再试'
+    error: '登录尝试次数过多，请稍后再试'
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
-      error: '登录尝试次数过多，请 15 分钟后再试',
-      retryAfter: '15分钟'
+      error: '登录尝试次数过多，请稍后再试',
+      retryAfter: '1分钟'
     });
   }
 });
 
 /**
  * 注册限流配置
- * 限制每个 IP 每天最多 3 次注册
+ * 限制每个 IP 每小时最多 10 次注册
  */
 const registerLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 小时
-  max: 3,
+  windowMs: 60 * 60 * 1000, // 1 小时
+  max: 10,
   message: {
     success: false,
-    error: '注册次数过多，请明天再试'
+    error: '注册次数过多，请稍后再试'
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
-      error: '注册次数过多，请明天再试',
-      retryAfter: '24小时'
+      error: '注册次数过多，请稍后再试',
+      retryAfter: '1小时'
     });
   }
 });
 
 /**
  * 发送验证码限流配置
- * 限制每个 IP 每 10 分钟最多 3 次请求
+ * 限制每个 IP 每分钟最多 10 次请求
  */
 const sendCodeLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 分钟
-  max: 3,
+  windowMs: 60 * 1000, // 1 分钟
+  max: 10,
   message: {
     success: false,
-    error: '验证码发送过于频繁，请 10 分钟后再试'
+    error: '验证码发送过于频繁，请稍后再试'
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
-      error: '验证码发送过于频繁，请 10 分钟后再试',
-      retryAfter: '10分钟'
+      error: '验证码发送过于频繁，请稍后再试',
+      retryAfter: '1分钟'
     });
   }
 });
@@ -124,8 +124,8 @@ const sendCodeLimiter = rateLimit({
  */
 const createLimiter = (options) => {
   return rateLimit({
-    windowMs: options.windowMs || 60 * 60 * 1000,
-    max: options.max || 100,
+    windowMs: options.windowMs || 60 * 1000,
+    max: options.max || 300,
     message: options.message || '请求过于频繁',
     standardHeaders: true,
     legacyHeaders: false,

@@ -96,10 +96,75 @@ const getSearchHistory = catchAsync(async (req, res) => {
   return successResponse(res, history, '获取搜索历史成功');
 });
 
+/**
+ * POST /api/search/history
+ *
+ * 保存搜索关键词到历史记录
+ *
+ * Authentication: 必需
+ *
+ * Request Body:
+ * - keyword: 搜索关键词
+ */
+const saveSearchHistory = catchAsync(async (req, res) => {
+  const { keyword } = req.body;
+
+  if (!req.user) {
+    throw new AppError('请先登录', 401);
+  }
+
+  if (!keyword || keyword.trim().length === 0) {
+    throw new AppError('搜索关键词不能为空', 400);
+  }
+
+  searchService.saveSearchHistory(req.user.id, keyword.trim());
+
+  return successResponse(res, { success: true }, '保存搜索历史成功');
+});
+
+/**
+ * DELETE /api/search/history/{keyword}
+ *
+ * 删除指定搜索关键词
+ *
+ * Authentication: 必需
+ */
+const deleteSearchKeyword = catchAsync(async (req, res) => {
+  if (!req.user) {
+    throw new AppError('请先登录', 401);
+  }
+
+  const { keyword } = req.params;
+
+  searchService.deleteSearchKeyword(req.user.id, keyword);
+
+  return successResponse(res, { success: true }, '删除搜索关键词成功');
+});
+
+/**
+ * DELETE /api/search/history
+ *
+ * 清空搜索历史
+ *
+ * Authentication: 必需
+ */
+const clearSearchHistory = catchAsync(async (req, res) => {
+  if (!req.user) {
+    throw new AppError('请先登录', 401);
+  }
+
+  searchService.clearSearchHistory(req.user.id);
+
+  return successResponse(res, { success: true }, '清空搜索历史成功');
+});
+
 // 注册路由
 router.get('/local', localSearch);
 router.get('/suggestions', searchSuggestions);
 router.get('/trending', trendingKeywords);
 router.get('/history', authMiddleware, getSearchHistory);
+router.post('/history', authMiddleware, saveSearchHistory);
+router.delete('/history/:keyword', authMiddleware, deleteSearchKeyword);
+router.delete('/history', authMiddleware, clearSearchHistory);
 
 module.exports = router;

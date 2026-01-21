@@ -143,14 +143,31 @@ const getSearchHistory = (userId = null) => {
   }
 };
 
+// 导入 audioService 中的搜索历史管理方法
+const audioService = require('./audioService');
+
 /**
- * 保存用户搜索历史（已在 audioService.js 中实现）
- *
- * 此函数仅作为引用，实际实现在 audioService.saveSearchHistory
+ * 保存用户搜索历史
+ * 直接委托给 audioService 实现
  */
-const saveSearchHistory = (userId, keyword, resultCount) => {
-  // 实际实现在 audioService.js
-  console.warn('saveSearchHistory 应使用 audioService.saveSearchHistory');
+const saveSearchHistory = (userId, keyword, resultCount = 0) => {
+  return audioService.saveSearchHistory(userId, keyword, resultCount);
+};
+
+/**
+ * 删除用户搜索关键词
+ * 直接委托给 audioService 实现
+ */
+const deleteSearchKeyword = (userId, keyword) => {
+  return audioService.deleteSearchKeyword(userId, keyword);
+};
+
+/**
+ * 清空用户搜索历史
+ * 直接委托给 audioService 实现
+ */
+const clearSearchHistory = (userId) => {
+  return audioService.clearSearchHistory(userId);
 };
 
 module.exports = {
@@ -159,4 +176,6 @@ module.exports = {
   getTrendingKeywords,
   getSearchHistory,
   saveSearchHistory,
+  deleteSearchKeyword,
+  clearSearchHistory,
 };

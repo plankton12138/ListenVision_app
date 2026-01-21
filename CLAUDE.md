@@ -96,19 +96,32 @@ When working in this repository:
 
 ## 当前项目状态 🔄
 
-### 架构迁移进行中
+### 架构迁移完成中
 
-**当前阶段**: **Phase 3** - 搜索优化、推荐算法、下载任务管理
+**当前阶段**: **Phase 2B/3** - Bug修复与功能改进（已暂停）、搜索优化完成
 
 **迁移进度**:
 ```
 规划阶段: ████████████████████ 100% ✅
 Phase 1:   ████████████████████ 100% ✅ 后端+Flutter端完成
 Phase 2:   ████████████████████ 100% ✅ 歌单/收藏/推荐/历史完成
-Phase 2A:  ██░░░░░░░░░░░░░░░░░░  10% 🚧 播放功能改进（进行中）
-Phase 3:   ████████████████████ 100% ✅ 搜索/下载/推荐完成
+Phase 2A:  ████████████████████ 100% ✅ 播放列表页面改进完成
+Phase 2B:  ████████░░░░░░░░░░░░  40% 📋 Bug修复（已暂停）
+Phase 3:   ███████████████░░░░░  70% ✅ 搜索/推荐完成
 
-总进度: 80% (Phase 1+2+3前端集成完成)
+总进度: 82% (核心功能完成)
+```
+
+**P2 Clean Architecture 迁移进度**:
+```
+Week 1: Core + Domain 层    ████████████████████ 100% ✅
+Week 2: Data 层             ████████████████████ 100% ✅
+Week 3: Presentation 层     ████████████████████ 100% ✅
+Week 4: 数据层完善          ████████████████████ 100% ✅
+Week 4: 清理旧代码          ░░░░░░░░░░░░░░░░░░░░   0% ⏸️
+Week 4: 集成测试            ░░░░░░░░░░░░░░░░░░░░   0% ⏸️
+
+P2 总进度: 85%
 ```
 
 **Phase 1 完成状态** (2026-01-18):
@@ -127,28 +140,30 @@ Phase 3:   ████████████████████ 100% ✅
 - ✅ 登录访问控制（未登录无法访问需要登录的功能）
 - ✅ B站账号绑定设置页面优化
 
-**Phase 2A 进行中** (播放功能改进):
-- 🚧 在线音频播放支持（AudioProvider 扩展）
-- 🚧 播放列表持久化（online_queue 表）
-- 🚧 循环模式切换（列表/单曲/随机）
-- 🚧 播放进度自动保存
+**Phase 2A 完成状态** (2026-01-20):
+- ✅ 播放进度持久化（每5秒自动保存）
+- ✅ 当前播放高亮（蓝色背景 + 左侧竖条）
+- ✅ 拖拽排序（ReorderableListView + ID交换技术）
+- ✅ 批量操作（清空列表 + 删除确认）
+- ✅ 应用重启后恢复播放状态
 
-**Phase 3 完成状态** (2026-01-19):
+**Phase 3 部分完成** (70%):
 - ✅ 后端 FTS5 全文搜索（searchService.js）
 - ✅ 推荐功能（使用热门歌单API，稳定可靠）
 - ✅ 前端搜索 Provider（search_provider.dart）
 - ✅ 发现页面推荐功能完善
-- ✅ 下载功能 Bug 修复：
-  - 修复 auth.js 中 user_id 类型问题（parseInt 确保整数）
-  - 修复 search_page.dart dispose 中的 widget 生命周期错误
+- ⏸️ 下载任务管理（已迁移到前端本地实现）
 
-**Phase 2B 进行中**:
-- ✅ 音乐区爬虫服务（musicCrawlerService.js）
-- ✅ 下载架构重构（本地化到前端）
+**Phase 2B 进行中** (40% - 已暂停):
+- ✅ Bug修复：加入歌单卡死问题
+- ✅ 下载架构重构（前端本地化）
+- ✅ 音乐区爬虫服务（已完成但废弃，改用QQ音乐方案）
+- 📋 功能扩展：歌单详情页添加歌曲功能（暂搁置）
 
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的3阶段实施计划
 - 📄 [Phase 2A 播放功能改进](./docs/PHASE_2A_PLAYBACK_PLAN.md) - 播放列表持久化和播放控制
+- 📄 [Phase 2B Bug修复与功能改进](./docs/PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md) - Bug修复和改进计划
 - 📄 [Phase 2 歌单收藏推荐计划](./docs/PHASE_2_PLAYLIST_PLAN.md) - 歌单系统、收藏功能、推荐页面实施计划
 - 📄 [Phase 1 实施细节](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md) - B站API集成技术细节
 
@@ -295,6 +310,25 @@ flutter pub run flutter_launcher_icons
 
 The app follows a modular architecture with clear separation of concerns:
 
+**Clean Architecture 结构** (P2 迁移中，85% 完成):
+```
+lib/
+├── core/                    # 核心层
+│   ├── base/               # 基类 (BaseEntity, BaseProvider)
+│   ├── constants/          # 常量 (API, Storage)
+│   └── errors/             # 错误定义 (Exceptions, Failures)
+├── domain/                 # 领域层
+│   ├── entities/           # 领域实体 (User, Audio, Playlist, etc.)
+│   ├── repositories/       # 仓储接口
+│   └── usecases/           # 用例 (业务逻辑)
+├── data/                   # 数据层
+│   ├── datasources/        # 数据源 (Remote API, Local Storage)
+│   └── repositories/       # 仓储实现
+└── presentation/           # 表现层
+    ├── providers/          # 状态管理 (Provider)
+    └── widgets/            # 可复用组件
+```
+
 **Entry Point:** `lib/main.dart`
 - Initializes Providers (ThemeController, AudioProvider, AuthProvider, BilibiliProvider, PlaylistProvider, PlayHistoryProvider)
 - Sets up database factory for desktop platforms (Windows/Linux/macOS use sqflite_ffi)
@@ -348,9 +382,72 @@ The app follows a modular architecture with clear separation of concerns:
 
 - **`theme/`** - App theming
 
+**P2 Clean Architecture 新增文件**:
+```
+lib/core/
+├── base/
+│   ├── base_entity.dart           # 实体基类
+│   └── base_entity.freezed.dart   # Freezed 生成
+├── constants/
+│   ├── api_constants.dart         # API 端点常量
+│   ├── storage_constants.dart     # 存储键常量
+│   └── app_constants.dart         # 应用常量
+└── errors/
+    ├── exceptions.dart            # 异常类定义
+    └── failures.dart              # Failure 类 (sealed class)
+
+lib/domain/
+├── entities/
+│   ├── user.dart                  # 用户实体
+│   ├── audio.dart                 # 音频实体
+│   ├── playlist.dart              # 歌单实体
+│   ├── play_history.dart          # 播放历史实体
+│   └── recommendation.dart        # 推荐内容实体
+└── repositories/
+    ├── auth_repository.dart       # 认证仓储接口
+    ├── playlist_repository.dart   # 歌单仓储接口
+    ├── play_history_repository.dart # 播放历史仓储接口
+    ├── search_repository.dart     # 搜索仓储接口
+    └── bilibili_repository.dart   # B站仓储接口
+
+lib/data/
+├── datasources/
+│   ├── remote/
+│   │   ├── auth_remote_datasource.dart
+│   │   ├── bilibili_remote_datasource.dart
+│   │   ├── playlist_remote_datasource.dart
+│   │   ├── play_history_remote_datasource.dart
+│   │   └── search_remote_datasource.dart
+│   └── local/
+│       └── auth_local_datasource.dart
+└── repositories/
+    ├── auth_repository_impl.dart
+    ├── bilibili_repository_impl.dart
+    ├── playlist_repository_impl.dart
+    ├── play_history_repository_impl.dart
+    └── search_repository_impl.dart
+
+lib/presentation/
+├── providers/
+│   ├── base/
+│   │   └── base_provider.dart      # Provider 基类
+│   ├── auth_provider.dart          # 认证状态管理
+│   ├── playlist_provider.dart      # 歌单状态管理
+│   └── bilibili_provider.dart      # B站功能状态管理
+└── widgets/
+    ├── async_builder.dart          # 异步构建器
+    ├── error_banner.dart           # 错误提示组件
+    ├── empty_state.dart            # 空状态组件
+    ├── playlist_card.dart          # 歌单卡片组件
+    └── widgets.dart                # 统一导出
+```
+
 ### Key Dependencies
 
 - **provider** (^6.1.4) - State management
+- **dartz** (^0.10.1) - Either type for error handling (P2 新增)
+- **freezed_annotation** (^2.4.1) - Code generation (P2 新增)
+- **json_annotation** (^4.8.1) - JSON serialization (P2 新增)
 - **go_router** (^14.8.1) - Declarative routing
 - **audioplayers** (^6.4.0) - Audio playback
 - **sqflite** (^2.4.2) - SQLite database (mobile)

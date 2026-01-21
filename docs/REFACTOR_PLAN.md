@@ -261,12 +261,230 @@ lib/
 
 ## 九、进度跟踪
 
+### P2 Clean Architecture 迁移进度
+
 | 阶段 | 状态 | 完成日期 |
 |------|------|----------|
-| P0: 立即修复 | ⏸️ 待开始 | |
-| P1: 短期重构 | ⏸️ 待开始 | |
-| P2: 长期优化 | ⏸️ 待开始 | |
+| Week 1: Core + Domain 层 | ✅ 完成 | 2026-01-20 |
+| Week 2: Data 层 | ✅ 完成 | 2026-01-20 |
+| Week 3: Presentation 层 | ✅ 完成 | 2026-01-21 |
+| Week 4: 数据层完善 | ✅ 完成 | 2026-01-21 |
+| Week 5: 基础设施 (DioProvider, ServiceFactory) | ✅ 完成 | 2026-01-21 |
+| Week 5: main.dart 集成 | ✅ 完成 | 2026-01-21 |
+| Week 5: 组件迁移 (8个) | ✅ 完成 | 2026-01-21 |
+| Week 5: 路由迁移 | ✅ 完成 | 2026-01-21 |
+| Week 5: 页面迁移 (13个) | ✅ 完成 | 2026-01-21 |
+| Week 5: 清理旧代码 | ✅ 完成 | 2026-01-21 |
+
+**P2 总进度: 100% ✅**
+
+### 已完成工作
+
+#### Week 1: Core + Domain 层
+- ✅ `lib/core/errors/exceptions.dart` - 异常类定义
+- ✅ `lib/core/errors/failures.dart` - Failure 类 (freezed)
+- ✅ `lib/core/constants/api_constants.dart` - API 常量
+- ✅ `lib/core/constants/app_constants.dart` - 应用常量
+- ✅ `lib/core/base/base_entity.dart` - 实体基类
+- ✅ `lib/domain/entities/user.dart` - 用户实体
+- ✅ `lib/domain/entities/playlist.dart` - 歌单实体
+- ✅ `lib/domain/entities/audio.dart` - 音频实体
+- ✅ `lib/domain/entities/play_history.dart` - 播放历史实体
+- ✅ `lib/domain/entities/recommendation.dart` - 推荐内容实体
+- ✅ `lib/domain/repositories/*_repository.dart` - Repository 接口
+- ✅ `lib/domain/usecases/**/*_usecase.dart` - UseCase 类
+
+#### Week 2: Data 层
+- ✅ `lib/data/datasources/remote/auth_remote_datasource.dart`
+- ✅ `lib/data/datasources/local/auth_local_datasource.dart`
+- ✅ `lib/data/datasources/remote/bilibili_remote_datasource.dart`
+- ✅ `lib/data/repositories/auth_repository_impl.dart`
+- ✅ `lib/data/repositories/bilibili_repository_impl.dart`
+- ✅ `pubspec.yaml` - 添加 dartz, freezed_annotation, json_annotation
+
+#### build_runner 代码生成
+- ✅ 成功生成 3 个 `.freezed.dart` 和 `.g.dart` 文件
+- ✅ 修复 settings_page.dart 语法错误
+
+#### Week 3: Presentation 层
+- ✅ `lib/presentation/providers/base/base_provider.dart` - Provider 基类
+- ✅ `lib/presentation/providers/auth_provider.dart` - 认证状态管理
+- ✅ `lib/presentation/providers/playlist_provider.dart` - 歌单状态管理
+- ✅ `lib/presentation/providers/bilibili_provider.dart` - B站功能状态管理
+- ✅ `lib/presentation/widgets/async_builder.dart` - 异步构建器组件
+- ✅ `lib/presentation/widgets/error_banner.dart` - 错误提示组件
+- ✅ `lib/presentation/widgets/empty_state.dart` - 空状态组件
+- ✅ `lib/presentation/widgets/playlist_card.dart` - 歌单卡片组件
+- ✅ `lib/presentation/widgets/widgets.dart` - Widgets 统一导出
+
+#### Week 4: 数据层完善
+- ✅ `lib/data/datasources/remote/playlist_remote_datasource.dart` - 歌单 API 调用
+- ✅ `lib/data/datasources/remote/play_history_remote_datasource.dart` - 播放历史 API 调用
+- ✅ `lib/data/datasources/remote/search_remote_datasource.dart` - 搜索 API 调用
+- ✅ `lib/data/repositories/playlist_repository_impl.dart` - 歌单仓储实现
+- ✅ `lib/data/repositories/play_history_repository_impl.dart` - 播放历史仓储实现
+- ✅ `lib/data/repositories/search_repository_impl.dart` - 搜索仓储实现
+- ✅ `lib/core/constants/storage_constants.dart` - 存储常量定义
+- ✅ 修复所有编译错误（0 errors, ~130 warnings）
+
+#### Week 5: 基础设施 + Token 管理
+- ✅ `lib/core/network/dio_provider.dart` - Dio 单例管理
+- ✅ `lib/core/di/service_factory.dart` - 依赖注入工厂
+- ✅ 更新 RemoteDataSource 使用共享 Dio 实例
+- ✅ 移除 PlaylistRemoteDataSource 和 Repository 中的 token 参数
+- ✅ 验证编译通过（0 errors）
+
+#### Week 5: main.dart 集成
+- ✅ 初始化 `ServiceFactory.init()`（在 main() 函数中）
+- ✅ 从 SharedPreferences 恢复 token 到 DioProvider
+- ✅ 注册所有 Repository 到 MultiProvider
+  - `AuthRepository`
+  - `PlaylistRepository`
+  - `BilibiliRepository`
+  - `PlayHistoryRepository`
+  - `SearchRepository`
+- ✅ 保留旧 Providers 暂时共存（渐进式迁移策略）
+
+#### Week 5: 组件迁移
+- ✅ `lib/presentation/widgets/common/loading_overlay.dart`
+- ✅ `lib/presentation/widgets/common/error_view.dart`
+- ✅ `lib/presentation/widgets/common/empty_state_view.dart`
+- ✅ `lib/presentation/widgets/cards/music_zone_card.dart`
+- ✅ `lib/presentation/widgets/cards/playlist_card.dart`
+- ✅ `lib/presentation/widgets/controls_panel.dart`
+- ✅ `lib/presentation/widgets/audio_info.dart`
+- ✅ `lib/presentation/widgets/my_drawer.dart`
+
+#### Week 5: 路由迁移
+- ✅ `lib/routes/router.dart` → `lib/presentation/routes/router.dart`
+- ✅ 更新 main.dart 导入路径
+
+#### Week 5: 页面迁移
+- ✅ `lib/ui/pages/` → `lib/presentation/pages/` (13个页面)
+- ✅ `home_page.dart`
+- ✅ `login_page.dart`
+- ✅ `register_page.dart`
+- ✅ `reset_password_page.dart`
+- ✅ `settings_page.dart`
+- ✅ `search_page.dart`
+- ✅ `explore_page.dart`
+- ✅ `playlist_library_page.dart`
+- ✅ `playlist_detail_page.dart`
+- ✅ `play_history_page.dart`
+- ✅ `play_list_page.dart`
+- ✅ `download_list_page.dart`
+- ✅ `backend_download_page.dart`
+
+#### Week 5: 清理旧代码
+- ✅ 删除 `lib/ui/pages/`
+- ✅ 删除 `lib/ui/components/`
+- ✅ 删除 `lib/ui/`
+- ✅ 删除 `lib/routes/`
+
+### P0 - 立即修复
+| 任务 | 预计工作量 | 状态 |
+|------|------------|------|
+| 修复Timer内存泄漏 | 1小时 | ⏸️ 待开始 |
+| 优化ListView性能 | 2小时 | ⏸️ 待开始 |
+| 引入图片缓存 | 3小时 | ✅ 已完成 (cached_network_image) |
+
+### P1 - 短期重构
+| 任务 | 预计工作量 | 状态 |
+|------|------------|------|
+| 拆分BilibiliProvider | 1天 | 🚧 P2中统一重构 |
+| 提取重复UI组件 | 1天 | 🚧 P2中统一重构 |
+| 创建BaseProvider基类 | 0.5天 | ✅ 已完成 |
+| 优化context.watch使用 | 1天 | 🚧 P2中统一重构 |
+
+### P2 - 长期优化
+| 任务 | 预计工作量 | 状态 |
+|------|------------|------|
+| 重构为Clean Architecture | 3-5天 | ✅ 已完成 (100%) |
+| 引入freezed代码生成 | 2天 | ✅ 已完成 |
+| 完善单元测试 | 5天+ | ⏸️ 待开始 |
+
+### P3 - 完全迁移进度
+
+**完成日期**: 2026-01-21
+
+| 阶段 | 任务 | 状态 |
+|------|------|------|
+| 阶段 1 | Models 整合 | ✅ 保留 lib/models/ 作为兼容层 |
+| 阶段 2 | Providers 迁移 | ✅ 完成 |
+| 阶段 3 | Services 整合 | ✅ 完成 |
+| 阶段 4 | 常量和异常整合 | ✅ 保留现有结构 |
+| 阶段 5 | 最终验证 | ✅ 0 errors |
+
+**P3 完成内容**:
+
+#### Providers 迁移到 presentation/providers/
+- ✅ `lib/presentation/providers/audio/audio_provider.dart`
+- ✅ `lib/presentation/providers/auth/auth_provider.dart`
+- ✅ `lib/presentation/providers/bilibili/bilibili_provider.dart`
+- ✅ `lib/presentation/providers/bilibili/qr_login_provider.dart`
+- ✅ `lib/presentation/providers/bilibili/cache_provider.dart`
+- ✅ `lib/presentation/providers/playlist/playlist_provider.dart`
+- ✅ `lib/presentation/providers/play_history/play_history_provider.dart`
+- ✅ `lib/presentation/providers/search/search_provider.dart`
+- ✅ `lib/presentation/providers/theme/theme_provider.dart`
+
+#### Services 整合
+- ✅ `lib/data/managers/playlist_manager.dart` (从 services/ 迁移)
+- ✅ `lib/utils/file_picker.dart` (从 services/ 迁移)
+- ✅ 删除 `lib/services/secure_storage_service.dart` (未使用)
+
+#### 保留的结构
+- `lib/models/` - 作为兼容层保留（与 domain/entities/ 共存）
+- `lib/constants/` - dimens.dart 仍在使用
+- `lib/exceptions/` - api_exception.dart 仍在使用
+- `lib/services/api_service.dart` - 保留（大量依赖）
+- `lib/services/bilibiliApiService.dart` - 保留（大量依赖）
+- `lib/services/download_manager.dart` - 独立下载功能
+- `lib/services/download/` - 下载模块
+
+#### 最终目录结构
+```
+lib/
+├── core/                    # 核心层
+│   ├── base/
+│   ├── constants/
+│   ├── network/
+│   ├── di/
+│   └── errors/
+├── domain/                  # 领域层
+│   ├── entities/
+│   ├── repositories/
+│   └── usecases/
+├── data/                    # 数据层
+│   ├── datasources/
+│   ├── repositories/
+│   └── managers/           ← 新增
+├── presentation/            # 表现层
+│   ├── providers/          # 按功能分目录
+│   │   ├── audio/
+│   │   ├── auth/
+│   │   ├── bilibili/
+│   │   ├── playlist/
+│   │   ├── play_history/
+│   │   ├── search/
+│   │   └── theme/
+│   ├── pages/
+│   ├── widgets/
+│   └── routes/
+├── services/               # 独立服务
+│   ├── download/
+│   ├── api_service.dart
+│   ├── bilibiliApiService.dart
+│   └── download_manager.dart
+├── models/                 # 兼容层（保留）
+├── constants/              # UI常量（保留）
+├── exceptions/             # 异常类（保留）
+├── theme/
+└── utils/
+```
+
+**编译状态**: ✅ 0 errors
 
 ---
 
-*本文档由 Claude Code 生成 | 创建: 2026-01-20 | 状态: 规划中*
+*本文档由 Claude Code 生成 | 创建: 2026-01-20 | 最后更新: 2026-01-21*

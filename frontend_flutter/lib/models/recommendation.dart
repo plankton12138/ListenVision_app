@@ -1,4 +1,3 @@
-import 'playlist.dart';
 
 /// 推荐内容模型
 class RecommendationItem {

@@ -139,25 +139,38 @@ Projects_ListenVison/
 ├── frontend_flutter/              # Flutter 前端应用
 │   ├── lib/
 │   │   ├── main.dart             # 应用入口
-│   │   ├── models/               # 数据模型
-│   │   │   ├── audio_model.dart
-│   │   │   ├── bilibili_account.dart
-│   │   │   ├── playlist.dart           # 歌单模型 (Phase 2)
-│   │   │   ├── play_history.dart       # 播放历史模型 (Phase 2)
-│   │   │   ├── recommendation.dart     # 推荐内容模型 (Phase 2)
-│   │   │   └── user_model.dart
-│   │   ├── providers/            # 状态管理
-│   │   │   ├── audio_provider.dart
-│   │   │   ├── auth_provider.dart
-│   │   │   ├── bilibili_provider.dart     # B站绑定状态 (Phase 1)
-│   │   │   ├── playlist_provider.dart     # 歌单状态 (Phase 2)
-│   │   │   ├── play_history_provider.dart # 播放历史状态 (Phase 2)
-│   │   │   └── theme_provider.dart
+│   │   ├── core/                 # Clean Architecture - 核心层 (P2)
+│   │   │   ├── base/             # 基类 (BaseEntity, BaseProvider)
+│   │   │   ├── constants/        # 常量 (API, Storage)
+│   │   │   ├── errors/           # 错误定义 (Exceptions, Failures)
+│   │   │   ├── di/               # 依赖注入 (ServiceFactory)
+│   │   │   ├── network/          # 网络层 (DioProvider)
+│   │   │   └── utils/            # 工具函数
+│   │   ├── domain/               # Clean Architecture - 领域层 (P2)
+│   │   │   ├── entities/         # 领域实体 (User, Audio, Playlist, etc.)
+│   │   │   ├── repositories/     # 仓储接口
+│   │   │   └── usecases/         # 用例 (业务逻辑)
+│   │   ├── data/                 # Clean Architecture - 数据层 (P2)
+│   │   │   ├── datasources/      # 数据源 (Remote API, Local Storage)
+│   │   │   └── repositories/     # 仓储实现
+│   │   ├── presentation/         # Clean Architecture - 表现层 (P2)
+│   │   │   ├── providers/        # 状态管理 (按功能分目录)
+│   │   │   │   ├── auth/         # 认证状态管理
+│   │   │   │   ├── audio/        # 音频播放状态管理
+│   │   │   │   ├── bilibili/     # B站功能状态管理
+│   │   │   │   ├── playlist/     # 歌单状态管理
+│   │   │   │   ├── search/       # 搜索状态管理 (Phase 3)
+│   │   │   │   └── ...
+│   │   │   └── widgets/          # 可复用组件
+│   │   ├── models/               # 数据模型 (旧)
 │   │   ├── services/             # 业务服务
 │   │   │   ├── api_service.dart
 │   │   │   ├── bilibiliApiService.dart    # B站API服务 (Phase 1)
-│   │   │   ├── download_manager.dart
-│   │   │   └── file_picker.dart
+│   │   │   ├── download/                    # 下载模块 (Phase 2B)
+│   │   │   │   ├── download_executor.dart
+│   │   │   │   ├── download_repository.dart
+│   │   │   │   └── metadata_writer.dart
+│   │   │   └── download_manager.dart
 │   │   ├── routes/               # 路由配置
 │   │   ├── ui/                   # 用户界面
 │   │   │   ├── pages/
@@ -165,13 +178,10 @@ Projects_ListenVison/
 │   │   │   │   ├── playlist_library_page.dart  # 歌单库 (Phase 2)
 │   │   │   │   ├── playlist_detail_page.dart   # 歌单详情 (Phase 2)
 │   │   │   │   ├── play_history_page.dart      # 播放历史 (Phase 2)
+│   │   │   │   ├── play_list_page.dart         # 播放列表 (Phase 2A)
 │   │   │   │   └── settings_page.dart          # 设置页面
 │   │   │   └── components/       # 组件
-│   │   ├── theme/                # 主题配置
-│   │   ├── config/               # 配置文件
-│   │   ├── constants/            # 常量定义
-│   │   ├── utils/                # 工具函数
-│   │   └── exceptions/           # 异常类
+│   │   └── ...
 │   ├── assets/                   # 资源文件
 │   └── pubspec.yaml              # 依赖配置
 │
@@ -182,19 +192,29 @@ Projects_ListenVison/
 │   │   ├── audioService.js       # 音频元数据服务 (Phase 1)
 │   │   ├── playlistService.js    # 歌单管理服务 (Phase 2)
 │   │   ├── playHistoryService.js # 播放历史服务 (Phase 2)
-│   │   └── recommendationService.js # 推荐服务 (Phase 2)
+│   │   ├── recommendationService.js # 推荐服务 (Phase 2)
+│   │   ├── searchService.js      # FTS5全文搜索 (Phase 3)
+│   │   └── musicCrawlerService.js # 音乐区爬虫 (Phase 2B, 已废弃)
 │   ├── routes/
 │   │   ├── bilibili.js           # B站API路由 (Phase 1)
 │   │   ├── audio.js              # 音频API路由 (Phase 1)
 │   │   ├── playlists.js          # 歌单API路由 (Phase 2)
 │   │   ├── history.js            # 历史API路由 (Phase 2)
-│   │   └── recommendations.js    # 推荐API路由 (Phase 2)
+│   │   ├── recommendations.js    # 推荐API路由 (Phase 2)
+│   │   └── search.js             # 搜索API路由 (Phase 3)
 │   ├── config/
-│   │   └── database.js           # 数据库配置 (含Phase 1+2表结构)
+│   │   └── database.js           # 数据库配置 (含Phase 1+2+3表结构)
+│   ├── middleware/
+│   │   └── rateLimiter.js        # 请求限流中间件
 │   ├── package.json              # 依赖配置
 │   └── node_modules/             # 依赖包
 │
 ├── docs/                         # 项目文档
+│   ├── INCREMENTAL_MIGRATION_PLAN.md  # 渐进式架构迁移计划
+│   ├── PHASE_1_IMPLEMENTATION_DETAILS.md  # Phase 1 实施细节
+│   ├── PHASE_2_PLAYLIST_PLAN.md         # Phase 2 歌单收藏推荐计划
+│   ├── PHASE_2A_PLAYBACK_PLAN.md         # Phase 2A 播放列表页面改进
+│   └── PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md # Phase 2B Bug修复与改进
 ├── bilibili-API-collect/         # B站API文档 (本地克隆)
 ├── PRD.md                        # 产品需求文档
 ├── CLAUDE.md                     # Claude Code 指导文档
@@ -254,11 +274,19 @@ Projects_ListenVison/
 - ✅ 歌单管理 API (Phase 2)
 - ✅ 播放历史 API (Phase 2)
 - ✅ 推荐内容 API (Phase 2)
+- ✅ 全文搜索 API (Phase 3 - FTS5)
 - ✅ CORS 跨域支持
+- ✅ 请求限流中间件
 - ✅ SQLite 数据库（better-sqlite3）
 - ✅ B站API集成（QR登录、视频信息、音频流）(Phase 1)
 - ✅ 音频元数据缓存服务 (Phase 1)
 - ✅ 资源代理服务（解决B站防盗链）(Phase 1)
+
+**前端 Clean Architecture** (P2 迁移进度 85%):
+- ✅ Core 层：基类、常量、错误定义、网络层、依赖注入
+- ✅ Domain 层：实体、仓储接口、用例
+- ✅ Data 层：数据源、仓储实现
+- ✅ Presentation 层：Provider 状态管理（按功能分目录）
 
 ### 规划中功能 🚧
 
@@ -458,11 +486,12 @@ class LocalConfig {
 
 - **[PRD.md](./PRD.md)** - 产品需求文档
 - **[CLAUDE.md](./CLAUDE.md)** - Claude Code 开发指导文档
-- **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 架构迁移计划
-- **[docs/PHASE_1_IMPLEMENTATION_DETAILS.md](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md)** - Phase 1 实施细节
-- **[docs/PHASE_2_PLAYLIST_PLAN.md](./docs/PHASE_2_PLAYLIST_PLAN.md)** - Phase 2 歌单收藏推荐计划
-- **[docs/PHASE_2A_PLAYBACK_PLAN.md](./docs/PHASE_2A_PLAYBACK_PLAN.md)** - Phase 2A 播放列表页面改进计划
-- **[frontenf_flutter/README.md](./frontenf_flutter/README.md)** - 前端详细文档
+- **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 渐进式架构迁移计划（82% 完成）
+- **[docs/PHASE_1_IMPLEMENTATION_DETAILS.md](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md)** - Phase 1 实施细节（B站API集成）✅
+- **[docs/PHASE_2_PLAYLIST_PLAN.md](./docs/PHASE_2_PLAYLIST_PLAN.md)** - Phase 2 歌单收藏推荐计划 ✅
+- **[docs/PHASE_2A_PLAYBACK_PLAN.md](./docs/PHASE_2A_PLAYBACK_PLAN.md)** - Phase 2A 播放列表页面改进 ✅
+- **[docs/PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md](./docs/PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md)** - Phase 2B Bug修复与功能改进 📋
+- **[frontend_flutter/README.md](./frontend_flutter/README.md)** - 前端详细文档
 
 ---
 

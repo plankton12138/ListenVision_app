@@ -16,7 +16,15 @@
       "Bash(dir:*)",
       "Bash(taskkill:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(Select-String:*)",
+      "Bash(dart run build_runner build:*)",
+      "Bash(dart run build_runner:*)",
+      "Bash(Set-Location:*)",
+      "Bash(Get-ChildItem -Path \"lib\" -Recurse -File)",
+      "Bash(Where-Object { $_Extension -ne \".dart\" })",
+      "Bash(findstr:*)"
     ]
   }
 }

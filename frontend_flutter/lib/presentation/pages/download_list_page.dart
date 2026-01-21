@@ -1,0 +1,207 @@
+// P2: 页面已迁移到 presentation/pages/
+import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/services/download/download_repository.dart';
+import 'package:demo/services/download_manager.dart';
+import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+/// 下载列表页面
+///
+/// 显示和管理下载任务，支持暂停/恢复/删除操作
+class DownloadListPage extends StatefulWidget {
+  const DownloadListPage({super.key});
+
+  @override
+  _DownloadListPageState createState() => _DownloadListPageState();
+}
+
+class _DownloadListPageState extends State<DownloadListPage> {
+  late DownloadManager downloadManager;
+  final _formKey = GlobalKey<FormState>();
+  final _urlTextController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    downloadManager = Provider.of<DownloadManager>(context, listen: false);
+    downloadManager.initDatabase();
+  }
+
+  @override
+  void dispose() {
+    _urlTextController.dispose();
+    super.dispose();
+  }
+
+  /// 从 status 字段获取状态
+  DownloadStatus _getStatus(Map<String, dynamic> task) {
+    final statusStr = task['status'] as String?;
+    return DownloadStatusExtension.fromString(statusStr);
+  }
+
+  /// 格式化字节为 MB/GB 显示
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final downloadManager = Provider.of<DownloadManager>(context, listen: true);
+    final downloads = downloadManager.downloads;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text(
+          '下载列表',
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+        ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.home),
+            iconSize: UIConstants.iconMedium,
+            onPressed: () => context.go('/'),
+          ),
+        ],
+      ),
+      body: downloads.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.download_outlined, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('暂无下载任务', style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 100),
+              itemCount: downloads.length,
+              itemBuilder: (context, index) {
+                final download = downloads[index];
+                final id = download['id'] as int;
+                final title = download['title'] ?? download['original_url'] ?? '未知任务';
+                final downloadedBytes = download['downloaded_bytes'] as int? ?? 0;
+                final totalBytes = download['total_bytes'] as int? ?? 0;
+                final status = _getStatus(download);
+
+                // 计算进度
+                final progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0.0;
+                final isPaused = status == DownloadStatus.paused;
+                final isCompleted = status == DownloadStatus.completed;
+
+                return Card(
+                  color: Theme.of(context).colorScheme.primary,
+                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  elevation: 2,
+                  child: ListTile(
+                    title: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: UIConstants.fontSizeSmall),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 显示进度条
+                        LinearProgressIndicator(
+                          value: totalBytes > 0 ? downloadedBytes / totalBytes : 0,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isPaused ? Colors.grey : Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // 显示下载进度文本（格式化为 MB/GB）
+                        Text(
+                          '${_formatBytes(downloadedBytes)}/${_formatBytes(totalBytes)}'
+                          ' (${progress.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: UIConstants.fontSizeSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 暂停/继续按钮（已完成任务不显示）
+                        if (!isCompleted)
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (isPaused) {
+                                await downloadManager.resumeDownload(id);
+                              } else {
+                                await downloadManager.pauseDownload(id);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isPaused ? Colors.green : Colors.red,
+                            ),
+                            child: Text(
+                              isPaused ? '继续' : '暂停',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () => downloadManager.deleteDownload(id),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+      drawer: const MyDrawer(),
+      bottomSheet: Container(
+        color: Theme.of(context).colorScheme.surface,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Flexible(
+              child: Form(
+                key: _formKey,
+                child: TextFormField(
+                  controller: _urlTextController,
+                  decoration: const InputDecoration(
+                    labelText: '输入视频链接',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return '请输入链接';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                if (!_formKey.currentState!.validate()) {
+                  return;
+                }
+                downloadManager.addDownload(context, _urlTextController.text);
+                _urlTextController.clear();
+              },
+              icon: const Icon(Icons.download),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:demo/models/bilibili_account.dart';
+import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/services/bilibiliApiService.dart';
 import 'package:flutter/foundation.dart';
 

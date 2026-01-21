@@ -1,5 +1,5 @@
 import 'package:demo/core/network/dio_provider.dart';
-import 'package:demo/models/playlist.dart';
+import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
 
 /// 歌单 CRUD 状态管理

@@ -5,7 +5,7 @@ import 'package:demo/core/errors/exceptions.dart';
 import 'package:demo/services/api_service.dart';
 // P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/utils/show_notes.dart';
+import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';

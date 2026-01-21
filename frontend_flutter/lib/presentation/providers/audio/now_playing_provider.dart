@@ -1,5 +1,5 @@
 import 'package:demo/core/network/dio_provider.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
 
 /// 播放队列状态管理

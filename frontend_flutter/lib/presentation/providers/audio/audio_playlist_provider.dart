@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/models_export.dart';
 
 /// 音频播放列表状态管理
 ///

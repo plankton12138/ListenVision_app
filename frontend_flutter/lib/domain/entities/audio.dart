@@ -170,8 +170,8 @@ class Audio with _$Audio implements BaseEntity {
   }
 }
 
-/// 为了循环引用，PlaylistItem 在 playlist.dart 中定义
-/// 这里使用前向声明
+// PlaylistItem 在 playlist.dart 中定义
+// 使用前向声明避免循环引用
 class PlaylistItem {
   final String? id;
   final String? playlistId;

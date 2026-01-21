@@ -1,5 +1,5 @@
-import 'package:demo/theme/dark_mode.dart';
-import 'package:demo/theme/light_mode.dart';
+import 'package:demo/presentation/theme/dark_mode.dart';
+import 'package:demo/presentation/theme/light_mode.dart';
 import 'package:flutter/material.dart';
 
 /// 主题控制器

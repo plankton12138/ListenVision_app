@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/models_export.dart';
 import 'package:metadata_god/metadata_god.dart';
 
 /// 音频元数据管理

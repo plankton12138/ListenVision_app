@@ -2,7 +2,7 @@ import 'package:demo/services/bilibiliApiService.dart';
 import 'package:demo/services/download/download_repository.dart';
 import 'package:demo/services/download/download_executor.dart';
 import 'package:demo/services/download/metadata_writer.dart';
-import 'package:demo/utils/show_notes.dart';
+import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;

@@ -1,7 +1,5 @@
-// TODO: 迁移 BiliPlaylist 到 domain/entities/
-// 保留对 models 的引用直到完全迁移
-import 'package:demo/models/playlist.dart';
-import 'package:demo/models/recommendation.dart';
+// 使用 Clean Architecture entities
+import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/material.dart';
 
 /// 歌单卡片组件

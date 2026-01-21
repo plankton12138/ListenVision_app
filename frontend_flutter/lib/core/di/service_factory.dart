@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../network/dio_provider.dart';
+import '../network/api_client.dart';
 import '../../data/datasources/local/auth_local_datasource.dart';
 import '../../data/datasources/remote/auth_remote_datasource.dart';
 import '../../data/datasources/remote/bilibili_remote_datasource.dart';
@@ -73,6 +74,9 @@ class ServiceFactory {
 
   /// 获取 FlutterSecureStorage
   FlutterSecureStorage get secureStorage => _secureStorage;
+
+  /// 获取 ApiClient
+  ApiClient get apiClient => ApiClient(dio: _dio);
 
   // ==================== Local DataSources ====================
 

@@ -6,7 +6,7 @@ import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/theme/theme_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/utils/show_notes.dart';
+import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

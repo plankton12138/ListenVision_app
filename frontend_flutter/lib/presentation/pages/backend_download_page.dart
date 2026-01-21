@@ -3,7 +3,7 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/services/download/download_repository.dart';
 import 'package:demo/services/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/utils/show_notes.dart';
+import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';

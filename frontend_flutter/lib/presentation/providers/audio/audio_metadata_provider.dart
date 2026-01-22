@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/permission_helper.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:metadata_god/metadata_god.dart';
 
@@ -30,6 +32,15 @@ class AudioMetadataProvider extends ChangeNotifier {
   Future<void> loadMetadataFromPath(String filePath) async {
     try {
       debugPrint('【AudioMetadataProvider】开始加载: $filePath');
+
+      // Android 11+ 需要先请求 MANAGE_EXTERNAL_STORAGE 权限
+      if (!kIsWeb && Platform.isAndroid) {
+        final hasPermission = await PermissionHelper.requestManageStoragePermission();
+        if (!hasPermission) {
+          debugPrint('【AudioMetadataProvider】存储权限被拒绝');
+          throw Exception('需要存储权限才能读取音频文件');
+        }
+      }
 
       if (!File(filePath).existsSync()) {
         debugPrint('【AudioMetadataProvider】文件不存在: $filePath');

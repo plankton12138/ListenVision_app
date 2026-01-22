@@ -95,6 +95,17 @@ class BilibiliProvider with ChangeNotifier {
     }
   }
 
+  /// 确保初始化完成（如果尚未初始化则自动初始化）
+  ///
+  /// 用于页面加载时确保绑定状态已获取
+  Future<void> ensureInitialized() async {
+    // 如果已经有 token 但尚未检查绑定状态，则执行初始化
+    if (_token != null && !_isLoading && _searchHistory.isEmpty) {
+      debugPrint('【BilibiliProvider】Ensuring initialization...');
+      await initialize();
+    }
+  }
+
   // ==================== QR码登录 ====================
 
   /// 开始QR码登录流程
@@ -429,7 +440,11 @@ class BilibiliProvider with ChangeNotifier {
       notifyListeners();
 
       final result = await _apiService!.getHotPlaylists(page: page, pageSize: pageSize);
-      _hotPlaylists = List<Map<String, dynamic>>.from(result['playlists'] ?? []);
+      // 过滤掉 null 元素，防止类型转换错误
+      final playlists = result['playlists'] as List?;
+      _hotPlaylists = playlists
+          ?.whereType<Map<String, dynamic>>()
+          .toList() ?? [];
 
       debugPrint('【BilibiliProvider】Hot playlists loaded: ${_hotPlaylists.length}');
       return true;
@@ -457,7 +472,11 @@ class BilibiliProvider with ChangeNotifier {
       notifyListeners();
 
       final result = await _apiService!.getHotRank(page: page, pageSize: pageSize);
-      _hotRank = List<Map<String, dynamic>>.from(result['playlists'] ?? []);
+      // 过滤掉 null 元素，防止类型转换错误
+      final playlists = result['playlists'] as List?;
+      _hotRank = playlists
+          ?.whereType<Map<String, dynamic>>()
+          .toList() ?? [];
 
       debugPrint('【BilibiliProvider】Hot rank loaded: ${_hotRank.length}');
       return true;

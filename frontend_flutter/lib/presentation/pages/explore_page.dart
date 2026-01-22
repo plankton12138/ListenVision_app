@@ -55,7 +55,11 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
   }
 
   /// 检查登录状态，未登录则跳转到登录页
-  void _checkLoginAndLoad() {
+  Future<void> _checkLoginAndLoad() async {
+    // 确保 BilibiliProvider 已完成初始化
+    // 这解决了应用重启后首次进入页面绑定状态未检测到的问题
+    await _bilibiliProvider?.ensureInitialized();
+
     if (_authProvider == null || !_authProvider!.isLoggedIn) {
       showMySnackBar(context, '请先登录', Colors.orange, 1500);
       context.go('/login');
@@ -126,15 +130,17 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     await provider.loadHotRank();
 
     // 从provider获取数据并转换为模型
+    // 注意：使用 fromDto 而不是 fromJson，因为后端返回的字段名与 Freezed 模型不完全匹配
+    // fromDto 处理了字段名映射：uname->uploader, cover->coverUrl, snum->songCount, statistic->stats
     setState(() {
       _hotPlaylists = BiliPlaylistsResponse(
-        playlists: provider.hotPlaylists.map((p) => BiliPlaylist.fromJson(p)).toList(),
+        playlists: provider.hotPlaylists.map((p) => BiliPlaylist.fromDto(p)).toList(),
         page: 1,
         pageSize: provider.hotPlaylists.length,
         total: provider.hotPlaylists.length,
       );
       _hotRank = BiliPlaylistsResponse(
-        playlists: provider.hotRank.map((p) => BiliPlaylist.fromJson(p)).toList(),
+        playlists: provider.hotRank.map((p) => BiliPlaylist.fromDto(p)).toList(),
         page: 1,
         pageSize: provider.hotRank.length,
         total: provider.hotRank.length,

@@ -6,6 +6,8 @@ import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
@@ -385,6 +387,105 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// Phase 2: 构建播放按钮
+  Widget _buildPlayButton(BuildContext context, dynamic item) {
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return IconButton(
+      icon: const Icon(Icons.play_circle_outline),
+      color: Colors.blue,
+      onPressed: () => _playOnlineAudio(context, bvid, item),
+    );
+  }
+
+  /// Phase 2: 播放在线音频
+  Future<void> _playOnlineAudio(
+    BuildContext context,
+    String bvid,
+    Map<String, dynamic> item,
+  ) async {
+    final audioProvider = context.read<AudioProvider>();
+    final bilibiliProvider = context.read<BilibiliProvider>();
+    final historyProvider = context.read<PlayHistoryProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      // 显示加载提示
+      if (mounted) {
+        showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+      }
+
+      // 获取音频流URL
+      final streamData = await bilibiliProvider.getAudioStream(bvid);
+      if (streamData == null || streamData['baseUrl'] == null) {
+        throw Exception('无法获取音频流');
+      }
+
+      // 创建 Audio 实体
+      final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+      final audio = Audio.fromDto({
+        'bvid': bvid,
+        'title': title,
+        'artist': item['author'],
+        'cover': item['cover'] ?? item['pic'],
+        'duration': _parseDuration(item['duration']),
+      });
+
+      // 播放
+      await audioProvider.playOnlineAudio(
+        audio: audio,
+        streamUrl: streamData['baseUrl'],
+      );
+
+      // 记录播放历史
+      if (authProvider.isLoggedIn) {
+        await historyProvider.recordPlay(
+          bvid: bvid,
+          title: title,
+          artist: item['author'],
+          coverUrl: item['cover'] ?? item['pic'],
+          duration: audio.duration,
+        );
+      }
+
+      if (mounted) {
+        showMySnackBar(context, '开始播放: $title', Colors.green, 1500);
+      }
+    } catch (e) {
+      debugPrint('【SearchPage】播放失败: $e');
+      if (mounted) {
+        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+      }
+    }
+  }
+
+  /// 解析时长字符串（mm:ss 或 hh:mm:ss -> 秒）
+  int? _parseDuration(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) {
+      final parts = value.split(':');
+      if (parts.length == 2) {
+        final min = int.tryParse(parts[0]);
+        final sec = int.tryParse(parts[1]);
+        if (min != null && sec != null) return min * 60 + sec;
+      } else if (parts.length == 3) {
+        final hr = int.tryParse(parts[0]);
+        final min = int.tryParse(parts[1]);
+        final sec = int.tryParse(parts[2]);
+        if (hr != null && min != null && sec != null) {
+          return hr * 3600 + min * 60 + sec;
+        }
+      }
+      final seconds = int.tryParse(value);
+      if (seconds != null) return seconds;
+    }
+    return null;
+  }
+
   Widget _buildSearchResults() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -459,6 +560,8 @@ class _SearchPageState extends State<SearchPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Phase 2: 播放按钮
+                  _buildPlayButton(context, item),
                   // 收藏按钮
                   _buildFavoriteButton(context, item),
                   // 添加到歌单按钮

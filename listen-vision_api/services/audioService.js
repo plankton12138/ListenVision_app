@@ -1,14 +1,184 @@
 const db = require('../config/database');
 const bilibiliService = require('./bilibiliService');
+const ffmpeg = require('fluent-ffmpeg');
+const https = require('https');
+const http = require('http');
+const { PassThrough } = require('stream');
 
 /**
- * 音频元数据管理服务
+ * 音频格式转换服务
  *
  * 功能：
- * 1. 音频元数据缓存
- * 2. 搜索历史记录
- * 3. 获取/更新缓存
+ * 1. 音频格式转换 (m4s → MP3/AAC)
+ * 2. 音频流代理与转换
+ * 3. 音频元数据缓存
  */
+
+const CODEC_MAP = {
+  'mp3': 'libmp3lame',
+  'aac': 'aac',
+  'm4a': 'aac'
+};
+
+const FORMAT_MAP = {
+  'mp3': 'mp3',
+  'aac': 'adts',
+  'm4a': 'adts'
+};
+
+/**
+ * 获取FFmpeg编解码器
+ * @param {string} format - 目标格式
+ * @returns {string} 编解码器名称
+ */
+const getCodec = (format) => CODEC_MAP[format] || 'libmp3lame';
+
+/**
+ * 获取输出格式
+ * @param {string} format - 目标格式
+ * @returns {string} 格式名称
+ */
+const getFormat = (format) => FORMAT_MAP[format] || 'mp3';
+
+/**
+ * 下载HTTP/HTTPS资源到内存
+ * @param {string} url - 资源URL
+ * @returns {Promise<Buffer>} 资源数据
+ */
+const downloadToBuffer = (url) => {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const req = protocol.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode}: ${url}`));
+        return;
+      }
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => {
+      req.destroy();
+      reject(new Error('Download timeout'));
+    });
+  });
+};
+
+/**
+ * 转换音频流
+ * @param {Buffer} inputBuffer - 输入音频数据
+ * @param {string} format - 目标格式 (mp3, aac, m4a)
+ * @param {Object} options - 转换选项
+ * @returns {Promise<Buffer>} 转换后的音频数据
+ */
+const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
+  const {
+    bitrate = '192k',
+    sampleRate = '44100',
+    channels = 2
+  } = options;
+
+  const codec = getCodec(format);
+  const outputFormat = getFormat(format);
+
+  return new Promise((resolve, reject) => {
+    const command = ffmpeg({ logger: console })
+      .input(new PassThrough())
+      .inputFormat('m4a')
+      .audioCodec(codec)
+      .audioBitrate(bitrate)
+      .audioFrequency(parseInt(sampleRate))
+      .audioChannels(channels)
+      .format(outputFormat);
+
+    const chunks = [];
+    const outputStream = new PassThrough();
+
+    outputStream.on('data', chunk => chunks.push(chunk));
+    outputStream.on('end', () => resolve(Buffer.concat(chunks)));
+    outputStream.on('error', reject);
+
+    command.pipe(outputStream);
+
+    // 写入输入数据
+    const inputStream = new PassThrough();
+    inputStream.end(inputBuffer);
+    command.input(inputStream);
+
+    command.run();
+  });
+};
+
+/**
+ * 转换音频文件
+ * @param {string} inputPath - 输入文件路径
+ * @param {string} outputPath - 输出文件路径
+ * @param {string} format - 目标格式
+ * @param {Object} options - 转换选项
+ * @returns {Promise<void>}
+ */
+const convertFile = async (inputPath, outputPath, format = 'mp3', options = {}) => {
+  const {
+    bitrate = '192k',
+    sampleRate = '44100',
+    channels = 2
+  } = options;
+
+  const codec = getCodec(format);
+  const outputFormat = getFormat(format);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg({ logger: console })
+      .input(inputPath)
+      .audioCodec(codec)
+      .audioBitrate(bitrate)
+      .audioFrequency(parseInt(sampleRate))
+      .audioChannels(channels)
+      .format(outputFormat)
+      .on('end', resolve)
+      .on('error', reject)
+      .save(outputPath);
+  });
+};
+
+/**
+ * 代理并转换音频流
+ * @param {string} sourceUrl - 原始音频URL
+ * @param {string} format - 目标格式
+ * @param {Object} options - 转换选项
+ * @returns {Promise<{buffer: Buffer, contentType: string}>}
+ */
+const proxyAndConvert = async (sourceUrl, format = 'mp3', options = {}) => {
+  const contentType = format === 'mp3'
+    ? 'audio/mpeg'
+    : 'audio/aac';
+
+  const inputBuffer = await downloadToBuffer(sourceUrl);
+  const outputBuffer = await convertStream(inputBuffer, format, options);
+
+  return { buffer: outputBuffer, contentType };
+};
+
+/**
+ * 设置FFmpeg路径（用于Windows）
+ */
+const setFFmpegPath = (path) => {
+  ffmpeg.setFfmpegPath(path);
+};
+
+/**
+ * 获取FFmpeg版本信息
+ * @returns {Promise<string>}
+ */
+const getFFmpegVersion = async () => {
+  return new Promise((resolve) => {
+    ffmpeg.getAvailableFilters((filters) => {
+      resolve(`FFmpeg available, ${filters.length} filters`);
+    });
+  });
+};
 
 // ==================== 预编译语句 ====================
 
@@ -347,6 +517,19 @@ const cleanExpiredCache = (maxAge = 30 * 24 * 60 * 60 * 1000) => {
 };
 
 module.exports = {
+  // FFmpeg configuration
+  setFFmpegPath,
+  getFFmpegVersion,
+
+  // Audio conversion
+  convertStream,
+  convertFile,
+  proxyAndConvert,
+
+  // Utilities
+  getCodec,
+  getFormat,
+
   // 元数据缓存
   getAudioMetadata,
   getMultipleMetadata,

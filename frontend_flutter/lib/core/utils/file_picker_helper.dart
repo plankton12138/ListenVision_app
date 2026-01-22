@@ -1,18 +1,44 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 
 /// 文件选择服务
 ///
-/// 封装 file_picker 功能，提供音频文件选择接口
-/// 从 utils/file_picker.dart 迁移到 core/utils/
+/// 封装 file_selector 功能，提供音频文件选择接口
 class FilePickerService {
+  /// 音频文件类型过滤器
+  static const XTypeGroup audioTypeGroup = XTypeGroup(
+    label: 'audio',
+    mimeTypes: <String>[
+      'audio/mpeg',      // MP3
+      'audio/mp4',       // M4A
+      'audio/x-m4a',     // M4A
+      'audio/flac',      // FLAC
+      'audio/wav',       // WAV
+      'audio/x-wav',     // WAV
+      'audio/ogg',       // OGG
+    ],
+    extensions: <String>[
+      'mp3',
+      'm4a',
+      'flac',
+      'wav',
+      'ogg',
+    ],
+    uniformTypeIdentifiers: <String>[
+      'public.audio',
+      'com.apple.m4a-audio',
+      'public.mp3',
+      'public.flac-audio',
+    ],
+  );
+
   /// 从设备存储选择音频文件
   ///
   /// 返回所选文件的路径，取消选择时返回 null
   Future<String?> pickAudioFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: false,
+    const typeGroup = audioTypeGroup;
+    final XFile? result = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[typeGroup],
     );
-    return result?.files.single.path; // 返回所选文件的路径
+    return result?.path;
   }
 }

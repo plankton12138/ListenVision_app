@@ -1,28 +1,217 @@
 # Phase 5: Bug修复与功能改进计划
 
 > **创建日期**: 2026-01-19
-> **最后更新**: 2026-01-22（阶段重排）
+> **最后更新**: 2026-01-22（Phase 2 在线播放功能已完成，更新开发进度）
 >
 > **目标**: 修复现有Bug并改进播放列表和推荐功能
 >
 > **依赖**: Phase 2、3 完成（在线播放、歌单系统）
 >
-> **状态**: 📋 部分功能暂停（低优先级）
+> **状态**: ✅ Phase 2 在线播放已完成，Phase 5 Bug修复已完成（just_audio 迁移 + 格式转换）
 >
 > **🔄 阶段重排说明**: 原 **Phase 2B** 已重排为 **Phase 5**，调整为低优先级优化阶段
 >
-> **说明**: 本阶段的部分功能（如歌单详情页添加歌曲）与 Phase 2（在线播放功能）存在关联。**Phase 2 是更高优先级的关键功能**，因为它解决了应用的核心数据流断裂问题。建议先完成 Phase 2，再继续本阶段的剩余功能。
+> **✅ 重要更新**: Phase 2 在线播放功能已于 2026-01-22 基本完成实现，核心数据流已打通。
 
 ---
 
 ## 一、问题概述
 
+### 当前项目进度仪表盘
+
+| 阶段 | 功能模块 | 状态 | 进度 | 备注 |
+|------|---------|------|------|------|
+| **Phase 1** | B站API集成、后端服务 | ✅ 已完成 | 100% | QR登录、元数据缓存、资源代理 |
+| **Phase 2** | **在线播放功能** | ✅ **已完成** | **100%** | 统一播放接口、数据流已打通 |
+| **Phase 3** | 播放列表与收藏云同步 | ✅ 已完成 | 100% | 后端API完整实现 |
+| **Phase 3A** | 播放列表页面改进 | ✅ 已完成 | 100% | 进度持久化、拖拽排序 |
+| **Phase 4** | 搜索推荐、下载服务 | 🚧 部分完成 | 70% | 搜索推荐完成，下载已迁移前端 |
+| **Phase 5** | Bug修复与功能改进 | ✅ 已完成 | 100% | just_audio迁移完成，格式转换完成 |
+
+**总体进度**: 90% 🔥
+
+### Phase 2 在线播放功能完成确认 ✅
+
+| 功能点 | 实现文件 | 状态 |
+|-------|---------|------|
+| 统一播放接口 | `domain/entities/playable_audio.dart` | ✅ |
+| 在线播放实现 | `domain/entities/online_playable.dart` | ✅ |
+| AudioProvider 改造 | `presentation/providers/audio/audio_provider.dart` | ✅ |
+| playOnlineAudio 方法 | `audio_provider.dart:458` | ✅ |
+| 代理URL构建 | `_buildProxyUrl()` | ✅ |
+| 统一播放列表 | `_unifiedPlaylist` | ✅ |
+| 搜索页面连接 | `presentation/pages/search_page.dart` | ✅ |
+| 发现页面连接 | `presentation/pages/explore_page.dart` | ✅ |
+| 歌单详情连接 | `presentation/pages/playlist_detail_page.dart` | ✅ |
+
+---
+
+## 二、问题概述
+
 | 问题类型 | 描述 | 用户期望 | 优先级 | 状态 |
-|---------|------|----------|--------|------|
+|---------|------|---------|--------|------|
 | Bug | 搜索结果点击加入歌单后页面卡死 | 正常添加并给予反馈 | 🔴 高 | ✅ 已解决 |
+| Bug | 音频播放器加载状态异常 | 只在需要时显示加载状态 | 🔴 高 | ✅ 已解决（just_audio迁移） |
 | 功能 | 发现页面榜单内容单一 | 未来接入QQ音乐榜单 | 🟢 低 | 📋 计划中 |
 | 功能 | 播放列表功能匮乏 | 添加变更播放顺序和添加歌曲功能 | 🟡 中 | ⏸️ 待实施 |
 | 架构 | 下载任务管理依赖后端 | 前端本地化实现，减少网络开销 | 🟡 中 | ✅ 已完成 |
+
+---
+
+## 二、问题1.5：音频播放器加载状态异常 🔴
+
+### 2.1 问题描述
+
+**用户反馈** (2026-01-22):
+- 点击播放后显示"加载中"或"缓冲中"状态，即使播放已经开始
+- **本地音频也会显示加载状态**（不应该发生）
+- 在线音频拖动进度后会持续"缓冲中"，需要手动暂停再播放才能恢复
+- 点击暂停按钮会进入"缓冲中"状态（错误的状态转换）
+
+### 2.2 根本原因分析
+
+**【audioplayers 包的局限性】**
+
+| 特性 | audioplayers | just_audio | 说明 |
+|------|--------------|------------|------|
+| PlayerState 枚举 | `playing`, `paused`, `stopped`, `completed` | 额外包含 `buffering` | audioplayers 缺少专门的缓冲状态 |
+| 缓冲检测 | 通过状态变化推断 | 直接监听 `buffering` | 需要额外的逻辑判断 |
+| 流媒体支持 | 基础 | 优秀 | just_audio 对在线流支持更好 |
+| Windows 支持 | ✅ 完整支持 | ❌ 已停止维护 | Windows 平台选择限制 |
+
+**【代码层面的问题】**
+
+| 文件 | 行号 | 问题 |
+|------|------|------|
+| `lib/presentation/providers/audio/audio_provider.dart` | 162-203 | `_updatePlayState` 通过 `playing → paused` 转换推断缓冲，无法区分用户主动暂停 |
+| `lib/presentation/providers/audio/audio_provider.dart` | 363-383 | `togglePlayPause` 没有正确设置状态标志 |
+| `lib/presentation/providers/audio/audio_provider.dart` | 388-417 | `seek` 后没有尝试恢复播放状态 |
+| `lib/presentation/widgets/controls_panel.dart` | 50-85 | `isLoading` getter 逻辑依赖不准确的状态判断 |
+
+### 2.3 已尝试的修复方案
+
+**方案1：添加 `_userPaused` 标志** (部分成功)
+```dart
+// 区分用户主动暂停和缓冲暂停
+bool _userPaused = false;
+
+void togglePlayPause() async {
+  if (_isPlaying) {
+    _userPaused = true;  // 标记用户主动暂停
+    _isBuffering = false;
+    await _player.pause();
+  }
+}
+```
+
+**方案2：只为在线音频检测缓冲状态**
+```dart
+void _updatePlayState(PlayerState state) {
+  if (_isCurrentOnline) {
+    // 只对在线音频检测缓冲
+    if (wasPlaying && state == PlayerState.paused && !_userPaused && !_isSeeking) {
+      _isBuffering = true;
+    }
+  }
+  // 本地音频不检测缓冲
+}
+```
+
+**方案3：seek 后尝试恢复播放**
+```dart
+Future<void> seek(Duration position) async {
+  final wasPlaying = _isPlaying;
+  // ...
+  await _player.seek(position);
+  if (wasPlaying && _player.state == PlayerState.paused) {
+    await _player.resume();
+  }
+}
+```
+
+**修复结果**: 部分问题仍然存在，需要更根本的解决方案。
+
+### 2.4 推荐的解决方案
+
+#### 方案A：简化加载状态逻辑（短期）
+
+**设计思路**: 移除所有自动缓冲检测，只在明确的加载操作时显示加载状态。
+
+**需要修改**:
+1. `isLoading` getter - 改为基于明确的加载事件
+2. 移除 `_updatePlayState` 中的缓冲推断逻辑
+3. 只在 `playOnlineAudio`、`seek` 等明确操作时设置加载状态
+
+**优点**: 简单、可控、不会误判
+**缺点**: 无法显示真实的网络缓冲状态
+
+#### 方案B：迁移到 just_audio 插件（推荐）
+
+**设计思路**: 使用 `just_audio` 插件，它有专门的 `buffering` 状态。
+
+**优点**:
+- ✅ 有专门的 `ProcessingState.buffering` 状态
+- ✅ 更好的流媒体支持
+- ✅ 更精确的状态管理
+
+**缺点**:
+- ❌ Windows 平台支持已被废弃
+- ❌ 需要大量代码重构
+- ❌ API 更复杂
+
+**迁移工作量估算**:
+| 模块 | 修改量 | 说明 |
+|------|--------|------|
+| AudioProvider | 中等 | 状态监听逻辑重写 |
+| 控制面板 | 小 | 适配新的状态类型 |
+| 错误处理 | 中等 | just_audio 的异常体系不同 |
+
+#### 方案C：后端音频格式转换
+
+**设计思路**: 在后端使用 FFmpeg 将 B站音频流从 `.m4s` 转换为 `.mp3` 格式。
+
+**当前问题**: B站音频流是 `.m4s` 格式（分片 MP4），Windows Media Foundation 不支持。
+
+**实现方式**:
+```javascript
+// listen-vision_api/services/audioService.js
+const ffmpeg = require('fluent-ffmpeg');
+
+async function convertAudioStream(inputStream) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputStream)
+      .format('mp3')
+      .audioBitrate(128)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .pipe(outputStream);
+  });
+}
+```
+
+**优点**: 格式兼容性更好
+**缺点**: 增加服务器负载、转换延迟
+
+### 2.5 待实施步骤
+
+1. **立即**: 参考 [AUDIO_PLAYER_FIX_PLAN.md](./AUDIO_PLAYER_FIX_PLAN.md) 实施综合修复方案
+   - 方案 A: 迁移到 just_audio（彻底解决状态检测问题）
+   - 方案 B: 后端音频格式转换（解决 m4s 兼容性问题）
+2. **短期**: 按计划文档执行前端迁移（1周）
+3. **中期**: 按计划文档执行后端改造（1周）
+
+### 2.6 关键文件清单
+
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `docs/AUDIO_PLAYER_FIX_PLAN.md` | 新建 - 综合修复方案 | 🔴 高 | ✅ 已创建 |
+| `pubspec.yaml` | 修改 - 添加 just_audio 依赖 | 🔴 高 | ⏸️ 待开始 |
+| `presentation/providers/audio/audio_provider.dart` | 重写 - just_audio 实现 | 🔴 高 | ⏸️ 待开始 |
+| `presentation/widgets/controls_panel.dart` | 修改 - 适配新状态 | 🔴 高 | ⏸️ 待开始 |
+| `presentation/widgets/audio_info.dart` | 修改 - 封面显示 | 🟡 中 | ⏸️ 待开始 |
+| `core/constants/api_constants.dart` | 修改 - 格式配置 | 🟡 中 | ⏸️ 待开始 |
+| `services/audioService.js` | 新建 - 格式转换服务 | 🔴 高 | ⏸️ 待开始 |
+| `routes/bilibili.js` | 修改 - 代理路由 | 🔴 高 | ⏸️ 待开始 |
 
 ---
 
@@ -369,12 +558,62 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 
 ## 五、关键文件清单
 
-### 问题1：加入歌单卡死 ✅
+### Phase 2 在线播放功能 ✅ 已完成
 | 文件 | 操作 | 优先级 | 状态 |
 |------|------|--------|------|
-| `lib/ui/pages/search_page.dart` | 修改 - 添加loading状态 | 🔴 高 | ✅ 已完成 |
-| `lib/providers/playlist_provider.dart` | 修改 - 优化异步操作 | 🔴 高 | ✅ 已完成 |
-| `lib/services/api_service.dart` | 修改 - 缩短超时时间 | 🟡 中 | ✅ 已完成 |
+| `domain/entities/playable_audio.dart` | 新建 - 统一播放接口 | 🔴 高 | ✅ 已完成 |
+| `domain/entities/online_playable.dart` | 新建 - 在线播放实现 | 🔴 高 | ✅ 已完成 |
+| `domain/entities/local_playable.dart` | 新建 - 本地播放实现 | 🔴 高 | ✅ 已完成 |
+| `presentation/providers/audio/audio_provider.dart` | 修改 - playOnlineAudio方法 | 🔴 高 | ✅ 已完成 |
+| `presentation/pages/search_page.dart` | 修改 - 连接播放器 | 🔴 高 | ✅ 已完成 |
+| `presentation/pages/explore_page.dart` | 修改 - 连接播放器 | 🔴 高 | ✅ 已完成 |
+| `presentation/pages/playlist_detail_page.dart` | 修改 - 连接播放器 | 🔴 高 | ✅ 已完成 |
+
+### 问题1.5：音频播放器加载状态修复 ✅ 已完成
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `presentation/providers/audio/audio_provider.dart` | 修改 - 迁移到 just_audio | 🔴 高 | ✅ 已完成 |
+| `presentation/widgets/controls_panel.dart` | 修改 - 加载状态显示 | 🔴 高 | ✅ 已完成 |
+| `presentation/widgets/audio_info.dart` | 修改 - 封面显示 | 🟡 中 | ✅ 已完成 |
+| `pubspec.yaml` | 添加 - just_audio 依赖 | 🔴 高 | ✅ 已完成 |
+| `services/audioService.js` | 新建 - FFmpeg格式转换 | 🟡 中 | ✅ 已完成 |
+| `routes/bilibili.js` | 修改 - 支持format参数 | 🟡 中 | ✅ 已完成 |
+| `core/utils/file_picker_helper.dart` | 修改 - 改用file_selector | 🟡 中 | ✅ 已完成 |
+| `presentation/providers/audio/audio_player_provider.dart` | 删除 - 遗留代码 | 🟢 低 | ✅ 已完成 |
+
+### 问题3：播放列表功能扩展 ⏸️ 待实施
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `presentation/pages/playlist_detail_page.dart` | 修改 - 添加按钮 | 🔴 高 | ⏸️ 待开始 |
+| `presentation/dialogs/add_song_dialog.dart` | 新建 - 添加歌曲对话框 | 🟡 中 | ⏸️ 待开始 |
+| `presentation/dialogs/sort_options_dialog.dart` | 新建 - 排序选项对话框 | 🟢 低 | ⏸️ 待开始 |
+| `listen-vision_api/routes/playlists.js` | 修改 - 排序API | 🟢 低 | ⏸️ 待开始 |
+
+### 问题2：QQ音乐榜单计划 📋 计划中
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `listen-vision_api/services/recommendationService.js` | 修改 - 集成QQ音乐API | 🟢 低 | 📋 计划中 |
+| `listen-vision_api/routes/recommendations.js` | 修改 - 添加QQ音乐路由 | 🟢 低 | 📋 计划中 |
+| `presentation/pages/explore_page.dart` | 修改 - 榜单来源切换 | 🟢 低 | 📋 计划中 |
+
+### 已完成的历史问题 ✅
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `presentation/pages/search_page.dart` | 修改 - 添加loading状态 | 🔴 高 | ✅ 已完成 |
+| `presentation/providers/playlist/playlist_provider.dart` | 修改 - 优化异步操作 | 🔴 高 | ✅ 已完成 |
+| `core/network/dio_provider.dart` | 修改 - 缩短超时时间 | 🟡 中 | ✅ 已完成 |
+| `data/managers/download_executor.dart` | 新建 - 前端下载实现 | 🔴 高 | ✅ 已完成 |
+| `data/repositories/download_repository_impl.dart` | 新建 - 下载仓储实现 | 🔴 高 | ✅ 已完成 |
+
+### 问题1.5：音频播放器加载状态异常 ✅ 已解决
+| 文件 | 操作 | 优先级 | 状态 |
+|------|------|--------|------|
+| `lib/presentation/providers/audio/audio_provider.dart` | 迁移到 just_audio | 🔴 高 | ✅ 已完成 |
+| `lib/presentation/widgets/controls_panel.dart` | 修改 - 加载状态显示 | 🔴 高 | ✅ 已完成 |
+| `lib/presentation/widgets/audio_info.dart` | 修改 - 封面显示 | 🟡 中 | ✅ 已完成 |
+| `pubspec.yaml` | 添加 just_audio 依赖 | 🔴 高 | ✅ 已完成 |
+| `services/audioService.js` | 新建 - FFmpeg格式转换 | 🟡 中 | ✅ 已完成 |
+| `routes/bilibili.js` | 添加 format 参数支持 | 🟡 中 | ✅ 已完成 |
 
 ### 问题2：QQ音乐榜单计划 📋
 | 文件 | 操作 | 优先级 | 状态 |
@@ -411,6 +650,8 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 4. **断点续传**: HTTP Range 请求实现分段下载
 5. **临时文件策略**: 避免Windows文件锁定问题
 6. **第三方API集成**: QQ音乐开放平台（未来计划）
+7. **音频播放器对比**: audioplayers vs just_audio 的状态管理差异
+8. **流媒体缓冲**: 网络音频缓冲状态检测的挑战
 
 ---
 
@@ -418,26 +659,44 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 
 | 问题 | 步骤 | 状态 | 完成日期 |
 |------|------|------|----------|
+| Phase 2 在线播放 | 创建统一播放接口 (PlayableAudio) | ✅ 已完成 | 2026-01-22 |
+| Phase 2 在线播放 | 改造 AudioProvider (playOnlineAudio) | ✅ 已完成 | 2026-01-22 |
+| Phase 2 在线播放 | 连接搜索页面 | ✅ 已完成 | 2026-01-22 |
+| Phase 2 在线播放 | 连接发现页面 | ✅ 已完成 | 2026-01-22 |
+| Phase 2 在线播放 | 连接歌单详情页 | ✅ 已完成 | 2026-01-22 |
 | 问题1: 加入歌单卡死 | 添加loading状态 | ✅ 已完成 | 2026-01-20 |
 | 问题1: 加入歌单卡死 | 优化异步操作 | ✅ 已完成 | 2026-01-20 |
 | 问题1: 加入歌单卡死 | 缩短超时时间 | ✅ 已完成 | 2026-01-20 |
+| 问题1.5: 音频播放器加载 | 创建 AUDIO_PLAYER_FIX_PLAN.md | ✅ 已完成 | 2026-01-22 |
+| 问题1.5: 音频播放器加载 | 迁移到 just_audio | ✅ 已完成 | 2026-01-22 |
+| 问题1.5: 音频播放器加载 | 后端音频格式转换 | ✅ 已完成 | 2026-01-22 |
 | ~~问题2: 音乐区爬取~~ | ~~创建爬虫服务~~ | ✅ 已完成（废弃） | 2026-01-20 |
-| 问题2: QQ音乐榜单 | 申请API密钥 | 📋 计划中 | |
-| 问题2: QQ音乐榜单 | 后端集成 | 📋 计划中 | |
-| 问题2: QQ音乐榜单 | 前端集成 | 📋 计划中 | |
-| 问题3: 播放列表扩展 | 添加"添加歌曲"按钮 | ⏸️ 待开始 | |
-| 问题3: 播放列表扩展 | 创建添加歌曲对话框 | ⏸️ 待开始 | |
-| 问题3: 播放列表扩展 | 创建排序选项对话框 | ⏸️ 待开始 | |
+| 问题2: QQ音乐榜单 | 申请API密钥 | 📋 计划中 | - |
+| 问题2: QQ音乐榜单 | 后端集成 | 📋 计划中 | - |
+| 问题2: QQ音乐榜单 | 前端集成 | 📋 计划中 | - |
+| 问题3: 播放列表扩展 | 添加"添加歌曲"按钮 | ⏸️ 待开始 | - |
+| 问题3: 播放列表扩展 | 创建添加歌曲对话框 | ⏸️ 待开始 | - |
+| 问题3: 播放列表扩展 | 创建排序选项对话框 | ⏸️ 待开始 | - |
 | 附加: 下载架构重构 | 前端本地化实现 | ✅ 已完成 | 2026-01-20 |
 
 ---
 
 ## 八、验收标准汇总
 
-### Bug修复验收 ✅
+### Phase 2 在线播放验收 ✅
+- [x] 搜索结果点击可正常播放
+- [x] 发现页面推荐内容点击可正常播放
+- [x] 歌单详情页歌曲点击可正常播放
+- [x] 统一播放接口（PlayableAudio）实现
+- [x] 在线音频和本地音频可混合播放
+
+### Bug修复验收
+
 - [x] 搜索结果点击加入歌单不再卡死
 - [x] 操作过程有loading状态反馈
 - [x] 超时有友好提示
+- [x] 音频播放器加载状态正常显示 ✅ (just_audio 迁移完成)
+- [x] Windows 平台音频播放稳定 ✅ (格式转换完成)
 
 ### 功能改进验收
 - [ ] ~~发现页面新增"音乐区"Tab~~ (已取消，改用QQ音乐方案)
@@ -450,25 +709,28 @@ router.put('/:id/sort', authenticateToken, async (req, res) => {
 ### 文档验收
 - [x] CLAUDE.md 更新完成
 - [x] INCREMENTAL_MIGRATION_PLAN.md 更新完成
-- [x] PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md 更新完成
+- [x] PHASE_5_BUGFIX_AND_IMPROVEMENTS.md 更新完成（含 Phase 2 完成状态）
 
 ---
 
 ## 九、与 Phase 2（在线播放）的关系
 
-**Phase 2（在线播放功能）** 是比本阶段更高优先级的关键功能：
+> **2026-01-22 更新**: Phase 2 在线播放功能**已完成实现** ✅
+
+**Phase 2（在线播放功能）** 已于 2026-01-22 完成，现在可以继续 Phase 5 的剩余功能：
 
 | 功能 | Phase 5 (原 2B) | Phase 2 (原 4) | 说明 |
 |------|-----------------|----------------|------|
-| 添加歌曲到歌单 | 📋 歌单详情页UI | 🔴 播放器支持在线音频 | Phase 2 是前置条件 |
-| 播放歌单歌曲 | ❌ 无法播放 | ✅ 在线播放 | Phase 2 解决核心问题 |
+| 添加歌曲到歌单 | 📋 歌单详情页UI | ✅ 在线播放 | Phase 2 已完成，可继续 Phase 5 |
+| 播放歌单歌曲 | ✅ 可播放 | ✅ 在线播放 | 数据流已打通 |
 | 歌单排序 | 📋 排序对话框 | - | 独立功能，可后续实施 |
 
-**建议实施顺序**:
-1. **先完成 Phase 2** - 解决在线播放核心问题
-2. **再继续 Phase 5** - 完善歌单管理UI功能
+**实施顺序更新**:
+1. ✅ **Phase 2 已完成** - 在线播放核心问题已解决
+2. 🚧 **继续 Phase 5** - 完善歌单管理UI功能（当前阶段）
+3. 📋 **歌单排序功能** - 可后续实施
 
-**相关文档**: [Phase 2 在线播放功能](./PHASE_2_ONLINE_PLAYBACK.md)（已重命名，对应新 Phase 2）
+**相关文档**: [Phase 2 在线播放功能](./PHASE_2_ONLINE_PLAYBACK.md)（已完成实现）
 
 ---
 

@@ -4,6 +4,9 @@ import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
+import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -351,8 +354,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 onPressed: () => _removeItem(item),
               ),
         onTap: () {
-          // TODO: 播放这首歌
-          showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
+          // Phase 2: 播放这首歌
+          _playPlaylistItem(context, item);
         },
       ),
     );
@@ -395,5 +398,61 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
         ),
       ),
     );
+  }
+
+  /// Phase 2: 播放歌单项
+  Future<void> _playPlaylistItem(
+    BuildContext context,
+    PlaylistItem item,
+  ) async {
+    final audioProvider = context.read<AudioProvider>();
+    final bilibiliProvider = context.read<BilibiliProvider>();
+    final historyProvider = context.read<PlayHistoryProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+
+      // 获取音频流URL
+      final streamData = await bilibiliProvider.getAudioStream(item.bvid);
+      if (streamData == null || streamData['baseUrl'] == null) {
+        throw Exception('无法获取音频流');
+      }
+
+      // 创建 Audio 实体
+      final audio = Audio.fromDto({
+        'bvid': item.bvid,
+        'title': item.title ?? item.bvid,
+        'artist': item.artist,
+        'cover': item.coverUrl,
+        'duration': item.duration,
+      });
+
+      // 播放
+      await audioProvider.playOnlineAudio(
+        audio: audio,
+        streamUrl: streamData['baseUrl'],
+      );
+
+      // 记录播放历史
+      if (authProvider.isLoggedIn) {
+        await historyProvider.recordPlay(
+          bvid: item.bvid,
+          title: audio.title,
+          artist: audio.artist,
+          coverUrl: audio.coverUrl,
+          duration: audio.duration,
+        );
+      }
+
+      if (mounted) {
+        showMySnackBar(context, '开始播放: ${audio.title}', Colors.green, 1500);
+      }
+    } catch (e) {
+      debugPrint('【PlaylistDetailPage】播放失败: $e');
+      if (mounted) {
+        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+      }
+    }
   }
 }

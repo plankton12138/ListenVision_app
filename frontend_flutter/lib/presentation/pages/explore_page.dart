@@ -4,6 +4,8 @@ import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
@@ -399,11 +401,14 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
                   ],
                 ),
               ),
-              // 播放按钮
+              // Phase 2: 播放按钮
               IconButton(
                 icon: const Icon(Icons.play_circle_outline),
+                color: Colors.blue,
                 onPressed: () {
-                  showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
+                  if (bvid.isNotEmpty) {
+                    _playOnlineAudio(context, bvid, item);
+                  }
                 },
                 constraints: const BoxConstraints(),
                 padding: EdgeInsets.zero,
@@ -480,51 +485,6 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     );
   }
 
-  /// 视频卡片
-  Widget _buildVideoCard(RecommendationItem item) {
-    String coverUrl = item.coverUrl ?? '';
-    if (coverUrl.startsWith('//')) {
-      coverUrl = 'https:$coverUrl';
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: SizedBox(
-          width: 100,
-          height: 80,
-          child: Image.network(
-            coverUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image),
-              );
-            },
-          ),
-        ),
-        title: SizedBox(
-          height: 35,
-          child: Text(
-            item.title ?? '',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        subtitle: Text(
-          'UP: ${item.artist ?? '未知'}\n播放: ${item.playCount ?? 0}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.play_circle_outline),
-          onPressed: () {
-            showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
-          },
-        ),
-      ),
-    );
-  }
 
   /// 歌单卡片
   Widget _buildPlaylistCard(dynamic playlist) {
@@ -575,5 +535,60 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         },
       ),
     );
+  }
+
+  /// Phase 2: 播放在线音频
+  Future<void> _playOnlineAudio(
+    BuildContext context,
+    String bvid,
+    Map<String, dynamic> item,
+  ) async {
+    final audioProvider = context.read<AudioProvider>();
+    final bilibiliProvider = context.read<BilibiliProvider>();
+    final historyProvider = context.read<PlayHistoryProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+
+      // 获取音频流URL
+      final streamData = await bilibiliProvider.getAudioStream(bvid);
+      if (streamData == null || streamData['baseUrl'] == null) {
+        throw Exception('无法获取音频流');
+      }
+
+      // 创建 Audio 实体
+      final audio = Audio.fromDto({
+        'bvid': bvid,
+        'title': item['title'] ?? '',
+        'artist': item['author'] ?? item['uname'],
+        'cover': item['cover'] ?? item['pic'],
+      });
+
+      // 播放
+      await audioProvider.playOnlineAudio(
+        audio: audio,
+        streamUrl: streamData['baseUrl'],
+      );
+
+      // 记录播放历史
+      if (authProvider.isLoggedIn) {
+        await historyProvider.recordPlay(
+          bvid: bvid,
+          title: audio.title,
+          artist: audio.artist,
+          coverUrl: audio.coverUrl,
+        );
+      }
+
+      if (mounted) {
+        showMySnackBar(context, '开始播放: ${audio.title}', Colors.green, 1500);
+      }
+    } catch (e) {
+      debugPrint('【ExplorePage】播放失败: $e');
+      if (mounted) {
+        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+      }
+    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
+import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -32,19 +33,49 @@ class AudioInfo extends StatelessWidget {
     return Container(
       width: MediaQuery.of(context).size.width,
       height: 300,
-      decoration: BoxDecoration(
-        image: controller.albumArt != null
-            ? DecorationImage(
-                image: MemoryImage(controller.albumArt!),
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
-              )
-            : const DecorationImage(
-                image: AssetImage('assets/images/default_album_art.png'),
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
-              ),
-      ),
+      child: _buildAlbumArtContent(context, controller),
+    );
+  }
+
+  /// 构建封面内容（支持本地和网络）
+  Widget _buildAlbumArtContent(BuildContext context, AudioProvider controller) {
+    // 优先级1: 本地音频封面 (Uint8List)
+    if (controller.albumArt != null) {
+      return Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: MemoryImage(controller.albumArt!),
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+          ),
+        ),
+      );
+    }
+
+    // 优先级2: 在线音频封面 (使用代理解决防盗链)
+    final coverUrl = controller.coverUrl;
+    if (coverUrl != null && coverUrl.isNotEmpty) {
+      final bilibiliProvider = context.read<BilibiliProvider>();
+      final proxyUrl = bilibiliProvider.getProxyImageUrl(coverUrl);
+
+      return Image.network(
+        proxyUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          // 网络加载失败时使用默认图片
+          debugPrint('【AudioInfo】封面加载失败: $error');
+          return Image.asset(
+            'assets/images/default_album_art.png',
+            fit: BoxFit.contain,
+          );
+        },
+      );
+    }
+
+    // 优先级3: 默认图片
+    return Image.asset(
+      'assets/images/default_album_art.png',
+      fit: BoxFit.contain,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 /// 播放控制面板组件
 ///
+/// Phase 5: 更新为使用 just_audio 精确状态检测
 /// 显示播放进度、时间显示和控制按钮（上一曲、播放/暂停、下一曲）
 class ControlsPanel extends StatelessWidget {
   const ControlsPanel({super.key});
@@ -27,7 +28,40 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建时间显示
+  /// Phase 5: 使用 just_audio 精确状态检测
   Widget _buildTimeDisplay(BuildContext context, AudioProvider controller) {
+    // ✅ 精确的加载状态（来自 just_audio ProcessingState）
+    if (controller.isLoading) {
+      return const Text(
+        '加载中...',
+        style: TextStyle(color: Colors.blue),
+      );
+    }
+    
+    // ✅ 精确的缓冲状态（来自 just_audio ProcessingState.buffering）
+    if (controller.isBuffering) {
+      return const Text(
+        '缓冲中...',
+        style: TextStyle(color: Colors.orange),
+      );
+    }
+    
+    // 已完成状态
+    if (controller.isCompleted) {
+      return const Text(
+        '播放完成',
+        style: TextStyle(color: Colors.green),
+      );
+    }
+    
+    // 空闲状态
+    if (controller.isIdle) {
+      return const Text(
+        '就绪',
+        style: TextStyle(color: Colors.grey),
+      );
+    }
+    
     return Text(
       '${controller.position.toString().split('.')[0]} / '
       '${controller.duration.toString().split('.')[0]}',
@@ -35,6 +69,7 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建进度条
+  /// Phase 5: 使用 just_audio 精确状态检测
   Widget _buildProgressBar(BuildContext context, AudioProvider controller) {
     final durationSec = controller.duration.inSeconds;
     final positionSec = controller.position.inSeconds;
@@ -43,6 +78,25 @@ class ControlsPanel extends StatelessWidget {
     final safeValue = (durationSec > 0 && positionSec <= durationSec)
         ? positionSec.toDouble()
         : 0.0;
+
+    // ✅ 加载或缓冲时显示进度指示器
+    // just_audio 的状态是精确的，不会误判
+    if (controller.isLoading || controller.isBuffering) {
+      return SizedBox(
+        height: 24,
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              // 缓冲时显示不确定进度
+              value: controller.isBuffering ? null : (durationSec > 0 ? safeValue / durationSec.toDouble() : null),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Slider(
       value: safeValue,

@@ -180,3 +180,66 @@ class HttpStatus {
   static const int internalServerError = 500;
   static const int serviceUnavailable = 503;
 }
+
+// ==================== 音频格式配置 ====================
+
+/// 音频格式类型
+enum AudioFormat {
+  m4s('m4s', 'audio/mp4', '原始M4S格式'),
+  mp3('mp3', 'audio/mpeg', 'MP3格式 (跨平台兼容)'),
+  aac('aac', 'audio/aac', 'AAC格式');
+
+  const AudioFormat(this.value, this.contentType, this.description);
+
+  final String value;
+  final String contentType;
+  final String description;
+}
+
+/// 平台特定的音频格式偏好
+///
+/// Windows: 优先MP3 (just_audio对m4s支持不如移动端)
+/// macOS: 优先MP3
+/// Linux: 优先MP3
+/// Android/iOS: 优先m4s (原生支持)
+/// Web: 优先mp3 (浏览器兼容性)
+class PlatformAudioFormat {
+  /// 判断当前是否需要转换格式
+  static bool needsConversion(String platform) {
+    return _platformPreferredFormat(platform) != 'm4s';
+  }
+
+  /// 获取平台的默认音频格式
+  static String getDefaultFormat(String platform) {
+    return _platformPreferredFormat(platform);
+  }
+
+  /// 获取代理音频的完整URL（带格式参数）
+  static String getProxyAudioUrl(String baseUrl, String audioUrl, String platform) {
+    final format = _platformPreferredFormat(platform);
+    if (format == 'm4s') {
+      return '$baseUrl?url=${Uri.encodeComponent(audioUrl)}';
+    }
+    return '$baseUrl?url=${Uri.encodeComponent(audioUrl)}&format=$format';
+  }
+
+  /// 平台首选项映射
+  static String _platformPreferredFormat(String platform) {
+    switch (platform.toLowerCase()) {
+      case 'android':
+      case 'ios':
+      case 'mobile':
+        return 'm4s'; // 移动端原生支持m4s
+      case 'windows':
+      case 'macos':
+      case 'linux':
+      case 'desktop':
+        return 'mp3'; // 桌面端需要转换
+      case 'web':
+      case 'browser':
+        return 'mp3'; // Web浏览器兼容性
+      default:
+        return 'm4s';
+    }
+  }
+}

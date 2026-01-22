@@ -366,7 +366,7 @@ router.get('/proxy/image', optionalAuthMiddleware, bilibiliController.proxyImage
  * /api/bilibili/proxy/audio:
  *   get:
  *     tags: [B站API]
- *     summary: 代理音频流（解决防盗链）
+ *     summary: 代理音频流（解决防盗链，可选格式转换）
  *     parameters:
  *       - in: query
  *         name: url
@@ -374,11 +374,24 @@ router.get('/proxy/image', optionalAuthMiddleware, bilibiliController.proxyImage
  *         schema:
  *           type: string
  *         description: 音频流URL
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [m4s, mp3, aac]
+ *           default: m4s
+ *         description: 输出格式 (m4s=原始, mp3=转换为MP3, aac=转换为AAC)
  *     responses:
  *       200:
  *         description: 音频流
  *         content:
  *           audio/mp4:
+ *             type: string
+ *             format: binary
+ *           audio/mpeg:
+ *             type: string
+ *             format: binary
+ *           audio/aac:
  *             type: string
  *             format: binary
  */

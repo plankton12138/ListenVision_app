@@ -301,11 +301,13 @@ Projects_ListenVison/
 │   └── README.md                 # 后端文档
 │
 ├── docs/                         # 项目文档
-│   ├── INCREMENTAL_MIGRATION_PLAN.md  # 渐进式架构迁移计划
-│   ├── PHASE_1_IMPLEMENTATION_DETAILS.md  # Phase 1 实施细节
-│   ├── PHASE_2_PLAYLIST_PLAN.md         # Phase 2 歌单收藏推荐计划
-│   ├── PHASE_2A_PLAYBACK_PLAN.md         # Phase 2A 播放列表页面改进
-│   └── PHASE_2B_BUGFIX_AND_IMPROVEMENTS.md # Phase 2B Bug修复与改进
+│   ├── AUDIO_PLAYER_FIX_PLAN.md       # 音频播放器综合修复方案（2026-01-22 新增）
+│   ├── PHASE_5_BUGFIX_AND_IMPROVEMENTS.md  # Phase 5 Bug修复与改进
+│   ├── PHASE_2_ONLINE_PLAYBACK.md           # Phase 2 在线播放功能
+│   ├── PHASE_3_PLAYLIST_PLAN.md             # Phase 3 播放列表云同步
+│   ├── PHASE_3A_PLAYBACK_PLAN.md            # Phase 3A 播放列表页面改进
+│   ├── INCREMENTAL_MIGRATION_PLAN.md        # 渐进式架构迁移计划
+│   └── PHASE_1_IMPLEMENTATION_DETAILS.md    # Phase 1 实施细节
 │
 ├── bilibili-API-collect/         # B站API文档 (本地克隆)
 ├── PRD.md                        # 产品需求文档
@@ -346,12 +348,14 @@ Projects_ListenVison/
 - ✅ 收藏快捷操作（搜索结果/播放器）
 - ✅ 播放历史记录与清空
 - ✅ 歌单详情查看
+- ✅ **在线音频播放** (2026-01-22 新增)
 
 **发现与推荐** (Phase 2)：
 - ✅ 热门歌单推荐
 - ✅ 热歌榜单
 - ✅ 个性化推荐内容
 - ✅ 登录访问控制（需要登录才能访问）
+- ✅ **在线音频播放功能** (2026-01-22 新增 - 打通数据流)
 
 **可选 - Bilibili 账号绑定** (Phase 1)：
 - ✅ Bilibili 二维码登录
@@ -368,6 +372,10 @@ Projects_ListenVison/
 - ✅ 歌单管理 API (Phase 2)
 - ✅ 播放历史 API (Phase 2)
 - ✅ 推荐内容 API (Phase 2)
+- ✅ **在线音频播放 API** (Phase 2 - 2026-01-22 新增)
+  - ✅ 获取音频流URL (`GET /api/bilibili/audio/:bvid`)
+  - ✅ 音频流代理 (`GET /api/bilibili/proxy/audio`)
+  - ✅ 图片代理 (`GET /api/bilibili/proxy/image`)
 - ✅ 全文搜索 API (Phase 3 - FTS5)
 - ✅ CORS 跨域支持
 - ✅ 请求限流中间件
@@ -390,13 +398,16 @@ Projects_ListenVison/
 
 ### 规划中功能 🚧
 
+已完成：
+- ✅ **在线流式播放 (边下边播)** - Phase 2 已完成
+
+待实现：
 - 🎵 音频可视化 (波形图/频谱图)
 - 🎨 简易音频剪辑功能
 - 🌐 多语言支持
-- 🎵 音乐平台推荐扩展
+- 🎵 音乐平台推荐扩展（QQ音乐榜单）
 - 📝 播放列表导入/导出
 - 🔄 多线程下载优化
-- 🎵 在线流式播放 (边下边播)
 - 🔄 播放队列跨设备同步
 
 ---

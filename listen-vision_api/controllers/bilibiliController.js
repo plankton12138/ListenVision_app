@@ -267,15 +267,19 @@ const proxyImage = async (req, res) => {
 };
 
 /**
- * 代理音频流（解决防盗链）
+ * 代理音频流（解决防盗链，可选格式转换）
  */
 const proxyAudioStream = async (req, res) => {
   try {
-    const { url } = req.query;
+    const { url, format = 'm4s' } = req.query;
 
     if (!url) {
       return res.status(400).json({ success: false, error: '缺少 url 参数' });
     }
+
+    // 支持的格式
+    const supportedFormats = ['m4s', 'mp3', 'aac'];
+    const targetFormat = supportedFormats.includes(format) ? format : 'm4s';
 
     // 使用 fetch 获取音频流
     const response = await fetch(url, {
@@ -289,14 +293,32 @@ const proxyAudioStream = async (req, res) => {
       return res.status(response.status).send('获取音频失败');
     }
 
-    // 设置正确的 Content-Type
-    const contentType = response.headers.get('Content-Type') || 'audio/mp4';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Accept-Ranges', 'bytes'); // 支持范围请求
+    // 如果需要转换格式
+    if (targetFormat !== 'm4s') {
+      const audioService = require('../services/audioService');
+      const inputBuffer = await response.arrayBuffer();
 
-    // 转发音频流
-    const buffer = await response.arrayBuffer();
-    res.send(Buffer.from(buffer));
+      console.log(`[Audio] Converting audio from m4s to ${targetFormat}...`);
+
+      const { buffer, contentType } = await audioService.convertStream(
+        Buffer.from(inputBuffer),
+        targetFormat,
+        { bitrate: '192k', sampleRate: '44100', channels: 2 }
+      );
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', buffer.length);
+      res.send(buffer);
+    } else {
+      // 直接转发原始音频流
+      const contentType = response.headers.get('Content-Type') || 'audio/mp4';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // 转发音频流
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
   }

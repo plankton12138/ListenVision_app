@@ -1,332 +1,444 @@
-# 📚 纯 Bilibili 认证系统 - 文档索引
+# 🎵 ListenVision Flutter 前端
 
-> 全新架构：**放弃本地账号系统，采用纯 Bilibili 绑定认证**
-> 保留现有数据库，创建独立数据库体系，每个阶段完整测试
-
----
-
-## 🎯 快速开始（必读顺序）
-
-### 🚀 核心总结（10 分钟）⭐⭐⭐
-**[CORE_SUMMARY.md](./CORE_SUMMARY.md)**
-- 项目核心目标和架构变更
-- 11 个文档的完整导航
-- 新增代码内容总结
-- 立即行动清单
-
-### 1️⃣ 项目状态（10 分钟）
-**[PROJECT_STATUS.md](./PROJECT_STATUS.md)**
-- 项目完成度报告
-- 关键决策点确认
-- 下一步行动计划
-
-### 2️⃣ 架构设计（20 分钟）
-**[BILIBILI_ONLY_ARCHITECTURE.md](./BILIBILI_ONLY_ARCHITECTURE.md)**
-- 6 个阶段实施计划
-- 详细任务列表和验收标准
-- 时间估算: **10-16 天**（节省 30%）
-
-### 3️⃣ Phase 1 实施指南（Phase 1 开始前必读）⭐⭐⭐
-**[PHASE_1_IMPLEMENTATION_GUIDE.md](./PHASE_1_IMPLEMENTATION_GUIDE.md)**
-- 详细的实施步骤和检查清单
-- 完整的 Node.js 服务代码示例（150+ 行）
-- 单元测试编写示例（100+ 行）
-- API 测试方法和预期响应
-- 验收标准和常见问题
+> 基于 Clean Architecture 的跨平台音频应用前端
 
 ---
 
-## 📖 业务和需求文档
+## 📖 项目简介
 
-### 5️⃣ 完整需求文档（25 分钟）⭐
-**[REQUIREMENTS_SPECIFICATION.md](./REQUIREMENTS_SPECIFICATION.md)**
-- 用户认证流程（详细步骤）
-- 本地音频播放功能（无需认证）
-- 搜索和下载功能（需要认证）
-- 收藏管理功能
-- 数据存储结构
-- 核心验收标准
+ListenVision Flutter 前端采用 **Clean Architecture** 架构设计,实现了完整的音频播放、搜索、下载和管理功能。
 
-### 6️⃣ 代码优化指南（20 分钟）⭐
-**[CODE_OPTIMIZATION_GUIDE.md](./CODE_OPTIMIZATION_GUIDE.md)**
-- 现有代码分析和评估
-- 10 个优化建议（P0-P3）
-- 具体的代码示例
-- 优化实施计划和优先级
-- 包含 SecureStorage 集成、认证检查等
+### 核心特性
 
-### 7️⃣ 认证集成详细设计（20 分钟）⭐
-**[AUTHENTICATION_INTEGRATION.md](./AUTHENTICATION_INTEGRATION.md)**
-- 架构集成图和状态机
-- 完整时序图
-- 启动流程详细步骤
-- 错误处理和恢复方案
-- 完整的测试用例
-- 集成检查清单
+- 🎵 **音频播放** - 支持本地和在线音频,M4A/MP3/FLAC 元数据
+- 🔍 **搜索功能** - 搜索 B站 视频和音频内容
+- 📥 **下载管理** - 多线程下载、断点续传、后台下载
+- 📋 **播放列表** - 创建、管理歌单,收藏音步
+- 🎨 **Material Design** - 深色模式支持
+- 🔐 **账号体系** - 邮箱登录 + B站账号绑定
 
 ---
 
-## 📚 参考文档（原方案，供参考）
+## 🏗️ 架构设计
 
-### 历史方案 1：用户账号 + B站绑定
-- **[BILIBILI_BINDING_ARCHITECTURE.md](./BILIBILI_BINDING_ARCHITECTURE.md)**（已弃用）
-  - 原来的 8 阶段计划
-  - 包含用户名/密码认证
-  - 已被新架构替代
-  - 保留作为参考
-
-### 历史方案 2：硬编码 Cookie 管理
-- **[COOKIES_UPGRADE.md](./COOKIES_UPGRADE.md)**（已弃用）
-  - 最初的 Cookie 轮换方案
-  - 已被新架构替代
-  - 保留作为参考和对比
-
----
-
-## 📂 项目结构
+### Clean Architecture 分层
 
 ```
-flutter_demo_deving/
-│
-├── docs/                          ← 项目文档目录
-│   ├── README.md                  ← 本文件（文档索引）
-│   ├── 00_PHASE_1_SUMMARY.md     ⭐ Phase 1 总结
-│   ├── BILIBILI_BINDING_ARCHITECTURE.md  完整架构
-│   ├── PHASE_1_COMPLETION_REPORT.md      详细报告
-│   └── COOKIES_UPGRADE.md         旧方案说明
-│
-├── lib/
-│   ├── models/                    ← 数据模型
-│   │   ├── platform_account.dart      抽象基类 ✅
-│   │   ├── bilibili_account.dart      Bilibili实现 ✅
-│   │   ├── platform_binding_model.dart 数据库模型 ✅
-│   │   └── user_model.dart            用户模型(扩展) ✅
-│   │
-│   ├── services/                  ← 业务服务
-│   │   ├── secure_storage_service.dart  加密存储 ✅
-│   │   ├── bilibili_auth_service.dart   Bilibili认证 (待开发)
-│   │   └── platform_binding_service.dart 绑定服务 (待开发)
-│   │
-│   ├── providers/                 ← 状态管理
-│   │   └── platform_binding_provider.dart (待开发)
-│   │
-│   └── ui/
-│       └── pages/
-│           └── bilibili_binding_page.dart (待开发)
-│
-└── pubspec.yaml                   ← 依赖配置 ✅
+lib/
+├── main.dart             # 应用入口
+├── core/                 # 核心层 (基础设施)
+│   ├── base/             # 基类
+│   ├── constants/        # 常量
+│   ├── di/               # 依赖注入
+│   ├── errors/           # 错误定义
+│   ├── network/          # 网络层
+│   └── utils/            # 工具函数
+├── domain/               # 领域层 (业务逻辑)
+│   ├── entities/         # 领域实体
+│   └── repositories/     # 仓储接口
+├── data/                 # 数据层 (数据操作)
+│   ├── datasources/      # 数据源
+│   │   ├── local/        # 本地数据源
+│   │   └── remote/       # 远程数据源
+│   ├── managers/         # 管理器
+│   └── repositories/     # 仓储实现
+└── presentation/         # 表现层 (UI)
+    ├── pages/            # 页面
+    ├── providers/        # 状态管理
+    ├── routes/           # 路由
+    └── widgets/          # 组件
 ```
 
----
+### 各层职责
 
-## 🚀 开发进度
-
-### 整体进度
-```
-规划阶段: ████████████████████ 100% ✅ 架构设计和文档输出
-Phase 1: ░░░░░░░░░░░░░░░░░░░░   0% 🔄 后端表和API端点（待开始）
-Phase 2: ░░░░░░░░░░░░░░░░░░░░   0%    Bilibili 认证服务
-Phase 3: ░░░░░░░░░░░░░░░░░░░░   0%    数据模型简化
-Phase 4: ░░░░░░░░░░░░░░░░░░░░   0%    绑定页面开发
-Phase 5: ░░░░░░░░░░░░░░░░░░░░   0%    功能集成
-Phase 6: ░░░░░░░░░░░░░░░░░░░░   0%    性能优化和发布
-
-总进度: 15% (规划完成，待实施)
-```
-
-### 各阶段详情
-
-| 阶段 | 名称 | 预计时间 | 状态 | 文档 |
-|------|------|---------|------|------|
-| 规划 | 架构设计 | 完成 | ✅ 完成 | [执行总结](./EXECUTION_SUMMARY.md) |
-| Phase 1 | 后端表 + API | 2-3天 | 🔄 准备中 | [实施指南](./PHASE_1_IMPLEMENTATION_GUIDE.md) |
-| Phase 2 | Bilibili 认证 | 2-3天 | ⏸️ 待开始 | [规范](./API_SPECIFICATION.md) |
-| Phase 3 | Flutter 数据模型 | 1-2天 | ⏸️ 待开始 | [优化指南](./CODE_OPTIMIZATION_GUIDE.md) |
-| Phase 4 | 绑定页面 + E2E | 2-3天 | ⏸️ 待开始 | [集成设计](./AUTHENTICATION_INTEGRATION.md) |
-| Phase 5 | 功能集成 | 2-3天 | ⏸️ 待开始 | - |
-| Phase 6 | 优化和发布 | 1-2天 | ⏸️ 待开始 | - |
-
----
-
-## 📊 代码统计
-
-### Phase 1 成果
-```
-新增文件:     4 个
-修改文件:     2 个
-新增代码行:   604 行
-文档页面:     4 个
-编译状态:     ✅ 通过 (0 错误)
-代码质量:     ✅ 良好 (3个info提示)
-```
-
-### 文件清单
-```dart
-✅ lib/models/platform_account.dart         118 行
-✅ lib/models/bilibili_account.dart         140 行
-✅ lib/models/platform_binding_model.dart   165 行
-✅ lib/services/secure_storage_service.dart 181 行
-✅ lib/models/user_model.dart               (扩展)
-```
-
----
-
-## 🎯 核心功能
-
-### 已完成 ✅
-- [x] 平台账号抽象架构
-- [x] Bilibili 账号数据模型
-- [x] 数据库绑定模型
-- [x] 用户模型扩展
-- [x] 加密存储服务
-- [x] 多平台扩展支持
-
-### 进行中 🔄
-- [ ] Bilibili QR 码登录
-- [ ] Cookie 管理服务
-
-### 待开发 ⏸️
-- [ ] 数据库持久化
-- [ ] 状态管理 (Provider)
-- [ ] UI 绑定页面
-- [ ] 设置页面集成
-- [ ] Cookie 优先级逻辑
-
----
-
-## 🔐 安全特性
-
-### 已实现
-- ✅ **系统级加密存储**
-  - Android: Keystore
-  - iOS: Keychain
-  - Windows: Credential Manager
-  - Linux: libsecret
-
-- ✅ **数据隔离**
-  - 按用户 ID 隔离
-  - 支持多用户环境
-  - 登出自动清除
-
-- ✅ **日志安全**
-  - 不打印完整 Cookie
-  - 敏感信息掩码
-  - 错误日志安全
-
----
-
-## 🔄 扩展性设计
-
-### 支持的平台
-| 平台 | 状态 | 说明 |
+| 层级 | 职责 | 示例 |
 |------|------|------|
-| Bilibili | ✅ 架构完成 | Phase 2-5 实现 |
-| 微信 | 🔄 已预留 | 未来扩展 |
-| QQ | 🔄 已预留 | 未来扩展 |
-| 网易云音乐 | 🔄 已预留 | 未来扩展 |
+| **Core** | 基础设施、工具 | DioProvider, ServiceFactory, Logger |
+| **Domain** | 业务规则、抽象接口 | Audio Entity, DownloadRepository |
+| **Data** | 数据操作、实现 | BilibiliRemoteDataSource, SQLite |
+| **Presentation** | UI、状态 | Pages, Providers, Widgets |
 
-### 添加新平台步骤
+### 数据流示例
+
 ```
-1. PlatformType 枚举添加新平台
-2. 创建 {Platform}Account 实现类
-3. 创建 {Platform}AuthService
-4. Provider 添加绑定方法
-5. 创建 UI 页面
+用户点击下载
+        │
+        ▼
+    Page (UI)
+        │
+        ▼
+    Provider (状态管理)
+        │
+        ▼
+    Repository Interface (抽象)
+        │
+        ▼
+    Repository Impl (实现)
+        │
+        ├──→ DataSource (数据获取)
+        └──→ Manager (任务处理)
 ```
 
 ---
 
-## 📚 技术栈
+## 📂 目录结构
+
+```
+lib/
+├── main.dart                         # 应用入口点
+├── core/
+│   ├── base/
+│   │   ├── base_entity.dart          # 实体基类
+│   │   └── base_provider.dart        # Provider 基类
+│   ├── constants/
+│   │   ├── api_constants.dart        # API 常量
+│   │   └── app_constants.dart        # 应用常量
+│   ├── di/
+│   │   └── service_factory.dart      # 依赖注入工厂
+│   ├── errors/
+│   │   ├── exceptions.dart           # 异常定义
+│   │   └── failures.dart             # 失败类型
+│   ├── network/
+│   │   └── dio_provider.dart         # Dio 全局配置
+│   └── utils/
+│       ├── dialog_helper.dart        # 对话框工具
+│       ├── file_picker_helper.dart   # 文件选择器
+│       ├── metadata_writer.dart      # 元数据写入
+│       └── permission_helper.dart    # 权限管理
+│
+├── domain/
+│   ├── entities/
+│   │   ├── audio.dart                # 在线音频实体 (Freezed)
+│   │   ├── local_audio.dart          # 本地音频实体
+│   │   ├── download_task.dart        # 下载任务实体
+│   │   ├── user.dart                 # 用户实体
+│   │   ├── playlist.dart             # 歌单实体
+│   │   ├── play_history.dart         # 播放历史实体
+│   │   ├── recommendation.dart       # 推荐实体
+│   │   ├── platform_account.dart     # 平台账号实体
+│   │   ├── platform_types.dart       # 平台类型枚举
+│   │   ├── domain_types.dart         # 领域类型
+│   │   └── models_export.dart        # 统一导出
+│   └── repositories/
+│       ├── auth_repository.dart      # 认证仓储接口
+│       ├── bilibili_repository.dart  # B站仓储接口
+│       ├── download_repository.dart  # 下载仓储接口
+│       ├── play_history_repository.dart
+│       ├── playlist_repository.dart
+│       └── search_repository.dart
+│
+├── data/
+│   ├── datasources/
+│   │   ├── local/
+│   │   │   ├── download_local_datasource.dart
+│   │   │   └── auth_local_datasource.dart
+│   │   └── remote/
+│   │       ├── bilibili_remote_datasource.dart
+│   │       ├── bilibili_api_datasource.dart
+│   │       ├── auth_remote_datasource.dart
+│   │       ├── playlist_remote_datasource.dart
+│   │       ├── play_history_remote_datasource.dart
+│   │       └── search_remote_datasource.dart
+│   ├── managers/
+│   │   ├── playlist_manager.dart     # 播放列表管理
+│   │   └── download_executor.dart    # 下载执行器
+│   └── repositories/
+│       ├── auth_repository_impl.dart
+│       ├── bilibili_repository_impl.dart
+│       ├── download_repository_impl.dart
+│       ├── play_history_repository_impl.dart
+│       ├── playlist_repository_impl.dart
+│       └── search_repository_impl.dart
+│
+└── presentation/
+    ├── pages/
+    │   ├── home_page.dart            # 首页
+    │   ├── login_page.dart           # 登录页
+    │   ├── register_page.dart        # 注册页
+    │   ├── reset_password_page.dart  # 重置密码页
+    │   ├── search_page.dart          # 搜索页
+    │   ├── play_list_page.dart       # 播放列表页
+    │   ├── backend_download_page.dart # 下载管理页
+    │   ├── download_list_page.dart   # 下载列表页
+    │   ├── settings_page.dart        # 设置页
+    │   └── ...
+    ├── providers/
+    │   ├── auth/                     # 认证状态
+    │   │   ├── auth_provider.dart
+    │   │   └── ...
+    │   ├── audio/                    # 音频播放
+    │   │   ├── audio_provider.dart
+    │   │   └── audio_player_provider.dart
+    │   ├── bilibili/                # B站功能
+    │   │   ├── bilibili_provider.dart
+    │   │   ├── cache_provider.dart
+    │   │   └── qr_login_provider.dart
+    │   ├── playlist/                # 歌单管理
+    │   │   └── playlist_provider.dart
+    │   ├── search/                  # 搜索功能
+    │   │   └── search_provider.dart
+    │   ├── download/                # 下载管理
+    │   │   └── download_manager.dart
+    │   ├── play_history/            # 播放历史
+    │   │   └── play_history_provider.dart
+    │   └── theme/                   # 主题
+    │       └── theme_provider.dart
+    ├── routes/
+    │   └── router.dart              # 路由配置
+    └── widgets/
+        ├── my_drawer.dart           # 抽屉导航
+        └── ...
+```
+
+---
+
+## 🚀 快速开始
+
+### 安装依赖
+
+```bash
+cd frontend_flutter
+flutter pub get
+```
+
+### 运行应用
+
+```bash
+# 开发模式
+flutter run
+
+# 构建发布
+flutter build apk          # Android
+flutter build ios          # iOS
+flutter build windows      # Windows
+flutter build linux        # Linux
+flutter build macos        # macOS
+flutter build web          # Web
+```
+
+### 代码检查
+
+```bash
+# 分析代码
+flutter analyze
+
+# 运行测试
+flutter test
+```
+
+---
+
+## 🛠️ 开发指南
+
+### 添加新功能
+
+1. **创建实体** (`domain/entities/`)
+```dart
+class MyEntity {
+  final String id;
+  final String name;
+  
+  const MyEntity({required this.id, required this.name});
+}
+```
+
+2. **创建仓储接口** (`domain/repositories/`)
+```dart
+abstract class MyRepository {
+  Future<MyEntity> getById(String id);
+  Future<List<MyEntity>> getAll();
+}
+```
+
+3. **创建数据源** (`data/datasources/`)
+```dart
+class MyLocalDataSource {
+  Future<Map<String, dynamic>> get(String id) async {
+    // 数据库操作
+  }
+}
+```
+
+4. **创建仓储实现** (`data/repositories/`)
+```dart
+class MyRepositoryImpl implements MyRepository {
+  final MyLocalDataSource localDS;
+  
+  @override
+  Future<MyEntity> getById(String id) async {
+    final map = await localDS.get(id);
+    return MyEntity.fromMap(map);
+  }
+}
+```
+
+5. **注册到依赖注入** (`core/di/service_factory.dart`)
+```dart
+static late MyRepository myRepository;
+
+static Future<void> init() async {
+  myRepository = MyRepositoryImpl(
+    localDS: MyLocalDataSource(),
+  );
+}
+```
+
+6. **创建 Provider** (`presentation/providers/`)
+```dart
+class MyProvider extends ChangeNotifier {
+  final MyRepository _repository;
+  
+  MyProvider({required MyRepository repository}) : _repository = repository;
+  
+  Future<void> loadData() async {
+    final data = await _repository.getAll();
+    notifyListeners();
+  }
+}
+```
+
+7. **创建页面** (`presentation/pages/`)
+```dart
+class MyPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => MyProvider(
+        repository: ServiceFactory.myRepository,
+      ),
+      child: Consumer<MyProvider>(
+        builder: (context, provider, child) {
+          return Scaffold(
+            body: Center(child: Text('My Page')),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### 代码规范
+
+- **命名**: 遵循 Dart 官方命名规范
+- **注释**: 代码注释使用英文
+- **导入**: 按标准顺序组织导入
+- **错误处理**: 使用 `Either<Failure, T>` 类型
+
+### 导入顺序规范
+
+```dart
+// 1. Dart SDK 导入
+import 'dart:async';
+import 'dart:io';
+
+// 2. Flutter 框架导入
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+// 3. 第三方包导入
+import 'package:audioplayers/audioplayers.dart';
+import 'package:dio/dio.dart';
+
+// 4. 项目内部导入 (按层级)
+import 'package:demo/core/...';
+import 'package:demo/domain/...';
+import 'package:demo/data/...';
+import 'package:demo/presentation/...';
+```
+
+---
+
+## 📦 依赖配置
 
 ### 核心依赖
+
 ```yaml
-flutter_secure_storage: ^9.0.0  # 加密存储
-qr_flutter: ^4.1.0              # 二维码显示
-provider: ^6.1.4                # 状态管理
-sqflite: ^2.4.2                 # SQLite 数据库
-dio: ^5.8.0+1                   # HTTP 客户端
+# 状态管理
+provider: ^6.1.4
+
+# 路由
+go_router: ^14.8.1
+
+# 数据库
+sqflite: ^2.4.2
+sqflite_common_ffi: ^2.3.5  # 桌面端
+
+# 网络
+dio: ^5.8.0+1
+
+# 音频
+audioplayers: ^6.4.0
+metadata_god: ^0.5.2+1
+
+# 错误处理
+dartz: ^0.10.1
+
+# JSON 序列化
+freezed_annotation: ^2.4.4
+json_annotation: ^4.9.0
+
+# 加密存储
+flutter_secure_storage: ^9.0.0
+
+# 工具
+path: ^1.9.0
+path_provider: ^2.1.5
+shared_preferences: ^2.3.3
 ```
 
-### 开发工具
-- Flutter SDK: 3.29.3
-- Dart SDK: 3.7.2
-- IDE: VSCode + Claude Code
-- 版本控制: Git
+---
+
+## 🧪 测试
+
+### 单元测试
+
+```bash
+# 运行所有测试
+flutter test
+
+# 运行单个文件
+flutter test test/domain/entities/audio_test.dart
+
+# 生成覆盖率报告
+flutter test --coverage
+```
+
+### 示例测试
+
+```dart
+void main() {
+  test('Audio entity should parse correctly', () {
+    final json = {'title': 'Test', 'artist': 'Artist'};
+    final audio = Audio.fromJson(json);
+    
+    expect(audio.title, 'Test');
+    expect(audio.artist, 'Artist');
+  });
+}
+```
 
 ---
 
-## 🔗 外部资源
+## 📚 相关文档
 
-### API 文档
-- [Bilibili API 合集](https://github.com/SocialSisterYi/bilibili-API-collect) - B站 API 文档
-- [Flutter Secure Storage](https://pub.dev/packages/flutter_secure_storage) - 加密存储包
-- [QR Flutter](https://pub.dev/packages/qr_flutter) - 二维码包
-
-### 参考资料
-- [Flutter 官方文档](https://flutter.dev/docs)
-- [Dart 语言规范](https://dart.dev/guides)
-- [Provider 状态管理](https://pub.dev/packages/provider)
+- **[主 README](../README.md)** - 项目主文档
+- **[CLAUDE.md](../CLAUDE.md)** - Claude Code 开发指导
+- **[AGENTS.md](../AGENTS.md)** - Agent 开发指南
+- **[PRD.md](../PRD.md)** - 产品需求文档
 
 ---
 
-## 📝 开发日志
+## 📄 开源协议
 
-### 2026-01-02
-- ✅ 完成 Phase 1: 基础设施搭建
-- ✅ 创建 4 个核心数据模型 (604 行代码)
-- ✅ 实现加密存储服务
-- ✅ 扩展 User 模型支持平台绑定
-- ✅ 添加项目依赖并验证编译
-- ✅ 编写完整项目文档 (4 个文档)
-- ✅ 代码通过 flutter analyze 检查
+MIT License - 详见项目根目录 LICENSE 文件。
 
 ---
 
-## 💡 快速链接
+<div align="center">
 
-### 重要文档
-- [Phase 1 总结](./00_PHASE_1_SUMMARY.md) ⭐
-- [完整架构设计](./BILIBILI_BINDING_ARCHITECTURE.md)
-- [详细完成报告](./PHASE_1_COMPLETION_REPORT.md)
+**如果觉得这个项目有帮助,请给个 ⭐️ Star 支持一下!**
 
-### 关键代码
-- [平台账号基类](../lib/models/platform_account.dart)
-- [Bilibili 账号](../lib/models/bilibili_account.dart)
-- [加密存储服务](../lib/services/secure_storage_service.dart)
+Made with ❤️ by ListenVision Team
 
----
-
-## 🙋 FAQ
-
-### Q: 为什么要重构 Cookie 管理？
-**A**: 原有的硬编码 Cookie 方式存在安全风险，容易泄露到 Git 仓库。新架构使用系统级加密存储，每个用户绑定自己的账号。
-
-### Q: 支持哪些平台？
-**A**: 当前实现 Bilibili，架构已为微信、QQ、网易云音乐等平台预留扩展接口。
-
-### Q: 数据如何加密？
-**A**: 使用 flutter_secure_storage 包，在不同平台使用系统级加密：
-- Android: Keystore
-- iOS: Keychain
-- Windows: Credential Manager
-
-### Q: 如何查看完整实施计划？
-**A**: 查看 [BILIBILI_BINDING_ARCHITECTURE.md](./BILIBILI_BINDING_ARCHITECTURE.md)，包含 8 个阶段的详细计划。
-
----
-
-## 📞 联系方式
-
-**开发者**: Claude Code
-**项目仓库**: flutter_demo_deving
-**文档版本**: 1.0
-**最后更新**: 2026-01-02
-
----
-
-**当前状态**: ✅ Phase 1 完成，准备开始 Phase 2
-**下一步**: 等待用户提供服务器后端代码，开发 Bilibili 认证服务
-
----
-
-*由 Claude Code 自动生成 | 最后更新: 2026-01-02*
+</div>

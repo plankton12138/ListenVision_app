@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../network/dio_provider.dart';
 import '../network/api_client.dart';
 import '../../data/datasources/local/auth_local_datasource.dart';
+import '../../data/datasources/local/download_local_datasource.dart';
 import '../../data/datasources/remote/auth_remote_datasource.dart';
 import '../../data/datasources/remote/bilibili_remote_datasource.dart';
 import '../../data/datasources/remote/playlist_remote_datasource.dart';
@@ -12,11 +13,13 @@ import '../../data/datasources/remote/play_history_remote_datasource.dart';
 import '../../data/datasources/remote/search_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/bilibili_repository_impl.dart';
+import '../../data/repositories/download_repository_impl.dart';
 import '../../data/repositories/playlist_repository_impl.dart';
 import '../../data/repositories/play_history_repository_impl.dart';
 import '../../data/repositories/search_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/bilibili_repository.dart';
+import '../../domain/repositories/download_repository.dart';
 import '../../domain/repositories/playlist_repository.dart';
 import '../../domain/repositories/play_history_repository.dart';
 import '../../domain/repositories/search_repository.dart';
@@ -88,6 +91,11 @@ class ServiceFactory {
     );
   }
 
+  /// 创建 DownloadLocalDataSource
+  DownloadLocalDatasource createDownloadLocalDatasource() {
+    return DownloadLocalDatasource();
+  }
+
   // ==================== Remote DataSources ====================
 
   /// 创建 AuthRemoteDataSource
@@ -113,6 +121,13 @@ class ServiceFactory {
   /// 创建 SearchRemoteDataSource
   SearchRemoteDataSource createSearchRemoteDataSource() {
     return SearchRemoteDataSource(dio: _dio);
+  }
+
+  /// 创建 DownloadRepository
+  DownloadRepository createDownloadRepository() {
+    return DownloadRepositoryImpl(
+      localDatasource: createDownloadLocalDatasource(),
+    );
   }
 
   // ==================== Repositories ====================
@@ -160,6 +175,9 @@ class ServiceFactory {
 
   /// BilibiliRepository 快捷访问
   BilibiliRepository get bilibiliRepository => createBilibiliRepository();
+
+  /// DownloadRepository 快捷访问
+  DownloadRepository get downloadRepository => createDownloadRepository();
 
   /// PlaylistRepository 快捷访问
   PlaylistRepository get playlistRepository => createPlaylistRepository();

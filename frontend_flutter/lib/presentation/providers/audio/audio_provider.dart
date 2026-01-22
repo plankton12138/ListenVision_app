@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:metadata_god/metadata_god.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:flutter/foundation.dart';
 
@@ -14,7 +14,7 @@ class AudioProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
 
   // 播放列表
-  List<Audio> _playlist = [];
+  List<LocalAudio> _playlist = [];
   int _currentIndex = -1;
 
   // 播放状态
@@ -152,9 +152,9 @@ class AudioProvider extends ChangeNotifier {
   String get title => _title;
   String get artist => _artist;
   Uint8List? get albumArt => _albumArt;
-  List<Audio> get playlist => _playlist;
+  List<LocalAudio> get playlist => _playlist;
   int get currentIndex => _currentIndex;
-  Audio? get currentAudio => _currentIndex >= 0 ? _playlist[_currentIndex] : null;
+  LocalAudio? get currentAudio => _currentIndex >= 0 ? _playlist[_currentIndex] : null;
 
   // ==================== 播放控制 ====================
 
@@ -239,7 +239,7 @@ class AudioProvider extends ChangeNotifier {
         );
         _currentIndex = existingIndex;
       } else {
-        final audio = Audio(
+        final audio = LocalAudio(
           filePath: filePath,
           title: _title,
           artist: _artist,
@@ -309,7 +309,7 @@ class AudioProvider extends ChangeNotifier {
   // ==================== 播放列表管理 ====================
 
   /// 添加到播放列表
-  Future<void> addToPlaylist(Audio audio) async {
+  Future<void> addToPlaylist(LocalAudio audio) async {
     final db = PlaylistManager();
     final id = await db.insertAudio(audio);
     if (id != -1) {

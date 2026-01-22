@@ -1,7 +1,7 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/services/download/download_repository.dart';
-import 'package:demo/services/download_manager.dart';
+import 'package:demo/domain/entities/download_task.dart';
+import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,9 +36,8 @@ class _DownloadListPageState extends State<DownloadListPage> {
   }
 
   /// 从 status 字段获取状态
-  DownloadStatus _getStatus(Map<String, dynamic> task) {
-    final statusStr = task['status'] as String?;
-    return DownloadStatusExtension.fromString(statusStr);
+  DownloadStatus _getStatus(DownloadTask task) {
+    return task.status;
   }
 
   /// 格式化字节为 MB/GB 显示
@@ -87,11 +86,11 @@ class _DownloadListPageState extends State<DownloadListPage> {
               itemCount: downloads.length,
               itemBuilder: (context, index) {
                 final download = downloads[index];
-                final id = download['id'] as int;
-                final title = download['title'] ?? download['original_url'] ?? '未知任务';
-                final downloadedBytes = download['downloaded_bytes'] as int? ?? 0;
-                final totalBytes = download['total_bytes'] as int? ?? 0;
-                final status = _getStatus(download);
+                final id = download.id!;
+                final title = download.title ?? download.originalUrl ?? '未知任务';
+                final downloadedBytes = download.downloadedBytes;
+                final totalBytes = download.totalBytes;
+                final status = download.status;
 
                 // 计算进度
                 final progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0.0;

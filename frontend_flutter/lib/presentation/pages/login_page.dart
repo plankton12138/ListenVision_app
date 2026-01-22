@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/errors/exceptions.dart';
+import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:demo/services/api_service.dart';
 // P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
@@ -45,32 +45,39 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final user = await apiService.login(
-        _usernameController.text,
-        _passwordController.text,
+      final authRepository = ServiceFactory.instance.authRepository;
+      final result = await authRepository.login(
+        email: _usernameController.text,
+        password: _passwordController.text,
       );
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.setUser(user);
+      result.fold(
+        (failure) {
+          throw Exception(failure.message ?? '登录失败');
+        },
+        (user) async {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.setUser(user);
 
-      // 初始化歌单Provider
-      final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
-      try {
-        final token = user.token ?? '';
-        if (token.isNotEmpty) {
-          await playlistProvider.initialize(token);
-          await playlistProvider.loadFavorites(token);
-        }
-      } catch (e) {
-        // 歌单初始化失败不影响登录
-        debugPrint('歌单初始化失败: $e');
-      }
+          // 初始化歌单Provider
+          final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
+          final token = user.token ?? '';
+          try {
+            if (token.isNotEmpty) {
+              await playlistProvider.initialize(token);
+              await playlistProvider.loadFavorites(token);
+            }
+          } catch (e) {
+            // 歌单初始化失败不影响登录
+            debugPrint('歌单初始化失败: $e');
+          }
 
-      if (mounted) {
-        showMySnackBar(context, '登录成功！', Colors.green, 1000);
-        context.go('/');
-      }
+          if (mounted) {
+            showMySnackBar(context, '登录成功！', Colors.green, 1000);
+            context.go('/');
+          }
+        },
+      );
     } catch (e) {
       if (e is ApiException) {
         String errorMessage = e.message;

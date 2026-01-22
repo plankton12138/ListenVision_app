@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:demo/services/bilibiliApiService.dart';
+import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
 
 /// QR码登录状态管理Provider

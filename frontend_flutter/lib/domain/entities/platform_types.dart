@@ -49,37 +49,6 @@ extension PlatformTypeExtension on PlatformType {
   }
 }
 
-/// 平台账号抽象基类
-/// 支持多平台账号绑定，可扩展以支持微信、QQ、网易等平台
-abstract class PlatformAccount {
-  /// 平台类型（Bilibili、微信、QQ等）
-  PlatformType get platformType;
-
-  /// 平台用户ID
-  String get platformUserId;
-
-  /// 平台用户名
-  String get platformUsername;
-
-  /// 用户头像URL
-  String? get avatar;
-
-  /// 绑定时间
-  DateTime get bindTime;
-
-  /// 账号状态
-  PlatformAccountStatus get status;
-
-  /// 验证账号是否有效
-  Future<bool> validate();
-
-  /// 刷新账号信息
-  Future<void> refresh();
-
-  /// 转换为JSON
-  Map<String, dynamic> toJson();
-}
-
 /// 平台账号状态枚举
 enum PlatformAccountStatus {
   active,      // 有效
@@ -116,4 +85,35 @@ extension PlatformAccountStatusExtension on PlatformAccountStatus {
         throw ArgumentError('Unknown status: $value');
     }
   }
+}
+
+/// 平台账号抽象基类
+/// 支持多平台账号绑定，可扩展以支持微信、QQ、网易等平台
+abstract class PlatformAccount {
+  /// 平台类型（Bilibili、微信、QQ等）
+  PlatformType get platformType;
+
+  /// 平台用户ID
+  String get platformUserId;
+
+  /// 平台用户名
+  String get platformUsername;
+
+  /// 用户头像URL
+  String? get avatar;
+
+  /// 绑定时间
+  DateTime get bindTime;
+
+  /// 账号状态
+  PlatformAccountStatus get status;
+
+  /// 验证账号是否有效
+  Future<bool> validate();
+
+  /// 刷新账号信息
+  Future<void> refresh();
+
+  /// 转换为JSON
+  Map<String, dynamic> toJson();
 }

@@ -24,9 +24,7 @@ import 'package:demo/presentation/providers/search/search_provider.dart';
 import 'package:demo/presentation/providers/theme/theme_provider.dart';
 // P2: 路由已迁移到 presentation/routes/
 import 'package:demo/presentation/routes/router.dart';
-import 'package:demo/services/api_service.dart';
-import 'package:demo/services/bilibiliApiService.dart';
-import 'package:demo/services/download_manager.dart';
+import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/core/utils/file_picker_helper.dart';
 import 'package:demo/core/utils/permission_helper.dart';
 // ===============================================
@@ -168,20 +166,16 @@ void main() async {
             return provider ?? BilibiliCacheProvider();
           },
         ),
-        // 下载管理器（依赖B站API服务）
+        // 下载管理器
         ChangeNotifierProxyProvider<AuthProvider, DownloadManager>(
           create: (_) => DownloadManager(),
           update: (context, authProvider, downloadManager) {
-            if (downloadManager != null) {
-              final apiService = BilibiliApiService();
-              downloadManager.setBilibiliApiService(apiService);
-            }
+            // DownloadManager 现在使用 Repository，不需要额外配置
             return downloadManager!;
           },
         ),
 
         Provider(create: (_) => FilePickerService()),
-        Provider(create: (_) => ApiService()),
 
         // Phase 2: 歌单和播放历史管理
         // 使用 ChangeNotifierProxyProvider，因为 DioProvider 是单例，不需要作为 Provider

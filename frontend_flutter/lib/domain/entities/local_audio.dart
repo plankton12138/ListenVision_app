@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
-/// 音频模型
+/// 本地音频实体
 ///
-/// 用于表示音频文件及其元数据，支持从数据库序列化/反序列化
-class Audio {
+/// 用于表示本地导入的音频文件及其元数据
+/// 与 domain/entities/audio.dart（在线音频）区分使用
+class LocalAudio {
   final int? id;
   final String filePath;
   final String title;
@@ -13,7 +14,7 @@ class Audio {
   final String? url; // 来源URL（如B站视频地址）
   bool isFavorite; // 是否收藏
 
-  Audio({
+  LocalAudio({
     this.id,
     required this.filePath,
     required this.title,
@@ -21,11 +22,12 @@ class Audio {
     required this.duration,
     this.albumArt,
     this.url,
-    this.isFavorite = false, // 默认未收藏
+    this.isFavorite = false,
   });
 
   /// 复制并修改部分字段
-  Audio copyWith({
+  LocalAudio copyWith({
+    int? id,
     String? filePath,
     String? title,
     String? artist,
@@ -34,8 +36,8 @@ class Audio {
     String? url,
     bool? isFavorite,
   }) {
-    return Audio(
-      id: id,
+    return LocalAudio(
+      id: id ?? this.id,
       filePath: filePath ?? this.filePath,
       title: title ?? this.title,
       artist: artist ?? this.artist,
@@ -56,13 +58,12 @@ class Audio {
       'duration': duration,
       'albumArt': albumArt,
       'url': url,
-      'isFavorite': isFavorite ? 1 : 0, // 数据库中用 1 表示收藏，0 表示未收藏
+      'isFavorite': isFavorite ? 1 : 0,
     };
   }
 
-  /// 从Map创建Audio实例（数据库反序列化）
-  factory Audio.fromMap(Map<String, dynamic> map) {
-    // 处理 albumArt BLOB 类型转换
+  /// 从Map创建实例（数据库反序列化）
+  factory LocalAudio.fromMap(Map<String, dynamic> map) {
     Uint8List? albumArtData;
     if (map['albumArt'] != null) {
       if (map['albumArt'] is Uint8List) {
@@ -72,7 +73,7 @@ class Audio {
       }
     }
 
-    return Audio(
+    return LocalAudio(
       id: map['id'],
       filePath: map['filePath'] ?? '',
       title: map['title'] ?? '未知标题',
@@ -80,7 +81,7 @@ class Audio {
       duration: map['duration'] ?? 0,
       albumArt: albumArtData,
       url: map['url'],
-      isFavorite: map['isFavorite'] == 1, // 从数据库读取时转换为布尔值
+      isFavorite: map['isFavorite'] == 1,
     );
   }
 }

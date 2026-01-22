@@ -1,6 +1,6 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
@@ -112,7 +112,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   /// 构建单个音频项
   Widget _buildAudioItem(
-    Audio audio,
+    LocalAudio audio,
     int index,
     bool isCurrentlyPlaying,
     AudioProvider provider,
@@ -220,7 +220,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
   /// 处理拖拽排序
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
     final provider = context.read<AudioProvider>();
-    final playlist = List<Audio>.from(provider.playlist);
+    final playlist = List<LocalAudio>.from(provider.playlist);
 
     // ReorderableListView 的 newIndex 处理
     if (oldIndex < newIndex) {
@@ -273,7 +273,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
   }
 
   /// 删除确认对话框
-  Future<void> _confirmDelete(Audio audio) async {
+  Future<void> _confirmDelete(LocalAudio audio) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

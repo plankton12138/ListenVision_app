@@ -293,9 +293,12 @@ import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
 
-// 4. Project imports
-import 'package:demo/models/audio_model.dart';
-import 'package:demo/services/api_service.dart';
+// 4. Project imports (Clean Architecture order: Core → Domain → Data → Presentation)
+import 'package:demo/core/utils/logger.dart';
+import 'package:demo/domain/entities/audio.dart';
+import 'package:demo/domain/repositories/download_repository.dart';
+import 'package:demo/data/datasources/remote/bilibili_remote_datasource.dart';
+import 'package:demo/presentation/providers/download/download_manager.dart';
 ```
 
 **6. Error Handling**
@@ -340,11 +343,53 @@ class AudioProvider extends ChangeNotifier {
 }
 ```
 
-**9. File Naming**
-- Models: `user_model.dart`, `audio_model.dart`
-- Services: `api_service.dart`, `bilibili_service.dart`
-- Providers: `audio_provider.dart`, `auth_provider.dart`
-- Screens: `home_page.dart`, `settings_page.dart`
+**9. File Naming - Clean Architecture**
+```dart
+// Core Layer
+lib/core/
+├── constants/api_constants.dart     # API 常量
+├── di/service_factory.dart          # 依赖注入
+├── errors/exceptions.dart           # 异常定义
+├── network/dio_provider.dart        # 网络配置
+└── utils/                           # 工具函数
+
+// Domain Layer
+lib/domain/
+├── entities/
+│   ├── audio.dart                   # 音频实体 (Freezed)
+│   ├── local_audio.dart             # 本地音频实体
+│   ├── download_task.dart           # 下载任务实体
+│   └── models_export.dart           # 统一导出
+└── repositories/
+    ├── auth_repository.dart         # 认证仓储接口
+    ├── download_repository.dart     # 下载仓储接口
+    └── ...
+
+// Data Layer
+lib/data/
+├── datasources/
+│   ├── local/download_local_datasource.dart
+│   └── remote/bilibili_remote_datasource.dart
+├── managers/
+│   ├── playlist_manager.dart
+│   └── download_executor.dart
+└── repositories/
+    ├── auth_repository_impl.dart
+    └── download_repository_impl.dart
+
+// Presentation Layer
+lib/presentation/
+├── pages/
+│   ├── home_page.dart
+│   └── settings_page.dart
+├── providers/
+│   ├── auth/auth_provider.dart
+│   ├── audio/audio_provider.dart
+│   ├── bilibili/bilibili_provider.dart
+│   └── download/download_manager.dart
+└── widgets/
+    └── my_drawer.dart
+```
 
 ---
 

@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:demo/models/audio_model.dart';
+import 'package:demo/domain/entities/local_audio.dart';
 
 /// 音频播放状态管理
 ///
@@ -19,7 +19,7 @@ class AudioPlayerProvider extends ChangeNotifier {
 
   int _currentIndex = -1;
 
-  List<Audio> _playlist = [];
+  List<LocalAudio> _playlist = [];
 
   AudioPlayerProvider() {
     _initListeners();
@@ -80,20 +80,20 @@ class AudioPlayerProvider extends ChangeNotifier {
     }
   }
 
-  void setPlaylist(List<Audio> playlist, {int initialIndex = -1}) {
+  void setPlaylist(List<LocalAudio> playlist, {int initialIndex = -1}) {
     _playlist = playlist;
     _currentIndex = initialIndex;
     notifyListeners();
     debugPrint('【AudioPlayerProvider】设置播放列表，长度: ${playlist.length}');
   }
 
-  void addToPlaylist(Audio audio) {
+  void addToPlaylist(LocalAudio audio) {
     _playlist.add(audio);
     notifyListeners();
     debugPrint('【AudioPlayerProvider】添加音频: ${audio.title}');
   }
 
-  void removeFromPlaylist(Audio audio) {
+  void removeFromPlaylist(LocalAudio audio) {
     _playlist.remove(audio);
     if (_currentIndex >= _playlist.length) {
       _currentIndex = _playlist.length - 1;
@@ -128,9 +128,9 @@ class AudioPlayerProvider extends ChangeNotifier {
   Duration get position => _position;
   Duration get duration => _duration;
   int get currentIndex => _currentIndex;
-  List<Audio> get playlist => _playlist;
+  List<LocalAudio> get playlist => _playlist;
 
-  Audio? get currentAudio =>
+  LocalAudio? get currentAudio =>
       _currentIndex >= 0 && _currentIndex < _playlist.length
           ? _playlist[_currentIndex]
           : null;

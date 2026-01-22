@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:metadata_god/metadata_god.dart';
-import 'package:demo/services/bilibiliApiService.dart';
+import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 
 /// 元数据写入器
 ///

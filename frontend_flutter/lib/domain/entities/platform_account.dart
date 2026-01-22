@@ -1,4 +1,4 @@
-import 'platform_account.dart';
+import 'platform_types.dart';
 
 /// Bilibili 用户信息模型
 class BilibiliUserInfo {
@@ -33,6 +33,15 @@ class BilibiliUserInfo {
       avatar: data['face'] ?? data['avatar'] ?? '',
       mid: data['mid']?.toString() ?? data['uid']?.toString() ?? '',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      'uname': uname,
+      'avatar': avatar,
+      'mid': mid,
+    };
   }
 }
 
@@ -95,18 +104,13 @@ class BilibiliAccount implements PlatformAccount {
   /// 注意：实际验证由 BilibiliAuthService 完成
   @override
   Future<bool> validate() async {
-    // 这个方法由 BilibiliAuthService 调用
-    // 这里只是占位符
     return _status == PlatformAccountStatus.active;
   }
 
   /// 刷新账号信息
   /// 注意：实际刷新由 BilibiliAuthService 完成
   @override
-  Future<void> refresh() async {
-    // 这个方法由 BilibiliAuthService 调用
-    // 这里只是占位符
-  }
+  Future<void> refresh() async {}
 
   /// 转换为 JSON（用于数据库存储）
   @override
@@ -119,7 +123,6 @@ class BilibiliAccount implements PlatformAccount {
       'bindTime': _bindTime.toIso8601String(),
       'status': _status.value,
       'lastValidateTime': _lastValidateTime?.toIso8601String(),
-      // 注意：Cookie 不应该存储在这里，应该存储在加密存储中
     };
   }
 

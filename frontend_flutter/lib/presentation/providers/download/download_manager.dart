@@ -1,44 +1,56 @@
-import 'package:demo/services/bilibiliApiService.dart';
-import 'package:demo/services/download/download_repository.dart';
-import 'package:demo/services/download/download_executor.dart';
-import 'package:demo/services/download/metadata_writer.dart';
+import 'package:dartz/dartz.dart';
+import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
+import 'package:demo/domain/entities/audio.dart';
+import 'package:demo/domain/entities/download_task.dart';
+import 'package:demo/domain/repositories/download_repository.dart';
+import 'package:demo/core/utils/metadata_writer.dart';
+import 'package:demo/data/managers/download_executor.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
 /// 下载管理器
 ///
-/// 重构后的职责：
+/// Clean Architecture 协调层：
 /// - 协调各模块完成下载流程
-/// - 提供统一的 API 给 UI 层
+/// - 使用 Repository 模式访问数据
 /// - 状态管理（通过 ChangeNotifier）
 class DownloadManager with ChangeNotifier {
   // ==================== 依赖注入 ====================
 
-  final DownloadRepository _repository = DownloadRepository();
+  final DownloadRepository _repository;
   final DownloadExecutorManager _executorManager;
   final MetadataWriter _metadataWriter;
-
-  BilibiliApiService? _bilibiliApiService;
 
   // ==================== 状态 ====================
 
   /// 所有下载任务（内存缓存，从数据库加载）
-  List<Map<String, dynamic>> _downloads = [];
+  List<DownloadTask> _downloads = [];
 
   /// 是否已初始化
   bool _isInitialized = false;
 
   // ==================== 构造函数 ====================
 
-  DownloadManager() : _metadataWriter = MetadataWriter(), _executorManager = DownloadExecutorManager(
-    repository: DownloadRepository(),
-    maxConcurrent: 3,
-  ) {
+  DownloadManager({
+    DownloadRepository? repository,
+  })  : _repository = repository ?? ServiceFactory.instance.downloadRepository,
+        _metadataWriter = MetadataWriter(),
+        _executorManager = DownloadExecutorManager(
+          repository: repository ?? ServiceFactory.instance.downloadRepository,
+          maxConcurrent: 3,
+        ) {
     // 初始化仓库
-    _repository.init().then((_) {
-      _loadDownloads();
+    _repository.getAllTasks().then((result) {
+      result.fold(
+        (failure) => debugPrint('【DownloadManager】加载任务失败: $failure'),
+        (tasks) {
+          _downloads = tasks;
+          notifyListeners();
+        },
+      );
+      _isInitialized = true;
     });
   }
 
@@ -46,24 +58,31 @@ class DownloadManager with ChangeNotifier {
 
   /// 初始化数据库（向后兼容）
   Future<void> initDatabase() async {
-    await _repository.init();
-    await _loadDownloads();
+    final result = await _repository.getAllTasks();
+    result.fold(
+      (failure) => debugPrint('【DownloadManager】初始化失败: $failure'),
+      (tasks) {
+        _downloads = tasks;
+        notifyListeners();
+      },
+    );
+    _isInitialized = true;
   }
 
   /// 刷新下载列表
   Future<void> refreshDownloads() async {
-    await _loadDownloads();
+    final result = await _repository.getAllTasks();
+    result.fold(
+      (failure) => debugPrint('【DownloadManager】刷新失败: $failure'),
+      (tasks) {
+        _downloads = tasks;
+        notifyListeners();
+      },
+    );
   }
 
   /// 获取所有下载任务
-  List<Map<String, dynamic>> get downloads => List.unmodifiable(_downloads);
-
-  /// 设置 B站 API 服务
-  void setBilibiliApiService(BilibiliApiService service) {
-    _bilibiliApiService = service;
-    _metadataWriter.setBilibiliApiService(service);
-    debugPrint('【DownloadManager】已设置 BilibiliApiService');
-  }
+  List<DownloadTask> get downloads => List.unmodifiable(_downloads);
 
   // ==================== 下载操作 ====================
 
@@ -109,20 +128,35 @@ class DownloadManager with ChangeNotifier {
     debugPrint('【DownloadManager】开始下载: $bvid');
 
     try {
-      // 1. 获取视频信息
-      final videoData = await _getVideoInfo(bvid);
-      if (videoData == null) {
+      // 1. 获取视频信息（使用 Repository）
+      final videoResult = await ServiceFactory.instance.bilibiliRepository.getAudioInfo(bvid: bvid);
+
+      final videoData = videoResult.fold(
+        (failure) {
+          debugPrint('【DownloadManager】获取视频信息失败: $failure');
+          return null;
+        },
+        (audio) => {
+          'title': audio.title,
+          'artist': audio.artist ?? '未知艺术家',
+          'pic': audio.coverUrl,
+          'audioUrl': audio.streamUrl,
+          'bvid': bvid,
+        },
+      );
+
+      if (videoData == null || videoData['audioUrl'] == null) {
         showMySnackBar(context, '获取视频信息失败', Colors.red, 500);
         return;
       }
 
       final title = videoData['title'] as String;
       final artist = videoData['artist'] as String;
-      final pic = videoData['pic'] as String?;
       final audioUrl = videoData['audioUrl'] as String;
 
       // 2. 检查是否已存在
-      final exists = await _repository.existsByBvid(bvid);
+      final existsResult = await _repository.existsByBvid(bvid);
+      final exists = existsResult.fold((_) => false, (e) => e);
       if (exists) {
         showMySnackBar(context, '该任务已存在', Colors.orange, 1000);
         return;
@@ -133,23 +167,26 @@ class DownloadManager with ChangeNotifier {
       if (saveDir == null) return;
 
       // 4. 确定文件路径
-      final sanitizedTitle = sanitizeTitle(title);
+      final sanitizedTitle = _sanitizeTitle(title);
       final fileName = '$sanitizedTitle.m4a';
       final savePath = path.join(saveDir, fileName);
 
       // 5. 创建下载任务记录
-      final taskId = await _repository.insertTask({
-        'url': audioUrl,
-        'save_path': savePath,
-        'downloaded_bytes': 0,
-        'total_bytes': 0,
-        'status': DownloadStatus.pending.value,
-        'original_url': 'https://www.bilibili.com/video/$bvid',
-        'title': title,
-        'artist': artist,
-        'cover_url': pic,
-        'bvid': bvid,
-      });
+      final createResult = await _repository.createTask(
+        url: audioUrl,
+        savePath: savePath,
+        originalUrl: 'https://www.bilibili.com/video/$bvid',
+        title: title,
+        artist: artist,
+        coverUrl: videoData['pic'] as String?,
+        bvid: bvid,
+      );
+
+      final taskId = createResult.fold((_) => -1, (id) => id);
+      if (taskId == -1) {
+        showMySnackBar(context, '创建任务失败', Colors.red, 500);
+        return;
+      }
 
       debugPrint('【DownloadManager】任务创建成功: $taskId');
 
@@ -157,7 +194,7 @@ class DownloadManager with ChangeNotifier {
       _startDownload(taskId, audioUrl, savePath, videoData);
 
       // 7. 刷新列表
-      await _loadDownloads();
+      await refreshDownloads();
 
       showMySnackBar(context, '已添加到下载列表: $title', Colors.green, 1000);
     } catch (e) {
@@ -173,133 +210,88 @@ class DownloadManager with ChangeNotifier {
     String savePath,
     Map<String, dynamic> videoData,
   ) {
-    final executor = _executorManager.startTask(
+    _executorManager.startTask(
       taskId: taskId,
       url: audioUrl,
       savePath: savePath,
       onProgress: (downloaded, total) async {
-        // 直接更新数据库
+        // 更新进度
         await _repository.updateProgress(taskId, downloaded, total);
         
-        // 更新内存中的进度（创建新的列表副本以触发 UI 更新）
-        final newDownloads = [..._downloads];
-        final index = newDownloads.indexWhere((d) => d['id'] == taskId);
+        // 更新内存中的进度
+        final index = _downloads.indexWhere((d) => d.id == taskId);
         if (index != -1) {
-          newDownloads[index] = {
-            ...newDownloads[index],
-            'downloaded_bytes': downloaded,
-            'total_bytes': total,
-          };
-          _downloads = newDownloads;
+          _downloads[index] = _downloads[index].copyWith(
+            downloadedBytes: downloaded,
+            totalBytes: total,
+          );
         }
         
         notifyListeners();
       },
       onCompletion: (filePath, success) async {
-        // 下载完成后刷新列表
-        await _loadDownloads();
+        await refreshDownloads();
 
         if (success) {
-          // 写入元数据
           await _writeMetadataAfterDownload(filePath, videoData);
         }
       },
     );
-
-    if (executor == null) {
-      debugPrint('【DownloadManager】无法启动下载，达到并发限制');
-    }
   }
 
   /// 暂停下载
   Future<void> pauseDownload(int id) async {
-    // 1. 更新数据库状态
     await _repository.updateStatus(id, DownloadStatus.paused);
-
-    // 2. 通知执行器暂停
     _executorManager.pauseTask(id);
-
-    // 3. 刷新列表
-    await _loadDownloads();
-
+    await refreshDownloads();
     debugPrint('【DownloadManager】已暂停任务: $id');
   }
 
   /// 恢复下载
   Future<void> resumeDownload(int id) async {
-    final task = await _repository.getTask(id);
-    if (task == null) return;
-
-    final url = task['url'] as String;
-    final savePath = task['save_path'] as String;
-
-    // 更新状态
-    await _repository.updateStatus(id, DownloadStatus.pending);
-
-    // 启动下载
-    _startDownload(id, url, savePath, {
-      'title': task['title'],
-      'artist': task['artist'],
-      'pic': task['cover_url'],
-      'bvid': task['bvid'],
-    });
-
-    await _loadDownloads();
-    debugPrint('【DownloadManager】已恢复任务: $id');
+    final taskResult = await _repository.getTask(id);
+    taskResult.fold(
+      (failure) => debugPrint('【DownloadManager】获取任务失败: $failure'),
+      (task) async {
+        if (task == null) return;
+        
+        await _repository.updateStatus(id, DownloadStatus.pending);
+        _startDownload(id, task.url, task.savePath, {
+          'title': task.title,
+          'artist': task.artist,
+          'pic': task.coverUrl,
+          'bvid': task.bvid,
+        });
+        await refreshDownloads();
+        debugPrint('【DownloadManager】已恢复任务: $id');
+      },
+    );
   }
 
   /// 删除下载
   Future<void> deleteDownload(int id) async {
-    // 1. 取消正在进行的下载
     _executorManager.cancelTask(id);
-
-    // 2. 删除数据库记录
     await _repository.deleteTask(id);
-
-    // 3. 刷新列表
-    await _loadDownloads();
-
+    await refreshDownloads();
     debugPrint('【DownloadManager】已删除任务: $id');
   }
 
   /// 清空已完成任务
   Future<void> clearCompleted() async {
-    final count = await _repository.clearCompletedTasks();
-    await _loadDownloads();
-    debugPrint('【DownloadManager】已清空 $count 个已完成任务');
+    await _repository.clearCompletedTasks();
+    await refreshDownloads();
   }
 
   // ==================== 私有方法 ====================
 
   /// 加载下载列表
   Future<void> _loadDownloads() async {
-    _downloads = await _repository.getAllTasks();
-    _isInitialized = true;
+    final result = await _repository.getAllTasks();
+    result.fold(
+      (failure) => debugPrint('【DownloadManager】加载任务失败: $failure'),
+      (tasks) => _downloads = tasks,
+    );
     notifyListeners();
-  }
-
-  /// 获取视频信息
-  Future<Map<String, dynamic>?> _getVideoInfo(String bvid) async {
-    if (_bilibiliApiService == null) {
-      debugPrint('【DownloadManager】BilibiliApiService 未设置');
-      return null;
-    }
-
-    try {
-      final videoInfo = await _bilibiliApiService!.getVideoInfo(bvid);
-      final audioStream = await _bilibiliApiService!.getAudioStream(bvid);
-
-      return {
-        'title': videoInfo['title'] ?? '未知标题',
-        'artist': videoInfo['owner']?['name'] ?? '未知艺术家',
-        'pic': videoInfo['pic'],
-        'audioUrl': audioStream['url'],
-        'bvid': bvid,
-      };
-    } catch (e) {
-      debugPrint('【DownloadManager】获取视频信息失败: $e');
-      return null;
-    }
   }
 
   /// 下载完成后写入元数据
@@ -339,8 +331,7 @@ class DownloadManager with ChangeNotifier {
   }
 
   /// 清理标题字符串（移除非法字符）
-  String sanitizeTitle(String input) {
-    // 保留中文、英文、数字和常用符号
+  String _sanitizeTitle(String input) {
     const pattern =
         r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
@@ -351,7 +342,7 @@ class DownloadManager with ChangeNotifier {
 
   /// 获取指定状态的任务数
   int getCountByStatus(DownloadStatus status) {
-    return _downloads.where((d) => d['status'] == status.value).length;
+    return _downloads.where((d) => d.status == status).length;
   }
 
   /// 进行中的任务数

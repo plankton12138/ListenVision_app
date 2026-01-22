@@ -118,10 +118,10 @@ Week 1: Core + Domain 层    █████████████████
 Week 2: Data 层             ████████████████████ 100% ✅
 Week 3: Presentation 层     ████████████████████ 100% ✅
 Week 4: 数据层完善          ████████████████████ 100% ✅
-Week 4: 清理旧代码          ░░░░░░░░░░░░░░░░░░░░   0% ⏸️
-Week 4: 集成测试            ░░░░░░░░░░░░░░░░░░░░   0% ⏸️
+Week 5: 清理旧代码          ████████████████████ 100% ✅
+Week 5: 集成测试            ████████████████████ 100% ✅
 
-P2 总进度: 85%
+P2 总进度: 100% ✅ 全部完成
 ```
 
 **Phase 1 完成状态** (2026-01-18):
@@ -310,23 +310,62 @@ flutter pub run flutter_launcher_icons
 
 The app follows a modular architecture with clear separation of concerns:
 
-**Clean Architecture 结构** (P2 迁移中，85% 完成):
+**Clean Architecture 结构** (P2 迁移完成，100%):
 ```
 lib/
-├── core/                    # 核心层
+├── core/                    # 核心层（基础设施）
 │   ├── base/               # 基类 (BaseEntity, BaseProvider)
 │   ├── constants/          # 常量 (API, Storage)
-│   └── errors/             # 错误定义 (Exceptions, Failures)
-├── domain/                 # 领域层
-│   ├── entities/           # 领域实体 (User, Audio, Playlist, etc.)
-│   ├── repositories/       # 仓储接口
-│   └── usecases/           # 用例 (业务逻辑)
-├── data/                   # 数据层
-│   ├── datasources/        # 数据源 (Remote API, Local Storage)
+│   ├── di/                 # 依赖注入 (ServiceFactory)
+│   ├── errors/             # 错误定义 (Exceptions, Failures)
+│   ├── network/            # 网络层 (DioProvider)
+│   └── utils/              # 工具函数
+├── domain/                 # 领域层（业务规则）
+│   ├── entities/           # 领域实体
+│   │   ├── audio.dart                 # 在线音频实体 (Freezed)
+│   │   ├── local_audio.dart           # 本地音频实体
+│   │   ├── download_task.dart         # 下载任务实体
+│   │   ├── user.dart                  # 用户实体
+│   │   ├── playlist.dart              # 歌单实体
+│   │   ├── play_history.dart          # 播放历史实体
+│   │   ├── recommendation.dart        # 推荐实体
+│   │   ├── platform_account.dart      # 平台账号实体
+│   │   └── platform_types.dart        # 平台类型枚举
+│   └── repositories/       # 仓储接口
+├── data/                   # 数据层（数据操作）
+│   ├── datasources/        # 数据源
+│   │   ├── local/          # 本地数据源
+│   │   │   ├── download_local_datasource.dart
+│   │   │   └── auth_local_datasource.dart
+│   │   └── remote/         # 远程数据源
+│   │       ├── bilibili_remote_datasource.dart
+│   │       ├── bilibili_api_datasource.dart
+│   │       ├── auth_remote_datasource.dart
+│   │       ├── playlist_remote_datasource.dart
+│   │       ├── play_history_remote_datasource.dart
+│   │       └── search_remote_datasource.dart
+│   ├── managers/           # 管理器
+│   │   ├── playlist_manager.dart
+│   │   └── download_executor.dart
 │   └── repositories/       # 仓储实现
-└── presentation/           # 表现层
+│       ├── auth_repository_impl.dart
+│       ├── bilibili_repository_impl.dart
+│       ├── download_repository_impl.dart
+│       ├── play_history_repository_impl.dart
+│       ├── playlist_repository_impl.dart
+│       └── search_repository_impl.dart
+└── presentation/           # 表现层（UI）
+    ├── pages/              # 页面
     ├── providers/          # 状态管理 (Provider)
-    └── widgets/            # 可复用组件
+    │   ├── auth/           # 认证
+    │   ├── audio/          # 音频播放
+    │   ├── bilibili/       # B站功能
+    │   ├── playlist/       # 歌单
+    │   ├── search/         # 搜索
+    │   ├── download/       # 下载管理
+    │   └── theme/          # 主题
+    ├── routes/             # 路由
+    └── widgets/            # 组件
 ```
 
 **Entry Point:** `lib/main.dart`
@@ -337,52 +376,21 @@ lib/
 
 **Core Modules:**
 
-- **`providers/`** - State management with Provider pattern
+- **`presentation/providers/`** - State management with Provider pattern
   - `audio_provider.dart` - Audio playback state (Phase 1: 使用 metadata_god 读取元数据)
   - `auth_provider.dart` - User authentication state
-  - `bilibili_provider.dart` - **B站账号绑定状态** (Phase 1 新增)
-  - `playlist_provider.dart` - **歌单/收藏状态管理** (Phase 2 新增)
-  - `play_history_provider.dart` - **播放历史状态管理** (Phase 2 新增)
-  - `search_provider.dart` - **搜索状态管理** (Phase 3 新增)
+  - `bilibili_provider.dart` - **B站账号绑定状态**
+  - `playlist_provider.dart` - **歌单/收藏状态管理** (Phase 2)
+  - `play_history_provider.dart` - **播放历史状态管理** (Phase 2)
+  - `search_provider.dart` - **搜索状态管理** (Phase 3)
+  - `download_manager.dart` - **下载任务管理** (Phase 2B 重构完成)
   - `theme_provider.dart` - Theme management
 
-- **`routes/`** - Navigation configuration using go_router
+- **`presentation/routes/`** - Navigation configuration using go_router
 
-- **`services/`** - Business logic and external integrations
-  - `api_service.dart` - API communication
-  - `bilibiliApiService.dart` - **B站API服务** (Phase 1 新增)
-  - `download/` - **下载模块** (Phase 2B 重构)
-    - `download_executor.dart` - 下载执行器（支持断点续传、进度追踪）
-    - `download_repository.dart` - 下载数据仓储
-    - `metadata_writer.dart` - 音频元数据写入
-  - `download_manager.dart` - 文件下载管理（调用 download_executor）
-  - `file_picker.dart` - File selection
+- **`presentation/widgets/`** - Reusable UI components
 
-- **`ui/`** - User interface components
-  - `pages/explore_page.dart` - **发现页面（推荐/榜单）** (Phase 2 新增)
-  - `pages/playlist_library_page.dart` - **歌单库页面** (Phase 2 新增)
-  - `pages/playlist_detail_page.dart` - **歌单详情页面** (Phase 2 新增)
-  - `pages/play_history_page.dart` - **播放历史页面** (Phase 2 新增)
-  - `pages/backend_download_page.dart` - **下载任务管理页面** (Phase 3 新增)
-  - `pages/settings_page.dart` - **设置页面（含B站绑定）** (Phase 2 优化)
-  - `components/my_drawer.dart` - **侧边栏（登录状态控制入口显示）** (Phase 2 优化)
-
-- **`models/`** - Data models and entities
-  - `playlist.dart` - **歌单数据模型** (Phase 2 新增)
-  - `play_history.dart` - **播放历史数据模型** (Phase 2 新增)
-  - `recommendation.dart` - **推荐内容数据模型** (Phase 2 新增)
-
-- **`utils/`** - Utility functions and helpers
-
-- **`config/`** - Configuration files
-
-- **`constants/`** - App-wide constants
-
-- **`exceptions/`** - Custom exception classes
-
-- **`theme/`** - App theming
-
-**P2 Clean Architecture 新增文件**:
+**P2 Clean Architecture 完成状态** (所有文件已迁移到正确位置):
 ```
 lib/core/
 ├── base/
@@ -392,54 +400,96 @@ lib/core/
 │   ├── api_constants.dart         # API 端点常量
 │   ├── storage_constants.dart     # 存储键常量
 │   └── app_constants.dart         # 应用常量
-└── errors/
-    ├── exceptions.dart            # 异常类定义
-    └── failures.dart              # Failure 类 (sealed class)
+├── di/
+│   └── service_factory.dart       # 依赖注入工厂
+├── errors/
+│   ├── exceptions.dart            # 异常类定义
+│   └── failures.dart              # Failure 类 (sealed class)
+├── network/
+│   └── dio_provider.dart          # Dio 全局配置
+└── utils/
+    ├── dialog_helper.dart         # 对话框工具
+    ├── file_picker_helper.dart    # 文件选择器
+    ├── metadata_writer.dart       # 元数据写入
+    └── permission_helper.dart     # 权限管理
 
-lib/domain/
-├── entities/
-│   ├── user.dart                  # 用户实体
-│   ├── audio.dart                 # 音频实体
-│   ├── playlist.dart              # 歌单实体
-│   ├── play_history.dart          # 播放历史实体
-│   └── recommendation.dart        # 推荐内容实体
-└── repositories/
-    ├── auth_repository.dart       # 认证仓储接口
-    ├── playlist_repository.dart   # 歌单仓储接口
-    ├── play_history_repository.dart # 播放历史仓储接口
-    ├── search_repository.dart     # 搜索仓储接口
-    └── bilibili_repository.dart   # B站仓储接口
+lib/domain/entities/
+├── audio.dart                     # 在线音频实体 (Freezed)
+├── local_audio.dart               # 本地音频实体
+├── download_task.dart             # 下载任务实体
+├── user.dart                      # 用户实体
+├── playlist.dart                  # 歌单实体
+├── play_history.dart              # 播放历史实体
+├── recommendation.dart            # 推荐实体
+├── platform_account.dart          # 平台账号实体
+├── platform_types.dart            # 平台类型枚举
+├── domain_types.dart              # 领域类型定义
+└── models_export.dart             # 统一导出
 
-lib/data/
-├── datasources/
-│   ├── remote/
-│   │   ├── auth_remote_datasource.dart
-│   │   ├── bilibili_remote_datasource.dart
-│   │   ├── playlist_remote_datasource.dart
-│   │   ├── play_history_remote_datasource.dart
-│   │   └── search_remote_datasource.dart
-│   └── local/
-│       └── auth_local_datasource.dart
-└── repositories/
-    ├── auth_repository_impl.dart
-    ├── bilibili_repository_impl.dart
-    ├── playlist_repository_impl.dart
-    ├── play_history_repository_impl.dart
-    └── search_repository_impl.dart
+lib/domain/repositories/
+├── auth_repository.dart           # 认证仓储接口
+├── bilibili_repository.dart       # B站仓储接口
+├── download_repository.dart       # 下载仓储接口
+├── play_history_repository.dart   # 播放历史仓储接口
+├── playlist_repository.dart       # 歌单仓储接口
+└── search_repository.dart         # 搜索仓储接口
 
-lib/presentation/
-├── providers/
-│   ├── base/
-│   │   └── base_provider.dart      # Provider 基类
-│   ├── auth_provider.dart          # 认证状态管理
-│   ├── playlist_provider.dart      # 歌单状态管理
-│   └── bilibili_provider.dart      # B站功能状态管理
-└── widgets/
-    ├── async_builder.dart          # 异步构建器
-    ├── error_banner.dart           # 错误提示组件
-    ├── empty_state.dart            # 空状态组件
-    ├── playlist_card.dart          # 歌单卡片组件
-    └── widgets.dart                # 统一导出
+lib/data/datasources/remote/
+├── auth_remote_datasource.dart    # 认证远程数据源
+├── bilibili_remote_datasource.dart # B站远程数据源
+├── bilibili_api_datasource.dart   # B站API数据源
+├── playlist_remote_datasource.dart # 歌单远程数据源
+├── play_history_remote_datasource.dart # 播放历史远程数据源
+└── search_remote_datasource.dart  # 搜索远程数据源
+
+lib/data/datasources/local/
+├── auth_local_datasource.dart     # 认证本地数据源
+└── download_local_datasource.dart # 下载本地数据源
+
+lib/data/managers/
+├── playlist_manager.dart          # 播放列表管理器
+└── download_executor.dart         # 下载执行器
+
+lib/data/repositories/
+├── auth_repository_impl.dart      # 认证仓储实现
+├── bilibili_repository_impl.dart  # B站仓储实现
+├── download_repository_impl.dart  # 下载仓储实现
+├── play_history_repository_impl.dart # 播放历史仓储实现
+├── playlist_repository_impl.dart  # 歌单仓储实现
+└── search_repository_impl.dart    # 搜索仓储实现
+
+lib/presentation/providers/
+├── auth/                          # 认证状态管理
+│   └── auth_provider.dart
+├── audio/                         # 音频播放状态管理
+│   ├── audio_provider.dart
+│   └── audio_player_provider.dart
+├── bilibili/                      # B站功能状态管理
+│   ├── bilibili_provider.dart
+│   ├── cache_provider.dart
+│   └── qr_login_provider.dart
+├── playlist/                      # 歌单状态管理
+│   └── playlist_provider.dart
+├── search/                        # 搜索状态管理
+│   └── search_provider.dart
+├── download/                      # 下载状态管理
+│   └── download_manager.dart
+├── play_history/                  # 播放历史状态管理
+│   └── play_history_provider.dart
+└── theme/                         # 主题状态管理
+    └── theme_provider.dart
+
+lib/presentation/widgets/
+├── async_builder.dart             # 异步构建器
+├── error_banner.dart              # 错误提示组件
+├── empty_state.dart               # 空状态组件
+├── playlist_card.dart             # 歌单卡片组件
+└── my_drawer.dart                 # 侧边栏组件
+
+已删除的旧目录:
+- lib/models/                      # 已迁移到 domain/entities/
+- lib/services/                    # 已迁移到 data/ 和 presentation/
+- lib/theme/                       # 已删除 (theme_provider.dart 替代)
 ```
 
 ### Key Dependencies

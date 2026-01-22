@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/core/errors/exceptions.dart';
-import 'package:demo/services/api_service.dart';
 // P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 /// 重置密码页面
 ///
@@ -35,8 +34,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context, listen: false);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -60,8 +57,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildSendCodeForm(apiService),
-            _buildResetPasswordForm(apiService),
+            _buildSendCodeForm(),
+            _buildResetPasswordForm(),
           ],
         ),
       ),
@@ -69,7 +66,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   /// 构建发送验证码表单
-  Widget _buildSendCodeForm(ApiService apiService) {
+  Widget _buildSendCodeForm() {
     final _formKey = GlobalKey<FormState>();
     return Column(
       children: [
@@ -98,8 +95,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
               try {
-                await apiService.sendCode(_usernameController.text);
-                showMySnackBar(context, '验证码已发送到您的邮箱', Colors.green, 1000);
+                final authRepository = ServiceFactory.instance.authRepository;
+                final result = await authRepository.sendVerificationCode(
+                  email: _usernameController.text,
+                );
+                result.fold(
+                  (failure) {
+                    throw Exception(failure.message ?? '发送验证码失败');
+                  },
+                  (_) {
+                    showMySnackBar(context, '验证码已发送到您的邮箱', Colors.green, 1000);
+                  },
+                );
               } catch (e) {
                 if (e is ApiException) {
                   showMySnackBar(context, e.message, Colors.red, 1000);
@@ -123,7 +130,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   /// 构建重置密码表单
-  Widget _buildResetPasswordForm(ApiService apiService) {
+  Widget _buildResetPasswordForm() {
     final _formKey = GlobalKey<FormState>();
     return Column(
       children: [
@@ -167,12 +174,20 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
               try {
-                await apiService.resetPassword(
-                  _usernameController.text,
-                  _codeController.text,
-                  _newPasswordController.text,
+                final authRepository = ServiceFactory.instance.authRepository;
+                final result = await authRepository.resetPassword(
+                  email: _usernameController.text,
+                  code: _codeController.text,
+                  newPassword: _newPasswordController.text,
                 );
-                showMySnackBar(context, '密码重置成功', Colors.green, 1000);
+                result.fold(
+                  (failure) {
+                    throw Exception(failure.message ?? '重置密码失败');
+                  },
+                  (_) {
+                    showMySnackBar(context, '密码重置成功', Colors.green, 1000);
+                  },
+                );
               } catch (e) {
                 if (e is ApiException) {
                   showMySnackBar(context, e.message, Colors.red, 1000);

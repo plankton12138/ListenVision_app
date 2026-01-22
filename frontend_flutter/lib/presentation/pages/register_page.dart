@@ -3,8 +3,8 @@ import 'dart:math';
 
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/errors/exceptions.dart';
+import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
-import 'package:demo/services/api_service.dart';
 // P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
@@ -53,23 +53,32 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final user = await apiService.register(
-        _usernameController.text,
-        _passwordController.text,
-        _emailController.text,
+      final authRepository = ServiceFactory.instance.authRepository;
+      final result = await authRepository.register(
+        username: _usernameController.text,
+        password: _passwordController.text,
+        email: _emailController.text,
       );
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.setUser(user);
+      result.fold(
+        (failure) {
+          throw Exception(failure.message ?? '注册失败');
+        },
+        (user) async {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          await authProvider.setUser(user);
 
-      if (mounted) {
-        showMySnackBar(context, '注册成功！', Colors.green, 2000);
-        context.go('/');
-      }
+          if (mounted) {
+            showMySnackBar(context, '注册成功！', Colors.green, 2000);
+            context.go('/');
+          }
+        },
+      );
     } catch (e) {
       // 停止加载状态
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
 
       // 在 setState 外部显示 SnackBar
       if (!mounted) return;
@@ -87,8 +96,8 @@ class _RegisterPageState extends State<RegisterPage> {
         showMySnackBar(context, '注册失败: $e', Colors.red, 3000);
       }
     } finally {
-      // 确保加载状态被重置（如果 try 块成功）
-      if (_isLoading && mounted) {
+      // 确保加载状态被重置
+      if (mounted) {
         setState(() => _isLoading = false);
       }
     }

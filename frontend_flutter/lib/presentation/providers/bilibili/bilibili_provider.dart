@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:demo/domain/entities/models_export.dart';
-import 'package:demo/services/bilibiliApiService.dart';
+import 'package:demo/domain/entities/platform_account.dart';
+import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
 
 /// B站相关状态管理Provider

@@ -6,7 +6,7 @@ import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:demo/services/download_manager.dart';
+import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-import 'package:demo/services/bilibiliApiService.dart';
+import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
 
 /// B站视频信息缓存管理Provider

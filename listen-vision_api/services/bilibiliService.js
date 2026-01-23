@@ -471,6 +471,23 @@ const getVideoInfo = async (bvid) => {
     // 获取统计数据（B站API结构：data.stat）
     const stat = info.stat || {};
 
+    // 获取音频流URL（用于下载）
+    let streamUrl = null;
+    let audioBaseUrl = null;
+    try {
+      const fnval = 16;
+      const audioData = await httpGet(`https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${info.cid}&fnval=${fnval}&qn=127`);
+      if (audioData.code === 0 && audioData.data?.dash?.audio?.length > 0) {
+        const audio = audioData.data.dash.audio.reduce((prev, curr) => {
+          return (curr.bandwidth || 0) > (prev.bandwidth || 0) ? curr : prev;
+        });
+        streamUrl = audio.baseUrl;
+        audioBaseUrl = audio.baseUrl;
+      }
+    } catch (e) {
+      console.log(`[getVideoInfo] 获取音频流失败: ${e.message}`);
+    }
+
     return {
       bvid: info.bvid,
       title: info.title,
@@ -485,6 +502,8 @@ const getVideoInfo = async (bvid) => {
         face: info.owner?.face || ''
       },
       cid: info.cid, // 视频分P ID，用于获取播放URL
+      stream_url: streamUrl, // 音频流URL（用于下载）
+      audio_base_url: audioBaseUrl, // 音频流基础URL（别名）
       stat: {
         view: stat.view || 0,      // 播放
         like: stat.like || 0,      // 点赞

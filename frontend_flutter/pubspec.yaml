@@ -40,7 +40,7 @@ dependencies:
   # 原因：just_audio 有专门的 ProcessingState.buffering 状态，精确检测无需推断
   just_audio: ^0.10.5
   audio_session: ^0.2.1
-  
+
   # Windows 平台支持
   just_audio_media_kit: ^1.0.0
   media_kit_libs_windows_audio: any

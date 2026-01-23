@@ -1,9 +1,10 @@
 // P2: 页面已迁移到 presentation/pages/
+// Phase 2: 支持在线和本地音频混合播放列表
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/domain/entities/local_audio.dart';
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/data/managers/playlist_manager.dart';
+import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -12,10 +13,12 @@ import 'package:provider/provider.dart';
 ///
 /// Phase 2A: UI/交互优化
 /// - 当前播放项高亮显示
-/// - 拖拽排序
-/// - 清空列表（带确认）
 /// - 删除确认对话框
 /// - 空列表友好提示
+///
+/// Phase 2: 混合播放列表
+/// - 支持在线和本地音频统一显示
+/// - 根据 isOnline 属性差异化显示
 class PlaylistPage extends StatefulWidget {
   const PlaylistPage({super.key});
 
@@ -24,13 +27,10 @@ class PlaylistPage extends StatefulWidget {
 }
 
 class _PlaylistPageState extends State<PlaylistPage> {
-  /// 是否处于排序模式
-  bool _isReordering = false;
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AudioProvider>();
-    final playlist = provider.playlist;
+    final playlist = provider.unifiedPlaylist;
 
     return Scaffold(
       appBar: AppBar(
@@ -47,17 +47,6 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 : () => _confirmClearAll(playlist.length),
             tooltip: '清空列表',
           ),
-          // 排序按钮（仅当列表有2个以上项目时显示）
-          if (playlist.length > 1)
-            IconButton(
-              icon: Icon(_isReordering ? Icons.check : Icons.sort),
-              onPressed: () {
-                setState(() {
-                  _isReordering = !_isReordering;
-                });
-              },
-              tooltip: _isReordering ? '完成排序' : '调整顺序',
-            ),
           // 首页按钮
           IconButton(
             icon: const Icon(Icons.home),
@@ -67,15 +56,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: _isReordering
-          ? _buildReorderableList(provider)
-          : _buildNormalList(provider),
+      body: _buildNormalList(provider),
     );
   }
 
   /// 构建普通列表视图
   Widget _buildNormalList(AudioProvider provider) {
-    final playlist = provider.playlist;
+    final playlist = provider.unifiedPlaylist;
 
     // 空列表提示
     if (playlist.isEmpty) {
@@ -91,7 +78,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ),
             SizedBox(height: 8),
             Text(
-              '添加本地音频开始播放',
+              '添加本地音频或播放在线音频',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
@@ -103,25 +90,99 @@ class _PlaylistPageState extends State<PlaylistPage> {
     return ListView.builder(
       itemCount: playlist.length,
       itemBuilder: (context, index) {
-        final audio = playlist[index];
+        final playable = playlist[index];
         final isCurrentlyPlaying = provider.currentIndex == index;
-        return _buildAudioItem(audio, index, isCurrentlyPlaying, provider);
+        return _buildPlayableItem(playable, index, isCurrentlyPlaying, provider);
       },
     );
   }
 
-  /// 构建单个音频项
-  Widget _buildAudioItem(
-    LocalAudio audio,
+  /// 构建单个可播放音频项
+  Widget _buildPlayableItem(
+    PlayableAudio playable,
     int index,
     bool isCurrentlyPlaying,
     AudioProvider provider,
   ) {
+    final isOnline = playable.isOnline;
+    final title = playable.title;
+    final artist = playable.artist ?? '未知艺术家';
+
+    // 封面处理
+    Widget? leadingWidget;
+    if (isCurrentlyPlaying) {
+      // 当前播放项显示播放/暂停图标
+      leadingWidget = Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: Colors.blue,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          provider.isPlaying ? Icons.pause : Icons.play_arrow,
+          color: Colors.white,
+        ),
+      );
+    } else {
+      // 显示封面
+      if (isOnline && playable.coverUrl != null) {
+        // 在线音频：使用网络封面
+        leadingWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: CachedNetworkImage(
+            imageUrl: playable.coverUrl!,
+            width: 48,
+            height: 48,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              width: 48,
+              height: 48,
+              color: Colors.grey[300],
+              child: const Icon(Icons.music_note, size: 24),
+            ),
+            errorWidget: (context, url, error) => Container(
+              width: 48,
+              height: 48,
+              color: Colors.grey[300],
+              child: const Icon(Icons.music_note, size: 24),
+            ),
+          ),
+        );
+      } else if (!isOnline && playable.coverData != null) {
+        // 本地音频：使用内嵌封面
+        leadingWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.memory(
+            playable.coverData!,
+            width: 48,
+            height: 48,
+            fit: BoxFit.cover,
+          ),
+        );
+      } else {
+        // 默认图标
+        leadingWidget = Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isOnline ? Colors.orange[100] : Colors.grey[300],
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(
+            isOnline ? Icons.cloud : Icons.music_note,
+            size: 24,
+            color: isOnline ? Colors.orange : Colors.grey[600],
+          ),
+        );
+      }
+    }
+
     return Container(
       decoration: BoxDecoration(
         // 当前播放项使用浅蓝色背景
         color: isCurrentlyPlaying
-            ? Colors.blue.withOpacity(0.1)
+            ? Colors.blue.withValues(alpha: 0.1)
             : Colors.transparent,
         // 当前播放项左侧蓝色竖条
         border: isCurrentlyPlaying
@@ -129,31 +190,43 @@ class _PlaylistPageState extends State<PlaylistPage> {
             : null,
       ),
       child: ListTile(
-        // 当前播放项显示播放/暂停图标，否则显示音乐图标
-        leading: isCurrentlyPlaying
-            ? Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                ),
+        leading: leadingWidget,
+        title: Row(
+          children: [
+            // 在线/本地标识
+            if (isOnline)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  provider.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
+                  Icons.cloud_circle,
+                  size: 16,
+                  color: Colors.orange,
                 ),
               )
-            : const Icon(Icons.music_note),
-        title: Text(
-          audio.title,
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            fontWeight: isCurrentlyPlaying ? FontWeight.bold : FontWeight.normal,
-            color: isCurrentlyPlaying ? Colors.blue : null,
-          ),
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(
+                  Icons.storage,
+                  size: 16,
+                  color: Colors.green,
+                ),
+              ),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: UIConstants.fontSizeMedium,
+                  fontWeight: isCurrentlyPlaying ? FontWeight.bold : FontWeight.normal,
+                  color: isCurrentlyPlaying ? Colors.blue : null,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
         subtitle: Text(
-          '艺术家：${audio.artist}',
+          '艺术家：$artist',
           style: const TextStyle(fontSize: UIConstants.fontSizeSmall),
         ),
         trailing: Row(
@@ -172,113 +245,25 @@ class _PlaylistPageState extends State<PlaylistPage> {
             // 删除按钮
             IconButton(
               icon: const Icon(Icons.delete),
-              onPressed: () => _confirmDelete(audio),
+              onPressed: () => _confirmDelete(index, playable),
             ),
           ],
         ),
-        onTap: () => provider.playAudio(index),
+        onTap: () {
+          // 使用统一的播放方法，确保索引正确同步
+          provider.playUnifiedAt(index);
+        },
       ),
     );
   }
 
-  /// 构建可排序列表视图
-  Widget _buildReorderableList(AudioProvider provider) {
-    final playlist = provider.playlist;
-
-    return ReorderableListView.builder(
-      onReorder: _handleReorder,
-      itemCount: playlist.length,
-      itemBuilder: (context, index) {
-        final audio = playlist[index];
-        // 使用 filePath 作为 key，保证唯一性
-        return Container(
-          key: ValueKey(audio.filePath),
-          decoration: BoxDecoration(
-            color: index % 2 == 0 ? Colors.grey[50] : Colors.white,
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-          ),
-          child: ListTile(
-            leading: const Icon(Icons.drag_handle, color: Colors.grey),
-            title: Text(
-              audio.title,
-              style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
-            ),
-            subtitle: Text(
-              audio.artist,
-              style: const TextStyle(fontSize: UIConstants.fontSizeSmall),
-            ),
-            trailing: Text(
-              '${index + 1}',
-              style: const TextStyle(fontSize: UIConstants.fontSizeMedium),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// 处理拖拽排序
-  Future<void> _handleReorder(int oldIndex, int newIndex) async {
-    final provider = context.read<AudioProvider>();
-    final playlist = List<LocalAudio>.from(provider.playlist);
-
-    // ReorderableListView 的 newIndex 处理
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-
-    // 获取被移动的项目
-    final movedItem = playlist[oldIndex];
-
-    // 更新数据库：通过修改 filePath 来实现"移动"效果
-    // SQLite 不支持直接调整行顺序，我们使用交换 ID 的方式
-    final db = PlaylistManager();
-    final database = await db.database;
-
-    // 获取所有记录的 ID
-    final List<Map> allRecords = await database.query(
-      'playlist_audios',
-      columns: ['id'],
-      orderBy: 'id ASC',
-    );
-
-    if (allRecords.length > oldIndex && allRecords.length > newIndex) {
-      final oldId = allRecords[oldIndex]['id'] as int;
-      final newId = allRecords[newIndex]['id'] as int;
-
-      // 交换 ID 来实现位置交换
-      await database.rawUpdate(
-        'UPDATE playlist_audios SET id = ? WHERE id = ?',
-        [ -oldId, oldId ], // 临时设为负数避免冲突
-      );
-      await database.rawUpdate(
-        'UPDATE playlist_audios SET id = ? WHERE id = ?',
-        [ oldId, newId ],
-      );
-      await database.rawUpdate(
-        'UPDATE playlist_audios SET id = ? WHERE id = ?',
-        [ newId, -oldId ],
-      );
-
-      debugPrint('【PlaylistPage】排序已更新: 交换 ID $oldId <-> $newId');
-    }
-
-    // 重新加载
-    await provider.loadPlaylist();
-
-    // 主动刷新排序模式UI
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   /// 删除确认对话框
-  Future<void> _confirmDelete(LocalAudio audio) async {
+  Future<void> _confirmDelete(int index, PlayableAudio playable) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除音频'),
-        content: Text('确定要从播放列表中删除"${audio.title}"吗？'),
+        content: Text('确定要从播放列表中删除"${playable.title}"吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -294,7 +279,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
     if (confirmed == true && mounted) {
       final provider = context.read<AudioProvider>();
-      await provider.removeFromPlaylist(audio.id!);
+      await provider.removeFromUnifiedPlaylist(index);
     }
   }
 
@@ -304,7 +289,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('清空播放列表'),
-        content: Text('确定要清空所有 $count 首音频吗？'),
+        content: Text('确定要清空所有 $count 首音频吗？\n\n注意：本地音频将从数据库中删除，在线音频将从列表中移除。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -320,10 +305,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
 
     if (confirmed == true && mounted) {
-      final db = PlaylistManager();
-      await db.clearPlaylist();
       final provider = context.read<AudioProvider>();
-      await provider.loadPlaylist();
+      await provider.clearUnifiedPlaylist();
     }
   }
 }

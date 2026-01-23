@@ -81,6 +81,16 @@ const createTables = () => {
     )
   `);
 
+  // 音频内容缓存表（存储转换后的音频数据）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audio_content_cache (
+      bvid TEXT PRIMARY KEY,
+      data BLOB NOT NULL,
+      content_type TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   // 搜索历史表
   db.exec(`
     CREATE TABLE IF NOT EXISTS search_history (
@@ -131,11 +141,14 @@ const createTables = () => {
   `);
 
   // 播放历史表
+  // Phase 2 遗留问题: 添加 audio_type 和 local_path 支持本地音频记录
   db.exec(`
     CREATE TABLE IF NOT EXISTS play_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
-      bvid TEXT NOT NULL,
+      bvid TEXT,
+      local_path TEXT,
+      audio_type TEXT DEFAULT 'online' CHECK(audio_type IN ('online', 'local')),
       title TEXT,
       artist TEXT,
       duration INTEGER,
@@ -145,6 +158,19 @@ const createTables = () => {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // 为已有表添加新字段（ALTER TABLE 仅在字段不存在时执行）
+  // SQLite 不支持 IF EXISTS for ALTER TABLE，需要捕获错误
+  try {
+    db.exec(`ALTER TABLE play_history ADD COLUMN audio_type TEXT DEFAULT 'online'`);
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+  try {
+    db.exec(`ALTER TABLE play_history ADD COLUMN local_path TEXT`);
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
 
   // ========== Phase 3: 搜索优化与推荐 ==========
 
@@ -207,6 +233,8 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_bilibili_accounts_is_active ON bilibili_accounts(user_id, is_active);
     CREATE INDEX IF NOT EXISTS idx_audio_metadata_bvid ON audio_metadata_cache(bvid);
     CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id);
+    CREATE INDEX IF NOT EXISTS idx_audio_content_cache_bvid ON audio_content_cache(bvid);
+    CREATE INDEX IF NOT EXISTS idx_audio_content_cache_created ON audio_content_cache(created_at);
     CREATE INDEX IF NOT EXISTS idx_search_history_keyword ON search_history(user_id, keyword);
     -- Phase 2: 歌单系统索引
     CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON playlists(user_id);
@@ -215,7 +243,8 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist_id ON playlist_items(playlist_id);
     CREATE INDEX IF NOT EXISTS idx_playlist_items_position ON playlist_items(playlist_id, position);
     CREATE INDEX IF NOT EXISTS idx_play_history_user_id ON play_history(user_id);
-     CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
+    CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
+    CREATE INDEX IF NOT EXISTS idx_play_history_identifier ON play_history(user_id, bvid, local_path);
     -- Phase 3: 搜索与推荐索引
     CREATE INDEX IF NOT EXISTS idx_search_stats_keyword ON search_stats(keyword);
     CREATE INDEX IF NOT EXISTS idx_search_stats_count ON search_stats(search_count);

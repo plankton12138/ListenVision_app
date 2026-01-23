@@ -10,21 +10,31 @@ const { AppError, catchAsync } = require('../middleware/errorHandler');
 
 /**
  * 记录播放
+ * Phase 2 遗留问题: 扩展支持本地音频（localPath）和在线音频（bvid）
  */
 const recordPlay = catchAsync(async (req, res) => {
   // 游客模式可能没有 user
   const userId = req.user ? req.user.id : null;
-  const { bvid, title, artist, duration, coverUrl, progress } = req.body;
+  const { bvid, localPath, title, artist, duration, coverUrl, progress } = req.body;
 
-  if (!bvid) {
-    throw new AppError('BVID不能为空', 400);
+  // 至少需要 bvid 或 localPath
+  if (!bvid && !localPath) {
+    throw new AppError('BVID或本地路径不能为空', 400);
   }
 
-  const metadata = { title, artist, duration, coverUrl };
-  const record = playHistoryService.recordPlay(userId, bvid, metadata, progress || 0);
+  const options = {
+    bvid,
+    localPath,
+    title,
+    artist,
+    duration,
+    coverUrl,
+    progress: progress || 0,
+  };
+  const record = playHistoryService.recordPlay(userId, options);
 
-  // Phase 3.2: 记录播放行为（仅登录用户）
-  if (userId) {
+  // Phase 3.2: 记录播放行为（仅登录用户，仅在线音频）
+  if (userId && bvid) {
     logBehavior(userId, bvid, 'play');
   }
 

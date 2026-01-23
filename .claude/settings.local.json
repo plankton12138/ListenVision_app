@@ -26,7 +26,10 @@
       "Bash(Where-Object { $_Extension -ne \".dart\" })",
       "Bash(findstr:*)",
       "Bash(Get-ChildItem \"A:\\\\Projects\\\\Projects_ListenVison\\\\frontend_flutter\\\\lib\\\\models\" -Filter \"*.dart\")",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(Get-Process node -ErrorAction SilentlyContinue)",
+      "Bash(Stop-Process -Force)",
+      "Bash(Start-Sleep -Milliseconds 500)"
     ]
   }
 }

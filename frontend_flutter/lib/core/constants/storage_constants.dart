@@ -78,6 +78,20 @@ class StorageKeys {
 
   /// 播放位置
   static const String playbackPosition = 'playback_position';
+
+  // ==================== Phase 2 遗留问题: 统一播放列表持久化 ====================
+
+  /// 统一播放列表（JSON）
+  static const String unifiedPlaylist = 'unified_playlist';
+
+  /// 当前播放索引
+  static const String currentPlaylistIndex = 'current_playlist_index';
+
+  /// 当前播放位置（秒）
+  static const String currentPlaybackPosition = 'current_playback_position';
+
+  /// 是否正在播放在线音频
+  static const String isCurrentOnline = 'is_current_online';
 }
 
 /// StorageConstants 别名（向后兼容）

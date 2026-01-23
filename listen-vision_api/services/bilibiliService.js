@@ -88,10 +88,20 @@ const stmt = {
   `),
   insertAudioMetadata: db.prepare(`
     INSERT OR REPLACE INTO audio_metadata_cache
-    (bvid, title, artist, duration, cover_url, audio_url, cid, metadata, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    (bvid, title, artist, duration, cover_url, audio_url, cid, metadata, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `),
 
+  // 音频内容缓存相关（存储转换后的音频数据）
+  getCachedAudio: db.prepare(`
+    SELECT data, content_type, created_at FROM audio_content_cache 
+    WHERE bvid = ? AND created_at > datetime('now', '-1 hour')
+  `),
+  insertCachedAudio: db.prepare(`
+    INSERT OR REPLACE INTO audio_content_cache 
+    (bvid, data, content_type, created_at)
+    VALUES (?, ?, ?, datetime('now'))
+  `),
   // 搜索历史相关
   insertSearchHistory: db.prepare(`
     INSERT INTO search_history (user_id, keyword, result_count) VALUES (?, ?, ?)
@@ -898,6 +908,25 @@ const getRecentSearches = (userId) => {
   return stmt.getRecentSearches.all(userId).map(row => row.keyword);
 };
 
+/**
+ * 获取缓存的音频内容
+ * @param {string} bvid - 视频ID
+ * @returns {Object|null} 缓存的音频数据
+ */
+const getCachedAudio = (bvid) => {
+  return stmt.getCachedAudio.get(bvid);
+};
+
+/**
+ * 保存音频内容到缓存
+ * @param {string} bvid - 视频ID
+ * @param {Buffer} data - 音频数据
+ * @param {string} contentType - 内容类型
+ */
+const insertCachedAudio = (bvid, data, contentType) => {
+  stmt.insertCachedAudio.run(bvid, data, contentType);
+};
+
 // 启动时清理无效的绑定（使用旧密钥加密的数据）
 const cleanupInvalidBindings = () => {
   try {
@@ -938,6 +967,10 @@ module.exports = {
   // 视频信息
   getVideoInfo,
   getAudioStream,
+
+  // 音频内容缓存
+  getCachedAudio,
+  insertCachedAudio,
 
   // UP主相关
   getUploaderVideos,

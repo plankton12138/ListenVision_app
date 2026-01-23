@@ -69,7 +69,9 @@ class LocalAudio {
       if (map['albumArt'] is Uint8List) {
         albumArtData = map['albumArt'] as Uint8List;
       } else if (map['albumArt'] is List) {
-        albumArtData = Uint8List.fromList(map['albumArt'] as List<int>);
+        // 从 JSON 反序列化后是 List<dynamic>，需要安全转换为 List<int>
+        final list = map['albumArt'] as List;
+        albumArtData = Uint8List.fromList(list.cast<int>());
       }
     }
 

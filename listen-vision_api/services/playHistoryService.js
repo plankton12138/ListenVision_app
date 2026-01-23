@@ -14,16 +14,17 @@ const stmt = {
     WHERE user_id = ?
     ORDER BY played_at DESC
   `),
-  historyByBvid: db.prepare(`
+  // Phase 2 遗留问题: 支持本地和在线音频的查找
+  historyByIdentifier: db.prepare(`
     SELECT * FROM play_history
-    WHERE user_id = ? AND bvid = ?
+    WHERE user_id = ? AND (bvid = ? OR local_path = ?)
     ORDER BY played_at DESC
     LIMIT 1
   `),
-  // 插入/更新播放记录
+  // 插入/更新播放记录（支持本地和在线）
   insertHistory: db.prepare(`
-    INSERT INTO play_history (user_id, bvid, title, artist, duration, cover_url, progress)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO play_history (user_id, bvid, local_path, audio_type, title, artist, duration, cover_url, progress)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   updateHistoryProgress: db.prepare(`
     UPDATE play_history
@@ -33,6 +34,7 @@ const stmt = {
   // 删除历史
   deleteHistoryByUserId: db.prepare('DELETE FROM play_history WHERE user_id = ?'),
   deleteHistoryItem: db.prepare('DELETE FROM play_history WHERE user_id = ? AND bvid = ?'),
+  deleteHistoryItemByIdentifier: db.prepare('DELETE FROM play_history WHERE id = ?'),
   deleteHistoryById: db.prepare('DELETE FROM play_history WHERE id = ?'),
   // 统计
   countByUserId: db.prepare('SELECT COUNT(*) as count FROM play_history WHERE user_id = ?'),
@@ -40,20 +42,43 @@ const stmt = {
 
 /**
  * 记录播放
- * 如果该bvid的历史记录已存在，更新播放时间和进度；否则插入新记录
+ * Phase 2 遗留问题: 扩展支持本地音频和在线音频
+ *
  * @param {number} userId - 用户ID（可选，游客传null）
- * @param {string} bvid - 视频BVID
- * @param {Object} metadata - 音频元数据
- * @param {number} progress - 播放进度（秒）
+ * @param {Object} options - 播放信息
+ * @param {string} options.bvid - 在线音频BVID（可选）
+ * @param {string} options.localPath - 本地音频路径（可选）
+ * @param {string} options.title - 标题
+ * @param {string} options.artist - 艺术家
+ * @param {number} options.duration - 时长（秒）
+ * @param {string} options.coverUrl - 封面URL
+ * @param {number} options.progress - 播放进度（秒）
  * @returns {Object} 播放记录
  */
-const recordPlay = (userId, bvid, metadata = {}, progress = 0) => {
-  const { title, artist, duration, coverUrl } = metadata;
+const recordPlay = (userId, options = {}) => {
+  const {
+    bvid = null,
+    localPath = null,
+    title = null,
+    artist = null,
+    duration = null,
+    coverUrl = null,
+    progress = 0
+  } = options;
+
+  // 确定音频类型和标识符
+  const audioType = bvid ? 'online' : 'local';
+  const identifier = bvid || localPath;
+
+  if (!identifier) {
+    throw new Error('Either bvid or localPath must be provided');
+  }
 
   // 查找是否已有该音频的播放记录
-  const existingRecord = userId
-    ? stmt.historyByBvid.get(userId, bvid)
-    : null;
+  let existingRecord = null;
+  if (userId) {
+    existingRecord = stmt.historyByIdentifier.get(userId, identifier, identifier);
+  }
 
   if (existingRecord) {
     // 更新现有记录
@@ -62,8 +87,15 @@ const recordPlay = (userId, bvid, metadata = {}, progress = 0) => {
   } else {
     // 插入新记录
     const result = stmt.insertHistory.run(
-      userId, bvid, title || null, artist || null,
-      duration || null, coverUrl || null, progress
+      userId,
+      bvid,
+      localPath,
+      audioType,
+      title,
+      artist,
+      duration,
+      coverUrl,
+      progress
     );
 
     // 获取刚插入的记录

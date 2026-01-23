@@ -397,4 +397,40 @@ router.get('/proxy/image', optionalAuthMiddleware, bilibiliController.proxyImage
  */
 router.get('/proxy/audio', optionalAuthMiddleware, bilibiliController.proxyAudioStream);
 
+/**
+ * @swagger
+ * /api/bilibili/proxy/audio/{bvid}:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 代理音频流通过BVID（推荐，短URL）
+ *     parameters:
+ *       - in: path
+ *         name: bvid
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 视频BVID
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [m4s, mp3, aac]
+ *           default: m4s
+ *         description: 输出格式 (m4s=原始, mp3=转换为MP3, aac=转换为AAC)
+ *     responses:
+ *       200:
+ *         description: 音频流
+ *         content:
+ *           audio/mp4:
+ *             type: string
+ *             format: binary
+ *           audio/mpeg:
+ *             type: string
+ *             format: binary
+ *           audio/aac:
+ *             type: string
+ *             format: binary
+ */
+router.get('/proxy/audio/:bvid', optionalAuthMiddleware, bilibiliController.proxyAudioStreamByBvid);
+
 module.exports = router;

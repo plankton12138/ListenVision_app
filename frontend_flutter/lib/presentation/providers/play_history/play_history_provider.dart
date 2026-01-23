@@ -101,22 +101,30 @@ class PlayHistoryProvider with ChangeNotifier {
   }
 
   /// 记录播放
+  /// Phase 2 遗留问题: 扩展支持本地音频（localPath）
   Future<void> recordPlay({
     String? token,
-    required String bvid,
+    String? bvid,
+    String? localPath,
     String? title,
     String? artist,
     int? duration,
     String? coverUrl,
     int progress = 0,
   }) async {
+    // 确定音频标识符（本地音频使用文件路径作为 ID）
+    final identifier = bvid ?? localPath ?? '';
+    if (identifier.isEmpty) {
+      debugPrint('【PlayHistoryProvider】bvid 和 localPath 都为空，无法记录播放');
+      return;
+    }
+
     // 先更新本地列表（乐观更新）
-    // 新的 PlayHistory 实体包含 Audio 对象，而不是直接的 bvid/title 属性
-    final existingIndex = _history.indexWhere((item) => item.audio.id == bvid);
+    final existingIndex = _history.indexWhere((item) => item.audio.id == identifier);
 
     // 创建新的 Audio 对象
     final audio = Audio(
-      id: bvid,
+      id: identifier,
       title: title ?? '',
       artist: artist,
       duration: duration,
@@ -153,7 +161,8 @@ class PlayHistoryProvider with ChangeNotifier {
         await _dioProvider.post(
           '/history',
           data: {
-            'bvid': bvid,
+            if (bvid != null) 'bvid': bvid,
+            if (localPath != null) 'localPath': localPath,
             if (title != null) 'title': title,
             if (artist != null) 'artist': artist,
             if (duration != null) 'duration': duration,

@@ -129,16 +129,125 @@ class AudioResponse {
 - 重新打开软件后，点击播放显示"完成"但未真正播放
 - 需要手动多次点击暂停/继续才能播放
 - 缓冲或无法播放时没有明确的状态提示
+- **播放列表切换时缓冲结束后显示"就绪"，需要手动暂停再继续** 🆕
 
 **根因分析**：
-- `_restoreUnifiedPlaylist()` 只恢复数据，未重新设置音频源
-- 播放器处于 idle 状态时，`togglePlayPause()` 加载音频后未确保播放成功
-- 缺少加载/缓冲/错误的 UI 状态反馈
+- `_restoreUnifiedPlaylist()` 只恢复数据，未重新设置音频源 → ✅ 已修复
+- 播放器处于 idle 状态时，`togglePlayPause()` 加载音频后未确保播放成功 → ✅ 已修复
+- 缺少加载/缓冲/错误的 UI 状态反馈 → ✅ 已修复
+- **🆕 切换歌曲时 `_setAudioSourceAndPlay()` 在音频源未完全就绪时调用 `play()`**
+
+**🆕 新问题深度分析**（2026-01-24 发现）：
+
+```
+播放列表切换流程:
+┌─────────────────────────────────────────────────────────────┐
+│ playUnifiedAt() / playNext() / playPrevious()               │
+│     ↓                                                       │
+│ _playUnifiedAtIndex()                                       │
+│     ↓                                                       │
+│ _playPlayable()                                             │
+│     ↓                                                       │
+│ _setAudioSourceAndPlay()                                    │
+│     ↓                                                       │
+│ await _player.setUrl(url)  ← 异步加载音频源                  │
+│     ↓ (可能还在 loading/buffering)                          │
+│ await _player.play()        ← 在未就绪时调用，播放失败！     │
+│     ↓                                                       │
+│ 状态变为 idle / completed (实际未播放)                        │
+│     ↓                                                       │
+│ 用户看到 "就绪" / "播放完成"，需要手动暂停再继续              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**问题代码位置**: `audio_provider.dart:1270-1326`
+
+```dart
+// 当前实现的问题
+Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
+  // ...
+  if (playable.isOnline) {
+    await _player.setUrl(playable.url);  // ← 异步，可能未完成
+    await _player.play();                 // ← 在未就绪时调用！
+    _isPlaying = true;
+  }
+  // ...
+}
+```
+
+**解决方案（待实施）**：
+
+**方案 A：监听 ProcessingState 变化** ⭐ 推荐
+```dart
+Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
+  // 设置音频源
+  if (playable.isOnline) {
+    await _player.setUrl(playable.url);
+  } else {
+    await _player.setAudioSource(AudioSource.file(playable.url));
+  }
+
+  // ✅ 等待音频源完全就绪后再播放
+  _player.playerStateStream
+      .firstWhere((state) => state.processingState == ProcessingState.ready)
+      .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw TimeoutException('音频加载超时');
+      })
+      .then((_) {
+        if (!_disposed) {
+          _player.play();
+          _isPlaying = true;
+          notifyListeners();
+        }
+      });
+}
+```
+
+**方案 B：使用 just_audio 的播放流**
+```dart
+Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
+  // ✅ 直接使用 play() 的返回流监听完成
+  if (playable.isOnline) {
+    _player.setUrl(playable.url);
+  } else {
+    _player.setAudioSource(AudioSource.file(playable.url));
+  }
+
+  // 等待就绪后播放
+  await _player.load();  // 显式加载
+  await _player.play();  // 加载完成后播放
+}
+```
+
+**方案 C：添加延迟等待**
+```dart
+Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
+  // ...
+  if (playable.isOnline) {
+    await _player.setUrl(playable.url);
+
+    // ✅ 等待一小段时间让音频源准备
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 检查是否真的就绪
+    if (_player.processingState != ProcessingState.ready) {
+      // 等待状态变化
+      await _player.playerStateStream
+          .firstWhere((s) => s.processingState == ProcessingState.ready)
+          .timeout(const Duration(seconds: 5));
+    }
+
+    await _player.play();
+  }
+  // ...
+}
+```
 
 **改进方案**：
-- 重启后自动重新加载音频源到播放器
-- 添加明确的加载、缓冲、错误状态 UI
-- 播放失败时自动重试并显示错误信息
+- ✅ 重启后自动重新加载音频源到播放器（已实施）
+- ✅ 添加明确的加载、缓冲、错误状态 UI（已实施）
+- ⏸️ 修复播放列表切换时的状态同步问题（待实施）
+- ⏸️ 播放失败时自动重试并显示错误信息（待实施）
 
 ---
 
@@ -217,11 +326,24 @@ module.exports = {
 
 ### Phase 1: 用户体验修复（1-2周）
 
-| 任务 | 描述 | 文件 |
-|------|------|------|
-| 播放器状态修复 | 重启后自动恢复播放状态 | `audio_provider.dart` |
-| 状态UI反馈 | 添加缓冲/加载/错误提示 | UI组件 |
-| 错误处理统一 | 全局错误处理机制 | `error_handler.dart` |
+| 任务 | 描述 | 文件 | 状态 |
+|------|------|------|------|
+| 播放器状态修复 | 重启后自动恢复播放状态 | `audio_provider.dart` | ✅ 已完成 |
+| 状态UI反馈 | 添加缓冲/加载/错误提示 | `controls_panel.dart` | ✅ 已完成 |
+| **播放列表切换修复** | **修复切换歌曲时需要手动暂停再继续的问题** | `audio_provider.dart` | ⏸️ 待实施 |
+| 错误处理统一 | 全局错误处理机制 | `error_handler.dart` | 📋 计划中 |
+
+**🆕 明日待开发任务**：
+
+1. **修复 `_setAudioSourceAndPlay()` 方法**（`audio_provider.dart:1270`）
+   - 添加音频源就绪状态检测
+   - 在 `ProcessingState.ready` 时才调用 `play()`
+   - 添加超时机制和错误处理
+
+2. **测试场景**：
+   - 点击播放列表中的歌曲
+   - 点击"下一首"/"上一首"按钮
+   - 验证在线音频和本地音频都能正常播放
 
 ### Phase 2: 架构优化（2-4周）
 

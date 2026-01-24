@@ -4,6 +4,7 @@ import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/presentation/widgets/playlist_cover_dialog.dart';
 import 'package:demo/presentation/pages/playlist_detail_page.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
@@ -182,6 +183,14 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
                 _editPlaylist(playlist);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('更换封面'),
+              onTap: () {
+                Navigator.pop(context);
+                _changePlaylistCover(playlist);
+              },
+            ),
             if (!playlist.isSystem)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
@@ -195,6 +204,60 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
         ),
       ),
     );
+  }
+
+  /// 更换歌单封面
+  Future<void> _changePlaylistCover(Playlist playlist) async {
+    final selectedCover = await showDialog<String>(
+      context: context,
+      builder: (context) => PlaylistCoverDialog(
+        currentCoverUrl: playlist.coverUrl,
+      ),
+    );
+
+    if (selectedCover != null) {
+      await _updatePlaylistCover(playlist, selectedCover);
+    }
+  }
+
+  /// 更新歌单封面
+  Future<void> _updatePlaylistCover(Playlist playlist, String coverUrl) async {
+    final authProvider = context.read<AuthProvider>();
+    final playlistProvider = context.read<PlaylistProvider>();
+    final token = authProvider.user?.token ?? '';
+
+    if (token.isEmpty) {
+      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      final success = await playlistProvider.updatePlaylist(
+        token,
+        playlist.id,
+        coverUrl: coverUrl,
+      );
+
+      if (success && mounted) {
+        DialogHelper.showSnackBar(context, '封面已更新', backgroundColor: Colors.green, duration: 1500);
+      } else {
+        DialogHelper.showSnackBar(context, '更新失败', backgroundColor: Colors.red, duration: 2000);
+      }
+    } catch (e) {
+      DialogHelper.showSnackBar(context, '更新失败: $e', backgroundColor: Colors.red, duration: 2000);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _editPlaylist(Playlist playlist) async {

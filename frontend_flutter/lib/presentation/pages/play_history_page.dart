@@ -2,12 +2,15 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 
 /// 播放历史页面
 ///
@@ -20,9 +23,22 @@ class PlayHistoryPage extends StatefulWidget {
   _PlayHistoryPageState createState() => _PlayHistoryPageState();
 }
 
+/// 筛选类型枚举
+enum HistoryFilterType {
+  all,      // 全部
+  today,    // 今天
+  week,     // 本周
+  month,    // 本月
+}
+
 class _PlayHistoryPageState extends State<PlayHistoryPage> {
   bool _isLoading = false;
   String? _errorMessage;
+
+  // 搜索和筛选状态
+  String _searchQuery = '';
+  HistoryFilterType _filterType = HistoryFilterType.all;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -31,6 +47,12 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkLoginAndLoad();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   /// 检查登录状态，未登录则跳转到登录页
@@ -45,7 +67,6 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   }
 
   Future<void> _loadHistory() async {
-    final authProvider = context.read<AuthProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
 
     setState(() {
@@ -103,6 +124,153 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     }
   }
 
+  /// 播放历史记录项
+  ///
+  /// 支持在线音频和本地音频的播放
+  Future<void> _playHistoryItem(PlayHistoryItem item) async {
+    final audioProvider = context.read<AudioProvider>();
+    final bilibiliProvider = context.read<BilibiliProvider>();
+    final authProvider = context.read<AuthProvider>();
+    final historyProvider = context.read<PlayHistoryProvider>();
+
+    try {
+      DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
+
+      // 判断是本地音频还是在线音频
+      final audioId = item.audio.id;
+      final isLocalAudio = _isLocalPath(audioId);
+
+      if (isLocalAudio) {
+        // 本地音频：检查文件是否存在
+        final file = File(audioId);
+        if (!file.existsSync()) {
+          if (mounted) {
+            DialogHelper.showSnackBar(context, '文件不存在: ${audioId.split(RegExp(r'[\\/]')).last}', backgroundColor: Colors.red, duration: 2000);
+          }
+          return;
+        }
+
+        // 播放本地音频
+        await audioProvider.loadAudio(audioId);
+
+        if (mounted) {
+          DialogHelper.showSnackBar(context, '开始播放: ${item.audio.title}', backgroundColor: Colors.green, duration: 1500);
+        }
+      } else {
+        // 在线音频：获取音频流URL
+        final streamData = await bilibiliProvider.getAudioStream(audioId);
+        if (streamData == null || streamData['baseUrl'] == null) {
+          throw Exception('无法获取音频流');
+        }
+
+        // 播放在线音频
+        await audioProvider.playOnlineAudio(
+          audio: item.audio,
+          proxyUrl: streamData['baseUrl'],
+        );
+
+        // 记录播放历史（已登录用户）
+        if (authProvider.isLoggedIn) {
+          await historyProvider.recordPlay(
+            bvid: item.audio.id,
+            title: item.audio.title,
+            artist: item.audio.artist,
+            coverUrl: item.audio.coverUrl,
+            duration: item.audio.duration,
+          );
+        }
+
+        if (mounted) {
+          DialogHelper.showSnackBar(context, '开始播放: ${item.audio.title}', backgroundColor: Colors.green, duration: 1500);
+        }
+      }
+    } catch (e) {
+      debugPrint('【PlayHistoryPage】播放失败: $e');
+      if (mounted) {
+        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
+      }
+    }
+  }
+
+  /// 判断路径是否为本地文件路径
+  bool _isLocalPath(String path) {
+    // Windows 路径: C:\... 或 \\server\...
+    // Unix/Linux 路径: /home/...
+    // 相对路径: ./... 或 ../...
+
+    // 检查是否以驱动器字母开头（Windows）
+    if (RegExp(r'^[A-Za-z]:').hasMatch(path)) return true;
+
+    // 检查是否以 / 开头（Unix/Linux 绝对路径）
+    if (path.startsWith('/') || path.startsWith('\\')) return true;
+
+    // 检查是否包含文件扩展名（常见音频格式）
+    final audioExtensions = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.opus'];
+    for (final ext in audioExtensions) {
+      if (path.toLowerCase().endsWith(ext)) return true;
+    }
+
+    // 检查是否以相对路径标记开头
+    if (path.startsWith('./') || path.startsWith('../') || path.startsWith('.\\')) return true;
+
+    // 默认为在线音频（BVID 格式）
+    return false;
+  }
+
+  /// 根据筛选条件和搜索关键词过滤历史记录
+  List<PlayHistoryItem> _filterHistory(List<PlayHistoryItem> history) {
+    var filtered = history;
+
+    // 应用时间筛选
+    if (_filterType != HistoryFilterType.all) {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+
+      filtered = filtered.where((item) {
+        final playedAt = item.playedAt;
+
+        switch (_filterType) {
+          case HistoryFilterType.today:
+            return playedAt.isAfter(todayStart) || playedAt.isAtSameMomentAs(todayStart);
+          case HistoryFilterType.week:
+            final weekAgo = todayStart.subtract(const Duration(days: 7));
+            return playedAt.isAfter(weekAgo) || playedAt.isAtSameMomentAs(weekAgo);
+          case HistoryFilterType.month:
+            final monthAgo = todayStart.subtract(const Duration(days: 30));
+            return playedAt.isAfter(monthAgo) || playedAt.isAtSameMomentAs(monthAgo);
+          case HistoryFilterType.all:
+            return true;
+        }
+      }).toList();
+    }
+
+    // 应用搜索筛选
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((item) {
+        final title = (item.audio.title ?? '').toLowerCase();
+        final artist = (item.audio.artist ?? '').toLowerCase();
+        return title.contains(query) || artist.contains(query);
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  /// 获取筛选类型显示名称
+  String _getFilterLabel(HistoryFilterType type) {
+    switch (type) {
+      case HistoryFilterType.all:
+        return '全部';
+      case HistoryFilterType.today:
+        return '今天';
+      case HistoryFilterType.week:
+        return '本周';
+      case HistoryFilterType.month:
+        return '本月';
+    }
+  }
+
   Future<void> _removeItem(PlayHistoryItem item) async {
     final authProvider = context.read<AuthProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
@@ -116,6 +284,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   Widget build(BuildContext context) {
     final historyProvider = context.watch<PlayHistoryProvider>();
     final history = historyProvider.history;
+    final filteredHistory = _filterHistory(history);
 
     return Scaffold(
       appBar: AppBar(
@@ -138,11 +307,113 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: _buildBody(history),
+      body: Column(
+        children: [
+          // 搜索和筛选栏
+          _buildFilterBar(history.isNotEmpty),
+          // 历史列表
+          Expanded(child: _buildBody(filteredHistory, history.isNotEmpty)),
+        ],
+      ),
     );
   }
 
-  Widget _buildBody(List<PlayHistoryItem> history) {
+  /// 构建搜索和筛选栏
+  Widget _buildFilterBar(bool hasHistory) {
+    if (!hasHistory) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          // 筛选按钮
+          FilterChip(
+            label: Text(_getFilterLabel(_filterType)),
+            avatar: const Icon(Icons.filter_list, size: 18),
+            selected: _filterType != HistoryFilterType.all,
+            onSelected: (_) => _showFilterDialog(),
+            selectedColor: Theme.of(context).colorScheme.primaryContainer,
+          ),
+          const SizedBox(width: 12),
+          // 搜索框
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: '搜索歌曲或歌手',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示筛选对话框
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('筛选播放历史'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: HistoryFilterType.values.map((type) {
+            return RadioListTile<HistoryFilterType>(
+              title: Text(_getFilterLabel(type)),
+              value: type,
+              groupValue: _filterType,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _filterType = value;
+                  });
+                  Navigator.pop(context);
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(List<PlayHistoryItem> filteredHistory, bool hasOriginalHistory) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -163,7 +434,8 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
       );
     }
 
-    if (history.isEmpty) {
+    // 没有历史记录
+    if (!hasOriginalHistory) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -191,13 +463,43 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
       );
     }
 
+    // 筛选后为空
+    if (filteredHistory.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 80,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '没有找到相关记录',
+              style: TextStyle(
+                fontSize: UIConstants.fontSizeLarge,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '试试调整筛选条件或搜索关键词',
+              style: TextStyle(color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _loadHistory,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: history.length,
+        itemCount: filteredHistory.length,
         itemBuilder: (context, index) {
-          final item = history[index];
+          final item = filteredHistory[index];
           return _buildHistoryCard(item, index);
         },
       ),
@@ -265,15 +567,9 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
           ),
           trailing: IconButton(
             icon: const Icon(Icons.play_circle_outline),
-            onPressed: () {
-              // TODO: 重新播放这首歌
-              DialogHelper.showSnackBar(context, '播放功能开发中', backgroundColor: Colors.blue, duration: 1500);
-            },
+            onPressed: () => _playHistoryItem(item),
           ),
-          onTap: () {
-            // TODO: 播放这首歌
-            DialogHelper.showSnackBar(context, '播放功能开发中', backgroundColor: Colors.blue, duration: 1500);
-          },
+          onTap: () => _playHistoryItem(item),
         ),
       ),
     );

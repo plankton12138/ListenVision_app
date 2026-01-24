@@ -103,15 +103,31 @@ void main() async {
         // ==========================================================
 
         ChangeNotifierProvider(create: (_) => ThemeController()),
-        // Phase 2A: AudioProvider 创建后延迟恢复播放状态
-        ChangeNotifierProvider<AudioProvider>(
-          create: (_) {
-            final provider = AudioProvider();
-            // 延迟恢复播放状态，确保播放列表已加载
-            return provider;
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+
+        // Phase 2: PlayHistoryProvider（需要先于 AudioProvider 创建）
+        ChangeNotifierProxyProvider<AuthProvider, PlayHistoryProvider>(
+          create: (context) => PlayHistoryProvider(),
+          update: (context, authProvider, historyProvider) {
+            // 当用户登录时初始化播放历史
+            Future.microtask(() {
+              if (authProvider.isLoggedIn) {
+                historyProvider?.initialize();
+              }
+            });
+            return historyProvider!;
           },
         ),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+
+        // Phase 2: AudioProvider 依赖 PlayHistoryProvider（用于记录播放历史）
+        ChangeNotifierProxyProvider<PlayHistoryProvider, AudioProvider>(
+          create: (context) => AudioProvider(),
+          update: (context, historyProvider, audioProvider) {
+            // 设置 PlayHistoryProvider 到 AudioProvider
+            audioProvider?.setHistoryProvider(historyProvider);
+            return audioProvider!;
+          },
+        ),
 
         // B站状态管理
         ChangeNotifierProvider<BilibiliProvider>(
@@ -193,19 +209,6 @@ void main() async {
               }
             });
             return playlistProvider!;
-          },
-        ),
-
-        ChangeNotifierProxyProvider<AuthProvider, PlayHistoryProvider>(
-          create: (context) => PlayHistoryProvider(),
-          update: (context, authProvider, historyProvider) {
-            // 当用户登录时初始化播放历史
-            Future.microtask(() {
-              if (authProvider.isLoggedIn) {
-                historyProvider?.initialize();
-              }
-            });
-            return historyProvider!;
           },
         ),
 

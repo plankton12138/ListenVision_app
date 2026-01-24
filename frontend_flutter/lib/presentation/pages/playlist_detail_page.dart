@@ -33,6 +33,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   String? _errorMessage;
   bool _isReordering = false;
 
+  // 搜索状态
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +44,25 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final playlistProvider = context.read<PlaylistProvider>();
     playlistProvider.setCurrentPlaylistId(widget.playlistId);
     _loadDetail();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// 获取过滤后的歌单项列表
+  List<PlaylistItem> get _filteredItems {
+    if (_detail == null) return [];
+    if (_searchQuery.isEmpty) return _detail!.items;
+
+    final query = _searchQuery.toLowerCase();
+    return _detail!.items.where((item) {
+      final title = (item.title ?? item.bvid).toLowerCase();
+      final artist = (item.artist ?? '').toLowerCase();
+      return title.contains(query) || artist.contains(query);
+    }).toList();
   }
 
   Future<void> _loadDetail() async {
@@ -208,6 +231,13 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
         actions: [
+          // 搜索按钮
+          if (_detail != null && _detail!.items.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () => _showSearchBar(),
+              tooltip: '搜索歌曲',
+            ),
           // Phase 5: 添加歌曲按钮
           if (_detail != null)
             IconButton(
@@ -216,14 +246,14 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
               tooltip: '添加歌曲',
             ),
           // Phase 5: 排序选项按钮
-          if (_detail != null && _detail!.items.isNotEmpty)
+          if (_detail != null && _detail!.items.isNotEmpty && _searchQuery.isEmpty)
             IconButton(
               icon: const Icon(Icons.sort),
               onPressed: _showSortOptionsDialog,
               tooltip: '排序选项',
             ),
-          // 拖拽排序按钮
-          if (_detail != null && _detail!.items.isNotEmpty)
+          // 拖拽排序按钮（搜索时隐藏）
+          if (_detail != null && _detail!.items.isNotEmpty && _searchQuery.isEmpty)
             IconButton(
               icon: Icon(_isReordering ? Icons.check : Icons.list),
               onPressed: _toggleReorder,
@@ -233,6 +263,20 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       ),
       body: _buildBody(),
     );
+  }
+
+  /// 显示搜索栏
+  void _showSearchBar() {
+    setState(() {
+      if (_searchQuery.isEmpty) {
+        // 打开搜索模式
+        _searchQuery = ' '; // 触发搜索框显示
+      } else {
+        // 关闭搜索模式
+        _searchQuery = '';
+        _searchController.clear();
+      }
+    });
   }
 
   Widget _buildBody() {
@@ -284,24 +328,109 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       );
     }
 
+    final filteredItems = _filteredItems;
+
     return Column(
       children: [
         // 歌单信息
         _buildPlaylistInfo(),
+        // 搜索框
+        if (_searchQuery.isNotEmpty || _searchController.text.isNotEmpty)
+          _buildSearchBar(),
         // 歌单项列表
         Expanded(
-          child: ReorderableListView.builder(
-            onReorder: _isReordering ? _reorderItems : (_, __) {},
-            buildDefaultDragHandles: _isReordering,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: _detail!.items.length,
-            itemBuilder: (context, index) {
-              final item = _detail!.items[index];
-              return _buildItemCard(item, index);
-            },
-          ),
+          child: filteredItems.isEmpty
+              ? _buildEmptySearchResult()
+              : ReorderableListView.builder(
+                  onReorder: _isReordering && _searchQuery.isEmpty ? _reorderItems : (_, __) {},
+                  buildDefaultDragHandles: _isReordering,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: filteredItems.length,
+                  itemBuilder: (context, index) {
+                    final item = filteredItems[index];
+                    return _buildItemCard(item, index);
+                  },
+                ),
         ),
       ],
+    );
+  }
+
+  /// 构建搜索框
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: '搜索歌曲或歌手',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              _searchController.clear();
+              setState(() {
+                _searchQuery = '';
+              });
+            },
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
+      ),
+    );
+  }
+
+  /// 构建空搜索结果提示
+  Widget _buildEmptySearchResult() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 80,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '没有找到相关歌曲',
+            style: TextStyle(
+              fontSize: UIConstants.fontSizeLarge,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '试试其他搜索关键词',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+        ],
+      ),
     );
   }
 

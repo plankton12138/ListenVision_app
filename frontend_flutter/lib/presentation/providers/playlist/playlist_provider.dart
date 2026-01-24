@@ -185,13 +185,20 @@ class PlaylistProvider with ChangeNotifier {
   }
 
   /// 更新歌单
-  Future<bool> updatePlaylist(String token, String id, {String? name, String? description}) async {
+  Future<bool> updatePlaylist(
+    String token,
+    String id, {
+    String? name,
+    String? description,
+    String? coverUrl,
+  }) async {
     try {
       final response = await _dioProvider.put(
         '/playlists/$id',
         data: {
           if (name != null) 'name': name,
           if (description != null) 'description': description,
+          if (coverUrl != null) 'coverUrl': coverUrl,
         },
       );
 

@@ -50,6 +50,9 @@ class AudioProvider extends ChangeNotifier {
   Audio? _currentOnlineAudio;
   bool _isCurrentOnline = false;
 
+  // P0 修复: 播放启动标志（防止 stream 事件覆盖正在启动的播放状态）
+  bool _isStartingPlayback = false;
+
   // Phase 2: 音频流能力（从后端获取）
   bool _isSeekable = true; // 默认支持 seek（本地音频）
   String? _currentContentType; // 当前音频的 Content-Type
@@ -131,9 +134,17 @@ class AudioProvider extends ChangeNotifier {
     );
 
     // 处理播放状态变化（合并订阅：同时处理 playing 和 completed 状态）
+    // P0 修复: 在播放启动期间，不覆盖手动设置的 _isPlaying 状态
     _playerStateSub = _player.playerStateStream.listen(
       (state) {
         if (_disposed) return;
+
+        // 如果正在启动播放，且 stream 状态为 false（缓冲中），不覆盖
+        if (_isStartingPlayback && !state.playing) {
+          debugPrint('【AudioProvider】播放启动中，跳过 stream 状态更新（缓冲中）');
+          return;
+        }
+
         _isPlaying = state.playing;
         // 播放完成时更新状态
         if (state.processingState == ProcessingState.completed) {
@@ -1115,43 +1126,54 @@ class AudioProvider extends ChangeNotifier {
   Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
     debugPrint('【AudioProvider】设置音频源: ${playable.url}');
 
-    // 设置音频源并播放（根据类型选择不同方式）
-    if (playable.isOnline) {
-      // 在线音频：添加重试逻辑
-      int retryCount = 0;
-      const maxRetries = 2;
+    // P0 修复: 设置播放启动标志，防止 stream 事件覆盖状态
+    _isStartingPlayback = true;
 
-      while (retryCount <= maxRetries) {
-        try {
-          debugPrint('【AudioProvider】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
+    try {
+      // 设置音频源并播放（根据类型选择不同方式）
+      if (playable.isOnline) {
+        // 在线音频：添加重试逻辑
+        int retryCount = 0;
+        const maxRetries = 2;
 
-          await _player.setUrl(playable.url);
-          debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
+        while (retryCount <= maxRetries) {
+          try {
+            debugPrint('【AudioProvider】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
 
-          await _player.play();
-          // P0 修复: 立即更新播放状态，避免 UI 状态不同步
-          _isPlaying = true;
-          notifyListeners();
+            await _player.setUrl(playable.url);
+            debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
 
-          // 如果成功，中断重试循环
-          break;
-        } catch (e) {
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            debugPrint('【AudioProvider】播放失败，重试中...: $e');
-            await Future.delayed(const Duration(seconds: 1)); // 重试前等待
-          } else {
-            rethrow; // 达到最大重试次数后放弃
+            await _player.play();
+            // P0 修复: 立即更新播放状态，避免 UI 状态不同步
+            _isPlaying = true;
+            notifyListeners();
+
+            // 如果成功，中断重试循环
+            break;
+          } catch (e) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              debugPrint('【AudioProvider】播放失败，重试中...: $e');
+              await Future.delayed(const Duration(seconds: 1)); // 重试前等待
+            } else {
+              rethrow; // 达到最大重试次数后放弃
+            }
           }
         }
+      } else {
+        // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
+        await _player.setAudioSource(AudioSource.file(playable.url));
+        await _player.play();
+        // P0 修复: 立即更新播放状态
+        _isPlaying = true;
+        notifyListeners();
       }
-    } else {
-      // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
-      await _player.setAudioSource(AudioSource.file(playable.url));
-      await _player.play();
-      // P0 修复: 立即更新播放状态
-      _isPlaying = true;
-      notifyListeners();
+    } finally {
+      // P0 修复: 延迟清除播放启动标志，给足够时间让播放器真正开始播放
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _isStartingPlayback = false;
+        debugPrint('【AudioProvider】播放启动完成，解除状态保护');
+      });
     }
   }
 

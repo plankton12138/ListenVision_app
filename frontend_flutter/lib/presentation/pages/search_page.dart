@@ -83,7 +83,7 @@ class _SearchPageState extends State<SearchPage> {
 
     // Max page size
     if (page > 50) {
-      showMySnackBar(context, 'Reached max page size', Colors.red, 1000);
+      DialogHelper.showSnackBar(context, 'Reached max page size', backgroundColor: Colors.red, duration: 1000);
       return;
     }
 
@@ -96,7 +96,7 @@ class _SearchPageState extends State<SearchPage> {
 
     if (!success && mounted) {
       final error = provider.searchError ?? 'Unknown error';
-      showMySnackBar(context, 'Search failed: $error', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, 'Search failed: $error', backgroundColor: Colors.red, duration: 2000);
     }
   }
 
@@ -235,7 +235,7 @@ class _SearchPageState extends State<SearchPage> {
               ? null
               : () async {
                   if (!authProvider.isLoggedIn) {
-                    showMySnackBar(context, '请先登录', Colors.orange, 1500);
+                    DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
                     return;
                   }
 
@@ -247,7 +247,7 @@ class _SearchPageState extends State<SearchPage> {
                   try {
                     final token = authProvider.user?.token ?? '';
                     if (token.isEmpty) {
-                      showMySnackBar(context, '请先登录', Colors.red, 2000);
+                      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
                       return;
                     }
                     final added = await playlistProvider.toggleFavorite(
@@ -258,16 +258,16 @@ class _SearchPageState extends State<SearchPage> {
                     );
 
                     if (mounted) {
-                      showMySnackBar(
+                      DialogHelper.showSnackBar(
                         context,
                         added ? '已添加到我喜欢' : '已从我喜欢移除',
-                        Colors.green,
-                        1000,
+                        backgroundColor: Colors.green,
+                        duration: 1000,
                       );
                     }
                   } catch (e) {
                     if (mounted) {
-                      showMySnackBar(context, '操作失败: $e', Colors.red, 2000);
+                      DialogHelper.showSnackBar(context, '操作失败: $e', backgroundColor: Colors.red, duration: 2000);
                     }
                   } finally {
                     // Phase 2B: 操作完成，移除标记
@@ -310,12 +310,12 @@ class _SearchPageState extends State<SearchPage> {
               ? null
               : () async {
                   if (!authProvider.isLoggedIn) {
-                    showMySnackBar(context, '请先登录', Colors.orange, 1500);
+                    DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
                     return;
                   }
 
                   if (userPlaylists.isEmpty) {
-                    showMySnackBar(context, '请先创建歌单', Colors.orange, 2000);
+                    DialogHelper.showSnackBar(context, '请先创建歌单', backgroundColor: Colors.orange, duration: 2000);
                     return;
                   }
 
@@ -334,7 +334,7 @@ class _SearchPageState extends State<SearchPage> {
                     try {
                       final token = authProvider.user?.token ?? '';
                       if (token.isEmpty) {
-                        showMySnackBar(context, '请先登录', Colors.red, 2000);
+                        DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
                         return;
                       }
                       final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
@@ -349,11 +349,11 @@ class _SearchPageState extends State<SearchPage> {
                       );
 
                       if (mounted) {
-                        showMySnackBar(context, '已添加到歌单', Colors.green, 1500);
+                        DialogHelper.showSnackBar(context, '已添加到歌单', backgroundColor: Colors.green, duration: 1500);
                       }
                     } catch (e) {
                       if (mounted) {
-                        showMySnackBar(context, '添加失败: $e', Colors.red, 2000);
+                        DialogHelper.showSnackBar(context, '添加失败: $e', backgroundColor: Colors.red, duration: 2000);
                       }
                     } finally {
                       // Phase 2B: 操作完成，移除标记
@@ -415,7 +415,7 @@ class _SearchPageState extends State<SearchPage> {
     try {
       // 显示加载提示
       if (mounted) {
-        showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+        DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
       }
 
       // 获取音频流URL
@@ -452,12 +452,12 @@ class _SearchPageState extends State<SearchPage> {
       }
 
       if (mounted) {
-        showMySnackBar(context, '开始播放: $title', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '开始播放: $title', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
       debugPrint('【SearchPage】播放失败: $e');
       if (mounted) {
-        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
     }
   }

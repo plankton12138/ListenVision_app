@@ -104,14 +104,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     throw Exception(failure.message ?? '发送验证码失败');
                   },
                   (_) {
-                    showMySnackBar(context, '验证码已发送到您的邮箱', Colors.green, 1000);
+                    DialogHelper.showSnackBar(context, '验证码已发送到您的邮箱', backgroundColor: Colors.green, duration: 1000);
                   },
                 );
               } catch (e) {
                 if (e is ApiException) {
-                  showMySnackBar(context, e.message, Colors.red, 1000);
+                  DialogHelper.showSnackBar(context, e.message, backgroundColor: Colors.red, duration: 1000);
                 } else if (e is SocketException) {
-                  showMySnackBar(context, '无网络连接', Colors.red, 1000);
+                  DialogHelper.showSnackBar(context, '无网络连接', backgroundColor: Colors.red, duration: 1000);
                 }
               }
             }
@@ -185,14 +185,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     throw Exception(failure.message ?? '重置密码失败');
                   },
                   (_) {
-                    showMySnackBar(context, '密码重置成功', Colors.green, 1000);
+                    DialogHelper.showSnackBar(context, '密码重置成功', backgroundColor: Colors.green, duration: 1000);
                   },
                 );
               } catch (e) {
                 if (e is ApiException) {
-                  showMySnackBar(context, e.message, Colors.red, 1000);
+                  DialogHelper.showSnackBar(context, e.message, backgroundColor: Colors.red, duration: 1000);
                 } else if (e is SocketException) {
-                  showMySnackBar(context, '无网络连接', Colors.red, 1000);
+                  DialogHelper.showSnackBar(context, '无网络连接', backgroundColor: Colors.red, duration: 1000);
                 }
               }
             }

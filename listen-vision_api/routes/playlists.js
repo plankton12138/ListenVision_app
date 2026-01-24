@@ -78,6 +78,13 @@ router.get('/now-playing', authMiddleware, playlistController.getNowPlaying);
  *     summary: 获取歌单详情（包含items）
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: sortType
+ *         schema:
+ *           type: string
+ *           enum: [added_at_desc, added_at_asc, title_asc, title_desc, artist_asc, artist_desc, position_asc]
+ *         description: 排序方式，默认为position_asc
  *     responses:
  *       200:
  *         description: 获取成功
@@ -197,6 +204,33 @@ router.delete('/:id/items/:bvid', authMiddleware, playlistController.removeItem)
  *         description: 调整成功
  */
 router.put('/:id/items/reorder', authMiddleware, playlistController.reorderItems);
+
+/**
+ * @swagger
+ * /api/playlists/{id}/sort:
+ *   put:
+ *     tags: [歌单]
+ *     summary: 重新排序歌单项
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sortType
+ *             properties:
+ *               sortType:
+ *                 type: string
+ *                 enum: [added_at_desc, added_at_asc, title_asc, title_desc, artist_asc, artist_desc, position_asc]
+ *                 example: title_asc
+ *     responses:
+ *       200:
+ *         description: 排序成功
+ */
+router.put('/:id/sort', authMiddleware, playlistController.sortItems);
 
 /**
  * @swagger

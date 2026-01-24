@@ -73,7 +73,7 @@ class _LoginPageState extends State<LoginPage> {
           }
 
           if (mounted) {
-            showMySnackBar(context, '登录成功！', Colors.green, 1000);
+            DialogHelper.showSnackBar(context, '登录成功！', backgroundColor: Colors.green, duration: 1000);
             context.go('/');
           }
         },
@@ -82,9 +82,9 @@ class _LoginPageState extends State<LoginPage> {
       if (e is ApiException) {
         String errorMessage = e.message;
         if (e.statusCode == 401) errorMessage = '用户名或密码无效';
-        showMySnackBar(context, errorMessage, Colors.red, 1000);
+        DialogHelper.showSnackBar(context, errorMessage, backgroundColor: Colors.red, duration: 1000);
       } else if (e is SocketException) {
-        showMySnackBar(context, '连接被拒绝或网络错误', Colors.red, 1000);
+        DialogHelper.showSnackBar(context, '连接被拒绝或网络错误', backgroundColor: Colors.red, duration: 1000);
       }
     } finally {
       if (mounted) {

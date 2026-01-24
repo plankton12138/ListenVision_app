@@ -69,7 +69,7 @@ class _RegisterPageState extends State<RegisterPage> {
           await authProvider.setUser(user);
 
           if (mounted) {
-            showMySnackBar(context, '注册成功！', Colors.green, 2000);
+            DialogHelper.showSnackBar(context, '注册成功！', backgroundColor: Colors.green, duration: 2000);
             context.go('/');
           }
         },
@@ -88,12 +88,12 @@ class _RegisterPageState extends State<RegisterPage> {
         if (e.statusCode == 409) {
           errorMessage = '用户名或邮箱已存在';
         }
-        showMySnackBar(context, errorMessage, Colors.red, 3000);
+        DialogHelper.showSnackBar(context, errorMessage, backgroundColor: Colors.red, duration: 3000);
       } else if (e is SocketException) {
-        showMySnackBar(context, '连接被拒绝或网络错误，请检查后端是否启动', Colors.red, 3000);
+        DialogHelper.showSnackBar(context, '连接被拒绝或网络错误，请检查后端是否启动', backgroundColor: Colors.red, duration: 3000);
       } else {
         // 通用错误处理（如 FormatException 等）
-        showMySnackBar(context, '注册失败: $e', Colors.red, 3000);
+        DialogHelper.showSnackBar(context, '注册失败: $e', backgroundColor: Colors.red, duration: 3000);
       }
     } finally {
       // 确保加载状态被重置
@@ -109,7 +109,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return true;
     }
 
-    showMySnackBar(context, '验证码不正确，请完成验证', Colors.red, 1000);
+    DialogHelper.showSnackBar(context, '验证码不正确，请完成验证', backgroundColor: Colors.red, duration: 1000);
     return false;
   }
 

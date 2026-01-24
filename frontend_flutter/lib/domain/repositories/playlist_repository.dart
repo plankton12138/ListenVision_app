@@ -115,6 +115,16 @@ abstract class PlaylistRepository {
     required int newPosition,
   });
 
+  /// 排序歌单项
+  ///
+  /// [playlistId] 歌单 ID
+  /// [sortType] 排序类型
+  /// 返回排序是否成功
+  Future<Either<Failure, bool>> sortPlaylistItems({
+    required String playlistId,
+    required String sortType,
+  });
+
   // ==================== 收藏管理 ====================
 
   /// 切换收藏状态

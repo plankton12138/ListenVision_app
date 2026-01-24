@@ -36,20 +36,20 @@ mixin BasePageState<T extends StatefulWidget> on State<T> {
     if (!authProvider.isLoggedIn) {
       switch (behavior) {
         case LoginRequiredBehavior.redirectToLogin:
-          showMySnackBar(
+          DialogHelper.showSnackBar(
             context,
             message ?? '请先登录',
-            Colors.orange,
-            1500,
+            backgroundColor: Colors.orange,
+            duration: 1500,
           );
           context.go('/login');
           break;
         case LoginRequiredBehavior.showPromptOnly:
-          showMySnackBar(
+          DialogHelper.showSnackBar(
             context,
             message ?? '请先登录',
-            Colors.orange,
-            1500,
+            backgroundColor: Colors.orange,
+            duration: 1500,
           );
           break;
         case LoginRequiredBehavior.none:
@@ -63,19 +63,19 @@ mixin BasePageState<T extends StatefulWidget> on State<T> {
   /// 显示错误SnackBar
   @protected
   void showError(String message) {
-    showMySnackBar(context, message, Colors.red, 2000);
+    DialogHelper.showSnackBar(context, message, backgroundColor: Colors.red, duration: 2000);
   }
 
   /// 显示成功SnackBar
   @protected
   void showSuccess(String message) {
-    showMySnackBar(context, message, Colors.green, 1500);
+    DialogHelper.showSnackBar(context, message, backgroundColor: Colors.green, duration: 1500);
   }
 
   /// 显示提示SnackBar
   @protected
   void showInfo(String message) {
-    showMySnackBar(context, message, Colors.blue, 1500);
+    DialogHelper.showSnackBar(context, message, backgroundColor: Colors.blue, duration: 1500);
   }
 
   /// 显示确认对话框

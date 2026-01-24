@@ -111,7 +111,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 - **路由**: go_router ^14.8.1
 - **数据库**: sqflite ^2.4.2 (移动端) / sqflite_common_ffi ^2.3.5 (桌面端)
 - **网络**: dio ^5.8.0+1
-- **音频播放**: audioplayers ^6.4.0
+- **音频播放**: just_audio ^0.10.5 + audio_session ^0.2.1
 - **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
 - **错误处理**: dartz ^0.10.1 (Either 泛型)
 
@@ -301,9 +301,9 @@ Projects_ListenVison/
 │   └── README.md                 # 后端文档
 │
 ├── docs/                         # 项目文档
-│   ├── AUDIO_PLAYER_FIX_PLAN.md       # 音频播放器综合修复方案（2026-01-22 新增）
+│   ├── AUDIO_PLAYER_FIX_PLAN.md       # 音频播放器综合修复方案（2026-01-23 完成）
 │   ├── PHASE_5_BUGFIX_AND_IMPROVEMENTS.md  # Phase 5 Bug修复与改进
-│   ├── PHASE_2_ONLINE_PLAYBACK.md           # Phase 2 在线播放功能
+│   ├── PHASE_2_ONLINE_PLAYBACK.md           # Phase 2 在线播放功能（已完成）
 │   ├── PHASE_3_PLAYLIST_PLAN.md             # Phase 3 播放列表云同步
 │   ├── PHASE_3A_PLAYBACK_PLAN.md            # Phase 3A 播放列表页面改进
 │   ├── INCREMENTAL_MIGRATION_PLAN.md        # 渐进式架构迁移计划
@@ -348,14 +348,14 @@ Projects_ListenVison/
 - ✅ 收藏快捷操作（搜索结果/播放器）
 - ✅ 播放历史记录与清空
 - ✅ 歌单详情查看
-- ✅ **在线音频播放** (2026-01-22 新增)
+- ✅ **在线音频播放** (2026-01-23 完成)
 
 **发现与推荐** (Phase 2)：
 - ✅ 热门歌单推荐
 - ✅ 热歌榜单
 - ✅ 个性化推荐内容
 - ✅ 登录访问控制（需要登录才能访问）
-- ✅ **在线音频播放功能** (2026-01-22 新增 - 打通数据流)
+- ✅ **在线音频播放功能** (2026-01-23 完成)
 
 **可选 - Bilibili 账号绑定** (Phase 1)：
 - ✅ Bilibili 二维码登录
@@ -372,10 +372,11 @@ Projects_ListenVison/
 - ✅ 歌单管理 API (Phase 2)
 - ✅ 播放历史 API (Phase 2)
 - ✅ 推荐内容 API (Phase 2)
-- ✅ **在线音频播放 API** (Phase 2 - 2026-01-22 新增)
+- ✅ **在线音频播放 API** (Phase 2 - 2026-01-23 完成)
   - ✅ 获取音频流URL (`GET /api/bilibili/audio/:bvid`)
   - ✅ 音频流代理 (`GET /api/bilibili/proxy/audio`)
   - ✅ 图片代理 (`GET /api/bilibili/proxy/image`)
+  - ✅ 音频格式转换（FFmpeg m4s → MP3）
 - ✅ 全文搜索 API (Phase 3 - FTS5)
 - ✅ CORS 跨域支持
 - ✅ 请求限流中间件
@@ -418,6 +419,8 @@ Projects_ListenVison/
 - **[CLAUDE.md](./CLAUDE.md)** - Claude Code 开发指导文档
 - **[AGENTS.md](./AGENTS.md)** - Agent 开发指南
 - **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 渐进式架构迁移计划
+- **[docs/PHASE_2_ONLINE_PLAYBACK.md](./docs/PHASE_2_ONLINE_PLAYBACK.md)** - Phase 2 在线播放功能（已完成）
+- **[docs/AUDIO_PLAYER_FIX_PLAN.md](./docs/AUDIO_PLAYER_FIX_PLAN.md)** - 音频播放器修复方案（已完成）
 - **[frontend_flutter/README.md](./frontend_flutter/README.md)** - 前端详细文档
 - **[listen-vision_api/README.md](./listen-vision_api/README.md)** - 后端详细文档
 

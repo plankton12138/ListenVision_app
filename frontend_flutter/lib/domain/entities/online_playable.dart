@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:just_audio/just_audio.dart';
 import 'playable_audio.dart';
 import 'audio.dart';
+import '../../core/constants/api_constants.dart';
 
 /// 在线音频的 Playable 实现
 ///
@@ -19,9 +20,16 @@ class OnlinePlayable extends PlayableAudio {
   }
 
   /// 从 Map 创建（用于反序列化）
+  ///
+  /// 动态生成代理 URL，避免硬编码 IP 地址
   factory OnlinePlayable.fromMap(Map<String, dynamic> map) {
     final audio = Audio.fromDto(map);
-    final proxyUrl = map['proxyUrl'] as String?;
+
+    // 动态生成代理 URL，使用当前的 API 基础 URL
+    // 不使用保存的旧 proxyUrl（可能包含过期的 IP 地址）
+    final bvid = audio.id;
+    final proxyUrl = '${ApiConstants.fullBaseUrl}/bilibili/proxy/audio/$bvid';
+
     return OnlinePlayable(audio, proxyUrl);
   }
 

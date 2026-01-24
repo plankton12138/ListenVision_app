@@ -104,12 +104,12 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     if (status == DownloadStatus.downloading || status == DownloadStatus.pending) {
       await _downloadManager.pauseDownload(task.id!);
       if (mounted) {
-        showMySnackBar(context, '已暂停', Colors.green, 1000);
+        DialogHelper.showSnackBar(context, '已暂停', backgroundColor: Colors.green, duration: 1000);
       }
     } else if (status == DownloadStatus.paused) {
       await _downloadManager.resumeDownload(task.id!);
       if (mounted) {
-        showMySnackBar(context, '已恢复', Colors.green, 1000);
+        DialogHelper.showSnackBar(context, '已恢复', backgroundColor: Colors.green, duration: 1000);
       }
     }
   }
@@ -137,7 +137,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     if (confirmed == true) {
       await _downloadManager.deleteDownload(task.id!);
       if (mounted) {
-        showMySnackBar(context, '已删除', Colors.green, 1000);
+        DialogHelper.showSnackBar(context, '已删除', backgroundColor: Colors.green, duration: 1000);
       }
     }
   }
@@ -166,7 +166,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
       await _downloadManager.clearCompleted();
       if (mounted) {
         final completedCount = _downloadManager.completedCount;
-        showMySnackBar(context, '已清空 $completedCount 个任务', Colors.green, 1000);
+        DialogHelper.showSnackBar(context, '已清空 $completedCount 个任务', backgroundColor: Colors.green, duration: 1000);
       }
     }
   }
@@ -175,7 +175,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
   Future<void> _retryTask(DownloadTask task) async {
     await _downloadManager.resumeDownload(task.id!);
     if (mounted) {
-      showMySnackBar(context, '已重新开始下载', Colors.green, 1000);
+      DialogHelper.showSnackBar(context, '已重新开始下载', backgroundColor: Colors.green, duration: 1000);
     }
   }
 

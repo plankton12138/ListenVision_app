@@ -77,6 +77,10 @@ class AudioProvider extends ChangeNotifier {
   DateTime? _lastOperationTime;
   static const Duration _minOperationInterval = Duration(milliseconds: 300);
 
+  // Phase 3B: 播放控制状态（音量/倍速）
+  double _volume = 1.0;  // 默认音量 100%
+  double _speed = 1.0;   // 默认倍速 1.0x
+
   AudioProvider() {
     _init();
   }
@@ -87,6 +91,9 @@ class AudioProvider extends ChangeNotifier {
     // 配置音频会话
     final session = await AudioSession.instance;
     await session.configure(AudioSessionConfiguration.music());
+
+    // Phase 3B: 加载用户播放设置（音量/倍速）
+    await _loadPlaybackSettings();
 
     // 初始化监听器
     _initListeners();
@@ -231,48 +238,6 @@ class AudioProvider extends ChangeNotifier {
   }
 
   /// 恢复播放状态（应用启动时调用）
-  ///
-  /// 修复：同时恢复统一播放列表，确保下一首功能正常工作
-  /// Phase 2 遗留问题: 已废弃，改用 _restoreUnifiedPlaylist()
-  @Deprecated('Use _restoreUnifiedPlaylist() instead')
-  Future<void> restorePlaybackState() async {
-    final db = PlaylistManager();
-    final state = await db.getPlaybackState();
-
-    // 恢复时同步构建统一播放列表
-    if (_playlist.isNotEmpty) {
-      _unifiedPlaylist = _playlist.map((audio) {
-        return LocalPlayable(audio);
-      }).toList();
-      debugPrint('【AudioProvider】已构建统一播放列表，数量: ${_unifiedPlaylist.length}');
-    }
-
-    if (state != null) {
-      final savedIndex = state['current_index'] as int;
-      final savedPosition = Duration(seconds: state['position'] as int);
-      if (savedIndex >= 0 && savedIndex < _playlist.length) {
-        _currentIndex = savedIndex;
-        final audio = _playlist[savedIndex];
-        // 只设置音频源，不自动播放
-        try {
-          // 使用 AudioSource.file() 播放本地文件（更好地处理中文路径）
-          await _player.setAudioSource(AudioSource.file(audio.filePath));
-          await _player.seek(savedPosition);
-          _title = audio.title;
-          _artist = audio.artist;
-          _albumArt = audio.albumArt;
-          debugPrint('【AudioProvider】播放状态已恢复: ${audio.title}, 位置: $savedPosition');
-          notifyListeners();
-        } catch (e) {
-          debugPrint('【AudioProvider】恢复播放状态失败: $e');
-        }
-      } else {
-        debugPrint('【AudioProvider】保存的索引 $savedIndex 超出范围，当前列表长度: ${_playlist.length}');
-      }
-    } else {
-      debugPrint('【AudioProvider】没有找到保存的播放状态');
-    }
-  }
 
   // ==================== Phase 2 遗留问题: 统一播放列表持久化 ====================
 
@@ -336,7 +301,6 @@ class AudioProvider extends ChangeNotifier {
 
       // 获取保存的状态
       final savedIndex = prefs.getInt(StorageKeys.currentPlaylistIndex) ?? -1;
-      final savedPosition = prefs.getInt(StorageKeys.currentPlaybackPosition) ?? 0;
       final wasOnline = prefs.getBool(StorageKeys.isCurrentOnline) ?? false;
 
       // 验证索引有效性
@@ -359,24 +323,6 @@ class AudioProvider extends ChangeNotifier {
           _currentOnlineAudio = null;
         }
 
-        // 设置音频源并跳转（不自动播放）
-        try {
-          if (playable.isOnline) {
-            // 在线音频流不支持 seek，从头开始播放
-            await _player.setUrl(playable.url);
-            debugPrint('【AudioProvider】在线音频不支持恢复播放位置，从头开始');
-          } else {
-            // 本地音频可以恢复播放位置
-            await _player.setAudioSource(AudioSource.file(playable.url));
-            await _player.seek(Duration(seconds: savedPosition));
-          }
-
-          debugPrint('【AudioProvider】统一播放列表已恢复: ${restoredPlaylist.length} 首, 当前: $_title');
-        } catch (e) {
-          debugPrint('【AudioProvider】恢复播放状态失败: $e');
-          // 即使恢复失败，也保留播放列表
-          _unifiedPlaylist = restoredPlaylist;
-        }
       } else {
         // 索引无效，只恢复播放列表
         _unifiedPlaylist = restoredPlaylist;
@@ -388,25 +334,6 @@ class AudioProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('【AudioProvider】恢复统一播放列表失败: $e');
     }
-  }
-
-  /// 更新当前播放音频的元数据
-  ///
-  /// 根据 PlayableAudio 更新显示的标题、艺术家和封面
-  void _updateMetadata(PlayableAudio playable) {
-    _title = playable.title;
-    _artist = playable.artist ?? '未知艺术家';
-    _albumArt = playable.coverData;
-
-    if (playable.isOnline && playable is OnlinePlayable) {
-      _isCurrentOnline = true;
-      _currentOnlineAudio = playable.original;
-    } else {
-      _isCurrentOnline = false;
-      _currentOnlineAudio = null;
-    }
-
-    notifyListeners();
   }
 
   // ==================== Phase 5: just_audio 精确状态检测 ====================
@@ -489,6 +416,14 @@ class AudioProvider extends ChangeNotifier {
     }
     return null;
   }
+
+  // Phase 3B: 播放控制 Getters
+  /// 播放音量（0.0 - 1.0）
+  double get volume => _volume;
+
+  /// 播放倍速（0.5x - 2.0x）
+  double get speed => _speed;
+
 
   // 当前音频的封面 URL（在线音频）
   String? get coverUrl {
@@ -673,8 +608,9 @@ class AudioProvider extends ChangeNotifier {
 
   /// 播放/暂停
   /// Phase 2A: 添加播放状态保存和定时器控制
-  /// Phase 5 修复: 立即更新状态避免快速点击时的延迟 + 去抖
-  /// Phase 5 修复: 在线音频流不支持 seek，避免 MPV 错误
+  /// Phase5 修复: 立即更新状态避免快速点击时的延迟 + 去抖
+  /// Phase5 修复: 在线音频流不支持 seek，避免 MPV 错误
+  /// 修复: 如果播放器 idle 且有当前曲目，先加载音频源再播放
   Future<void> togglePlayPause() async {
     if (_disposed) return;
     if (!_checkOperationInterval()) return; // 去抖检查
@@ -687,14 +623,25 @@ class AudioProvider extends ChangeNotifier {
         await _savePlaybackState(); // 暂停时立即保存
         notifyListeners();
       } else {
-        // 仅本地音频支持 seek，在线流媒体会失败
-        final currentIsOnline = _currentIndex >= 0 &&
-                               _currentIndex < _unifiedPlaylist.length &&
-                               _unifiedPlaylist[_currentIndex].isOnline;
-        if (_player.processingState == ProcessingState.completed && !currentIsOnline) {
-          await _player.seek(Duration.zero);
+        // 检查播放器是否已设置音频源
+        if (_player.processingState == ProcessingState.idle && 
+            _currentIndex >= 0 && 
+            _currentIndex < _unifiedPlaylist.length) {
+          // 播放器没有设置音频源，需要先加载当前曲目
+          final playable = _unifiedPlaylist[_currentIndex];
+          debugPrint('【AudioProvider】播放器 idle，加载当前曲目: ${playable.title}');
+          await _playPlayable(playable);
+        } else {
+          // 播放器已就绪，直接播放
+          // 仅本地音频支持 seek，在线流媒体会失败
+          final currentIsOnline = _currentIndex >= 0 &&
+                                 _currentIndex < _unifiedPlaylist.length &&
+                                 _unifiedPlaylist[_currentIndex].isOnline;
+          if (_player.processingState == ProcessingState.completed && !currentIsOnline) {
+            await _player.seek(Duration.zero);
+          }
+          await _player.play();
         }
-        await _player.play();
         _isPlaying = true; // 立即更新状态
         _startPositionSaveTimer(); // 播放时启动定时器
         notifyListeners();
@@ -704,8 +651,8 @@ class AudioProvider extends ChangeNotifier {
       rethrow;
     }
   }
-
-  /// 暂停
+  /// Phase 5 修复: 立即更新状态避免快速点击时的延迟 + 去抖
+  /// Phase 5 修复: 在线音频流不支持 seek，避免 MPV 错误
   Future<void> pause() async {
     if (_disposed) return;
     await _player.pause();
@@ -1073,6 +1020,32 @@ class AudioProvider extends ChangeNotifier {
     debugPrint('【AudioProvider】统一播放列表: ${_unifiedPlaylist.length} 首, 当前索引: $_currentIndex');
   }
 
+  /// 加载在线封面图片
+  ///
+  /// 从 coverUrl 下载封面图片并返回图片数据
+  Future<Uint8List?> _loadOnlineCover(String coverUrl) async {
+    if (coverUrl.isEmpty) return null;
+
+    try {
+      debugPrint('【AudioProvider】加载在线封面: $coverUrl');
+      final dio = Dio();
+      final response = await dio.get(
+        coverUrl,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      if (response.statusCode == 200 && response.data is List<int>) {
+        final imageData = Uint8List.fromList(response.data as List<int>);
+        debugPrint('【AudioProvider】封面加载成功，大小: ${imageData.length} bytes');
+        return imageData;
+      }
+    } catch (e) {
+      debugPrint('【AudioProvider】加载在线封面失败: $e');
+    }
+
+    return null;
+  }
+
   /// 播放 PlayableAudio
   Future<void> _playPlayable(PlayableAudio playable) async {
     if (_disposed) return;
@@ -1137,8 +1110,18 @@ class AudioProvider extends ChangeNotifier {
       _artist = playable.artist ?? '未知艺术家';
 
       if (_isCurrentOnline) {
-        // 在线音频
-        _albumArt = null; // 封面需要异步加载
+        // 在线音频：异步加载封面
+        _albumArt = null;
+        final coverUrl = playable.coverUrl;
+        if (coverUrl != null && coverUrl.isNotEmpty) {
+          // 异步加载封面，不阻塞播放
+          _loadOnlineCover(coverUrl).then((coverData) {
+            if (coverData != null && !_disposed) {
+              _albumArt = coverData;
+              notifyListeners();
+            }
+          });
+        }
       } else {
         // 本地音频
         _albumArt = playable.coverData;
@@ -1410,6 +1393,69 @@ class AudioProvider extends ChangeNotifier {
         'title': filePath.split(RegExp(r'[\\/]')).last,
         'artist': '未知艺术家',
       };
+    }
+  }
+
+  // ==================== Phase 3B: 播放控制方法 ====================
+
+  /// 设置播放音量（0.0 - 1.0）
+  ///
+  /// 参数 value: 音量值，范围 0.0（静音）到 1.0（最大音量）
+  Future<void> setVolume(double value) async {
+    if (_disposed) return;
+    _volume = value.clamp(0.0, 1.0);
+    await _player.setVolume(_volume);
+    await _savePlaybackSettings();
+    notifyListeners();
+    debugPrint('【AudioProvider】音量已设置为: ${(_volume * 100).toInt()}%');
+  }
+
+  /// 设置播放倍速（0.5x - 2.0x）
+  ///
+  /// 参数 value: 倍速值，范围 0.5（半速）到 2.0（双倍速）
+  Future<void> setSpeed(double value) async {
+    if (_disposed) return;
+    _speed = value.clamp(0.5, 2.0);
+    await _player.setSpeed(_speed);
+    await _savePlaybackSettings();
+    notifyListeners();
+    debugPrint('【AudioProvider】倍速已设置为: ${_speed}x');
+  }
+
+  /// 保存播放设置到 SharedPreferences
+  ///
+  /// 包括音量和倍速偏好设置
+  Future<void> _savePlaybackSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(StorageKeys.playbackVolume, _volume);
+      await prefs.setDouble(StorageKeys.playbackSpeed, _speed);
+      debugPrint('【AudioProvider】播放设置已保存: 音量=${_volume} 倍速=${_speed}');
+    } catch (e) {
+      debugPrint('【AudioProvider】保存播放设置失败: $e');
+    }
+  }
+
+  /// 从 SharedPreferences 加载播放设置
+  ///
+  /// 在初始化时调用，恢复用户的音量和倍速偏好
+  Future<void> _loadPlaybackSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _volume = prefs.getDouble(StorageKeys.playbackVolume) ?? 1.0;
+      _speed = prefs.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
+
+      // 应用到播放器
+      if (!_disposed) {
+        await _player.setVolume(_volume);
+        await _player.setSpeed(_speed);
+        debugPrint('【AudioProvider】播放设置已加载: 音量=${(_volume * 100).toInt()}% 倍速=${_speed}x');
+      }
+    } catch (e) {
+      debugPrint('【AudioProvider】加载播放设置失败: $e');
+      // 使用默认值
+      _volume = 1.0;
+      _speed = 1.0;
     }
   }
 

@@ -16,6 +16,7 @@ class PlaylistProvider with ChangeNotifier {
   Playlist? _nowPlayingPlaylist;
   List<PlaylistItem> _favoritesItems = [];
   List<PlaylistItem> _nowPlayingItems = [];
+  String? _currentPlaylistId; // 当前正在查看的歌单ID
 
   // 加载状态
   bool _isLoading = false;
@@ -39,6 +40,7 @@ class PlaylistProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasPlaylists => _playlists.isNotEmpty;
+  String? get currentPlaylistId => _currentPlaylistId;
 
   /// 检查指定bvid是否已收藏
   bool isFavorited(String bvid) {
@@ -108,9 +110,11 @@ class PlaylistProvider with ChangeNotifier {
         );
       }
     } catch (e) {
-      // 服务器获取失败，使用本地缓存
+      // 服务器获取失败，设置错误信息并使用本地缓存
+      _errorMessage = '加载歌单失败：${e.toString()}';
+      debugPrint('【PlaylistProvider】加载歌单失败: $e');
       await _loadPlaylistsFromLocal();
-      rethrow;
+      // 不再 rethrow，让 UI 显示错误信息
     }
   }
 
@@ -130,8 +134,9 @@ class PlaylistProvider with ChangeNotifier {
         _updateFavoritedCache();
       }
     } catch (e) {
-      // 加载失败，使用本地缓存
-      await _loadFavoritesFromLocal();
+      // 加载播放队列失败，使用本地缓存
+      debugPrint('【PlaylistProvider】加载播放队列失败: $e');
+      await _loadNowPlayingFromLocal();
     }
   }
 
@@ -402,6 +407,7 @@ class PlaylistProvider with ChangeNotifier {
 
   static const _playlistsKey = 'playlists_cache';
   static const _favoritesKey = 'favorites_cache';
+  static const _nowPlayingKey = 'now_playing_cache';
 
   Future<void> _loadPlaylistsFromLocal() async {
     try {
@@ -447,10 +453,35 @@ class PlaylistProvider with ChangeNotifier {
   Future<void> _saveFavoritesToLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_favoritesItems.map((item) => item.toJson()).toList());
+      final json = jsonEncode(_favoritesItems.map((f) => f.toJson()).toList());
       await prefs.setString(_favoritesKey, json);
     } catch (e) {
       debugPrint('保存本地收藏失败: $e');
+    }
+  }
+
+  Future<void> _loadNowPlayingFromLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final nowPlayingJson = prefs.getString(_nowPlayingKey);
+
+      if (nowPlayingJson != null) {
+        final data = jsonDecode(nowPlayingJson) as List;
+        _nowPlayingItems = data.map((json) => PlaylistItem.fromJson(json as Map<String, dynamic>)).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('加载本地播放队列失败: $e');
+    }
+  }
+
+  Future<void> _saveNowPlayingToLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = jsonEncode(_nowPlayingItems.map((item) => item.toJson()).toList());
+      await prefs.setString(_nowPlayingKey, json);
+    } catch (e) {
+      debugPrint('保存本地播放队列失败: $e');
     }
   }
 
@@ -458,6 +489,30 @@ class PlaylistProvider with ChangeNotifier {
     _favoritedBvids.clear();
     for (final item in _favoritesItems) {
       _favoritedBvids.add(item.bvid);
+    }
+  }
+
+  /// 设置当前正在查看的歌单ID
+  void setCurrentPlaylistId(String? playlistId) {
+    _currentPlaylistId = playlistId;
+    // 不需要notifyListeners，因为这只是一个内部状态
+  }
+
+  /// 排序歌单项
+  Future<bool> sortPlaylistItems({
+    required String playlistId,
+    required String sortType,
+  }) async {
+    try {
+      final response = await _dioProvider.put(
+        '/playlists/$playlistId/sort',
+        data: {'sortType': sortType},
+      );
+
+      return response['success'] == true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
     }
   }
 

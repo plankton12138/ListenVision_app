@@ -106,20 +106,20 @@ class DownloadManager with ChangeNotifier {
     // 检查 URL 格式
     if (!url.startsWith('https://www.bilibili.com/video/') &&
         !url.startsWith('http://www.bilibili.com/video/')) {
-      showMySnackBar(context, '仅支持B站视频下载', Colors.red, 500);
+      DialogHelper.showSnackBar(context, '仅支持B站视频下载', backgroundColor: Colors.red, duration: 500);
       return;
     }
 
     try {
       final bvid = _extractBvid(url);
       if (bvid == null || bvid.isEmpty) {
-        showMySnackBar(context, '无法解析视频ID', Colors.red, 500);
+        DialogHelper.showSnackBar(context, '无法解析视频ID', backgroundColor: Colors.red, duration: 500);
         return;
       }
       await _downloadByBvid(context, bvid);
     } catch (e) {
       debugPrint('【DownloadManager】下载失败: $e');
-      showMySnackBar(context, '下载失败: $e', Colors.red, 1000);
+      DialogHelper.showSnackBar(context, '下载失败: $e', backgroundColor: Colors.red, duration: 1000);
     }
   }
 
@@ -146,7 +146,7 @@ class DownloadManager with ChangeNotifier {
       );
 
       if (videoData == null || videoData['audioUrl'] == null) {
-        showMySnackBar(context, '获取视频信息失败', Colors.red, 500);
+        DialogHelper.showSnackBar(context, '获取视频信息失败', backgroundColor: Colors.red, duration: 500);
         return;
       }
 
@@ -158,7 +158,7 @@ class DownloadManager with ChangeNotifier {
       final existsResult = await _repository.existsByBvid(bvid);
       final exists = existsResult.fold((_) => false, (e) => e);
       if (exists) {
-        showMySnackBar(context, '该任务已存在', Colors.orange, 1000);
+        DialogHelper.showSnackBar(context, '该任务已存在', backgroundColor: Colors.orange, duration: 1000);
         return;
       }
 
@@ -184,7 +184,7 @@ class DownloadManager with ChangeNotifier {
 
       final taskId = createResult.fold((_) => -1, (id) => id);
       if (taskId == -1) {
-        showMySnackBar(context, '创建任务失败', Colors.red, 500);
+        DialogHelper.showSnackBar(context, '创建任务失败', backgroundColor: Colors.red, duration: 500);
         return;
       }
 
@@ -196,10 +196,10 @@ class DownloadManager with ChangeNotifier {
       // 7. 刷新列表
       await refreshDownloads();
 
-      showMySnackBar(context, '已添加到下载列表: $title', Colors.green, 1000);
+      DialogHelper.showSnackBar(context, '已添加到下载列表: $title', backgroundColor: Colors.green, duration: 1000);
     } catch (e) {
       debugPrint('【DownloadManager】_downloadByBvid 失败: $e');
-      showMySnackBar(context, '下载失败: $e', Colors.red, 1000);
+      DialogHelper.showSnackBar(context, '下载失败: $e', backgroundColor: Colors.red, duration: 1000);
     }
   }
 

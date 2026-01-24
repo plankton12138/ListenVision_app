@@ -1,4 +1,6 @@
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/widgets/volume_slider.dart';
+import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -110,24 +112,47 @@ class ControlsPanel extends StatelessWidget {
 
   /// 构建控制按钮
   Widget _buildControlButtons(BuildContext context, AudioProvider provider) {
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        IconButton(
-          icon: const Icon(Icons.skip_previous),
-          iconSize: 45,
-          onPressed: () => provider.playPrevious(),
+        // 第一行：播放控制按钮
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.skip_previous),
+              iconSize: 45,
+              onPressed: () => provider.playPrevious(),
+            ),
+            IconButton(
+              icon: Icon(provider.isPlaying ? Icons.pause : Icons.play_arrow),
+              iconSize: 45,
+              onPressed: () => provider.togglePlayPause(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.skip_next),
+              iconSize: 45,
+              onPressed: () => provider.playNext(),
+            ),
+          ],
         ),
-        IconButton(
-          icon: Icon(provider.isPlaying ? Icons.pause : Icons.play_arrow),
-          iconSize: 45,
-          onPressed: () => provider.togglePlayPause(),
-        ),
-        IconButton(
-          icon: const Icon(Icons.skip_next),
-          iconSize: 45,
-          onPressed: () => provider.playNext(),
+
+        const SizedBox(height: 16),
+
+        // 第二行：Phase 3B 播放控制（音量和倍速）
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: const [
+            // 音量滑块
+            VolumeSlider(),
+
+            SizedBox(width: 24),
+
+            // 倍速按钮
+            SpeedButton(),
+          ],
         ),
       ],
     );

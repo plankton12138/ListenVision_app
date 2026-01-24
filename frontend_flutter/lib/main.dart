@@ -108,9 +108,6 @@ void main() async {
           create: (_) {
             final provider = AudioProvider();
             // 延迟恢复播放状态，确保播放列表已加载
-            Future.delayed(const Duration(milliseconds: 500), () {
-              provider.restorePlaybackState();
-            });
             return provider;
           },
         ),

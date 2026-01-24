@@ -26,8 +26,9 @@ const getUserPlaylists = catchAsync(async (req, res) => {
 const getPlaylistDetail = catchAsync(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
+  const { sortType } = req.query; // 从查询参数获取排序类型
 
-  const detail = playlistService.getPlaylistDetail(parseInt(id), userId);
+  const detail = playlistService.getPlaylistDetail(parseInt(id), userId, sortType);
 
   return successResponse(res, detail, '获取歌单详情成功');
 });
@@ -118,6 +119,31 @@ const reorderItems = catchAsync(async (req, res) => {
   playlistService.reorderItems(parseInt(id), items);
 
   return successResponse(res, { success: true }, '调整顺序成功');
+});
+
+/**
+ * 重新排序歌单项
+ */
+const sortItems = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { sortType } = req.body;
+
+  // 验证sortType参数
+  const validSortTypes = [
+    'added_at_desc', 'added_at_asc',
+    'title_asc', 'title_desc',
+    'artist_asc', 'artist_desc',
+    'position_asc'
+  ];
+
+  if (!sortType || !validSortTypes.includes(sortType)) {
+    throw new AppError('无效的排序类型', 400);
+  }
+
+  playlistService.sortItems(parseInt(id), sortType, userId);
+
+  return successResponse(res, { success: true }, '排序成功');
 });
 
 // ==================== 收藏快捷方法 ====================
@@ -213,6 +239,7 @@ module.exports = {
   addItem,
   removeItem,
   reorderItems,
+  sortItems,
   // 收藏快捷方法
   toggleFavorite,
   checkFavorite,

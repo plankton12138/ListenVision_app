@@ -338,9 +338,9 @@ class _SettingsPageState extends State<SettingsPage> {
       final success = await provider.unbindAccount();
       if (mounted) {
         if (success) {
-          showMySnackBar(context, '解绑成功', Colors.green, 2000);
+          DialogHelper.showSnackBar(context, '解绑成功', backgroundColor: Colors.green, duration: 2000);
         } else {
-          showMySnackBar(context, provider.errorMessage ?? '解绑失败', Colors.red, 2000);
+          DialogHelper.showSnackBar(context, provider.errorMessage ?? '解绑失败', backgroundColor: Colors.red, duration: 2000);
         }
       }
     }
@@ -432,7 +432,7 @@ class _QRCodeDialogState extends State<_QRCodeDialog> {
               // 延迟显示SnackBar，确保对话框完全关闭后再显示
               Future.delayed(const Duration(milliseconds: 300), () {
                 if (context.mounted) {
-                  showMySnackBar(context, 'B站账号绑定成功！', Colors.green, 2000);
+                  DialogHelper.showSnackBar(context, 'B站账号绑定成功！', backgroundColor: Colors.green, duration: 2000);
                 }
               });
             }

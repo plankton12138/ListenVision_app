@@ -92,6 +92,14 @@ class StorageKeys {
 
   /// 是否正在播放在线音频
   static const String isCurrentOnline = 'is_current_online';
+
+  // ==================== Phase 3B: 播放控制设置 ====================
+
+  /// 播放音量（0.0 - 1.0）
+  static const String playbackVolume = 'playback_volume';
+
+  /// 播放倍速（0.5x - 2.0x）
+  static const String playbackSpeed = 'playback_speed';
 }
 
 /// StorageConstants 别名（向后兼容）

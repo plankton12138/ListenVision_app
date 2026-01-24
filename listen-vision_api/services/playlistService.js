@@ -90,9 +90,10 @@ const getUserPlaylists = (userId) => {
  * 获取歌单详情（包含items）
  * @param {number} playlistId - 歌单ID
  * @param {number} userId - 用户ID（用于权限验证）
+ * @param {string} sortType - 排序方式，默认按position ASC
  * @returns {Object} 歌单详情及items
  */
-const getPlaylistDetail = (playlistId, userId) => {
+const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new Error('歌单不存在');
@@ -101,11 +102,25 @@ const getPlaylistDetail = (playlistId, userId) => {
     throw new Error('无权访问此歌单');
   }
 
-  const items = stmt.itemsByPlaylistId.all(playlistId);
+  let items;
+  if (sortType === 'position_asc') {
+    // 使用现有预编译语句
+    items = stmt.itemsByPlaylistId.all(playlistId);
+  } else {
+    // 动态排序查询
+    const orderBy = getOrderByClause(sortType);
+    const dynamicStmt = db.prepare(`
+      SELECT * FROM playlist_items
+      WHERE playlist_id = ?
+      ORDER BY ${orderBy}
+    `);
+    items = dynamicStmt.all(playlistId);
+  }
 
   return {
     ...playlist,
-    items
+    items,
+    sortType // 返回当前排序方式
   };
 };
 
@@ -357,6 +372,62 @@ const getNowPlaying = (userId) => {
 };
 
 /**
+ * 获取排序子句
+ * @param {string} sortType - 排序类型
+ * @returns {string} ORDER BY 子句
+ */
+const getOrderByClause = (sortType) => {
+  switch (sortType) {
+    case 'added_at_desc':
+      return 'added_at DESC';
+    case 'added_at_asc':
+      return 'added_at ASC';
+    case 'title_asc':
+      return 'title ASC';
+    case 'title_desc':
+      return 'title DESC';
+    case 'artist_asc':
+      return 'artist ASC';
+    case 'artist_desc':
+      return 'artist DESC';
+    case 'position_asc':
+    default:
+      return 'position ASC';
+  }
+};
+
+/**
+ * 重新排序歌单项（应用新的排序方式）
+ * @param {number} playlistId - 歌单ID
+ * @param {string} sortType - 排序类型
+ * @param {number} userId - 用户ID（用于权限验证）
+ */
+const sortItems = (playlistId, sortType, userId) => {
+  const playlist = stmt.playlistById.get(playlistId);
+  if (!playlist) {
+    throw new Error('歌单不存在');
+  }
+  if (playlist.user_id !== userId) {
+    throw new Error('无权修改此歌单');
+  }
+
+  // 获取当前项并按新排序方式重新排序
+  const orderBy = getOrderByClause(sortType);
+  const dynamicStmt = db.prepare(`
+    SELECT id FROM playlist_items
+    WHERE playlist_id = ?
+    ORDER BY ${orderBy}
+  `);
+  const items = dynamicStmt.all(playlistId);
+
+  // 更新position字段
+  const updateStmt = db.prepare('UPDATE playlist_items SET position = ? WHERE id = ?');
+  items.forEach((item, index) => {
+    updateStmt.run(index, item.id);
+  });
+};
+
+/**
  * 增加歌单播放次数
  * @param {number} playlistId - 歌单ID
  */
@@ -375,6 +446,7 @@ module.exports = {
   addItem,
   removeItem,
   reorderItems,
+  sortItems,
   toggleFavorite,
   isFavorited,
   getFavorites,

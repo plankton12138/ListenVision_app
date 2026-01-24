@@ -37,7 +37,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   void _checkLoginAndLoad() {
     final authProvider = context.read<AuthProvider>();
     if (!authProvider.isLoggedIn) {
-      showMySnackBar(context, '请先登录', Colors.orange, 1500);
+      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
       context.go('/login');
       return;
     }
@@ -94,11 +94,11 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     try {
       await historyProvider.clearHistory(authProvider.user!.token);
       if (mounted) {
-        showMySnackBar(context, '播放历史已清空', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '播放历史已清空', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
       if (mounted) {
-        showMySnackBar(context, '清空失败: $e', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '清空失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
     }
   }
@@ -267,12 +267,12 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
             icon: const Icon(Icons.play_circle_outline),
             onPressed: () {
               // TODO: 重新播放这首歌
-              showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
+              DialogHelper.showSnackBar(context, '播放功能开发中', backgroundColor: Colors.blue, duration: 1500);
             },
           ),
           onTap: () {
             // TODO: 播放这首歌
-            showMySnackBar(context, '播放功能开发中', Colors.blue, 1500);
+            DialogHelper.showSnackBar(context, '播放功能开发中', backgroundColor: Colors.blue, duration: 1500);
           },
         ),
       ),

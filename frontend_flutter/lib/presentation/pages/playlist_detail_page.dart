@@ -7,6 +7,8 @@ import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
+import 'package:demo/presentation/widgets/add_song_dialog.dart';
+import 'package:demo/presentation/widgets/sort_options_dialog.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +36,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   @override
   void initState() {
     super.initState();
+    // 设置当前歌单ID到Provider
+    final playlistProvider = context.read<PlaylistProvider>();
+    playlistProvider.setCurrentPlaylistId(widget.playlistId);
     _loadDetail();
   }
 
@@ -111,7 +116,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
       return;
     }
 
@@ -123,13 +128,13 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       );
 
       if (success && mounted) {
-        showMySnackBar(context, '已移除', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '已移除', backgroundColor: Colors.green, duration: 1500);
         _loadDetail(); // 重新加载
       } else {
-        showMySnackBar(context, '移除失败', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '移除失败', backgroundColor: Colors.red, duration: 2000);
       }
     } catch (e) {
-      showMySnackBar(context, '移除失败: $e', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '移除失败: $e', backgroundColor: Colors.red, duration: 2000);
     }
   }
 
@@ -137,6 +142,24 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     setState(() {
       _isReordering = !_isReordering;
     });
+  }
+
+  // Phase 5: 显示添加歌曲对话框
+  void _showAddSongDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AddSongDialog(),
+    );
+  }
+
+  // Phase 5: 显示排序选项对话框
+  void _showSortOptionsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const SortOptionsDialog(),
+    );
   }
 
   Future<void> _reorderItems(int oldIndex, int newIndex) async {
@@ -160,7 +183,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
       return;
     }
 
@@ -185,11 +208,26 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
         actions: [
+          // Phase 5: 添加歌曲按钮
+          if (_detail != null)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _showAddSongDialog,
+              tooltip: '添加歌曲',
+            ),
+          // Phase 5: 排序选项按钮
           if (_detail != null && _detail!.items.isNotEmpty)
             IconButton(
-              icon: Icon(_isReordering ? Icons.check : Icons.sort),
+              icon: const Icon(Icons.sort),
+              onPressed: _showSortOptionsDialog,
+              tooltip: '排序选项',
+            ),
+          // 拖拽排序按钮
+          if (_detail != null && _detail!.items.isNotEmpty)
+            IconButton(
+              icon: Icon(_isReordering ? Icons.check : Icons.list),
               onPressed: _toggleReorder,
-              tooltip: _isReordering ? '完成排序' : '调整顺序',
+              tooltip: _isReordering ? '完成排序' : '拖拽排序',
             ),
         ],
       ),
@@ -411,7 +449,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final authProvider = context.read<AuthProvider>();
 
     try {
-      showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+      DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
 
       // 获取音频流URL
       final streamData = await bilibiliProvider.getAudioStream(item.bvid);
@@ -446,12 +484,12 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       }
 
       if (mounted) {
-        showMySnackBar(context, '开始播放: ${audio.title}', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '开始播放: ${audio.title}', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
       debugPrint('【PlaylistDetailPage】播放失败: $e');
       if (mounted) {
-        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
     }
   }

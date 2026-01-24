@@ -10,8 +10,7 @@ class ApiConstants {
   /// 根据编译模式自动选择环境
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // defaultValue: 'http://localhost:3000',
-    defaultValue: 'http://192.168.0.200:3000',
+    defaultValue: 'http://localhost:3000',
   );
 
   /// API 版本
@@ -21,9 +20,10 @@ class ApiConstants {
   static String get fullBaseUrl => '$baseUrl$apiVersion';
 
   /// 请求超时时间（毫秒）
-  static const Duration connectTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
-  static const Duration sendTimeout = Duration(seconds: 30);
+  /// 增加到60秒，避免后端慢时超时
+  static const Duration connectTimeout = Duration(seconds: 60);
+  static const Duration receiveTimeout = Duration(seconds: 60);
+  static const Duration sendTimeout = Duration(seconds: 60);
 
   /// 是否启用日志
   static const bool enableLogging = bool.fromEnvironment(
@@ -58,6 +58,7 @@ class PlaylistEndpoints {
   static String playlistById(dynamic id) => '/playlists/$id';
   static String playlistItems(dynamic id) => '/playlists/$id/items';
   static String playlistItem(dynamic id, String bvid) => '/playlists/$id/items/$bvid';
+  static String sortPlaylist(dynamic id) => '/playlists/$id/sort';
   static const String favorites = '/playlists/favorites';
   static const String favoritesToggle = '/playlists/favorites/toggle';
   static String favoritesCheck(String bvid) => '/playlists/favorites/check/$bvid';

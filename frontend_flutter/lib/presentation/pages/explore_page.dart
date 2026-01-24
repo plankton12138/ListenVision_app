@@ -63,7 +63,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     await _bilibiliProvider?.ensureInitialized();
 
     if (_authProvider == null || !_authProvider!.isLoggedIn) {
-      showMySnackBar(context, '请先登录', Colors.orange, 1500);
+      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
       context.go('/login');
       return;
     }
@@ -86,9 +86,11 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
   void _loadData() {
     final isBound = _bilibiliProvider?.isBound ?? false;
     if (!isBound) {
-      setState(() {
-        _errorMessage = '请先绑定B站账号以查看推荐内容';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = '请先绑定B站账号以查看推荐内容';
+        });
+      }
       return;
     }
     _loadDataForTab(_tabController.index);
@@ -98,10 +100,12 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
   Future<void> _loadDataForTab(int index) async {
     if (_bilibiliProvider == null) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       switch (index) {
@@ -113,13 +117,17 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
           break;
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -134,20 +142,22 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     // 从provider获取数据并转换为模型
     // 注意：使用 fromDto 而不是 fromJson，因为后端返回的字段名与 Freezed 模型不完全匹配
     // fromDto 处理了字段名映射：uname->uploader, cover->coverUrl, snum->songCount, statistic->stats
-    setState(() {
-      _hotPlaylists = BiliPlaylistsResponse(
-        playlists: provider.hotPlaylists.map((p) => BiliPlaylist.fromDto(p)).toList(),
-        page: 1,
-        pageSize: provider.hotPlaylists.length,
-        total: provider.hotPlaylists.length,
-      );
-      _hotRank = BiliPlaylistsResponse(
-        playlists: provider.hotRank.map((p) => BiliPlaylist.fromDto(p)).toList(),
-        page: 1,
-        pageSize: provider.hotRank.length,
-        total: provider.hotRank.length,
-      );
-    });
+    if (mounted) {
+      setState(() {
+        _hotPlaylists = BiliPlaylistsResponse(
+          playlists: provider.hotPlaylists.map((p) => BiliPlaylist.fromDto(p)).toList(),
+          page: 1,
+          pageSize: provider.hotPlaylists.length,
+          total: provider.hotPlaylists.length,
+        );
+        _hotRank = BiliPlaylistsResponse(
+          playlists: provider.hotRank.map((p) => BiliPlaylist.fromDto(p)).toList(),
+          page: 1,
+          pageSize: provider.hotRank.length,
+          total: provider.hotRank.length,
+        );
+      });
+    }
   }
 
   /// Phase 2B: 加载音乐区数据（爬虫方式）
@@ -157,18 +167,22 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     final success = await provider.loadMusicZoneRecommendations();
 
     if (!success) {
-      setState(() {
-        _errorMessage = provider.errorMessage ?? '加载音乐区推荐失败';
-        _musicZoneFallback = true;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = provider.errorMessage ?? '加载音乐区推荐失败';
+          _musicZoneFallback = true;
+        });
+      }
       return;
     }
 
     // 从provider获取数据
-    setState(() {
-      _musicZoneData = provider.musicZoneRecommendations;
-      _musicZoneFallback = provider.musicZoneFallback;
-    });
+    if (mounted) {
+      setState(() {
+        _musicZoneData = provider.musicZoneRecommendations;
+        _musicZoneFallback = provider.musicZoneFallback;
+      });
+    }
 
     debugPrint('【ExplorePage】Music zone loaded: ${_musicZoneData.length} items');
   }
@@ -347,7 +361,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       child: InkWell(
         onTap: () async {
           if (arcurl.isNotEmpty) {
-            showMySnackBar(context, '即将播放: $title', Colors.blue, 1500);
+            DialogHelper.showSnackBar(context, '即将播放: $title', backgroundColor: Colors.blue, duration: 1500);
           }
         },
         child: Padding(
@@ -531,7 +545,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          showMySnackBar(context, '歌单详情功能开发中', Colors.blue, 1500);
+          DialogHelper.showSnackBar(context, '歌单详情功能开发中', backgroundColor: Colors.blue, duration: 1500);
         },
       ),
     );
@@ -549,7 +563,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     final authProvider = context.read<AuthProvider>();
 
     try {
-      showMySnackBar(context, '正在加载...', Colors.blue, 1000);
+      DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
 
       // 获取音频流URL
       final streamData = await bilibiliProvider.getAudioStream(bvid);
@@ -582,12 +596,12 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       }
 
       if (mounted) {
-        showMySnackBar(context, '开始播放: ${audio.title}', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '开始播放: ${audio.title}', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
       debugPrint('【ExplorePage】播放失败: $e');
       if (mounted) {
-        showMySnackBar(context, '播放失败: $e', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
     }
   }

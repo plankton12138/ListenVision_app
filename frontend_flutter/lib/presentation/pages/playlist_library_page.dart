@@ -38,7 +38,7 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
   void _checkLoginAndLoad() {
     final authProvider = context.read<AuthProvider>();
     if (!authProvider.isLoggedIn) {
-      showMySnackBar(context, '请先登录', Colors.orange, 1500);
+      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
       context.go('/login');
       return;
     }
@@ -49,10 +49,12 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final token = authProvider.user?.token ?? '';
@@ -60,13 +62,17 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
         await playlistProvider.initialize(token);
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -124,14 +130,16 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final token = authProvider.user?.token ?? '';
       if (token.isEmpty) {
-        showMySnackBar(context, '用户未登录', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
         return;
       }
       final newPlaylist = await playlistProvider.createPlaylist(
@@ -141,16 +149,20 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
       );
 
       if (newPlaylist != null && mounted) {
-        showMySnackBar(context, '歌单创建成功', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '歌单创建成功', backgroundColor: Colors.green, duration: 1500);
       } else {
-        showMySnackBar(context, '歌单创建失败', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '歌单创建失败', backgroundColor: Colors.red, duration: 2000);
       }
     } catch (e) {
-      showMySnackBar(context, '创建失败: $e', Colors.red, 2000);
+      if (mounted) {
+        DialogHelper.showSnackBar(context, '创建失败: $e', backgroundColor: Colors.red, duration: 2000);
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -237,13 +249,15 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final success = await playlistProvider.updatePlaylist(
@@ -254,16 +268,18 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
       );
 
       if (success && mounted) {
-        showMySnackBar(context, '歌单已更新', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '歌单已更新', backgroundColor: Colors.green, duration: 1500);
       } else {
-        showMySnackBar(context, '更新失败', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '更新失败', backgroundColor: Colors.red, duration: 2000);
       }
     } catch (e) {
-      showMySnackBar(context, '更新失败: $e', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '更新失败: $e', backgroundColor: Colors.red, duration: 2000);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -294,13 +310,15 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      showMySnackBar(context, '用户未登录', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final success = await playlistProvider.deletePlaylist(
@@ -309,16 +327,18 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
       );
 
       if (success && mounted) {
-        showMySnackBar(context, '歌单已删除', Colors.green, 1500);
+        DialogHelper.showSnackBar(context, '歌单已删除', backgroundColor: Colors.green, duration: 1500);
       } else {
-        showMySnackBar(context, '删除失败', Colors.red, 2000);
+        DialogHelper.showSnackBar(context, '删除失败', backgroundColor: Colors.red, duration: 2000);
       }
     } catch (e) {
-      showMySnackBar(context, '删除失败: $e', Colors.red, 2000);
+      DialogHelper.showSnackBar(context, '删除失败: $e', backgroundColor: Colors.red, duration: 2000);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

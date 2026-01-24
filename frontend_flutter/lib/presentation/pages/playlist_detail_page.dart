@@ -99,7 +99,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       final response = await DioProvider.instance.get('/playlists/${widget.playlistId}');
 
       if (response['success'] == true && response['data'] != null) {
-        _detail = PlaylistDetail.fromJson(response['data'] as Map<String, dynamic>);
+        // P0 修复: 使用 fromDto 而不是 fromJson，正确处理后端 snake_case 字段名
+        _detail = PlaylistDetail.fromDto(response['data'] as Map<String, dynamic>);
       }
 
       setState(() {

@@ -63,7 +63,8 @@ class PlaylistCrudProvider extends ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        _playlists = data.map((json) => Playlist.fromJson(json as Map<String, dynamic>)).toList();
+        // P0 修复: 使用 fromDto 而不是 fromJson
+        _playlists = data.map((json) => Playlist.fromDto(json as Map<String, dynamic>)).toList();
         debugPrint('【PlaylistCrudProvider】加载歌单: ${_playlists.length}');
       } else {
         throw Exception(response['message'] ?? '加载歌单失败');

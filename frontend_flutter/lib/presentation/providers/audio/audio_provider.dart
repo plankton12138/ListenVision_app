@@ -1111,6 +1111,7 @@ class AudioProvider extends ChangeNotifier {
   }
 
   /// 设置音频源并播放（辅助方法）
+  /// P0 修复: 播放后立即更新状态，不等待 stream 事件
   Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
     debugPrint('【AudioProvider】设置音频源: ${playable.url}');
 
@@ -1128,6 +1129,9 @@ class AudioProvider extends ChangeNotifier {
           debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
 
           await _player.play();
+          // P0 修复: 立即更新播放状态，避免 UI 状态不同步
+          _isPlaying = true;
+          notifyListeners();
 
           // 如果成功，中断重试循环
           break;
@@ -1145,6 +1149,9 @@ class AudioProvider extends ChangeNotifier {
       // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
       await _player.setAudioSource(AudioSource.file(playable.url));
       await _player.play();
+      // P0 修复: 立即更新播放状态
+      _isPlaying = true;
+      notifyListeners();
     }
   }
 

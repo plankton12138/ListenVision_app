@@ -565,12 +565,6 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     try {
       DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
 
-      // 获取音频流URL
-      final streamData = await bilibiliProvider.getAudioStream(bvid);
-      if (streamData == null || streamData['baseUrl'] == null) {
-        throw Exception('无法获取音频流');
-      }
-
       // 创建 Audio 实体
       final audio = Audio.fromDto({
         'bvid': bvid,
@@ -579,10 +573,10 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         'cover': item['cover'] ?? item['pic'],
       });
 
-      // 播放
+      // P0 修复: 不再使用已废弃的 streamUrl 参数
+      // audioProvider 会自动构建代理 URL
       await audioProvider.playOnlineAudio(
         audio: audio,
-        streamUrl: streamData['baseUrl'],
       );
 
       // 记录播放历史

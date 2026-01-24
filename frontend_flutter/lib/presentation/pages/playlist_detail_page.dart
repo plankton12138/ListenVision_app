@@ -569,23 +569,17 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   /// Phase 2: 播放歌单项
+  /// P0 修复: 使用 proxyUrl 而不是已废弃的 streamUrl 参数
   Future<void> _playPlaylistItem(
     BuildContext context,
     PlaylistItem item,
   ) async {
     final audioProvider = context.read<AudioProvider>();
-    final bilibiliProvider = context.read<BilibiliProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
     final authProvider = context.read<AuthProvider>();
 
     try {
       DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
-
-      // 获取音频流URL
-      final streamData = await bilibiliProvider.getAudioStream(item.bvid);
-      if (streamData == null || streamData['baseUrl'] == null) {
-        throw Exception('无法获取音频流');
-      }
 
       // 创建 Audio 实体
       final audio = Audio.fromDto({
@@ -596,10 +590,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
         'duration': item.duration,
       });
 
-      // 播放
+      // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
+      // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
       await audioProvider.playOnlineAudio(
         audio: audio,
-        streamUrl: streamData['baseUrl'],
       );
 
       // 记录播放历史

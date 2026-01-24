@@ -1,19 +1,43 @@
 # Phase 5: Bug修复与功能改进计划
 
 > **创建日期**: 2026-01-19
-> **最后更新**: 2026-01-23（修复音频叠加和启动闪退问题，增强Range请求支持）
+> **最后更新**: 2026-01-24（播放控制增强：音量/倍速、歌单排序、在线封面异步加载）
 >
 > **目标**: 修复现有Bug并改进播放列表和推荐功能
 >
 > **依赖**: Phase 2、3 完成（在线播放、歌单系统）
 >
-> **状态**: ✅ Phase 2 在线播放已完成，Phase 5 Bug修复已完成（just_audio 迁移 + 格式转换）
+> **状态**: ✅ Phase 2 在线播放已完成，Phase 5 Bug修复已完成（just_audio 迁移 + 格式转换 + 播放控制增强）
 >
 > **🔄 阶段重排说明**: 原 **Phase 2B** 已重排为 **Phase 5**，调整为低优先级优化阶段
 >
 > **✅ 重要更新**:
 > - Phase 2 在线播放功能已于 2026-01-22 基本完成实现，核心数据流已打通
 > - 2026-01-23 修复音频叠加和启动闪退问题，增强HTTP Range请求支持
+> - 2026-01-24 **播放控制增强**：音量/倍速控制、歌单排序、在线封面异步加载
+>
+> **新增功能清单**:
+> - ✅ 音量控制（VolumeSlider 组件 + setVolume 方法 + 持久化存储）
+> - ✅ 倍速控制（SpeedButton 组件 + setSpeed 方法 + 持久化存储）
+> - ✅ 歌单排序（SortOptionsDialog 组件 + sortPlaylistItems API 端点）
+> - ✅ 添加歌曲到歌单（AddSongDialog 组件）
+> - ✅ 在线封面异步加载（_loadOnlineCover 方法，不阻塞播放）
+>
+> **新增组件**:
+> - `lib/presentation/widgets/volume_slider.dart` - 音量滑块组件
+> - `lib/presentation/widgets/speed_button.dart` - 倍速按钮组件
+> - `lib/presentation/widgets/add_song_dialog.dart` - 添加歌曲对话框
+> - `lib/presentation/widgets/sort_options_dialog.dart` - 排序选项对话框
+>
+> **新增API端点**:
+> - `PUT /api/playlists/:id/sort` - 歌单排序API
+>   - 参数：sortType (added_at_desc/asc, title_asc/desc, artist_asc/desc, position_asc)
+>   - 功能：重新排序歌单项并更新position字段
+>
+> **新增存储键**:
+> - `playback_volume` - 播放音量（0.0 - 1.0）
+> - `playback_speed` - 播放倍速（0.5x - 2.0x）
+
 
 ---
 
@@ -28,7 +52,7 @@
 | | **Phase 3** | 播放列表与收藏云同步 | ✅ 已完成 | 100% | 后端API完整实现 |
 | | **Phase 3A** | 播放列表页面改进 | ✅ 已完成 | 100% | 进度持久化、拖拽排序 |
 | | **Phase 4** | 搜索推荐、下载服务 | 🚧 部分完成 | 70% | 搜索推荐完成，下载已迁移前端 |
-| | **Phase 5** | Bug修复与功能改进 | ✅ 已完成 | 100% | just_audio迁移、Range支持、音频叠加修复 |
+| | **Phase 5** | Bug修复与功能改进 | ✅ 已完成 | 100% | just_audio迁移、Range支持、音频叠加修复、播放控制增强 |
 
 **总体进度**: 92% 🔥
 

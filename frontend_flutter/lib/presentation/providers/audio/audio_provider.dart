@@ -52,10 +52,16 @@ class AudioProvider extends ChangeNotifier {
 
   // P0 修复: 播放启动标志（防止 stream 事件覆盖正在启动的播放状态）
   bool _isStartingPlayback = false;
+  DateTime? _playbackStartTime; // 记录播放启动时间
 
   // Phase 2: 音频流能力（从后端获取）
   bool _isSeekable = true; // 默认支持 seek（本地音频）
   String? _currentContentType; // 当前音频的 Content-Type
+
+  // P0 修复: 保存防抖（防止短时间内多次保存）
+  Timer? _saveDebounceTimer;
+  static const Duration _saveDebounceDelay = Duration(milliseconds: 500);
+  bool _isSaving = false; // P0 修复: 防止重复保存
 
   // Phase 5: just_audio 状态（不再需要手动推断缓冲）
   // just_audio 的 ProcessingState 直接提供精确的缓冲状态
@@ -81,8 +87,22 @@ class AudioProvider extends ChangeNotifier {
   static const Duration _minOperationInterval = Duration(milliseconds: 300);
 
   // Phase 3B: 播放控制状态（音量/倍速）
+  /// 播放音量（0.0 - 1.0）
   double _volume = 1.0;  // 默认音量 100%
   double _speed = 1.0;   // 默认倍速 1.0x
+
+  // ✅ 新增：缓冲状态（用于 m4s 转换时显示进度）
+  bool _isBuffering = false;  // 是否正在缓冲/转换中
+  double _bufferingProgress = 0.0; // 缓冲进度（0-100）
+
+  /// 播放音量（0.0 - 1.0）
+  double get volume => _volume;
+
+  /// 播放倍速（0.5x - 2.0x）
+  double get speed => _speed;
+
+  /// 缓冲进度（0-100）
+  double get bufferingProgress => _bufferingProgress;
 
   AudioProvider() {
     _init();
@@ -139,10 +159,21 @@ class AudioProvider extends ChangeNotifier {
       (state) {
         if (_disposed) return;
 
-        // 如果正在启动播放，且 stream 状态为 false（缓冲中），不覆盖
+        // P0 修复: 播放启动保护窗口（2秒内不覆盖手动设置的播放状态）
         if (_isStartingPlayback && !state.playing) {
-          debugPrint('【AudioProvider】播放启动中，跳过 stream 状态更新（缓冲中）');
-          return;
+          final elapsed = _playbackStartTime != null
+              ? DateTime.now().difference(_playbackStartTime!)
+              : Duration.zero;
+
+          if (elapsed.inSeconds < 2) {
+            debugPrint('【AudioProvider】播放启动保护中，跳过 stream 状态更新（已过 ${elapsed.inMilliseconds}ms，状态: ${state.playing}, 处理: ${state.processingState}）');
+            return;
+          } else {
+            // 保护窗口已过，关闭保护
+            _isStartingPlayback = false;
+            _playbackStartTime = null;
+            debugPrint('【AudioProvider】播放启动保护窗口已结束');
+          }
         }
 
         _isPlaying = state.playing;
@@ -259,23 +290,37 @@ class AudioProvider extends ChangeNotifier {
   /// - 当前播放索引
   /// - 当前播放位置
   /// - 是否为在线音频
+  ///
+  /// P0 修复: 添加防抖机制，避免短时间内多次保存
+  /// P0 修复: 使用 _isSaving 标志防止重复保存
   Future<void> _saveUnifiedPlaylist() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
+    // 如果正在保存，取消之前的保存计划
+    _saveDebounceTimer?.cancel();
 
-      // 序列化播放列表
-      final playlistJson = jsonEncode(
-        _unifiedPlaylist.map((a) => a.toMap()).toList(),
-      );
-      await prefs.setString(StorageKeys.unifiedPlaylist, playlistJson);
-      await prefs.setInt(StorageKeys.currentPlaylistIndex, _currentIndex);
-      await prefs.setInt(StorageKeys.currentPlaybackPosition, _position.inSeconds);
-      await prefs.setBool(StorageKeys.isCurrentOnline, _isCurrentOnline);
+    // 延迟执行保存，合并短时间内的多次调用
+    _saveDebounceTimer = Timer(_saveDebounceDelay, () async {
+      if (_disposed || _isSaving) return;
 
-      debugPrint('【AudioProvider】统一播放列表已保存: ${_unifiedPlaylist.length} 首, 索引: $_currentIndex');
-    } catch (e) {
-      debugPrint('【AudioProvider】保存统一播放列表失败: $e');
-    }
+      _isSaving = true;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+
+        // 序列化播放列表
+        final playlistJson = jsonEncode(
+          _unifiedPlaylist.map((a) => a.toMap()).toList(),
+        );
+        await prefs.setString(StorageKeys.unifiedPlaylist, playlistJson);
+        await prefs.setInt(StorageKeys.currentPlaylistIndex, _currentIndex);
+        await prefs.setInt(StorageKeys.currentPlaybackPosition, _position.inSeconds);
+        await prefs.setBool(StorageKeys.isCurrentOnline, _isCurrentOnline);
+
+        debugPrint('【AudioProvider】统一播放列表已保存: ${_unifiedPlaylist.length} 首, 索引: $_currentIndex');
+      } catch (e) {
+        debugPrint('【AudioProvider】保存统一播放列表失败: $e');
+      } finally {
+        _isSaving = false;
+      }
+    });
   }
 
   /// 从 SharedPreferences 恢复统一播放列表
@@ -428,14 +473,6 @@ class AudioProvider extends ChangeNotifier {
     return null;
   }
 
-  // Phase 3B: 播放控制 Getters
-  /// 播放音量（0.0 - 1.0）
-  double get volume => _volume;
-
-  /// 播放倍速（0.5x - 2.0x）
-  double get speed => _speed;
-
-
   // 当前音频的封面 URL（在线音频）
   String? get coverUrl {
     if (_isCurrentOnline && _currentOnlineAudio != null) {
@@ -520,25 +557,29 @@ class AudioProvider extends ChangeNotifier {
         debugPrint('【loadAudio】数据库中找到: $titleFromDb - $artistFromDb');
       }
 
-      // 从文件解析元数据（使用 metadata_god 库）
-      try {
-        if (!File(filePath).existsSync()) {
-          debugPrint('【loadAudio】文件不存在: $filePath');
-          throw Exception('文件不存在');
-        }
+       // ✅ 从文件解析元数据（使用 compute() 移到后台线程）
+       try {
+         // 快速文件存在性检查（保持同步，因为很快）
+         if (!File(filePath).existsSync()) {
+           debugPrint('【loadAudio】文件不存在: $filePath');
+           throw Exception('文件不存在');
+         }
 
-        final metadata = await MetadataGod.readMetadata(file: filePath);
-        fileTitle = metadata.title?.trim() ?? '';
-        fileArtist = metadata.artist?.trim() ?? '';
-        fileAlbum = metadata.album?.trim() ?? '';
+         // ✅ 使用 compute() 在 isolate 中提取元数据（避免阻塞 UI）
+         final metadataResult = await compute(_extractMetadataIsolate, filePath);
 
-        if (metadata.picture != null) {
-          fileCover = metadata.picture!.data;
-          debugPrint('【loadAudio】找到封面: ${fileCover.length} 字节');
-        }
-      } catch (e, s) {
-        debugPrint('【loadAudio】元数据解析失败: $e\n$s');
-      }
+         // ✅ 安全的类型转换
+         fileTitle = (metadataResult['title'] as String?) ?? '';
+         fileArtist = (metadataResult['artist'] as String?) ?? '';
+         fileAlbum = (metadataResult['album'] as String?) ?? '';
+         fileCover = metadataResult['cover'] as Uint8List?;
+
+         if (fileCover != null && fileCover!.isNotEmpty) {
+           debugPrint('【loadAudio】找到封面: ${fileCover.length} 字节');
+         }
+       } catch (e, s) {
+         debugPrint('【loadAudio】元数据解析失败: $e\n$s');
+       }
 
       // 合并策略: 文件元数据 > 数据库 > 文件名
       final dbHasValidTitle = titleFromDb != null &&
@@ -696,14 +737,14 @@ class AudioProvider extends ChangeNotifier {
   /// 跳转到指定位置
   /// Phase 5 修复: 在线音频流不支持 seek，避免 MPV 错误
   /// Phase 6 优化: 根据后端返回的 seekable 能力动态决定是否执行 seek
+  /// Phase 7 修复: 不抛出异常，改为静默返回，避免 UI 崩溃
   Future<void> seek(Duration position) async {
     if (_disposed) return;
 
     // 检查当前音频是否支持 seek
     if (!_isSeekable) {
       debugPrint('【AudioProvider】当前音频不支持 seek（转码流或缓存流），跳过跳转操作');
-      // 可以考虑抛出一个特定异常，让 UI 层显示提示
-      throw UnsupportedError('当前音频格式不支持跳转，请使用原始格式（m4s）');
+      return; // 静默返回，不抛出异常
     }
 
     try {
@@ -713,7 +754,7 @@ class AudioProvider extends ChangeNotifier {
       // just_audio 会自动处理状态恢复
     } catch (e) {
       debugPrint('【AudioProvider】跳转失败: $e');
-      rethrow; // 重新抛出异常，让 UI 层处理
+      // 不抛出异常，静默处理
     }
   }
 
@@ -897,10 +938,14 @@ class AudioProvider extends ChangeNotifier {
   /// [audio] Audio 实体（包含元数据）
   /// [streamUrl] 音频流URL（从后端获取，已废弃）
   /// [proxyUrl] 后端代理URL（可选，如果提供则使用代理）
+  /// [preferredFormat] 首选格式（'auto'、'm4s'、'mp3'）
+  /// [autoFallback] 是否自动降级（默认 true）
   Future<void> playOnlineAudio({
     required Audio audio,
     String? streamUrl,
     String? proxyUrl,
+    String? preferredFormat,  // ✅ 新增：客户端格式偏好
+    bool autoFallback = true,  // ✅ 新增：自动降级
   }) async {
     // 检查相同音频是否已在播放
     if (_isCurrentOnline &&
@@ -918,13 +963,13 @@ class AudioProvider extends ChangeNotifier {
     }
 
     try {
-      debugPrint('【AudioProvider】准备播放在线音频: ${audio.title}');
+      debugPrint('【AudioProvider】准备播放在线音频: ${audio.title}, 偏好格式: ${preferredFormat ?? "auto"}');
 
       // 获取音频流能力信息
       await _fetchAudioCapabilities(audio.id);
 
-      // 使用新的代理端点：通过BVID获取音频流（URL更短，MPV兼容性更好）
-      proxyUrl ??= _buildProxyUrl(audio.id);
+      // ✅ 构建代理 URL（支持客户端指定格式）
+      proxyUrl ??= _buildProxyUrl(audio.id, preferredFormat ?? 'auto');
 
       // 设置在线音频状态
       _isCurrentOnline = true;
@@ -938,11 +983,25 @@ class AudioProvider extends ChangeNotifier {
 
       // 设置音频源并播放
       await _playPlayable(playable);
-
-      debugPrint('【AudioProvider】在线播放开始: ${audio.title}, seekable: $_isSeekable');
+      debugPrint('【AudioProvider】在线播放开始: ${audio.title}, 格式: ${preferredFormat ?? "auto"}, seekable: $_isSeekable');
       notifyListeners();
     } catch (e) {
       debugPrint('【AudioProvider】在线播放失败: $e');
+
+      // ✅ 自动降级机制
+      if (autoFallback && preferredFormat == 'm4s') {
+        debugPrint('【AudioProvider】m4s 播放失败，自动降级到 mp3: $e');
+
+        // 降级到 mp3
+        proxyUrl = _buildProxyUrl(audio.id, 'mp3');
+        final fallbackPlayable = OnlinePlayable.fromAudio(audio, proxyUrl);
+
+        await _addPlayableToPlaylist(fallbackPlayable, playImmediately: true);
+        await _playPlayable(fallbackPlayable);
+        debugPrint('【AudioProvider】mp3 降级播放成功: ${audio.title}');
+        return;
+      }
+
       rethrow;
     }
   }
@@ -984,11 +1043,14 @@ class AudioProvider extends ChangeNotifier {
 
   /// 构建后端代理URL（使用BVID，短URL）
   ///
-  /// 新的代理端点格式: /api/bilibili/proxy/audio/:bvid
-  /// 这样URL会短很多，MPV兼容性更好
-  String _buildProxyUrl(String bvid) {
-    // 使用BVID而不是完整URL，URL更短，MPV兼容性更好
-    return '${ApiConstants.fullBaseUrl}/bilibili/proxy/audio/$bvid';
+  /// 新的代理端点格式: /api/bilibili/proxy/audio/:bvid?format=auto|m4s|mp3
+  /// P0 修复: Windows 上使用 127.0.0.1 替代 localhost（MPV兼容性）
+  ///
+  /// [format] 格式选择：'auto'（默认）、'm4s'（最高效）、'mp3'（最兼容）
+  String _buildProxyUrl(String bvid, [String format = 'auto']) {
+    // P0 修复: Windows 上 MPV 无法解析 localhost，使用 127.0.0.1
+    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
+    return '$baseUrl/api/bilibili/proxy/audio/$bvid?format=$format';
   }
 
   /// 添加 PlayableAudio 到统一播放列表
@@ -1130,8 +1192,10 @@ class AudioProvider extends ChangeNotifier {
   Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
     debugPrint('【AudioProvider】设置音频源: ${playable.url}');
 
-    // P0 修复: 设置播放启动标志，防止 stream 事件覆盖状态
+    // P0 修复: 设置播放启动标志和时间，防止 stream 事件覆盖状态
     _isStartingPlayback = true;
+    _playbackStartTime = DateTime.now();
+    debugPrint('【AudioProvider】播放启动保护已开启（2秒窗口）');
 
     try {
       // 设置音频源并播放（根据类型选择不同方式）
@@ -1174,8 +1238,10 @@ class AudioProvider extends ChangeNotifier {
       }
     } finally {
       // P0 修复: 延迟清除播放启动标志，给足够时间让播放器真正开始播放
-      Future.delayed(const Duration(milliseconds: 500), () {
+      // 使用 2.5 秒延迟，比保护窗口（2秒）稍长，确保保护窗口结束后再清除
+      Future.delayed(const Duration(milliseconds: 2500), () {
         _isStartingPlayback = false;
+        _playbackStartTime = null;
         debugPrint('【AudioProvider】播放启动完成，解除状态保护');
       });
     }
@@ -1394,6 +1460,44 @@ class AudioProvider extends ChangeNotifier {
     }
   }
 
+  /// ✅ 新增：在隔离线程中提取元数据（静态函数）
+  ///
+  /// 使用 Flutter 的 compute() 将阻塞操作移到后台线程
+  /// 避免在线播放过程中点击上传按钮时进程卡死
+  ///
+  /// 返回: {
+  ///   'title': String,
+  ///   'artist': String,
+  ///   'album': String,
+  ///   'cover': Uint8List?
+  /// }
+  static Future<Map<String, dynamic>> _extractMetadataIsolate(String filePath) async {
+    try {
+      // 异步获取元数据
+      final metadata = await MetadataGod.readMetadata(file: filePath);
+
+      Uint8List? cover;
+      if (metadata.picture != null) {
+        cover = metadata.picture!.data;
+      }
+
+      return {
+        'title': metadata.title?.trim() ?? '',
+        'artist': metadata.artist?.trim() ?? '',
+        'album': metadata.album?.trim() ?? '',
+        'cover': cover,
+      };
+    } catch (e) {
+      debugPrint('【AudioProvider】元数据解析失败: $e');
+      return {
+        'title': '',
+        'artist': '',
+        'album': '',
+        'cover': null,
+      };
+    }
+  }
+
   // ==================== Phase 3B: 播放控制方法 ====================
 
   /// 设置播放音量（0.0 - 1.0）
@@ -1459,15 +1563,21 @@ class AudioProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    // 先设置标志，防止回调在销毁过程中执行
+    // P0 修复: 先取消防抖定时器，不设置 _disposed 标志
+    // 这样 _saveUnifiedPlaylistSync() 可以正常执行
+    _saveDebounceTimer?.cancel();
+
+    // P0 修复: 同步保存统一播放列表（在设置 _disposed 之前）
+    // 注意：由于 dispose 不能是 async，保存可能不会立即完成
+    // 但至少确保保存操作被触发
+    _saveUnifiedPlaylistSync();
+
+    // 现在设置标志，防止回调在销毁过程中执行
     _disposed = true;
 
     // 停止定时器
     _stopPositionSaveTimer();
     _stopProgressUpdateTimer(); // Phase 2 遗留问题: 停止进度更新定时器
-
-    // Phase 2 遗留问题: 销毁前保存统一播放列表
-    _saveUnifiedPlaylist();
 
     // 取消所有订阅
     _positionSub.cancel();
@@ -1477,5 +1587,27 @@ class AudioProvider extends ChangeNotifier {
     // 销毁播放器
     _player.dispose();
     super.dispose();
+  }
+
+  /// 同步保存统一播放列表（dispose 时使用）
+  Future<void> _saveUnifiedPlaylistSync() async {
+    if (_disposed) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 序列化播放列表
+      final playlistJson = jsonEncode(
+        _unifiedPlaylist.map((a) => a.toMap()).toList(),
+      );
+      await prefs.setString(StorageKeys.unifiedPlaylist, playlistJson);
+      await prefs.setInt(StorageKeys.currentPlaylistIndex, _currentIndex);
+      await prefs.setInt(StorageKeys.currentPlaybackPosition, _position.inSeconds);
+      await prefs.setBool(StorageKeys.isCurrentOnline, _isCurrentOnline);
+
+      debugPrint('【AudioProvider】统一播放列表已同步保存');
+    } catch (e) {
+      debugPrint('【AudioProvider】同步保存统一播放列表失败: $e');
+    }
   }
 }

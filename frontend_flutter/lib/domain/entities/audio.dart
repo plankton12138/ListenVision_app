@@ -34,18 +34,66 @@ class Audio with _$Audio implements BaseEntity {
 
   /// 从 DTO/后端响应创建
   factory Audio.fromDto(Map<String, dynamic> json) {
+    // ✅ 安全的数值转字符串转换（防御性编程）
+    final safeString = (dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is int) return value.toString();
+      if (value is double) return value.toInt().toString();
+      return value.toString();
+    };
+
+    // ✅ 安全的数值转换
+    final safeInt = (dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    };
+
+    // ✅ 修复：统一封面字段解析（支持多种命名方式）
+    // 后端可能返回：'cover', 'pic', 'cover', 'coverUrl', 'cover_url'
+    final safeCoverUrl = () {
+      // 优先级1：检查 'cover'（推荐）
+      if (json['cover'] != null) {
+        final value = json['cover'];
+        if (value is String && value.isNotEmpty) return value;
+        if (value is Map && value['url'] != null) return value['url'] as String;
+        return value.toString();
+      }
+      // 优先级2：检查 'pic'（搜索页面使用）
+      if (json['pic'] != null) {
+        final value = json['pic'];
+        if (value is String && value.isNotEmpty) return value;
+        return value.toString();
+        if (value is Map && value['url'] != null) return value['url'] as String;
+        return value.toString();
+      }
+      // 优先级3：检查 'coverUrl'（标准字段）
+      if (json['coverUrl'] != null) {
+        return json['coverUrl'] as String?;
+      }
+      // 优先级4：检查 'cover_url'
+      if (json['cover_url'] != null) {
+        return json['cover_url'] as String?;
+      }
+      // 优先级5：默认：返回空
+      return null;
+    };
+
     return Audio(
-      id: json['bvid']?.toString() ?? json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      artist: json['artist']?.toString() ?? json['author']?.toString() ?? json['uname']?.toString(),
-      album: json['album']?.toString(),
-      coverUrl: json['cover']?.toString() ?? json['pic']?.toString() ?? json['coverUrl']?.toString(),
-      streamUrl: json['stream_url']?.toString() ?? json['streamUrl']?.toString(),
+      id: safeString(json['bvid'] ?? json['id'] ?? json['bvId']) ?? '',
+      title: safeString(json['title']) ?? '',
+      artist: safeString(json['artist'] ?? json['author'] ?? json['uname']),
+      album: safeString(json['album']),
+      coverUrl: safeCoverUrl(),  // ✅ 统一封面字段解析
+      streamUrl: safeString(json['stream_url'] ?? json['streamUrl']),
       duration: _parseDuration(json['duration']),
-      description: json['description']?.toString() ?? json['desc']?.toString(),
+      description: safeString(json['description'] ?? json['desc']),
       playCount: _parsePlayCount(json['play']),
-      uploader: json['uploader']?.toString() ?? json['author']?.toString(),
-      uploaderMid: json['uploader_mid']?.toString() ?? json['mid']?.toString(),
+      uploader: safeString(json['uploader'] ?? json['author']),
+      uploaderMid: safeString(json['uploader_mid'] ?? json['mid']),
       publishedAt: _parseDateTime(json['pubdate'] ?? json['published_at'] ?? json['publishedAt']),
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),

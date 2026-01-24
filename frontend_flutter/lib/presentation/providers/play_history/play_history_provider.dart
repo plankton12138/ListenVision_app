@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:demo/core/network/dio_provider.dart';
+import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 /// 播放历史状态管理
 ///
@@ -58,7 +60,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        _history = data.map((json) => PlayHistory.fromJson(json as Map<String, dynamic>)).toList();
+        _history = data.map((json) => PlayHistory.fromDto(json as Map<String, dynamic>)).toList();
         _saveHistoryToLocal();
       }
     } catch (e) {
@@ -77,7 +79,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        _history = data.map((json) => PlayHistory.fromJson(json as Map<String, dynamic>)).toList();
+        _history = data.map((json) => PlayHistory.fromDto(json as Map<String, dynamic>)).toList();
         _saveHistoryToLocal();
         notifyListeners();
       }
@@ -155,29 +157,41 @@ class PlayHistoryProvider with ChangeNotifier {
     _saveHistoryToLocal();
     notifyListeners();
 
-    // 异步同步到服务器
+    // 异步同步到服务器（非阻塞，15秒超时）
     if (token != null && token.isNotEmpty) {
-      try {
-        await _dioProvider.post(
-          '/history',
-          data: {
-            if (bvid != null) 'bvid': bvid,
-            if (localPath != null) 'localPath': localPath,
-            if (title != null) 'title': title,
-            if (artist != null) 'artist': artist,
-            if (duration != null) 'duration': duration,
-            if (coverUrl != null) 'coverUrl': coverUrl,
-            'progress': progress,
-          },
-        );
+      // P0 修复: 不使用 await，避免阻塞播放流程
+      // 增加超时时间到15秒，避免频繁超时失败
+      // 注意：直接使用 dio 实例以设置自定义超时
+      final dio = Dio(BaseOptions(
+        baseUrl: ApiConstants.fullBaseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
+        headers: {'Authorization': 'Bearer $token'},
+      ));
 
+      dio
+          .post(
+            '/history',
+            data: {
+              if (bvid != null) 'bvid': bvid,
+              if (localPath != null) 'localPath': localPath,
+              if (title != null) 'title': title,
+              if (artist != null) 'artist': artist,
+              if (duration != null) 'duration': duration,
+              if (coverUrl != null) 'coverUrl': coverUrl,
+              'progress': progress,
+            },
+          )
+          .then((response) {
         // 更新统计
         _stats = PlayHistoryStats(
           totalPlays: (_stats?.totalPlays ?? 0) + 1,
         );
-      } catch (e) {
-        debugPrint('记录播放失败: $e');
-      }
+        debugPrint('【PlayHistoryProvider】播放历史记录成功');
+      }).catchError((e) {
+        debugPrint('【PlayHistoryProvider】记录播放失败（不影响播放）: $e');
+      });
     }
   }
 

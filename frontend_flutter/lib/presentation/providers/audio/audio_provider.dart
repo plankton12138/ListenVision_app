@@ -1079,14 +1079,18 @@ class AudioProvider extends ChangeNotifier {
         // 在线音频：异步加载封面
         _albumArt = null;
         final coverUrl = playable.coverUrl;
+        debugPrint('【AudioProvider】在线封面URL: $coverUrl');
         if (coverUrl != null && coverUrl.isNotEmpty) {
           // 异步加载封面，不阻塞播放
           _loadOnlineCover(coverUrl).then((coverData) {
             if (coverData != null && !_disposed) {
               _albumArt = coverData;
+              debugPrint('【AudioProvider】封面加载成功并更新');
               notifyListeners();
             }
           });
+        } else {
+          debugPrint('【AudioProvider】封面URL为空，跳过封面加载');
         }
       } else {
         // 本地音频

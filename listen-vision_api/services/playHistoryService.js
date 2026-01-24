@@ -83,7 +83,20 @@ const recordPlay = (userId, options = {}) => {
   if (existingRecord) {
     // 更新现有记录
     stmt.updateHistoryProgress.run(progress, existingRecord.id);
-    return { ...existingRecord, progress, played_at: new Date().toISOString() };
+    // 返回格式化的数据（确保可以 JSON 序列化）
+    return {
+      id: existingRecord.id,
+      user_id: existingRecord.user_id,
+      bvid: existingRecord.bvid,
+      local_path: existingRecord.local_path,
+      audio_type: existingRecord.audio_type,
+      title: existingRecord.title,
+      artist: existingRecord.artist,
+      duration: existingRecord.duration,
+      cover_url: existingRecord.cover_url,
+      progress: progress,
+      played_at: new Date().toISOString()
+    };
   } else {
     // 插入新记录
     const result = stmt.insertHistory.run(
@@ -98,9 +111,21 @@ const recordPlay = (userId, options = {}) => {
       progress
     );
 
-    // 获取刚插入的记录
-    const newRecord = db.prepare('SELECT * FROM play_history WHERE id = ?').get(result.lastInsertRowid);
-    return newRecord;
+    // 获取刚插入的记录并格式化
+    const rawRecord = db.prepare('SELECT * FROM play_history WHERE id = ?').get(result.lastInsertRowid);
+    return {
+      id: rawRecord.id,
+      user_id: rawRecord.user_id,
+      bvid: rawRecord.bvid,
+      local_path: rawRecord.local_path,
+      audio_type: rawRecord.audio_type,
+      title: rawRecord.title,
+      artist: rawRecord.artist,
+      duration: rawRecord.duration,
+      cover_url: rawRecord.cover_url,
+      progress: rawRecord.progress,
+      played_at: rawRecord.played_at // SQLite 已返回 ISO 格式字符串
+    };
   }
 };
 

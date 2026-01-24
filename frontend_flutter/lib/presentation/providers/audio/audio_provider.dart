@@ -478,19 +478,17 @@ class AudioProvider extends ChangeNotifier {
 
       debugPrint('【loadAudio】开始加载: $filePath');
 
-      // 停止当前播放
-      await _player.stop();
-
-      // 等待播放器进入 idle 状态（最多等待2秒）
+      // 直接设置新音频源（不再先 stop，让 MPV 自动处理状态切换）
+      // 这比先 stop 再设置更可靠，避免了 idle 状态等待超时问题
+      debugPrint('【loadAudio】直接设置本地音频源');
       try {
-        await _player.processingStateStream
-            .firstWhere((s) => s == ProcessingState.idle)
-            .timeout(
-              const Duration(seconds: 2),
-              onTimeout: () => ProcessingState.idle,
-            );
+        await _player.setAudioSource(AudioSource.file(filePath));
       } catch (e) {
-        debugPrint('【loadAudio】等待 idle 状态超时，继续执行: $e');
+        // 如果设置失败，先 stop 再重试
+        debugPrint('【loadAudio】首次设置失败，尝试先 stop: $e');
+        await _player.stop();
+        await Future.delayed(const Duration(milliseconds: 200));
+        await _player.setAudioSource(AudioSource.file(filePath));
       }
 
       String? titleFromDb;
@@ -594,6 +592,9 @@ class AudioProvider extends ChangeNotifier {
 
       // 启动定时保存
       _startPositionSaveTimer();
+
+      // 记录本地音频播放历史
+      _recordPlaybackStart(LocalPlayable(_playlist[_currentIndex]));
 
       notifyListeners();
     } catch (e) {
@@ -708,17 +709,15 @@ class AudioProvider extends ChangeNotifier {
   /// 播放指定索引的音频
   /// Phase 2A: 添加定时保存启动
   /// Phase 5 修复: 添加去抖检查
+  /// 注意: loadAudio 内部已处理播放历史记录，此处不再重复调用
   Future<void> playAudio(int index) async {
     if (_disposed) return;
     if (index < 0 || index >= _playlist.length) return;
     if (!_checkOperationInterval()) return; // 去抖检查
 
     final audio = _playlist[index];
-    await loadAudio(audio.filePath); // loadAudio 已经处理了播放锁和定时器
+    await loadAudio(audio.filePath); // loadAudio 已经处理了播放锁、定时器和历史记录
     _currentIndex = _playlist.indexWhere((a) => a.filePath == audio.filePath);
-
-    // Phase 2 遗留问题: 记录本地音频播放历史
-    _recordPlaybackStart(LocalPlayable(audio));
 
     notifyListeners();
   }
@@ -1061,51 +1060,7 @@ class AudioProvider extends ChangeNotifier {
     _playOperationCompleter = Completer();
 
     try {
-      // 显式暂停 → 停止，确保状态平稳过渡
-      debugPrint('【AudioProvider】准备停止当前播放...');
-      await _player.pause();
-      await Future.delayed(const Duration(milliseconds: 100)); // 让 pause 完成
-
-      await _player.stop();
-      debugPrint('【AudioProvider】播放器已停止');
-
-      // 等待播放器进入 idle 状态（最多等待5秒，给流媒体足够清理时间）
-      try {
-        final state = await _player.processingStateStream
-            .firstWhere((s) => s == ProcessingState.idle)
-            .timeout(
-              const Duration(seconds: 5),
-              onTimeout: () {
-                debugPrint('【AudioProvider】等待 idle 状态超时（5秒）');
-                return ProcessingState.idle;
-              },
-            );
-        debugPrint('【AudioProvider】播放器状态: $state');
-      } catch (e) {
-        debugPrint('【AudioProvider】等待 idle 状态失败: $e');
-      }
-
-      // 释放在线音频资源
-      if (playable.isOnline) {
-        debugPrint('【AudioProvider】释放在线音频资源...');
-        // 设置空源强制释放之前的流资源
-        try {
-          await _player.setAudioSource(AudioSource.uri(Uri.parse('')));
-          await Future.delayed(const Duration(milliseconds: 100));
-        } catch (e) {
-          debugPrint('【AudioProvider】释放资源时出错（可忽略）: $e');
-        }
-      }
-
-      // 验证播放器状态
-      if (_player.playing) {
-        debugPrint('【AudioProvider】警告：播放器仍在播放中');
-        // 强制停止
-        await _player.stop();
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-
-      // 更新元数据
+      // 更新元数据（在设置音频源之前更新，避免 UI 闪烁）
       _title = playable.title;
       _artist = playable.artist ?? '未知艺术家';
 
@@ -1129,44 +1084,16 @@ class AudioProvider extends ChangeNotifier {
 
       debugPrint('【AudioProvider】播放: ${playable.url}');
 
-      // 设置音频源并播放（根据类型选择不同方式）
-      if (playable.isOnline) {
-        // 在线音频：添加重试逻辑
-        int retryCount = 0;
-        const maxRetries = 2;
-
-        while (retryCount <= maxRetries) {
-          try {
-            debugPrint('【AudioProvider】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
-
-            await _player.setUrl(playable.url);
-            debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
-
-            // 验证设置成功
-            if (_player.processingState == ProcessingState.idle) {
-              debugPrint('【AudioProvider】播放器准备就绪');
-            } else {
-              debugPrint('【AudioProvider】警告：播放器状态异常: ${_player.processingState}');
-            }
-
-            await _player.play();
-
-            // 如果成功，中断重试循环
-            break;
-          } catch (e) {
-            retryCount++;
-            if (retryCount <= maxRetries) {
-              debugPrint('【AudioProvider】播放失败，重试中...: $e');
-              await Future.delayed(Duration(seconds: 1)); // 重试前等待
-            } else {
-              rethrow; // 达到最大重试次数后放弃
-            }
-          }
-        }
-      } else {
-        // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
-        await _player.setAudioSource(AudioSource.file(playable.url));
-        await _player.play();
+      // 尝试直接设置新音频源（让 MPV 自动处理状态切换）
+      try {
+        await _setAudioSourceAndPlay(playable);
+        debugPrint('【AudioProvider】音频源设置成功');
+      } catch (e) {
+        // 如果直接设置失败，先停止再重试
+        debugPrint('【AudioProvider】首次设置失败，尝试先 stop: $e');
+        await _player.stop();
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _setAudioSourceAndPlay(playable);
       }
 
       // 启动定时保存（本地音频才保存状态）
@@ -1180,6 +1107,44 @@ class AudioProvider extends ChangeNotifier {
       // 释放播放操作锁
       _isPlayingOperation = false;
       _playOperationCompleter?.complete();
+    }
+  }
+
+  /// 设置音频源并播放（辅助方法）
+  Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
+    debugPrint('【AudioProvider】设置音频源: ${playable.url}');
+
+    // 设置音频源并播放（根据类型选择不同方式）
+    if (playable.isOnline) {
+      // 在线音频：添加重试逻辑
+      int retryCount = 0;
+      const maxRetries = 2;
+
+      while (retryCount <= maxRetries) {
+        try {
+          debugPrint('【AudioProvider】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
+
+          await _player.setUrl(playable.url);
+          debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
+
+          await _player.play();
+
+          // 如果成功，中断重试循环
+          break;
+        } catch (e) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            debugPrint('【AudioProvider】播放失败，重试中...: $e');
+            await Future.delayed(const Duration(seconds: 1)); // 重试前等待
+          } else {
+            rethrow; // 达到最大重试次数后放弃
+          }
+        }
+      }
+    } else {
+      // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
+      await _player.setAudioSource(AudioSource.file(playable.url));
+      await _player.play();
     }
   }
 

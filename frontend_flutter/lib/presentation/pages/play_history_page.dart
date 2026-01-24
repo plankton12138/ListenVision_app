@@ -1,5 +1,6 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
@@ -157,16 +158,14 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
           DialogHelper.showSnackBar(context, '开始播放: ${item.audio.title}', backgroundColor: Colors.green, duration: 1500);
         }
       } else {
-        // 在线音频：获取音频流URL
-        final streamData = await bilibiliProvider.getAudioStream(audioId);
-        if (streamData == null || streamData['baseUrl'] == null) {
-          throw Exception('无法获取音频流');
-        }
+        // 在线音频：使用后端代理URL播放（而不是直接使用B站原始URL）
+        // MPV 无法直接播放 B站的 .m4s 流（防盗链、URL过长等问题）
+        final proxyUrl = '${ApiConstants.fullBaseUrl}/bilibili/proxy/audio/$audioId';
 
         // 播放在线音频
         await audioProvider.playOnlineAudio(
           audio: item.audio,
-          proxyUrl: streamData['baseUrl'],
+          proxyUrl: proxyUrl,
         );
 
         // 记录播放历史（已登录用户）

@@ -31,7 +31,44 @@ class ControlsPanel extends StatelessWidget {
 
   /// 构建时间显示
   /// Phase 5: 使用 just_audio 精确状态检测
+  /// ✅ UX改进：优先显示用户友好的状态消息和错误提示
   Widget _buildTimeDisplay(BuildContext context, AudioProvider controller) {
+    // ✅ UX改进：优先显示错误状态（最优先）
+    if (controller.hasPlaybackError) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            controller.playerStatusMessage.isNotEmpty
+                ? controller.playerStatusMessage
+                : '播放失败',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ],
+      );
+    }
+
+    // ✅ UX改进：显示状态消息（正在播放、正在加载等）
+    if (controller.playerStatusMessage.isNotEmpty) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            controller.playerStatusMessage,
+            style: const TextStyle(color: Colors.blue),
+          ),
+        ],
+      );
+    }
+
     // ✅ 精确的加载状态（来自 just_audio ProcessingState）
     if (controller.isLoading) {
       return const Text(
@@ -39,7 +76,7 @@ class ControlsPanel extends StatelessWidget {
         style: TextStyle(color: Colors.blue),
       );
     }
-    
+
     // ✅ 精确的缓冲状态（来自 just_audio ProcessingState.buffering）
     if (controller.isBuffering) {
       return const Text(
@@ -47,7 +84,7 @@ class ControlsPanel extends StatelessWidget {
         style: TextStyle(color: Colors.orange),
       );
     }
-    
+
     // 已完成状态
     if (controller.isCompleted) {
       return const Text(
@@ -55,7 +92,7 @@ class ControlsPanel extends StatelessWidget {
         style: TextStyle(color: Colors.green),
       );
     }
-    
+
     // 空闲状态
     if (controller.isIdle) {
       return const Text(
@@ -63,7 +100,7 @@ class ControlsPanel extends StatelessWidget {
         style: TextStyle(color: Colors.grey),
       );
     }
-    
+
     return Text(
       '${controller.position.toString().split('.')[0]} / '
       '${controller.duration.toString().split('.')[0]}',
@@ -72,6 +109,7 @@ class ControlsPanel extends StatelessWidget {
 
   /// 构建进度条
   /// Phase 5: 使用 just_audio 精确状态检测
+  /// ✅ UX改进：在有状态消息或错误时显示友好提示
   Widget _buildProgressBar(BuildContext context, AudioProvider controller) {
     final durationSec = controller.duration.inSeconds;
     final positionSec = controller.position.inSeconds;
@@ -80,6 +118,40 @@ class ControlsPanel extends StatelessWidget {
     final safeValue = (durationSec > 0 && positionSec <= durationSec)
         ? positionSec.toDouble()
         : 0.0;
+
+    // ✅ UX改进：有错误时显示重试提示
+    if (controller.hasPlaybackError) {
+      return SizedBox(
+        height: 48,
+        child: Center(
+          child: TextButton.icon(
+            onPressed: () {
+              controller.clearPlaybackError();
+              controller.togglePlayPause();
+            },
+            icon: const Icon(Icons.refresh, color: Colors.blue),
+            label: const Text(
+              '点击重试',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ✅ UX改进：有状态消息时显示提示
+    if (controller.playerStatusMessage.isNotEmpty) {
+      return const SizedBox(
+        height: 24,
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
 
     // ✅ 加载或缓冲时显示进度指示器
     // just_audio 的状态是精确的，不会误判

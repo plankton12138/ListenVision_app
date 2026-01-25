@@ -53,10 +53,27 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
   }
 }));
 
-// API 路由
+// ========== API 路由配置 ==========
+
+// 版本路由（优先匹配，避免与旧路由冲突）
+try {
+  const v1Router = require('./routes/v1');
+  app.use('/api/v1', v1Router);
+  console.log('✅ v1 API routes registered (/api/v1/*)');
+} catch (e) {
+  console.error('❌ Failed to load v1 routes:', e.message);
+}
+
+// 兼容旧路由（无版本前缀，逐步废弃）
 // 调试中间件：打印所有请求
 app.use('/api', (req, res, next) => {
   console.log(`[DEBUG] ${req.method} ${req.originalUrl}`);
+
+  // 如果请求没有版本前缀，添加警告头
+  if (!req.path.startsWith('/api/v') && req.path !== '/api-docs') {
+    res.setHeader('X-API-Deprecation', 'true');
+    res.setHeader('X-API-Migration', 'Please use /api/v1/ endpoints instead');
+  }
   next();
 });
 

@@ -2,34 +2,43 @@
 ///
 /// 集中管理所有 API 相关的配置
 /// 便于环境切换和配置管理
+///
+/// 环境切换方式：
+/// ```bash
+/// # 开发环境（默认）
+/// flutter run
+///
+/// # 测试环境
+/// flutter run --dart-define=API_ENV=test
+///
+/// # 生产环境
+/// flutter run --dart-define=API_ENV=prod
+/// ```
+library;
+
+import 'package:demo/core/config/app_config.dart';
 
 /// API 基础配置
 class ApiConstants {
-  /// API 基础 URL
-  ///
-  /// 根据编译模式自动选择环境
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:3000',
-  );
+  /// 全局应用配置实例
+  static final config = appConfig;
+
+  /// API 基础 URL（从 AppConfig 获取）
+  static String get baseUrl => config.apiBaseUrl;
 
   /// API 版本
-  static const String apiVersion = '/api';
+  static String get apiVersion => config.apiVersion;
 
   /// 完整的基础 URL
-  static String get fullBaseUrl => '$baseUrl$apiVersion';
+  static String get fullBaseUrl => config.fullApiBaseUrl;
 
-  /// 请求超时时间（毫秒）
-  /// 增加到60秒，避免后端慢时超时
-  static const Duration connectTimeout = Duration(seconds: 60);
-  static const Duration receiveTimeout = Duration(seconds: 60);
-  static const Duration sendTimeout = Duration(seconds: 60);
+  /// 请求超时时间（从 AppConfig 获取）
+  static Duration get connectTimeout => Duration(seconds: config.connectTimeoutSeconds);
+  static Duration get receiveTimeout => Duration(seconds: config.receiveTimeoutSeconds);
+  static Duration get sendTimeout => Duration(seconds: config.sendTimeoutSeconds);
 
-  /// 是否启用日志
-  static const bool enableLogging = bool.fromEnvironment(
-    'API_LOGGING',
-    defaultValue: true,
-  );
+  /// 是否启用日志（从 AppConfig 获取）
+  static bool get enableLogging => config.enableApiLogging;
 }
 
 // ==================== 认证端点 ====================

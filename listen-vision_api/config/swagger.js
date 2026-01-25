@@ -61,12 +61,16 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: '开发服务器'
+        url: 'http://localhost:3000/api/v1',
+        description: '开发服务器 (v1)'
       },
       {
-        url: 'https://api.listenvision.com',
-        description: '生产服务器'
+        url: 'https://api.listenvision.com/api/v1',
+        description: '生产服务器 (v1)'
+      },
+      {
+        url: 'http://localhost:3000/api',
+        description: '开发服务器 (兼容模式 - 已弃用)'
       }
     ],
     components: {

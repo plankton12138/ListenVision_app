@@ -115,6 +115,16 @@ class PlaybackController {
           }
         }
 
+        // 当正在缓冲或加载时，不覆盖播放状态
+        // 因为缓冲是临时状态，播放意图应该保持
+        if (state.processingState == ProcessingState.buffering ||
+            state.processingState == ProcessingState.loading) {
+          // 保持 _isPlaying 不变，只通知 processingState 变化
+          _onProcessingStateChanged?.call(state.processingState);
+          debugPrint('【PlaybackController】缓冲/加载中，保持播放状态: _isPlaying=$_isPlaying, processing=${state.processingState}');
+          return;
+        }
+
         _isPlaying = state.playing;
         if (state.processingState == ProcessingState.completed) {
           _isPlaying = false;

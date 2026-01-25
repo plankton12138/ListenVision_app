@@ -192,7 +192,8 @@ class AudioProvider extends ChangeNotifier {
       _isCurrentOnline = wasOnline;
       if (currentPlayable.isOnline && currentPlayable is OnlinePlayable) {
         _currentOnlineAudio = currentPlayable.original;
-        _isSeekable = false;
+        // ⭐ 修复：在线音频支持 seek（HTTP Range 请求）
+        _isSeekable = true;
       }
 
       // 准备音频源（不自动播放）

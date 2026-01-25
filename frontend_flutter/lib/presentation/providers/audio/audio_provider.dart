@@ -49,9 +49,6 @@ class AudioProvider extends ChangeNotifier {
   /// PlayHistoryProvider 用于记录播放历史
   PlayHistoryProvider? _historyProvider;
 
-  /// 本地播放列表（向后兼容）
-  List<LocalAudio> _playlist = [];
-
   /// 当前元数据
   String _title = "未知标题";
   String _artist = "未知艺术家";
@@ -173,12 +170,9 @@ class AudioProvider extends ChangeNotifier {
     _playbackController.setSpeed(_stateManager.speed);
   }
 
-  /// 加载播放列表
+  /// 加载播放列表（从数据库同步到 UnifiedPlaylistManager）
   Future<void> _loadPlaylist() async {
     await _playlistManager.syncFromLocal();
-    // 复制内容而不是直接赋值（localPlaylist 是不可修改列表）
-    _playlist.clear();
-    _playlist.addAll(_playlistManager.localPlaylist);
     notifyListeners();
   }
 
@@ -222,7 +216,8 @@ class AudioProvider extends ChangeNotifier {
   String get title => _title;
   String get artist => _artist;
   Uint8List? get albumArt => _albumArt;
-  List<LocalAudio> get playlist => _playlist;
+  /// 本地播放列表（从 UnifiedPlaylistManager 获取）
+  List<LocalAudio> get localPlaylist => _playlistManager.localPlaylist;
   List<PlayableAudio> get unifiedPlaylist => _playlistManager.playlist;
   int get currentIndex => _playlistManager.currentIndex;
   /// 当前本地音频（向后兼容）
@@ -361,9 +356,10 @@ class AudioProvider extends ChangeNotifier {
   /// 播放指定索引的本地音频
   Future<void> playAudio(int index) async {
     if (_disposed) return;
-    if (index < 0 || index >= _playlist.length) return;
+    final localPlaylist = _playlistManager.localPlaylist;
+    if (index < 0 || index >= localPlaylist.length) return;
 
-    final audio = _playlist[index];
+    final audio = localPlaylist[index];
     await loadAudio(audio.filePath);
   }
 
@@ -396,12 +392,17 @@ class AudioProvider extends ChangeNotifier {
       // 设置在线状态
       _isCurrentOnline = true;
       _currentOnlineAudio = audio;
+      // ⭐ 修复：在线音频也支持 seek
+      _isSeekable = true;
 
-      // 添加到播放列表并立即播放
+      // 添加到播放列表并立即播放（会自动设置索引）
       await _playlistManager.add(playable, playImmediately: true);
 
       // 播放
       await _playPlayable(playable);
+
+      // ⭐ 保存播放列表和索引
+      await _playlistManager.save();
 
       debugPrint('【AudioProvider】在线播放开始: ${audio.title}');
       notifyListeners();
@@ -460,11 +461,15 @@ class AudioProvider extends ChangeNotifier {
     final playable = _playlistManager[index];
     if (playable == null) return;
 
-    // 设置在线状态
+    // ⭐ 关键修复：先更新索引，再播放
+    _playlistManager.setCurrentIndex(index, validate: false);
+
+    // 设置在线状态（在线音频也支持 seek，使用流媒体）
     _isCurrentOnline = playable.isOnline;
     if (playable.isOnline && playable is OnlinePlayable) {
       _currentOnlineAudio = playable.original;
-      _isSeekable = false;
+      // ⭐ 修复：在线音频支持 seek（HTTP Range 请求）
+      _isSeekable = true;
     } else {
       _currentOnlineAudio = null;
       _isSeekable = true;
@@ -504,17 +509,19 @@ class AudioProvider extends ChangeNotifier {
 
       debugPrint('【AudioProvider】开始加载: $filePath');
 
-      // 提取元数据
+      // 提取文件元数据
       final metadata = await _metadataLoader.extractFromFile(filePath);
 
-      // 合并元数据
-      final dbIndex = _playlist.indexWhere((a) => a.filePath == filePath);
+      // 从本地播放列表查找数据库元数据
+      final localPlaylist = _playlistManager.localPlaylist;
+      final dbIndex = localPlaylist.indexWhere((a) => a.filePath == filePath);
       final dbMetadata = dbIndex != -1 ? {
-        'title': _playlist[dbIndex].title,
-        'artist': _playlist[dbIndex].artist,
-        'albumArt': _playlist[dbIndex].albumArt,
+        'title': localPlaylist[dbIndex].title,
+        'artist': localPlaylist[dbIndex].artist,
+        'albumArt': localPlaylist[dbIndex].albumArt,
       } : null;
 
+      // 合并文件和数据库元数据
       final finalMetadata = _metadataLoader.mergeMetadata(
         fileMetadata: metadata,
         dbMetadata: dbMetadata,
@@ -528,15 +535,8 @@ class AudioProvider extends ChangeNotifier {
       await _playbackController.setFileSource(filePath);
       await _playbackController.play();
 
-      // 更新或添加到播放列表
-      if (dbIndex != -1) {
-        _playlist[dbIndex] = _playlist[dbIndex].copyWith(
-          title: _title,
-          artist: _artist,
-          url: finalMetadata['album'] as String? ?? '',
-          albumArt: _albumArt,
-        );
-      } else {
+      // 如果音频不在播放列表中，添加到播放列表
+      if (dbIndex == -1) {
         final audio = LocalAudio(
           filePath: filePath,
           title: _title,
@@ -552,10 +552,9 @@ class AudioProvider extends ChangeNotifier {
       _stateManager.startPositionSaveTimer();
 
       // 记录本地音频播放历史
-      final playable = LocalPlayable(
-        dbIndex != -1 ? _playlist[dbIndex] : _playlist.last,
-      );
-      await _recordPlaybackStart(playable);
+      if (dbIndex != -1) {
+        await _recordPlaybackStart(LocalPlayable(localPlaylist[dbIndex]));
+      }
 
       notifyListeners();
     } catch (e) {
@@ -610,7 +609,7 @@ class AudioProvider extends ChangeNotifier {
   Future<void> loadPlaylist() async {
     await _loadPlaylist();
 
-    if (_playlist.isEmpty) {
+    if (_playlistManager.localPlaylist.isEmpty) {
       await _playbackController.stop();
       _resetMetadata();
     }

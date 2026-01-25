@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/core/utils/error_handler.dart';
+import 'package:demo/presentation/providers/audio/playback_queue.dart';
 
 /// 播放控制器
 ///
@@ -11,21 +12,16 @@ import 'package:demo/core/utils/error_handler.dart';
 /// 2. 音频源管理
 /// 3. 播放状态检测
 ///
-/// 与 AudioProvider 分离，专注于底层播放控制
+/// Phase 优化: 集成 PlaybackQueue 解决快速点击导致的播放混乱
 class PlaybackController {
   final AudioPlayer _player;
+
+  // 播放队列
+  final PlaybackQueue _queue = PlaybackQueue();
 
   // 播放状态
   bool _isPlaying = false;
   bool _disposed = false;
-
-  // 播放操作锁（防止并发播放）
-  bool _isPlayingOperation = false;
-  Completer? _playOperationCompleter;
-
-  // 操作去抖
-  DateTime? _lastOperationTime;
-  static const Duration _minOperationInterval = Duration(milliseconds: 300);
 
   // 播放启动保护（防止 stream 事件覆盖正在启动的播放状态）
   bool _isStartingPlayback = false;
@@ -40,6 +36,7 @@ class PlaybackController {
 
   PlaybackController({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
     _initListeners();
+    _setupQueueCallbacks();
   }
 
   /// 获取底层播放器（供高级操作使用）
@@ -51,8 +48,14 @@ class PlaybackController {
   /// 是否已销毁
   bool get disposed => _disposed;
 
-  /// 是否正在播放操作中
-  bool get isPlayingOperation => _isPlayingOperation;
+  /// 播放队列状态
+  PlaybackQueueState get queueState => _queue.state;
+  bool get hasPendingCommands => _queue.hasPending;
+
+  /// 取消待处理的播放命令
+  void cancelPendingCommands() {
+    _queue.cancelPending();
+  }
 
   /// 当前处理状态
   ProcessingState get processingState => _player.processingState;
@@ -82,6 +85,13 @@ class PlaybackController {
   bool get isLoadingOrBuffering => isLoading || isBuffering;
 
   // ==================== 初始化 ====================
+
+  /// 设置队列回调
+  void _setupQueueCallbacks() {
+    _queue.setOnStateChanged((state) {
+      debugPrint('【PlaybackController】队列状态: $state');
+    });
+  }
 
   void _initListeners() {
     _playerStateSub = _player.playerStateStream.listen(
@@ -130,95 +140,111 @@ class PlaybackController {
 
   // ==================== 播放控制 ====================
 
-  /// 检查操作是否过于频繁（去抖）
-  bool _checkOperationInterval() {
-    final now = DateTime.now();
-    if (_lastOperationTime != null &&
-        now.difference(_lastOperationTime!) < _minOperationInterval) {
-      debugPrint('【PlaybackController】操作过于频繁，已忽略');
-      return false;
+  /// 执行播放命令
+  Future<void> _executeCommand(PlaybackCommand cmd) async {
+    switch (cmd.type) {
+      case PlaybackCommandType.play:
+        await _player.play();
+        _isPlaying = true;
+        _onPlayingChanged?.call(true);
+        debugPrint('【PlaybackController】播放已启动');
+        break;
+
+      case PlaybackCommandType.pause:
+        await _player.pause();
+        _isPlaying = false;
+        _onPlayingChanged?.call(false);
+        debugPrint('【PlaybackController】已暂停');
+        break;
+
+      case PlaybackCommandType.stop:
+        await _player.stop();
+        _isPlaying = false;
+        _onPlayingChanged?.call(false);
+        debugPrint('【PlaybackController】已停止');
+        break;
+
+      case PlaybackCommandType.seek:
+        final position = cmd.getParam<Duration>('position');
+        if (position != null) {
+          await _player.seek(position);
+          debugPrint('【PlaybackController】跳转到: ${position.inSeconds}秒');
+        }
+        break;
+
+      case PlaybackCommandType.setVolume:
+        final volume = cmd.getParam<double>('volume');
+        if (volume != null) {
+          final clampedVolume = volume.clamp(0.0, 1.0);
+          await _player.setVolume(clampedVolume);
+          debugPrint('【PlaybackController】音量已设置为: ${(clampedVolume * 100).toInt()}%');
+        }
+        break;
+
+      case PlaybackCommandType.setSpeed:
+        final speed = cmd.getParam<double>('speed');
+        if (speed != null) {
+          final clampedSpeed = speed.clamp(0.5, 2.0);
+          await _player.setSpeed(clampedSpeed);
+          debugPrint('【PlaybackController】倍速已设置为: $clampedSpeed');
+        }
+        break;
+
+      case PlaybackCommandType.changeTrack:
+        // 切换曲目由 AudioProvider 处理
+        break;
     }
-    _lastOperationTime = now;
-    return true;
   }
 
-  /// 等待之前的播放操作完成
-  Future<void> _waitForOperationComplete() async {
-    if (_isPlayingOperation) {
-      debugPrint('【PlaybackController】等待上一次播放操作完成...');
-      await _playOperationCompleter?.future;
-    }
-
-    // 设置播放操作锁
-    _isPlayingOperation = true;
-    _playOperationCompleter = Completer();
-  }
-
-  /// 释放播放操作锁
-  void _releaseOperationLock() {
-    _isPlayingOperation = false;
-    if (_playOperationCompleter != null && !_playOperationCompleter!.isCompleted) {
-      _playOperationCompleter!.complete();
-    }
-  }
-
-  /// 播放
+  /// 播放（通过队列）
   Future<void> play() async {
     if (_disposed) return;
-    if (!_checkOperationInterval()) return;
 
-    try {
-      await _player.play();
-      _isPlaying = true;
-      _onPlayingChanged?.call(true);
-      debugPrint('【PlaybackController】播放已启动');
-    } catch (e) {
-      debugPrint('【PlaybackController】播放失败: $e');
-      rethrow;
-    }
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.play,
+      params: {},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 暂停
+  /// 暂停（通过队列）
   Future<void> pause() async {
     if (_disposed) return;
 
-    try {
-      await _player.pause();
-      _isPlaying = false;
-      _onPlayingChanged?.call(false);
-      debugPrint('【PlaybackController】已暂停');
-    } catch (e) {
-      ErrorHandler.logError(e, tag: 'PlaybackController.pause');
-    }
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.pause,
+      params: {},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 停止
+  /// 停止（通过队列）
   Future<void> stop() async {
     if (_disposed) return;
 
-    try {
-      await _player.stop();
-      _isPlaying = false;
-      _onPlayingChanged?.call(false);
-      debugPrint('【PlaybackController】已停止');
-    } catch (e) {
-      ErrorHandler.logError(e, tag: 'PlaybackController.stop');
-    }
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.stop,
+      params: {},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 切换播放/暂停
+  /// 切换播放/暂停（通过队列）
   Future<void> togglePlayPause() async {
     if (_disposed) return;
-    if (!_checkOperationInterval()) return;
 
-    if (_isPlaying) {
-      await pause();
-    } else {
-      await play();
-    }
+    final cmd = PlaybackCommand(
+      type: _isPlaying ? PlaybackCommandType.pause : PlaybackCommandType.play,
+      params: {},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 跳转到指定位置
+  /// 跳转到指定位置（通过队列）
   ///
   /// [position] 目标位置
   /// [seekable] 是否支持 seek（用于条件检查）
@@ -229,32 +255,40 @@ class PlaybackController {
       return;
     }
 
-    try {
-      debugPrint('【PlaybackController】跳转到: ${position.inSeconds}秒');
-      await _player.seek(position);
-    } catch (e) {
-      ErrorHandler.logError(e, tag: 'PlaybackController.seek');
-    }
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.seek,
+      params: {'position': position},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 设置音量
+  /// 设置音量（通过队列）
   ///
   /// [volume] 音量值（0.0 - 1.0）
   Future<void> setVolume(double volume) async {
     if (_disposed) return;
-    final clampedVolume = volume.clamp(0.0, 1.0);
-    await _player.setVolume(clampedVolume);
-    debugPrint('【PlaybackController】音量已设置为: ${(clampedVolume * 100).toInt()}%');
+
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.setVolume,
+      params: {'volume': volume},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
-  /// 设置播放倍速
+  /// 设置播放倍速（通过队列）
   ///
   /// [speed] 倍速值（0.5x - 2.0x）
   Future<void> setSpeed(double speed) async {
     if (_disposed) return;
-    final clampedSpeed = speed.clamp(0.5, 2.0);
-    await _player.setSpeed(clampedSpeed);
-    debugPrint('【PlaybackController】倍速已设置为: $clampedSpeed');
+
+    final cmd = PlaybackCommand(
+      type: PlaybackCommandType.setSpeed,
+      params: {'speed': speed},
+    );
+
+    await cmd.execute(_executeCommand);
   }
 
   // ==================== 音频源管理 ====================
@@ -287,7 +321,8 @@ class PlaybackController {
   }) async {
     if (_disposed) return;
 
-    await _waitForOperationComplete();
+    // 取消待处理的命令，确保新的播放操作优先
+    _queue.cancelPending();
 
     // 设置播放启动保护
     _isStartingPlayback = true;
@@ -318,8 +353,6 @@ class PlaybackController {
           debugPrint('【PlaybackController】播放失败，延迟清除保护');
         });
       }
-
-      _releaseOperationLock();
     }
   }
 
@@ -482,6 +515,7 @@ class PlaybackController {
 
     _playerStateSub?.cancel();
     _player.dispose();
+    _queue.dispose();
 
     debugPrint('【PlaybackController】已释放');
   }

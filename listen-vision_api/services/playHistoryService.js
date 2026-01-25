@@ -14,31 +14,67 @@ const stmt = {
     WHERE user_id = ?
     ORDER BY played_at DESC
   `),
-  // Phase 2 遗留问题: 支持本地和在线音频的查找
-  historyByIdentifier: db.prepare(`
-    SELECT * FROM play_history
-    WHERE user_id = ? AND (bvid = ? OR local_path = ?)
-    ORDER BY played_at DESC
-    LIMIT 1
-  `),
-  // 插入/更新播放记录（支持本地和在线）
-  insertHistory: db.prepare(`
-    INSERT INTO play_history (user_id, bvid, local_path, audio_type, title, artist, duration, cover_url, progress)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `),
-  updateHistoryProgress: db.prepare(`
-    UPDATE play_history
-    SET progress = ?, played_at = datetime('now')
-    WHERE id = ?
-  `),
+
   // 删除历史
   deleteHistoryByUserId: db.prepare('DELETE FROM play_history WHERE user_id = ?'),
-  deleteHistoryItem: db.prepare('DELETE FROM play_history WHERE user_id = ? AND bvid = ?'),
   deleteHistoryItemByIdentifier: db.prepare('DELETE FROM play_history WHERE id = ?'),
   deleteHistoryById: db.prepare('DELETE FROM play_history WHERE id = ?'),
   // 统计
   countByUserId: db.prepare('SELECT COUNT(*) as count FROM play_history WHERE user_id = ?'),
 };
+
+/**
+ * 动态构建查找记录的 SQL
+ * 处理 bvid 为 NULL 的情况（本地音频）
+ */
+const getHistoryByIdentifier = (userId, bvid, localPath) => {
+  let sql = 'SELECT * FROM play_history WHERE user_id = ?';
+  const params = [userId];
+
+  if (bvid) {
+    // 在线音频：使用 bvid
+    sql += ' AND bvid = ?';
+    params.push(bvid);
+  } else {
+    // 本地音频：bvid IS NULL 且 local_path 匹配
+    sql += ' AND bvid IS NULL AND local_path = ?';
+    params.push(localPath);
+  }
+
+  sql += ' ORDER BY played_at DESC LIMIT 1';
+
+  return db.prepare(sql).get(...params);
+};
+
+/**
+ * 动态构建删除记录的 SQL
+ */
+const deleteHistoryByIdentifier = (userId, bvid, localPath) => {
+  let sql = 'DELETE FROM play_history WHERE user_id = ?';
+  const params = [userId];
+
+  if (bvid) {
+    sql += ' AND bvid = ?';
+    params.push(bvid);
+  } else {
+    sql += ' AND bvid IS NULL AND local_path = ?';
+    params.push(localPath);
+  }
+
+  return db.prepare(sql).run(...params);
+};
+
+// 插入/更新播放记录（支持本地和在线）
+const insertHistory = db.prepare(`
+  INSERT INTO play_history (user_id, bvid, local_path, audio_type, title, artist, duration, cover_url, progress)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const updateHistoryProgress = db.prepare(`
+  UPDATE play_history
+  SET progress = ?, played_at = datetime('now')
+  WHERE id = ?
+`);
 
 /**
  * 记录播放
@@ -77,12 +113,12 @@ const recordPlay = (userId, options = {}) => {
   // 查找是否已有该音频的播放记录
   let existingRecord = null;
   if (userId) {
-    existingRecord = stmt.historyByIdentifier.get(userId, identifier, identifier);
+    existingRecord = getHistoryByIdentifier(userId, bvid, localPath);
   }
 
   if (existingRecord) {
     // 更新现有记录
-    stmt.updateHistoryProgress.run(progress, existingRecord.id);
+    updateHistoryProgress.run(progress, existingRecord.id);
     // 返回格式化的数据（确保可以 JSON 序列化）
     return {
       id: existingRecord.id,
@@ -99,7 +135,7 @@ const recordPlay = (userId, options = {}) => {
     };
   } else {
     // 插入新记录
-    const result = stmt.insertHistory.run(
+    const result = insertHistory.run(
       userId,
       bvid,
       localPath,
@@ -162,11 +198,18 @@ const clearHistory = (userId) => {
 /**
  * 删除指定播放记录
  * @param {number} userId - 用户ID
- * @param {string} bvid - 视频BVID
+ * @param {string} bvid - 视频BVID（在线音频）
+ * @param {string} localPath - 本地路径（本地音频，可选）
  * @returns {boolean} 成功返回true
  */
-const removeHistoryItem = (userId, bvid) => {
-  stmt.deleteHistoryItem.run(userId, bvid);
+const removeHistoryItem = (userId, bvid, localPath = null) => {
+  if (bvid) {
+    // 删除在线音频记录
+    deleteHistoryByIdentifier(userId, bvid, null);
+  } else if (localPath) {
+    // 删除本地音频记录
+    deleteHistoryByIdentifier(userId, null, localPath);
+  }
   return true;
 };
 

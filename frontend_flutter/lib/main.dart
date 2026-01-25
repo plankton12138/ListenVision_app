@@ -41,7 +41,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 初始化 metadata_god（用于读取/写入音频元数据）
-  MetadataGod.initialize();
+  // 注意：这是一个异步方法，必须 await 等待初始化完成
+  await MetadataGod.initialize();
 
   // ========== P2 Clean Architecture: 初始化 ServiceFactory ==========
   // 必须在 runApp 之前完成初始化，确保 Repository 和 Dio 可用

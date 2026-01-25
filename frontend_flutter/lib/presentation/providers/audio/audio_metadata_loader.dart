@@ -61,8 +61,9 @@ class AudioMetadataLoader {
         throw Exception('文件不存在: $filePath');
       }
 
-      // 使用 compute() 在 isolate 中提取元数据（避免阻塞 UI）
-      final metadataResult = await compute(_extractMetadataIsolate, filePath);
+      // 直接提取元数据（不使用 compute，因为 metadata_god 需要 flutter_rust_bridge 初始化）
+      // isolate 环境无法访问主 isolate 的初始化状态
+      final metadataResult = await _extractMetadataDirect(filePath);
 
       debugPrint('【AudioMetadataLoader】元数据提取完成: ${metadataResult['title'] ?? '(未知)'} - ${metadataResult['artist'] ?? '(未知)'}');
       return metadataResult;
@@ -73,10 +74,12 @@ class AudioMetadataLoader {
     }
   }
 
-  /// 在 isolate 中提取元数据（静态函数）
+  /// 直接提取元数据（不使用 isolate）
   ///
-  /// 使用 Flutter 的 compute() 将阻塞操作移到后台线程
-  static Future<Map<String, dynamic>> _extractMetadataIsolate(String filePath) async {
+  /// 注意：metadata_god 的 flutter_rust_bridge 必须在主 isolate 中初始化，
+  /// 使用 compute() 会在新 isolate 中调用，导致未初始化错误。
+  /// 元数据读取通常很快，不会明显阻塞 UI。
+  Future<Map<String, dynamic>> _extractMetadataDirect(String filePath) async {
     try {
       final metadata = await MetadataGod.readMetadata(file: filePath);
 

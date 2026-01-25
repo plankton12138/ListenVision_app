@@ -255,7 +255,87 @@ const createTables = () => {
   console.log('✅ 数据库表初始化完成');
 };
 
+// 迁移：修复 play_history 表的 bvid 字段约束
+// 使其支持本地音频（bvid 可为 NULL）
+const migratePlayHistory = () => {
+  try {
+    // 检查表是否存在
+    const tableInfo = db.pragma('table_info(play_history)');
+
+    // 找到 bvid 列的定义
+    const bvidColumn = tableInfo.find(col => col.name === 'bvid');
+
+    if (bvidColumn && bvidColumn.notnull === 1) {
+      console.log('🔄 检测到旧版 play_history 表，开始迁移...');
+
+      // SQLite 不支持直接修改列约束，需要重建表
+      db.exec(`
+        -- 开始事务
+        BEGIN TRANSACTION;
+
+        -- 1. 创建新表（bvid 可为 NULL）
+        CREATE TABLE play_history_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          bvid TEXT,
+          local_path TEXT,
+          audio_type TEXT DEFAULT 'online',
+          title TEXT,
+          artist TEXT,
+          duration INTEGER,
+          cover_url TEXT,
+          played_at TEXT DEFAULT (datetime('now')),
+          progress INTEGER DEFAULT 0,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- 2. 复制数据（处理可能的 NULL 或非法 audio_type 值）
+        INSERT INTO play_history_new (id, user_id, bvid, local_path, audio_type, title, artist, duration, cover_url, played_at, progress)
+          SELECT
+            id,
+            user_id,
+            bvid,
+            COALESCE(local_path, '') as local_path,
+            CASE
+              WHEN audio_type IS NULL THEN 'online'
+              WHEN audio_type NOT IN ('online', 'local') THEN 'online'
+              ELSE audio_type
+            END as audio_type,
+            title,
+            artist,
+            duration,
+            cover_url,
+            played_at,
+            progress
+          FROM play_history;
+
+        -- 3. 删除旧表
+        DROP TABLE play_history;
+
+        -- 4. 重命名新表
+        ALTER TABLE play_history_new RENAME TO play_history;
+
+        -- 5. 重建索引
+        CREATE INDEX IF NOT EXISTS idx_play_history_user_id ON play_history(user_id);
+        CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(user_id, played_at);
+        CREATE INDEX IF NOT EXISTS idx_play_history_identifier ON play_history(user_id, bvid, local_path);
+
+        COMMIT;
+      `);
+
+      console.log('✅ play_history 表迁移完成（bvid 现在可为 NULL）');
+    } else {
+      console.log('✅ play_history 表已是最新版本');
+    }
+  } catch (e) {
+    console.error('❌ play_history 表迁移失败:', e.message);
+    // 不中断程序启动，因为新表创建时已经正确
+  }
+};
+
+// 先创建表，再执行迁移
 createTables();
+migratePlayHistory();
 
 // 优雅退出处理（由 index.js 统一管理）
 const closeDatabase = () => {

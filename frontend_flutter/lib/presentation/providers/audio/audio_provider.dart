@@ -176,7 +176,9 @@ class AudioProvider extends ChangeNotifier {
   /// 加载播放列表
   Future<void> _loadPlaylist() async {
     await _playlistManager.syncFromLocal();
-    _playlist = _playlistManager.localPlaylist;
+    // 复制内容而不是直接赋值（localPlaylist 是不可修改列表）
+    _playlist.clear();
+    _playlist.addAll(_playlistManager.localPlaylist);
     notifyListeners();
   }
 
@@ -223,7 +225,13 @@ class AudioProvider extends ChangeNotifier {
   List<LocalAudio> get playlist => _playlist;
   List<PlayableAudio> get unifiedPlaylist => _playlistManager.playlist;
   int get currentIndex => _playlistManager.currentIndex;
-  LocalAudio? get currentAudio => _isCurrentOnline ? null : _playlistManager.currentPlayable as LocalAudio?;
+  /// 当前本地音频（向后兼容）
+  /// LocalPlayable 是包装类，需要通过 .original 获取原始 LocalAudio
+  LocalAudio? get currentAudio {
+    if (_isCurrentOnline) return null;
+    final playable = _playlistManager.currentPlayable;
+    return playable is LocalPlayable ? playable.original : null;
+  }
   PlayableAudio? get currentPlayable => _playlistManager.currentPlayable;
   bool get isCurrentOnline => _isCurrentOnline;
   Audio? get currentOnlineAudio => _currentOnlineAudio;
@@ -593,7 +601,8 @@ class AudioProvider extends ChangeNotifier {
     await _playlistManager.clear(syncLocal: true);
     await _playbackController.stop();
     _resetMetadata();
-    _playlist.clear();
+    // 重新同步本地播放列表（因为 _playlist 指向的是不可修改的列表）
+    await _loadPlaylist();
     notifyListeners();
   }
 

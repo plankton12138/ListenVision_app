@@ -119,3 +119,28 @@ class StorageExpiry {
   /// B站 Cookie 有效期（30天）
   static const Duration bilibiliCookieExpiry = Duration(days: 30);
 }
+
+/// 日志系统常量
+class LogConstants {
+  /// 日志目录名称
+  static const String logDirectoryName = 'logs';
+
+  /// 单个日志文件最大大小（5MB）
+  static const int maxLogFileSize = 5 * 1024 * 1024;
+
+  /// 最多保留的日志文件数量
+  static const int maxLogFiles = 5;
+
+  /// 日志文件名前缀
+  static const String logFilePrefix = 'app';
+
+  /// 日志文件扩展名
+  static const String logFileExtension = '.log';
+
+  /// 获取当前日志文件名（带日期）
+  static String getCurrentLogFileName() {
+    final now = DateTime.now();
+    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return '${logFilePrefix}_$dateStr$logFileExtension';
+  }
+}

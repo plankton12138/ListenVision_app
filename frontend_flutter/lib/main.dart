@@ -27,6 +27,7 @@ import 'package:demo/presentation/routes/router.dart';
 import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/core/utils/file_picker_helper.dart';
 import 'package:demo/core/utils/permission_helper.dart';
+import 'package:demo/core/utils/app_logger.dart';
 // ===============================================
 
 import 'package:flutter/foundation.dart';
@@ -39,6 +40,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化日志系统（必须在其他初始化之前）
+  await AppLogger.instance.initialize();
 
   // 初始化 metadata_god（用于读取/写入音频元数据）
   // 注意：这是一个异步方法，必须 await 等待初始化完成
@@ -56,7 +60,7 @@ void main() async {
   final savedToken = prefs.getString('auth_token');
   if (savedToken != null) {
     DioProvider.instance.updateToken(savedToken);
-    debugPrint('【Main】Token restored from auth_token key');
+    AppLogger.info('Main', 'Token restored from auth_token key');
   }
   // ================================================================
 
@@ -67,9 +71,9 @@ void main() async {
     // 首次启动，请求存储权限
     bool hasPermission = await requestManageStoragePermission();
     if (hasPermission) {
-      debugPrint('权限请求成功');
+      AppLogger.info('Main', '权限请求成功');
     } else {
-      debugPrint('用户拒绝权限');
+      AppLogger.warn('Main', '用户拒绝权限');
       openAppSettings();
     }
     await prefs.setBool('isFirstLaunch', false);
@@ -204,7 +208,7 @@ void main() async {
                   try {
                     await playlistProvider?.initialize(token);
                   } catch (e) {
-                    debugPrint('歌单初始化失败: $e');
+                    AppLogger.error('Main', '歌单初始化失败', error: e);
                   }
                 }
               }

@@ -444,6 +444,7 @@ lib/core/
 ├── network/
 │   └── dio_provider.dart          # Dio 全局配置
 └── utils/
+    ├── app_logger.dart            # 日志系统 ⭐ (2026-01-25新增)
     ├── dialog_helper.dart         # 对话框工具
     ├── file_picker_helper.dart    # 文件选择器
     ├── metadata_writer.dart       # 元数据写入
@@ -900,6 +901,85 @@ Stop-Process -Name node -Force
 **测试**:
 - 后端：`npm test`
 - Flutter：`flutter test`
+
+---
+
+## 📋 日志系统
+
+### 前端日志 (Flutter)
+
+**日志工具类**: `lib/core/utils/app_logger.dart`
+
+**日志文件位置**（各平台文档目录下的 `logs/` 文件夹）:
+| 平台 | 日志目录路径 |
+|------|-------------|
+| **Windows** | `%APPDATA%\listenvision\logs\` |
+| **Android** | `/data/data/<包名>/app_flutter/logs/` |
+| **iOS** | `<AppData>/Library/Application Support/logs/` |
+| **macOS** | `~/Library/Application Support/listenvision/logs/` |
+| **Linux** | `~/.local/share/listenvision/logs/` |
+
+**日志文件名格式**: `app-2026-01-25.log`（按日期命名）
+
+**日志级别**: DEBUG, INFO, WARN, ERROR
+
+**使用方式**:
+```dart
+import 'package:demo/core/utils/app_logger.dart';
+
+// 静态方法
+AppLogger.debug('用户操作', '点击登录按钮');
+AppLogger.info('网络请求', 'GET /api/user');
+AppLogger.warn('缓存', '缓存未命中');
+AppLogger.error('数据库', '连接失败', error: e, stackTrace: stackTrace);
+
+// 快捷方法
+logDebug('TAG', 'message');
+logInfo('TAG', 'message');
+logWarn('TAG', 'message');
+logError('TAG', 'message', error: e);
+```
+
+**日志配置**:
+- 单文件最大 5MB，超过后自动轮转
+- 最多保留 5 个日志文件（自动清理旧文件）
+- 开发环境：控制台彩色输出 + emoji
+- 生产环境：仅文件输出
+
+### 后端日志 (Node.js)
+
+**日志工具**: Winston (`listen-vision_api/utils/logger.js`)
+
+**日志文件位置**: `A:\Projects\Projects_ListenVison\listen-vision_api\logs\`
+
+**日志文件**:
+- `error.log` - 错误日志（仅 error 级别）
+- `combined.log` - 所有级别日志
+- `http.log` - HTTP 请求日志（生产环境）
+
+**日志配置**:
+- 单文件最大 5MB (`maxsize: 5242880`)
+- `error.log` / `combined.log` 最多保留 5 个文件
+- `http.log` 最多保留 10 个文件
+- 超过限制后自动删除旧文件
+
+**日志级别**: error < warn < info < http < debug
+
+### 调试时查看日志
+
+**Windows PowerShell 快捷命令**:
+```powershell
+# 查看前端日志（Windows）
+Get-Content "$env:APPDATA\listenvision\logs\app-*.log" -Tail 50
+
+# 查看后端日志
+Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.log" -Tail 50
+
+# 实时监控后端日志
+Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.log" -Wait
+```
+
+**应用启动时**: 控制台会输出日志目录路径，方便快速定位
 
 ### B站API查询流程
 

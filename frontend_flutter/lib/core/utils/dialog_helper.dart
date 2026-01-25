@@ -66,6 +66,81 @@ class DialogHelper {
   static void showInfo(BuildContext context, String message) {
     showSnackBar(context, message, backgroundColor: Colors.blue);
   }
+
+  /// 显示警告提示
+  static void showWarning(BuildContext context, String message) {
+    showSnackBar(context, message, backgroundColor: Colors.orange);
+  }
+
+  /// 显示错误对话框（便捷方法）
+  ///
+  /// 统一的错误显示方式，自动使用红色样式
+  static Future<void> showErrorDialog(
+    BuildContext context,
+    String message, {
+    String title = '操作失败',
+    VoidCallback? onRetry,
+  }) {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.error_outline,
+          color: Colors.red,
+          size: 32,
+        ),
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          if (onRetry != null)
+            TextButton(
+              onPressed: () {
+                onRetry();
+                Navigator.of(context).pop();
+              },
+              child: const Text('重试'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示确认对话框（带取消选项）
+  ///
+  /// 返回 true 表示用户点击了确定，false 表示取消
+  static Future<bool?> showConfirmDialog(
+    BuildContext context, {
+    required String title,
+    required String message,
+    String confirmText = '确定',
+    String cancelText = '取消',
+    bool isDangerous = false,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(cancelText),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: isDangerous
+                ? TextButton.styleFrom(foregroundColor: Colors.red)
+                : null,
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 兼容旧代码的函数别名

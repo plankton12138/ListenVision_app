@@ -16,6 +16,7 @@ import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/domain/entities/online_playable.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/constants/storage_constants.dart';
+import 'package:demo/core/utils/error_handler.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 
@@ -148,7 +149,7 @@ class AudioProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        if (!_disposed) debugPrint('【AudioProvider】位置监听错误: $e');
+        if (!_disposed) ErrorHandler.logError(e, tag: 'AudioProvider.position');
       },
     );
 
@@ -160,7 +161,7 @@ class AudioProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        if (!_disposed) debugPrint('【AudioProvider】时长监听错误: $e');
+        if (!_disposed) ErrorHandler.logError(e, tag: 'AudioProvider.duration');
       },
     );
 
@@ -195,7 +196,7 @@ class AudioProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        if (!_disposed) debugPrint('【AudioProvider】播放状态监听错误: $e');
+        if (!_disposed) ErrorHandler.logError(e, tag: 'AudioProvider.playerState');
       },
     );
   }
@@ -834,8 +835,8 @@ class AudioProvider extends ChangeNotifier {
       await _player.seek(position);
       // just_audio 会自动处理状态恢复
     } catch (e) {
-      debugPrint('【AudioProvider】跳转失败: $e');
-      // 不抛出异常，静默处理
+      // 使用统一的错误处理器记录错误
+      ErrorHandler.logError(e, tag: 'AudioProvider.seek');
     }
   }
 

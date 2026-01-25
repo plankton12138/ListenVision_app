@@ -303,9 +303,11 @@ const transferPlaylist = async (fromId, toId) => {
 
 ---
 
-### 2. 前端：错误处理用户体验差 🟡
+### 2. 前端：错误处理用户体验差 🟡 → ✅ 已修复
 
 **位置**: `audio_provider.dart:756-758`
+
+**原问题**:
 
 ```dart
 } catch (e) {
@@ -314,15 +316,39 @@ const transferPlaylist = async (fromId, toId) => {
 }
 ```
 
-**改进方案**：
+**改进方案** (2026-01-25 已完成):
+
+**新增文件**: `lib/core/utils/error_handler.dart` - 统一错误处理器
+
+功能特性：
+- `parseErrorMessage()` - 将任何异常转换为用户友好的中文消息
+- `showError()` - 通过 SnackBar 显示错误（支持重试按钮）
+- `showErrorDialog()` - 通过 Dialog 显示重要错误
+- `logError()` - 开发/生产模式分级日志
+- `tryAsync()` / `trySync()` - 安全执行操作，自动处理错误
+- `isRetryable()` / `requiresReauth()` / `isNetworkError()` - 错误类型判断
+
+**扩展文件**: `lib/core/utils/dialog_helper.dart` - 新增方法：
+- `showWarning()` - 显示警告提示
+- `showErrorDialog()` - 显示错误对话框
+- `showConfirmDialog()` - 显示确认对话框（带取消选项）
+
+**应用示例**:
 
 ```dart
+// 旧代码
 } catch (e) {
-  _errorMessage = e.toString();
-  notifyListeners();
-  // 或使用全局错误处理器
-  ErrorHelper.showError(context, e);
+  debugPrint('【AudioProvider】跳转失败: $e');
 }
+
+// 新代码
+} catch (e) {
+  ErrorHandler.logError(e, tag: 'AudioProvider.seek');
+}
+
+// 在 UI 中显示错误
+ErrorHandler.showError(context, error);
+ErrorHandler.showErrorDialog(context, error, onRetry: () => retry());
 ```
 
 ---
@@ -361,7 +387,7 @@ module.exports = {
 | 播放器状态修复 | 重启后自动恢复播放状态 | `audio_provider.dart` | ✅ 已完成 |
 | 状态UI反馈 | 添加缓冲/加载/错误提示 | `controls_panel.dart` | ✅ 已完成 |
 | **播放列表切换修复** | **修复切换歌曲时需要手动暂停再继续的问题** | `audio_provider.dart` | ✅ 2026-01-25 完成 |
-| 错误处理统一 | 全局错误处理机制 | `error_handler.dart` | 📋 计划中 |
+| 错误处理统一 | 全局错误处理机制 | `error_handler.dart` | ✅ 2026-01-25 完成 |
 
 ### Phase 2: 架构优化（2-4周）
 

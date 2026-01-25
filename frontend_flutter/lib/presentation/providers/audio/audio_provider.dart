@@ -709,7 +709,10 @@ class AudioProvider extends ChangeNotifier {
     } finally {
       // 释放播放操作锁
       _isPlayingOperation = false;
-      _playOperationCompleter?.complete();
+      // 修复: 防止 Completer 重复完成
+      if (_playOperationCompleter != null && !_playOperationCompleter!.isCompleted) {
+        _playOperationCompleter!.complete();
+      }
     }
   }
 
@@ -1261,12 +1264,21 @@ class AudioProvider extends ChangeNotifier {
     } finally {
       // 释放播放操作锁
       _isPlayingOperation = false;
-      _playOperationCompleter?.complete();
+      // 修复: 防止 Completer 重复完成
+      if (_playOperationCompleter != null && !_playOperationCompleter!.isCompleted) {
+        _playOperationCompleter!.complete();
+      }
     }
   }
 
   /// 设置音频源并播放（辅助方法）
-  /// P0 修复: 播放后立即更新状态，不等待 stream 事件
+  /// P0 修复: 等待音频源完全就绪后再播放，解决切换歌曲后需要手动暂停再继续的问题
+  ///
+  /// 修复方案 (2026-01-25):
+  /// - 监听 ProcessingState 变化，确保音频源就绪后再调用 play()
+  /// - 添加 30 秒超时机制（等待后端 mp3 转换完成）
+  /// - 添加错误处理和重试逻辑
+  /// - 防止 Completer 重复完成
   Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
     debugPrint('【AudioProvider】设置音频源: ${playable.url}');
 
@@ -1274,6 +1286,9 @@ class AudioProvider extends ChangeNotifier {
     _isStartingPlayback = true;
     _playbackStartTime = DateTime.now();
     debugPrint('【AudioProvider】播放启动保护已开启（2秒窗口）');
+
+    // P0 修复: 标记保护是否已成功清除（将在确认播放后清除）
+    bool protectionCleared = false;
 
     try {
       // 设置音频源并播放（根据类型选择不同方式）
@@ -1286,13 +1301,59 @@ class AudioProvider extends ChangeNotifier {
           try {
             debugPrint('【AudioProvider】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
 
+            // 步骤 1: 设置音频源
             await _player.setUrl(playable.url);
             debugPrint('【AudioProvider】音频源已设置: ${playable.url}');
 
+            // 步骤 2: 等待音频源就绪
+            await _player.playerStateStream
+                .firstWhere((state) => state.processingState == ProcessingState.ready)
+                .timeout(
+                  const Duration(seconds: 30),
+                  onTimeout: () {
+                    debugPrint('【AudioProvider】音频源就绪超时（30秒）');
+                    throw TimeoutException('音频源就绪超时: ${playable.url}');
+                  },
+                );
+
+            debugPrint('【AudioProvider】音频源已就绪，请求播放');
+
+            // 步骤 3: 调用 play() 并等待真正的播放状态（state.playing == true）
             await _player.play();
-            // P0 修复: 立即更新播放状态，避免 UI 状态不同步
+
+            // 步骤 4: 等待播放真正开始
+            // 先检查当前状态（可能已经播放了，firstWhere 会错过）
+            if (_player.playing) {
+              debugPrint('【AudioProvider】播放已开始（检查当前状态）');
+            } else {
+              // 等待 playing 状态变化
+              try {
+                await _player.playerStateStream
+                    .firstWhere((state) => state.playing == true)
+                    .timeout(
+                      const Duration(seconds: 5),
+                      onTimeout: () => throw TimeoutException('播放启动超时: ${playable.url}'),
+                    );
+                debugPrint('【AudioProvider】播放已开始（等待状态变化）');
+              } on TimeoutException {
+                // 超时后再次检查
+                if (_player.playing) {
+                  debugPrint('【AudioProvider】实际上已在播放（超时后检查）');
+                } else {
+                  debugPrint('【AudioProvider】播放启动失败，当前状态: playing=${_player.playing}, processing=${_player.processingState}');
+                  rethrow;
+                }
+              }
+            }
+
             _isPlaying = true;
             notifyListeners();
+
+            // P0 修复: 确认播放已真正开始，清除保护
+            _isStartingPlayback = false;
+            _playbackStartTime = null;
+            protectionCleared = true;
+            debugPrint('【AudioProvider】播放已确认，保护已清除');
 
             // 如果成功，中断重试循环
             break;
@@ -1309,19 +1370,63 @@ class AudioProvider extends ChangeNotifier {
       } else {
         // 本地音频：使用 AudioSource.file()（更好地处理中文路径）
         await _player.setAudioSource(AudioSource.file(playable.url));
+
+        // 等待音频源就绪
+        await _player.playerStateStream
+            .firstWhere((state) => state.processingState == ProcessingState.ready)
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                debugPrint('【AudioProvider】本地音频加载超时');
+                throw TimeoutException('本地音频加载超时: ${playable.url}');
+              },
+            );
+
+        debugPrint('【AudioProvider】本地音频源已就绪，请求播放');
         await _player.play();
-        // P0 修复: 立即更新播放状态
+
+        // 等待真正的播放状态
+        if (_player.playing) {
+          debugPrint('【AudioProvider】本地音频播放已开始（检查当前状态）');
+        } else {
+          try {
+            await _player.playerStateStream
+                .firstWhere((state) => state.playing == true)
+                .timeout(
+                  const Duration(seconds: 3),
+                  onTimeout: () => throw TimeoutException('本地音频播放启动超时: ${playable.url}'),
+                );
+            debugPrint('【AudioProvider】本地音频播放已开始（等待状态变化）');
+          } on TimeoutException {
+            if (_player.playing) {
+              debugPrint('【AudioProvider】实际上已在播放（超时后检查）');
+            } else {
+              debugPrint('【AudioProvider】本地音频播放启动失败，当前状态: playing=${_player.playing}, processing=${_player.processingState}');
+              rethrow;
+            }
+          }
+        }
+
         _isPlaying = true;
         notifyListeners();
-      }
-    } finally {
-      // P0 修复: 延迟清除播放启动标志，给足够时间让播放器真正开始播放
-      // 使用 2.5 秒延迟，比保护窗口（2秒）稍长，确保保护窗口结束后再清除
-      Future.delayed(const Duration(milliseconds: 2500), () {
+
+        // P0 修复: 确认播放已真正开始，清除保护
         _isStartingPlayback = false;
         _playbackStartTime = null;
-        debugPrint('【AudioProvider】播放启动完成，解除状态保护');
-      });
+        protectionCleared = true;
+        debugPrint('【AudioProvider】本地音频播放已确认，保护已清除');
+      }
+    } finally {
+      // P0 修复: 只有在保护未清除时才清除（防止播放失败时误清除）
+      // 如果播放成功，protectionCleared 会在 try 块中被设为 true
+      if (!protectionCleared) {
+        // 播放失败或超时，延迟清除保护以防止 stream 事件立即覆盖
+        Future.delayed(const Duration(seconds: 2), () {
+          _isStartingPlayback = false;
+          _playbackStartTime = null;
+          debugPrint('【AudioProvider】播放失败，延迟清除保护');
+        });
+      }
     }
   }
 

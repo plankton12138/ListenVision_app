@@ -246,8 +246,38 @@ Future<void> _setAudioSourceAndPlay(PlayableAudio playable) async {
 **改进方案**：
 - ✅ 重启后自动重新加载音频源到播放器（已实施）
 - ✅ 添加明确的加载、缓冲、错误状态 UI（已实施）
-- ⏸️ 修复播放列表切换时的状态同步问题（待实施）
-- ⏸️ 播放失败时自动重试并显示错误信息（待实施）
+- ✅ 修复播放列表切换时的状态同步问题（2026-01-25 已完成）
+- ✅ 播放失败时自动重试并显示错误信息（已实施）
+
+**修复详情** (2026-01-25 完成):
+
+问题：切换歌曲后显示"就绪"但未播放，需要手动暂停再继续。
+
+根因：
+1. 代码只等待 `ProcessingState.ready`，但 `ready` 只表示音频源已加载，不代表正在播放
+2. `firstWhere()` 可能错过已经发生的状态变化
+3. `finally` 块无条件清除保护标志，stream 事件随后覆盖状态
+
+解决方案 (`audio_provider.dart:1282-1430`):
+```dart
+// 1. 先检查当前状态，避免 firstWhere 错过状态变化
+if (_player.playing) {
+  debugPrint('播放已开始（检查当前状态）');
+} else {
+  // 2. 等待 playing 状态变化
+  await _player.playerStateStream
+      .firstWhere((state) => state.playing == true)
+      .timeout(const Duration(seconds: 5));
+}
+
+// 3. 确认播放后立即清除保护（而非在 finally 块中）
+_isStartingPlayback = false;
+_playbackStartTime = null;
+protectionCleared = true;
+```
+
+**已知限制**：
+- ⚠️ **在线音频无法跳转位置**：由于后端 mp3 转换是完整转码后发送，不支持 Range 请求，因此在线音频（使用 `format=mp3`）无法 seek。本地音频和使用 `format=m4s` 的在线音频支持 seek。
 
 ---
 
@@ -330,20 +360,8 @@ module.exports = {
 |------|------|------|------|
 | 播放器状态修复 | 重启后自动恢复播放状态 | `audio_provider.dart` | ✅ 已完成 |
 | 状态UI反馈 | 添加缓冲/加载/错误提示 | `controls_panel.dart` | ✅ 已完成 |
-| **播放列表切换修复** | **修复切换歌曲时需要手动暂停再继续的问题** | `audio_provider.dart` | ⏸️ 待实施 |
+| **播放列表切换修复** | **修复切换歌曲时需要手动暂停再继续的问题** | `audio_provider.dart` | ✅ 2026-01-25 完成 |
 | 错误处理统一 | 全局错误处理机制 | `error_handler.dart` | 📋 计划中 |
-
-**🆕 明日待开发任务**：
-
-1. **修复 `_setAudioSourceAndPlay()` 方法**（`audio_provider.dart:1270`）
-   - 添加音频源就绪状态检测
-   - 在 `ProcessingState.ready` 时才调用 `play()`
-   - 添加超时机制和错误处理
-
-2. **测试场景**：
-   - 点击播放列表中的歌曲
-   - 点击"下一首"/"上一首"按钮
-   - 验证在线音频和本地音频都能正常播放
 
 ### Phase 2: 架构优化（2-4周）
 

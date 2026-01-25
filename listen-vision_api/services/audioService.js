@@ -4,6 +4,56 @@ const ffmpeg = require('fluent-ffmpeg');
 const https = require('https');
 const http = require('http');
 const { PassThrough } = require('stream');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// ==================== 并发控制 ====================
+
+// 限制同时进行的转换任务数量
+const MAX_CONCURRENT_CONVERSIONS = 3;
+let activeConversions = 0;
+const conversionQueue = [];
+
+/**
+ * 排队执行转换任务
+ */
+async function queueConversion(fn) {
+  return new Promise((resolve, reject) => {
+    const task = { fn, resolve, reject };
+
+    if (activeConversions < MAX_CONCURRENT_CONVERSIONS) {
+      // 可以立即执行
+      activeConversions++;
+      executeTask(task);
+    } else {
+      // 排队等待
+      conversionQueue.push(task);
+      console.log(`[AudioService] 转换任务已排队，当前活跃: ${activeConversions}, 队列: ${conversionQueue.length}`);
+    }
+  });
+}
+
+/**
+ * 执行单个转换任务
+ */
+async function executeTask(task) {
+  try {
+    const result = await task.fn();
+    task.resolve(result);
+  } catch (error) {
+    task.reject(error);
+  } finally {
+    activeConversions--;
+
+    // 执行下一个队列中的任务
+    if (conversionQueue.length > 0) {
+      activeConversions++;
+      executeTask(conversionQueue.shift());
+    }
+  }
+}
 
 /**
  * 音频格式转换服务
@@ -67,11 +117,21 @@ const downloadToBuffer = (url) => {
 };
 
 /**
- * 转换音频流
+ * 转换音频流（使用临时文件，解决 fluent-ffmpeg 流式输入问题）
+ *
+ * 优点：
+ * - 稳定可靠（解决 "Only one input stream is supported" 错误）
+ * - 支持并发（通过 UUID 避免文件冲突）
+ * - 限制并发数防止资源耗尽
+ *
+ * 缺点：
+ * - 需要临时磁盘空间
+ * - 需要等待完整下载
+ *
  * @param {Buffer} inputBuffer - 输入音频数据
  * @param {string} format - 目标格式 (mp3, aac, m4a)
  * @param {Object} options - 转换选项
- * @returns {Promise<Buffer>} 转换后的音频数据
+ * @returns {Promise<{buffer: Buffer, contentType: string}>} 转换后的音频数据
  */
 const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
   const {
@@ -83,32 +143,76 @@ const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
   const codec = getCodec(format);
   const outputFormat = getFormat(format);
 
-  return new Promise((resolve, reject) => {
-    const command = ffmpeg({ logger: console })
-      .input(new PassThrough())
-      .inputFormat('m4a')
-      .audioCodec(codec)
-      .audioBitrate(bitrate)
-      .audioFrequency(parseInt(sampleRate))
-      .audioChannels(channels)
-      .format(outputFormat);
+  // ✅ 使用 UUID 避免文件名冲突
+  const uniqueId = crypto.randomUUID();
+  const tempDir = os.tmpdir();
+  const inputPath = path.join(tempDir, `m4s-input-${uniqueId}.m4s`);
+  const outputPath = path.join(tempDir, `mp3-output-${uniqueId}.${format}`);
 
-    const chunks = [];
-    const outputStream = new PassThrough();
+  console.log(`[AudioService] 开始转换: ${uniqueId}, 大小: ${inputBuffer.length} bytes`);
 
-    outputStream.on('data', chunk => chunks.push(chunk));
-    outputStream.on('end', () => resolve(Buffer.concat(chunks)));
-    outputStream.on('error', reject);
+  try {
+    // ✅ 第1步：异步写入输入文件
+    await fs.promises.writeFile(inputPath, inputBuffer);
 
-    command.pipe(outputStream);
+    // ✅ 第2步：执行 FFmpeg 转换（使用队列控制并发）
+    await queueConversion(() => new Promise((resolve, reject) => {
+      const startTime = Date.now();
 
-    // 写入输入数据
-    const inputStream = new PassThrough();
-    inputStream.end(inputBuffer);
-    command.input(inputStream);
+      ffmpeg(inputPath)
+        .audioCodec(codec)
+        .audioBitrate(bitrate)
+        .audioFrequency(parseInt(sampleRate))
+        .audioChannels(channels)
+        .format(outputFormat)
+        .on('start', (commandLine) => {
+          console.log(`[AudioService] FFmpeg 启动: ${commandLine}`);
+        })
+        .on('progress', (progress) => {
+          if (progress.percent && Math.floor(progress.percent) % 20 === 0) {
+            console.log(`[AudioService] 转换进度: ${Math.floor(progress.percent)}%`);
+          }
+        })
+        .on('end', () => {
+          const duration = Date.now() - startTime;
+          console.log(`[AudioService] 转换完成: ${uniqueId}, 耗时: ${duration}ms`);
+          resolve();
+        })
+        .on('error', (err, stdout, stderr) => {
+          console.error(`[AudioService] FFmpeg 错误: ${err.message}`);
+          console.error(`[AudioService] Stderr: ${stderr}`);
+          reject(new Error(`音频转换失败: ${err.message}`));
+        })
+        .save(outputPath);
+    }));
 
-    command.run();
-  });
+    // ✅ 第3步：读取输出文件
+    const outputBuffer = await fs.promises.readFile(outputPath);
+    const contentType = format === 'mp3' ? 'audio/mpeg' : 'audio/aac';
+
+    console.log(`[AudioService] 转换成功: ${uniqueId}, 输出大小: ${outputBuffer.length} bytes`);
+
+    return { buffer: outputBuffer, contentType };
+  } finally {
+    // ✅ 第4步：异步清理临时文件
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(inputPath)) {
+          fs.unlinkSync(inputPath);
+          console.log(`[AudioService] 清理输入文件: ${inputPath}`);
+        }
+      } catch (e) {}
+      try {
+        if (fs.existsSync(outputPath)) {
+          fs.unlinkSync(outputPath);
+          console.log(`[AudioService] 清理输出文件: ${outputPath}`);
+        }
+      } catch (e) {}
+    };
+
+    // 不阻塞响应，在下一个事件循环中清理
+    setImmediate(cleanup);
+  }
 };
 
 /**

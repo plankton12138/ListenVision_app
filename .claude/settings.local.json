@@ -29,7 +29,11 @@
       "Bash(Select-Object Name)",
       "Bash(Get-Process node -ErrorAction SilentlyContinue)",
       "Bash(Stop-Process -Force)",
-      "Bash(Start-Sleep -Milliseconds 500)"
+      "Bash(Start-Sleep -Milliseconds 500)",
+      "Bash(Select-Object:*)",
+      "Bash(Get-ChildItem:*)",
+      "Bash(tree:*)",
+      "Bash(Format-Table FullName -AutoSize)"
     ]
   }
 }

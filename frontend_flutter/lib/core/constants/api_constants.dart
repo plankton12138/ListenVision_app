@@ -10,7 +10,7 @@ class ApiConstants {
   /// 根据编译模式自动选择环境
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: 'http://127.0.0.1:3000',
   );
 
   /// API 版本

@@ -27,12 +27,30 @@ class PlayHistory with _$PlayHistory implements BaseEntity {
 
   /// 从 DTO 创建
   factory PlayHistory.fromDto(Map<String, dynamic> json) {
+    // ✅ 安全的数值转字符串转换（修复类型转换错误）
+    final safeString = (dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is int) return value.toString();
+      if (value is double) return value.toInt().toString();
+      return value.toString();
+    };
+
+    // ✅ 安全的数值转换
+    final safeInt = (dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    };
+
     return PlayHistory(
-      id: json['id']?.toString() ?? '',
-      userId: json['user_id']?.toString() ?? json['userId']?.toString() ?? '',
+      id: safeString(json['id']) ?? '',
+      userId: safeString(json['user_id'] ?? json['userId']) ?? '',
       audio: Audio.fromDto(json), // Audio 可以从整个 JSON 解析
       playedAt: _parseDateTime(json['played_at'] ?? json['playedAt']) ?? DateTime.now(),
-      progress: json['progress'] as int? ?? 0,
+      progress: safeInt(json['progress']),
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
     );

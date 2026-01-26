@@ -32,7 +32,7 @@ import 'package:demo/core/utils/app_logger.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:metadata_god/metadata_god.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,12 +41,14 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 初始化 JustAudioMediaKit 以支持 Windows 平台音频播放
+  JustAudioMediaKit.ensureInitialized();
+
   // 初始化日志系统（必须在其他初始化之前）
   await AppLogger.instance.initialize();
 
-  // 初始化 metadata_god（用于读取/写入音频元数据）
-  // 注意：这是一个异步方法，必须 await 等待初始化完成
-  await MetadataGod.initialize();
+  // 音频元数据读写已迁移到 AudioMetadataHelper（基于 audio_metadata_reader）
+  // 纯 Dart 实现，无需初始化，跨平台稳定
 
   // ========== P2 Clean Architecture: 初始化 ServiceFactory ==========
   // 必须在 runApp 之前完成初始化，确保 Repository 和 Dio 可用

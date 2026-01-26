@@ -1,13 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:metadata_god/metadata_god.dart';
+import 'package:demo/core/utils/audio_metadata_helper.dart';
 import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 元数据写入器
 ///
 /// 职责：
 /// - 下载封面图片
 /// - 写入音频元数据（标题、艺术家、封面等）
+///
+/// 使用 AudioMetadataHelper 封装层（基于 audio_metadata_reader）
 class MetadataWriter {
   BilibiliApiService? _bilibiliService;
 
@@ -38,7 +42,7 @@ class MetadataWriter {
     String? coverUrl,
     String? album,
   }) async {
-    debugPrint('【MetadataWriter】开始写入元数据: $filePath');
+    AppLogger.info('MetadataWriter', '开始写入元数据: $filePath');
 
     try {
       // 1. 下载封面图片
@@ -47,26 +51,27 @@ class MetadataWriter {
         imageBytes = await _downloadCover(coverUrl);
       }
 
-      // 2. 构建元数据对象
-      final metadata = Metadata(
-        title: title,
-        artist: artist,
-        album: album,
-        picture: imageBytes != null
-            ? Picture(data: imageBytes, mimeType: 'image/jpeg')
-            : null,
+      // 2. 使用 AudioMetadataHelper 写入元数据
+      final helper = AudioMetadataHelper();
+      final success = helper.writeMetadata(
+        filePath: filePath,
+        params: AudioMetadataWriteParams(
+          title: title,
+          artist: artist,
+          album: album,
+          cover: imageBytes,
+        ),
       );
 
-      // 3. 写入元数据
-      await MetadataGod.writeMetadata(
-        file: filePath,
-        metadata: metadata,
-      );
+      if (success) {
+        AppLogger.info('MetadataWriter', '元数据写入成功');
+      } else {
+        AppLogger.error('MetadataWriter', '元数据写入失败');
+      }
 
-      debugPrint('【MetadataWriter】元数据写入成功');
-      return true;
+      return success;
     } catch (e) {
-      debugPrint('【MetadataWriter】元数据写入失败: $e');
+      AppLogger.error('MetadataWriter', '元数据写入失败: $e');
       return false;
     }
   }
@@ -81,7 +86,7 @@ class MetadataWriter {
         finalUrl = _bilibiliService!.getProxyImageUrl(url);
       }
 
-      debugPrint('【MetadataWriter】下载封面: $finalUrl');
+      AppLogger.debug('MetadataWriter', '下载封面: $finalUrl');
 
       final dio = Dio();
       final response = await dio.get(
@@ -101,7 +106,7 @@ class MetadataWriter {
 
       return response.data as Uint8List?;
     } catch (e) {
-      debugPrint('【MetadataWriter】封面下载失败: $e');
+      AppLogger.error('MetadataWriter', '封面下载失败: $e');
       return null;
     }
   }
@@ -114,12 +119,12 @@ class MetadataWriter {
     required String bvid,
   }) async {
     if (_bilibiliService == null) {
-      debugPrint('【MetadataWriter】BilibiliApiService 未设置，无法获取信息');
+      AppLogger.debug('MetadataWriter', 'BilibiliApiService 未设置，无法获取信息');
       return false;
     }
 
     try {
-      debugPrint('【MetadataWriter】通过 BVID 获取信息: $bvid');
+      AppLogger.debug('MetadataWriter', '通过 BVID 获取信息: $bvid');
 
       // 获取视频信息
       final videoInfo = await _bilibiliService!.getVideoInfo(bvid);
@@ -137,7 +142,7 @@ class MetadataWriter {
         album: bvidUrl,
       );
     } catch (e) {
-      debugPrint('【MetadataWriter】通过 BVID 写入元数据失败: $e');
+      AppLogger.error('MetadataWriter', '通过 BVID 写入元数据失败: $e');
       return false;
     }
   }
@@ -160,7 +165,7 @@ class MetadataWriter {
       if (result) successCount++;
     }
 
-    debugPrint('【MetadataWriter】批量写入完成: $successCount/${items.length}');
+    AppLogger.info('MetadataWriter', '批量写入完成: $successCount/${items.length}');
     return successCount;
   }
 }
@@ -183,18 +188,21 @@ class MetadataItem {
 }
 
 /// 读取音频文件元数据
+///
+/// 使用 AudioMetadataHelper 封装层读取
 Future<Map<String, dynamic>?> readMetadata(String filePath) async {
   try {
-    final metadata = await MetadataGod.readMetadata(file: filePath);
+    final helper = AudioMetadataHelper();
+    final result = await helper.readMetadataAsync(filePath: filePath, fetchCover: false);
 
     return {
-      'title': metadata.title,
-      'artist': metadata.artist,
-      'album': metadata.album,
-      'hasPicture': metadata.picture != null,
+      'title': result.title,
+      'artist': result.artist,
+      'album': result.album,
+      'hasPicture': result.cover != null,
     };
   } catch (e) {
-    debugPrint('【MetadataWriter】读取元数据失败: $e');
+    AppLogger.error('MetadataWriter', '读取元数据失败: $e');
     return null;
   }
 }

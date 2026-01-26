@@ -1,14 +1,19 @@
-import 'package:dartz/dartz.dart';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
-import 'package:demo/domain/entities/audio.dart';
 import 'package:demo/domain/entities/download_task.dart';
+import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/domain/repositories/download_repository.dart';
 import 'package:demo/core/utils/metadata_writer.dart';
 import 'package:demo/data/managers/download_executor.dart';
+import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:path/path.dart' as path;
+import 'package:dio/dio.dart';
 
 /// 下载管理器
 ///
@@ -44,7 +49,7 @@ class DownloadManager with ChangeNotifier {
     // 初始化仓库
     _repository.getAllTasks().then((result) {
       result.fold(
-        (failure) => debugPrint('【DownloadManager】加载任务失败: $failure'),
+        (failure) => AppLogger.error('DownloadManager', '加载任务失败: $failure'),
         (tasks) {
           _downloads = tasks;
           notifyListeners();
@@ -60,7 +65,7 @@ class DownloadManager with ChangeNotifier {
   Future<void> initDatabase() async {
     final result = await _repository.getAllTasks();
     result.fold(
-      (failure) => debugPrint('【DownloadManager】初始化失败: $failure'),
+      (failure) => AppLogger.error('DownloadManager', '初始化失败: $failure'),
       (tasks) {
         _downloads = tasks;
         notifyListeners();
@@ -73,7 +78,7 @@ class DownloadManager with ChangeNotifier {
   Future<void> refreshDownloads() async {
     final result = await _repository.getAllTasks();
     result.fold(
-      (failure) => debugPrint('【DownloadManager】刷新失败: $failure'),
+      (failure) => AppLogger.error('DownloadManager', '刷新失败: $failure'),
       (tasks) {
         _downloads = tasks;
         notifyListeners();
@@ -118,14 +123,14 @@ class DownloadManager with ChangeNotifier {
       }
       await _downloadByBvid(context, bvid);
     } catch (e) {
-      debugPrint('【DownloadManager】下载失败: $e');
+      AppLogger.error('DownloadManager', '下载失败: $e');
       DialogHelper.showSnackBar(context, '下载失败: $e', backgroundColor: Colors.red, duration: 1000);
     }
   }
 
   /// 通过 BVID 下载
   Future<void> _downloadByBvid(BuildContext context, String bvid) async {
-    debugPrint('【DownloadManager】开始下载: $bvid');
+    AppLogger.info('DownloadManager', '开始下载: $bvid');
 
     try {
       // 1. 获取视频信息（使用 Repository）
@@ -133,7 +138,7 @@ class DownloadManager with ChangeNotifier {
 
       final videoData = videoResult.fold(
         (failure) {
-          debugPrint('【DownloadManager】获取视频信息失败: $failure');
+          AppLogger.error('DownloadManager', '获取视频信息失败: $failure');
           return null;
         },
         (audio) => {
@@ -152,7 +157,6 @@ class DownloadManager with ChangeNotifier {
 
       final title = videoData['title'] as String;
       final artist = videoData['artist'] as String;
-      final audioUrl = videoData['audioUrl'] as String;
 
       // 2. 检查是否已存在
       final existsResult = await _repository.existsByBvid(bvid);
@@ -166,12 +170,17 @@ class DownloadManager with ChangeNotifier {
       final saveDir = await _pickDirectory();
       if (saveDir == null) return;
 
-      // 4. 确定文件路径
+      // 4. 使用原始音频流 URL（快速下载）
+      // 直接使用 B站的音频流 URL，不进行格式转换
+      final audioUrl = videoData['audioUrl'] as String;
+      AppLogger.info('DownloadManager', '使用原始音频流下载: ${audioUrl.substring(0, audioUrl.length > 100 ? 100 : audioUrl.length)}...');
+
+      // 5. 确定文件路径（使用 .m4a 扩展名）
       final sanitizedTitle = _sanitizeTitle(title);
       final fileName = '$sanitizedTitle.m4a';
       final savePath = path.join(saveDir, fileName);
 
-      // 5. 创建下载任务记录
+      // 6. 创建下载任务记录
       final createResult = await _repository.createTask(
         url: audioUrl,
         savePath: savePath,
@@ -188,17 +197,17 @@ class DownloadManager with ChangeNotifier {
         return;
       }
 
-      debugPrint('【DownloadManager】任务创建成功: $taskId');
+      AppLogger.info('DownloadManager', '任务创建成功: $taskId');
 
-      // 6. 启动下载
+      // 7. 启动下载
       _startDownload(taskId, audioUrl, savePath, videoData);
 
-      // 7. 刷新列表
+      // 8. 刷新列表
       await refreshDownloads();
 
       DialogHelper.showSnackBar(context, '已添加到下载列表: $title', backgroundColor: Colors.green, duration: 1000);
     } catch (e) {
-      debugPrint('【DownloadManager】_downloadByBvid 失败: $e');
+      AppLogger.error('DownloadManager', '_downloadByBvid 失败: $e');
       DialogHelper.showSnackBar(context, '下载失败: $e', backgroundColor: Colors.red, duration: 1000);
     }
   }
@@ -244,14 +253,14 @@ class DownloadManager with ChangeNotifier {
     await _repository.updateStatus(id, DownloadStatus.paused);
     _executorManager.pauseTask(id);
     await refreshDownloads();
-    debugPrint('【DownloadManager】已暂停任务: $id');
+    AppLogger.info('DownloadManager', '已暂停任务: $id');
   }
 
   /// 恢复下载
   Future<void> resumeDownload(int id) async {
     final taskResult = await _repository.getTask(id);
     taskResult.fold(
-      (failure) => debugPrint('【DownloadManager】获取任务失败: $failure'),
+      (failure) => AppLogger.error('DownloadManager', '获取任务失败: $failure'),
       (task) async {
         if (task == null) return;
         
@@ -263,7 +272,7 @@ class DownloadManager with ChangeNotifier {
           'bvid': task.bvid,
         });
         await refreshDownloads();
-        debugPrint('【DownloadManager】已恢复任务: $id');
+        AppLogger.info('DownloadManager', '已恢复任务: $id');
       },
     );
   }
@@ -273,7 +282,7 @@ class DownloadManager with ChangeNotifier {
     _executorManager.cancelTask(id);
     await _repository.deleteTask(id);
     await refreshDownloads();
-    debugPrint('【DownloadManager】已删除任务: $id');
+    AppLogger.info('DownloadManager', '已删除任务: $id');
   }
 
   /// 清空已完成任务
@@ -288,7 +297,7 @@ class DownloadManager with ChangeNotifier {
   Future<void> _loadDownloads() async {
     final result = await _repository.getAllTasks();
     result.fold(
-      (failure) => debugPrint('【DownloadManager】加载任务失败: $failure'),
+      (failure) => AppLogger.error('DownloadManager', '加载任务失败: $failure'),
       (tasks) => _downloads = tasks,
     );
     notifyListeners();
@@ -300,16 +309,149 @@ class DownloadManager with ChangeNotifier {
     Map<String, dynamic> videoData,
   ) async {
     try {
-      await _metadataWriter.writeMetadata(
-        filePath: filePath,
-        title: videoData['title']?.toString() ?? '未知标题',
-        artist: videoData['artist']?.toString() ?? '未知艺术家',
-        coverUrl: videoData['pic']?.toString(),
-        album: videoData['bvid']?.toString(),
-      );
-      debugPrint('【DownloadManager】元数据写入成功');
+      final title = videoData['title']?.toString() ?? '未知标题';
+      final artist = videoData['artist']?.toString() ?? '未知艺术家';
+      final coverUrl = videoData['pic']?.toString();
+      final album = videoData['bvid']?.toString();
+
+      AppLogger.info('DownloadManager', '下载完成，处理元数据: $title - $artist');
+
+      // 检测文件是否是 m4s 格式（B站分离音频流）
+      final isM4sFormat = await _checkIsM4sFormat(filePath);
+
+      Uint8List? coverData;
+
+      if (isM4sFormat) {
+        AppLogger.info('DownloadManager', '检测到 m4s 格式，跳过元数据写入，使用数据库存储');
+
+        // 下载封面图片
+        if (coverUrl != null && coverUrl.isNotEmpty) {
+          try {
+            final dio = Dio();
+            final response = await dio.get(
+              coverUrl,
+              options: Options(responseType: ResponseType.bytes),
+            );
+            if (response.data is List<int>) {
+              coverData = Uint8List.fromList(response.data as List<int>);
+              AppLogger.info('DownloadManager', '封面下载成功: ${coverData.length} bytes');
+            }
+          } catch (e) {
+            AppLogger.warn('DownloadManager', '封面下载失败: $e');
+          }
+        }
+      } else {
+        // 标准 m4a/mp3 格式，使用 AudioMetadataHelper 写入元数据
+        AppLogger.info('DownloadManager', '使用 AudioMetadataHelper 写入元数据');
+
+        final success = await _metadataWriter.writeMetadata(
+          filePath: filePath,
+          title: title,
+          artist: artist,
+          coverUrl: coverUrl,
+          album: album,
+        );
+
+        if (success) {
+          AppLogger.info('DownloadManager', '元数据写入成功');
+
+          // 验证写入：读取并确认元数据已保存
+          try {
+            final verifyData = await readMetadata(filePath);
+            if (verifyData != null) {
+              AppLogger.info('DownloadManager', '验证元数据: title=${verifyData['title']}, artist=${verifyData['artist']}, hasPicture=${verifyData['hasPicture']}');
+            }
+          } catch (e) {
+            AppLogger.warn('DownloadManager', '验证元数据失败: $e');
+          }
+        } else {
+          AppLogger.warn('DownloadManager', '元数据写入失败（返回false），将使用数据库存储');
+        }
+      }
+
+      // 将文件添加到本地播放列表数据库
+      await _addToLocalPlaylist(filePath, title, artist, coverData, album ?? '');
+
+      AppLogger.info('DownloadManager', '元数据处理完成: $title');
     } catch (e) {
-      debugPrint('【DownloadManager】元数据写入失败: $e');
+      AppLogger.error('DownloadManager', '元数据写入异常: $e');
+    }
+  }
+
+  /// 检测文件是否是 m4s 格式
+  Future<bool> _checkIsM4sFormat(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return false;
+
+      // 检查文件扩展名
+      if (filePath.toLowerCase().endsWith('.m4s')) {
+        return true;
+      }
+
+      // 对于 .m4a 文件，读取文件头部检测是否是标准容器
+      if (filePath.toLowerCase().endsWith('.m4a') || filePath.toLowerCase().endsWith('.mp4')) {
+        final header = file.openSync(mode: FileMode.read).readSync(16);
+        if (header.length >= 12) {
+          // 检查是否包含 'ftyp' 标记（标准容器）
+          // 标准 m4a/mp4 文件在偏移 4 处有 'ftyp' 标记
+          final hasFtyp = header.length >= 8 &&
+              header[4] == 0x66 && // 'f'
+              header[5] == 0x74 && // 't'
+              header[6] == 0x79 && // 'y'
+              header[7] == 0x70;   // 'p'
+          if (!hasFtyp) {
+            AppLogger.debug('DownloadManager', '文件缺少 ftyp 容器标记，可能是 m4s 格式');
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (e) {
+      AppLogger.warn('DownloadManager', 'm4s 格式检测失败: $e');
+      return false;
+    }
+  }
+
+  /// 将文件添加到本地播放列表数据库
+  Future<void> _addToLocalPlaylist(
+    String filePath,
+    String title,
+    String artist,
+    Uint8List? coverData,
+    String url,
+  ) async {
+    try {
+      final db = PlaylistManager();
+
+      // 检查是否已存在（通过 getAllAudios 查找）
+      final allAudios = await db.getAllAudios();
+      final exists = allAudios.any((audio) => audio.filePath == filePath);
+      if (exists) {
+        AppLogger.debug('DownloadManager', '文件已在本地播放列表中: $title');
+        return;
+      }
+
+      // 创建 LocalAudio 对象
+      final audio = LocalAudio(
+        filePath: filePath,
+        title: title,
+        artist: artist,
+        duration: 0, // 下载时不知道时长，播放时会更新
+        albumArt: coverData,
+        url: url,
+      );
+
+      // 添加到数据库
+      final result = await db.insertAudio(audio);
+      if (result != -1) {
+        AppLogger.info('DownloadManager', '已添加到本地播放列表: $title - $artist');
+      } else {
+        AppLogger.debug('DownloadManager', '文件已存在于本地播放列表: $title');
+      }
+    } catch (e) {
+      AppLogger.error('DownloadManager', '添加到本地播放列表失败: $e');
     }
   }
 
@@ -325,7 +467,7 @@ class DownloadManager with ChangeNotifier {
     try {
       return await getDirectoryPath();
     } catch (e) {
-      debugPrint('【DownloadManager】选择目录失败: $e');
+      AppLogger.error('DownloadManager', '选择目录失败: $e');
       return null;
     }
   }
@@ -336,6 +478,67 @@ class DownloadManager with ChangeNotifier {
         r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  // ==================== 元数据补充 ====================
+
+  /// 为已下载的文件补充元数据
+  ///
+  /// 用于修复之前下载但没有写入元数据的文件
+  /// 返回成功处理的文件数
+  Future<int> repairMetadataForCompletedTasks() async {
+    int successCount = 0;
+    int failedCount = 0;
+
+    final completedTasks = _downloads.where((d) => d.status == DownloadStatus.completed).toList();
+
+    AppLogger.info('DownloadManager', '开始补充元数据，共 ${completedTasks.length} 个已完成任务');
+
+    for (var task in completedTasks) {
+      // 检查文件是否存在
+      final file = File(task.savePath);
+      if (!await file.exists()) {
+        AppLogger.warn('DownloadManager', '文件不存在，跳过: ${task.savePath}');
+        failedCount++;
+        continue;
+      }
+
+      try {
+        // 先检查是否已有元数据
+        final existingData = await readMetadata(task.savePath);
+        if (existingData != null &&
+            existingData['title'] != null &&
+            existingData['title'].toString().isNotEmpty &&
+            existingData['artist'] != null &&
+            existingData['artist'].toString().isNotEmpty) {
+          AppLogger.debug('DownloadManager', '文件已有元数据，跳过: ${task.title}');
+          continue;
+        }
+
+        // 写入元数据
+        final success = await _metadataWriter.writeMetadata(
+          filePath: task.savePath,
+          title: task.title ?? '未知标题',
+          artist: task.artist ?? '未知艺术家',
+          coverUrl: task.coverUrl,
+          album: task.bvid,
+        );
+
+        if (success) {
+          successCount++;
+          AppLogger.info('DownloadManager', '元数据补充成功: ${task.title}');
+        } else {
+          failedCount++;
+          AppLogger.error('DownloadManager', '元数据补充失败: ${task.title}');
+        }
+      } catch (e) {
+        failedCount++;
+        AppLogger.error('DownloadManager', '处理文件失败: ${task.savePath}, 错误: $e');
+      }
+    }
+
+    AppLogger.info('DownloadManager', '元数据补充完成: 成功 $successCount, 失败 $failedCount, 跳过 ${completedTasks.length - successCount - failedCount}');
+    return successCount;
   }
 
   // ==================== 统计信息 ====================

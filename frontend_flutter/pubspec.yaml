@@ -42,11 +42,12 @@ dependencies:
   audio_session: ^0.2.1
 
   # Windows 平台支持
-  just_audio_media_kit: ^1.0.0
-  media_kit_libs_windows_audio: any
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_windows_audio: ^1.0.4
   html: ^0.15.5+1
-  # Phase 1: 使用 metadata_god 替代 audio_metadata_reader（更好的格式支持）
-  metadata_god: ^1.1.0
+  # 音频元数据读写：使用 audio_metadata_reader（纯 Dart，跨平台稳定）
+  # 性能：3392首歌曲 <200ms（不含封面）
+  audio_metadata_reader: ^1.4.2
   path_provider: ^2.1.5
   permission_handler: ^12.0.0+1
   shared_preferences: ^2.5.3

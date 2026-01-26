@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
-import 'package:metadata_god/metadata_god.dart';
 import 'package:dio/dio.dart';
 import 'package:demo/core/utils/permission_helper.dart';
+import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/core/utils/audio_metadata_helper.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// 音频元数据加载器
 ///
@@ -12,6 +14,8 @@ import 'package:demo/core/utils/permission_helper.dart';
 /// 2. 从网络加载在线音频封面
 /// 3. 从文件路径提取元数据（后备方案）
 /// 4. 元数据缓存管理
+///
+/// 使用 AudioMetadataHelper 封装层（基于 audio_metadata_reader）
 class AudioMetadataLoader {
   // ==================== 缓存 ====================
 
@@ -45,57 +49,88 @@ class AudioMetadataLoader {
   ///   'cover': Uint8List?
   /// }
   Future<Map<String, dynamic>> extractFromFile(String filePath) async {
+    final fileName = filePath.split(RegExp(r'[\\/]')).last;
+    AppLogger.debug('AudioMetadataLoader', '========== 开始提取元数据: $fileName ==========');
+
+    // Android 11+ 需要权限
+    if (!kIsWeb && Platform.isAndroid) {
+      final hasPermission = await PermissionHelper.requestManageStoragePermission();
+      if (!hasPermission) {
+        AppLogger.warn('AudioMetadataLoader', '无存储权限，使用路径提取');
+        return _extractMetadataFromPath(filePath);
+      }
+    }
+
+    // 文件存在性检查
+    if (!File(filePath).existsSync()) {
+      AppLogger.error('AudioMetadataLoader', '文件不存在: $filePath');
+      return _extractMetadataFromPath(filePath);
+    }
+
     try {
-      debugPrint('【AudioMetadataLoader】开始提取元数据: $filePath');
-
-      // Android 11+ 需要权限
-      if (!kIsWeb && Platform.isAndroid) {
-        final hasPermission = await PermissionHelper.requestManageStoragePermission();
-        if (!hasPermission) {
-          throw Exception('需要存储权限才能读取音频文件');
-        }
-      }
-
-      // 文件存在性检查
-      if (!File(filePath).existsSync()) {
-        throw Exception('文件不存在: $filePath');
-      }
-
       // 直接提取元数据（不使用 compute，因为 metadata_god 需要 flutter_rust_bridge 初始化）
       // isolate 环境无法访问主 isolate 的初始化状态
       final metadataResult = await _extractMetadataDirect(filePath);
 
-      debugPrint('【AudioMetadataLoader】元数据提取完成: ${metadataResult['title'] ?? '(未知)'} - ${metadataResult['artist'] ?? '(未知)'}');
-      return metadataResult;
+      // 检查是否成功提取到有效数据
+      final title = metadataResult['title'] as String? ?? '';
+      final artist = metadataResult['artist'] as String? ?? '';
+      final hasCover = metadataResult['cover'] != null;
+
+      AppLogger.info('AudioMetadataLoader', '元数据提取结果: title="$title", artist="$artist", hasCover=$hasCover');
+
+      if (title.isNotEmpty || artist.isNotEmpty) {
+        AppLogger.debug('AudioMetadataLoader', '元数据提取完成: $title - $artist');
+        return metadataResult;
+      } else {
+        AppLogger.debug('AudioMetadataLoader', '元数据为空，使用路径提取');
+        return _extractMetadataFromPath(filePath);
+      }
     } catch (e) {
-      debugPrint('【AudioMetadataLoader】元数据提取失败: $e');
-      // 返回默认值
+      final errorStr = e.toString().substring(0, e.toString().length > 150 ? 150 : e.toString().length);
+      AppLogger.warn('AudioMetadataLoader', '元数据提取失败，使用路径提取: $errorStr');
+      // 返回从路径提取的元数据
       return _extractMetadataFromPath(filePath);
     }
   }
 
-  /// 直接提取元数据（不使用 isolate）
+  /// 直接提取元数据（使用 AudioMetadataHelper 封装层）
   ///
-  /// 注意：metadata_god 的 flutter_rust_bridge 必须在主 isolate 中初始化，
-  /// 使用 compute() 会在新 isolate 中调用，导致未初始化错误。
-  /// 元数据读取通常很快，不会明显阻塞 UI。
+  /// 使用纯 Dart 实现，跨平台稳定，无需初始化
   Future<Map<String, dynamic>> _extractMetadataDirect(String filePath) async {
     try {
-      final metadata = await MetadataGod.readMetadata(file: filePath);
-
-      Uint8List? cover;
-      if (metadata.picture != null) {
-        cover = metadata.picture!.data;
+      final file = File(filePath);
+      if (!file.existsSync()) {
+        AppLogger.warn('AudioMetadataLoader', '文件不存在: $filePath');
+        throw Exception('文件不存在');
       }
 
+      final fileSize = await file.length();
+      final fileName = filePath.split(RegExp(r'[\\/]')).last;
+      AppLogger.debug('AudioMetadataLoader', '尝试读取元数据: $fileName (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)');
+
+      // 检测是否是 m4s 格式（B站分离音频流）
+      if (AudioMetadataHelper.isM4sFormat(filePath)) {
+        AppLogger.info('AudioMetadataLoader', '检测到 m4s 格式文件，使用路径提取');
+        return _extractMetadataFromPath(filePath);
+      }
+
+      // 使用 AudioMetadataHelper 读取元数据
+      final helper = AudioMetadataHelper();
+      final result = helper.readMetadata(filePath: filePath, fetchCover: true);
+
+      AppLogger.debug('AudioMetadataLoader', '元数据提取完成: ${result.title} - ${result.artist}, hasCover=${result.cover != null}');
+
       return {
-        'title': metadata.title?.trim() ?? '',
-        'artist': metadata.artist?.trim() ?? '',
-        'album': metadata.album?.trim() ?? '',
-        'cover': cover,
+        'title': result.title,
+        'artist': result.artist,
+        'album': result.album,
+        'cover': result.cover,
       };
-    } catch (e) {
-      debugPrint('【AudioMetadataLoader】isolate 元数据解析失败: $e');
+    } catch (e, stackTrace) {
+      final errorStr = e.toString();
+      final truncatedError = errorStr.length > 200 ? '${errorStr.substring(0, 200)}...' : errorStr;
+      AppLogger.error('AudioMetadataLoader', '元数据提取失败: $truncatedError', error: e, stackTrace: stackTrace);
       return {
         'title': '',
         'artist': '',
@@ -119,6 +154,8 @@ class AudioMetadataLoader {
           .replaceAll(RegExp(r'【.*?】'), '')
           .replaceAll(RegExp(r'\(Official.*?\)', caseSensitive: false), '')
           .replaceAll(RegExp(r'（Official.*?）', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\(.*?\)'), '') // 移除所有括号内容
+          .replaceAll(RegExp(r'（.*?）'), '')
           .trim();
 
       String artist = '';
@@ -168,16 +205,29 @@ class AudioMetadataLoader {
       artist = artist.replaceAll(RegExp(r'\s+'), ' ').trim();
       title = title.replaceAll(RegExp(r'\s+'), ' ').trim();
 
-      return {
-        'title': title.isNotEmpty ? title : nameWithoutExt,
-        'artist': artist.isNotEmpty ? artist : '未知艺术家',
+      // 使用文件名作为后备标题
+      if (title.isEmpty) {
+        title = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
+      }
+
+      // 确保艺术家不为空
+      final finalArtist = artist.isNotEmpty ? artist : '未知艺术家';
+
+      final result = {
+        'title': title,
+        'artist': finalArtist,
         'album': '',
         'cover': null,
       };
+
+      AppLogger.debug('AudioMetadataLoader', '从路径提取元数据: $title - $finalArtist');
+      return result;
     } catch (e) {
-      debugPrint('【AudioMetadataLoader】路径解析失败: $e');
+      AppLogger.error('AudioMetadataLoader', '路径解析失败: $e');
+      final fallbackTitle = filePath.split(RegExp(r'[\\/]')).last;
+      AppLogger.debug('AudioMetadataLoader', '使用文件名作为标题: $fallbackTitle');
       return {
-        'title': filePath.split(RegExp(r'[\\/]')).last,
+        'title': fallbackTitle,
         'artist': '未知艺术家',
         'album': '',
         'cover': null,
@@ -199,12 +249,12 @@ class AudioMetadataLoader {
 
     // 检查缓存
     if (useCache && _coverCache.containsKey(coverUrl)) {
-      debugPrint('【AudioMetadataLoader】封面缓存命中: $coverUrl');
+      AppLogger.debug('AudioMetadataLoader', '封面缓存命中: $coverUrl');
       return _coverCache[coverUrl];
     }
 
     try {
-      debugPrint('【AudioMetadataLoader】加载在线封面: $coverUrl');
+      AppLogger.debug('AudioMetadataLoader', '加载在线封面: $coverUrl');
 
       final response = await _dio.get(
         coverUrl,
@@ -219,11 +269,11 @@ class AudioMetadataLoader {
           _addToCache(coverUrl, imageData);
         }
 
-        debugPrint('【AudioMetadataLoader】封面加载成功，大小: ${imageData.length} bytes');
+        AppLogger.debug('AudioMetadataLoader', '封面加载成功，大小: ${imageData.length} bytes');
         return imageData;
       }
     } catch (e) {
-      debugPrint('【AudioMetadataLoader】加载在线封面失败: $e');
+      AppLogger.error('AudioMetadataLoader', '加载在线封面失败: $e');
     }
 
     return null;
@@ -248,23 +298,23 @@ class AudioMetadataLoader {
     if (_coverCache.length >= _maxCacheSize) {
       final firstKey = _coverCache.keys.first;
       _coverCache.remove(firstKey);
-      debugPrint('【AudioMetadataLoader】缓存已满，移除: $firstKey');
+      AppLogger.debug('AudioMetadataLoader', '缓存已满，移除: $firstKey');
     }
 
     _coverCache[url] = data;
-    debugPrint('【AudioMetadataLoader】添加到缓存: $url, 当前缓存数: ${_coverCache.length}');
+    AppLogger.debug('AudioMetadataLoader', '添加到缓存: $url, 当前缓存数: ${_coverCache.length}');
   }
 
   /// 清除封面缓存
   void clearCache() {
     _coverCache.clear();
-    debugPrint('【AudioMetadataLoader】封面缓存已清除');
+    AppLogger.debug('AudioMetadataLoader', '封面缓存已清除');
   }
 
   /// 清除指定 URL 的缓存
   void clearCacheForUrl(String url) {
     _coverCache.remove(url);
-    debugPrint('【AudioMetadataLoader】已清除缓存: $url');
+    AppLogger.debug('AudioMetadataLoader', '已清除缓存: $url');
   }
 
   // ==================== 元数据合并 ====================
@@ -339,6 +389,6 @@ class AudioMetadataLoader {
   void dispose() {
     _dio.close();
     _coverCache.clear();
-    debugPrint('【AudioMetadataLoader】已释放');
+    AppLogger.debug('AudioMetadataLoader', '已释放');
   }
 }

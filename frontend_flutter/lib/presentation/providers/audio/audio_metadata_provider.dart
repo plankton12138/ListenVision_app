@@ -4,12 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:demo/core/utils/permission_helper.dart';
 import 'package:demo/domain/entities/models_export.dart';
-import 'package:metadata_god/metadata_god.dart';
+import 'package:demo/core/utils/audio_metadata_helper.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 音频元数据管理
 ///
 /// 职责：
-/// 1. 从音频文件提取元数据（使用 metadata_god）
+/// 1. 从音频文件提取元数据（使用 AudioMetadataHelper）
 /// 2. 管理专辑封面
 class AudioMetadataProvider extends ChangeNotifier {
   // ==================== 状态变量 ====================
@@ -31,34 +32,35 @@ class AudioMetadataProvider extends ChangeNotifier {
   /// 从音频文件提取元数据
   Future<void> loadMetadataFromPath(String filePath) async {
     try {
-      debugPrint('【AudioMetadataProvider】开始加载: $filePath');
+      AppLogger.info('AudioMetadataProvider', '开始加载: $filePath');
 
       // Android 11+ 需要先请求 MANAGE_EXTERNAL_STORAGE 权限
       if (!kIsWeb && Platform.isAndroid) {
         final hasPermission = await PermissionHelper.requestManageStoragePermission();
         if (!hasPermission) {
-          debugPrint('【AudioMetadataProvider】存储权限被拒绝');
+          AppLogger.debug('AudioMetadataProvider', '存储权限被拒绝');
           throw Exception('需要存储权限才能读取音频文件');
         }
       }
 
       if (!File(filePath).existsSync()) {
-        debugPrint('【AudioMetadataProvider】文件不存在: $filePath');
+        AppLogger.debug('AudioMetadataProvider', '文件不存在: $filePath');
         throw Exception('文件不存在');
       }
 
-      // 使用 metadata_god 读取元数据
-      final metadata = await MetadataGod.readMetadata(file: filePath);
+      // 使用 AudioMetadataHelper 读取元数据
+      final helper = AudioMetadataHelper();
+      final result = await helper.readMetadataAsync(filePath: filePath, fetchCover: true);
 
       // 更新状态
-      _title = metadata.title?.trim() ?? _title;
-      _artist = metadata.artist?.trim() ?? _artist;
-      _currentAlbumArt = metadata.picture?.data;
+      _title = result.title.isNotEmpty ? result.title : _title;
+      _artist = result.artist.isNotEmpty ? result.artist : _artist;
+      _currentAlbumArt = result.cover;
 
-      debugPrint('【AudioMetadataProvider】加载完成: $_title - $_artist');
+      AppLogger.info('AudioMetadataProvider', '加载完成: $_title - $_artist');
       notifyListeners();
     } catch (e) {
-      debugPrint('【AudioMetadataProvider】加载失败: $e');
+      AppLogger.error('AudioMetadataProvider', '加载失败: $e');
       rethrow;
     }
   }
@@ -70,7 +72,7 @@ class AudioMetadataProvider extends ChangeNotifier {
   void setAlbumArt(Uint8List? albumArt) {
     _currentAlbumArt = albumArt;
     notifyListeners();
-    debugPrint('【AudioMetadataProvider】设置专辑封面');
+    AppLogger.debug('AudioMetadataProvider', '设置专辑封面');
   }
 
   // ==================== Getters ====================

@@ -5,6 +5,7 @@ import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 音频信息显示组件
 ///
@@ -63,7 +64,7 @@ class AudioInfo extends StatelessWidget {
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           // 网络加载失败时使用默认图片
-          debugPrint('【AudioInfo】封面加载失败: $error');
+          AppLogger.error('AudioInfo', '封面加载失败: $error');
           return Image.asset(
             'assets/images/default_album_art.png',
             fit: BoxFit.contain,

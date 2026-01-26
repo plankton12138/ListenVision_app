@@ -57,11 +57,15 @@ class MusicZoneCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final coverUrl = _formatCoverUrl();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12), // Match Card default radius usually
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -79,8 +83,8 @@ class MusicZoneCard extends StatelessWidget {
                     return Container(
                       width: 100,
                       height: 70,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.broken_image, size: 32),
+                      color: colorScheme.surfaceContainerHighest,
+                      child: Icon(Icons.broken_image, size: 32, color: colorScheme.onSurfaceVariant),
                     );
                   },
                   loadingBuilder: (context, child, loadingProgress) {
@@ -88,12 +92,15 @@ class MusicZoneCard extends StatelessWidget {
                     return Container(
                       width: 100,
                       height: 70,
-                      color: Colors.grey[200],
-                      child: const Center(
+                      color: colorScheme.surfaceContainerHighest,
+                      child: Center(
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary,
+                          ),
                         ),
                       ),
                     );
@@ -112,7 +119,9 @@ class MusicZoneCard extends StatelessWidget {
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14),
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     // 作者和播放量
@@ -120,9 +129,8 @@ class MusicZoneCard extends StatelessWidget {
                       'UP: $author  ·  播放: ${_formatPlayCount()}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -134,6 +142,7 @@ class MusicZoneCard extends StatelessWidget {
                 onPressed: onTap,
                 constraints: const BoxConstraints(),
                 padding: EdgeInsets.zero,
+                color: colorScheme.primary,
               ),
             ],
           ),

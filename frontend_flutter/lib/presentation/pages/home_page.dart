@@ -44,9 +44,11 @@ class _HomePageState extends State<HomePage> {
 
       // 顶部应用栏
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'ListenVision',
-          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: UIConstants.fontSizeLarge,
+          ),
         ),
         actions: <Widget>[
           // 文件选择按钮
@@ -94,7 +96,7 @@ class _HomePageState extends State<HomePage> {
           child: Icon(
             Icons.list,
             size: UIConstants.iconMedium,
-            color: const Color.fromARGB(255, 20, 163, 25),
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ],

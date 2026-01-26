@@ -7,6 +7,7 @@ import 'package:demo/domain/entities/online_playable.dart';
 import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 统一播放列表管理器
 ///
@@ -92,7 +93,7 @@ class UnifiedPlaylistManager {
     }
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】设置播放列表，长度: ${playlist.length}');
+    AppLogger.debug('UnifiedPlaylistManager', '设置播放列表，长度: ${playlist.length}');
   }
 
   /// 添加到播放列表
@@ -129,7 +130,7 @@ class UnifiedPlaylistManager {
     }
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】添加音频: ${playable.title}, 总数: ${_playlist.length}');
+    AppLogger.info('UnifiedPlaylistManager', '添加音频: ${playable.title}, 总数: ${_playlist.length}');
   }
 
   /// 批量添加到播放列表
@@ -152,7 +153,7 @@ class UnifiedPlaylistManager {
     }
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】批量添加 ${playables.length} 首音频');
+    AppLogger.info('UnifiedPlaylistManager', '批量添加 ${playables.length} 首音频');
   }
 
   /// 从播放列表移除指定索引的项
@@ -182,7 +183,7 @@ class UnifiedPlaylistManager {
     }
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】移除索引 $index: ${playable.title}');
+    AppLogger.debug('UnifiedPlaylistManager', '移除索引 $index: ${playable.title}');
   }
 
   /// 从播放列表移除指定 ID 的项
@@ -209,7 +210,7 @@ class UnifiedPlaylistManager {
     _currentIndex = -1;
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】清空播放列表');
+    AppLogger.debug('UnifiedPlaylistManager', '清空播放列表');
   }
 
   /// 移动音频位置（用于拖拽排序）
@@ -235,7 +236,7 @@ class UnifiedPlaylistManager {
     }
 
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】移动音频: $oldIndex -> $newIndex');
+    AppLogger.debug('UnifiedPlaylistManager', '移动音频: $oldIndex -> $newIndex');
   }
 
   /// 设置当前播放索引
@@ -244,13 +245,13 @@ class UnifiedPlaylistManager {
   /// [validate] 是否验证索引有效性
   bool setCurrentIndex(int index, {bool validate = true}) {
     if (validate && (index < 0 || index >= _playlist.length)) {
-      debugPrint('【UnifiedPlaylistManager】无效索引: $index');
+      AppLogger.debug('UnifiedPlaylistManager', '无效索引: $index');
       return false;
     }
 
     _currentIndex = index;
     _notifyChanged();
-    debugPrint('【UnifiedPlaylistManager】设置当前索引: $index');
+    AppLogger.debug('UnifiedPlaylistManager', '设置当前索引: $index');
     return true;
   }
 
@@ -277,7 +278,7 @@ class UnifiedPlaylistManager {
         _localPlaylist.add(playable.original);
       }
     }
-    debugPrint('【UnifiedPlaylistManager】同步到本地播放列表: ${_localPlaylist.length} 首');
+    AppLogger.debug('UnifiedPlaylistManager', '同步到本地播放列表: ${_localPlaylist.length} 首');
   }
 
   /// 从本地播放列表同步
@@ -294,9 +295,9 @@ class UnifiedPlaylistManager {
       }
 
       _notifyChanged();
-      debugPrint('【UnifiedPlaylistManager】从本地播放列表同步: ${_localPlaylist.length} 首');
+      AppLogger.debug('UnifiedPlaylistManager', '从本地播放列表同步: ${_localPlaylist.length} 首');
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】从本地同步失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '从本地同步失败: $e');
     }
   }
 
@@ -311,10 +312,10 @@ class UnifiedPlaylistManager {
         if (!_localPlaylist.any((a) => a.id == id)) {
           _localPlaylist.add(updatedAudio);
         }
-        debugPrint('【UnifiedPlaylistManager】添加到数据库: ${audio.title}');
+        AppLogger.info('UnifiedPlaylistManager', '添加到数据库: ${audio.title}');
       }
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】添加到数据库失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '添加到数据库失败: $e');
     }
   }
 
@@ -326,9 +327,9 @@ class UnifiedPlaylistManager {
       final db = PlaylistManager();
       await db.deleteAudio(audio.id!);
       _localPlaylist.removeWhere((a) => a.id == audio.id);
-      debugPrint('【UnifiedPlaylistManager】从数据库移除: ${audio.title}');
+      AppLogger.debug('UnifiedPlaylistManager', '从数据库移除: ${audio.title}');
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】从数据库移除失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '从数据库移除失败: $e');
     }
   }
 
@@ -338,9 +339,9 @@ class UnifiedPlaylistManager {
       final db = PlaylistManager();
       await db.clearPlaylist();
       _localPlaylist.clear();
-      debugPrint('【UnifiedPlaylistManager】已清空数据库');
+      AppLogger.info('UnifiedPlaylistManager', '已清空数据库');
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】清空数据库失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '清空数据库失败: $e');
     }
   }
 
@@ -368,9 +369,9 @@ class UnifiedPlaylistManager {
         await prefs.setBool(StorageKeys.isCurrentOnline, isCurrentOnline);
       }
 
-      debugPrint('【UnifiedPlaylistManager】保存播放列表: ${_playlist.length} 首, 索引: $_currentIndex');
+      AppLogger.info('UnifiedPlaylistManager', '保存播放列表: ${_playlist.length} 首, 索引: $_currentIndex');
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】保存播放列表失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '保存播放列表失败: $e');
     }
   }
 
@@ -383,7 +384,7 @@ class UnifiedPlaylistManager {
       final playlistJson = prefs.getString(StorageKeys.unifiedPlaylist);
 
       if (playlistJson == null || playlistJson.isEmpty) {
-        debugPrint('【UnifiedPlaylistManager】没有保存的播放列表');
+        AppLogger.info('UnifiedPlaylistManager', '没有保存的播放列表');
         return null;
       }
 
@@ -409,16 +410,16 @@ class UnifiedPlaylistManager {
       // 验证索引有效性
       if (savedIndex >= 0 && savedIndex < _playlist.length) {
         _currentIndex = savedIndex;
-        debugPrint('【UnifiedPlaylistManager】恢复播放列表: ${_playlist.length} 首, 索引: $savedIndex, 位置: $savedPosition秒');
+        AppLogger.debug('UnifiedPlaylistManager', '恢复播放列表: ${_playlist.length} 首, 索引: $savedIndex, 位置: $savedPosition秒');
       } else {
         _currentIndex = -1;
-        debugPrint('【UnifiedPlaylistManager】恢复播放列表但索引无效: $savedIndex');
+        AppLogger.debug('UnifiedPlaylistManager', '恢复播放列表但索引无效: $savedIndex');
       }
 
       _notifyChanged();
       return savedPosition;
     } catch (e) {
-      debugPrint('【UnifiedPlaylistManager】恢复播放列表失败: $e');
+      AppLogger.error('UnifiedPlaylistManager', '恢复播放列表失败: $e');
       return null;
     }
   }

@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
-import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 /// 播放历史状态管理
 ///
@@ -64,7 +65,7 @@ class PlayHistoryProvider with ChangeNotifier {
         _saveHistoryToLocal();
       }
     } catch (e) {
-      debugPrint('加载播放历史失败: $e');
+      AppLogger.error('PlayHistoryProvider', '加载播放历史失败: $e');
       rethrow;
     }
   }
@@ -84,7 +85,7 @@ class PlayHistoryProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载全部播放历史失败: $e');
+      AppLogger.error('PlayHistoryProvider', '加载全部播放历史失败: $e');
     }
   }
 
@@ -94,11 +95,21 @@ class PlayHistoryProvider with ChangeNotifier {
       final response = await _dioProvider.get('/history/stats');
 
       if (response['success'] == true && response['data'] != null) {
-        _stats = PlayHistoryStats.fromJson(response['data'] as Map<String, dynamic>);
+        final data = response['data'] as Map<String, dynamic>;
+
+        // 手动解析，因为后端返回的字段名与前端期望不一致
+        _stats = PlayHistoryStats(
+          totalPlays: data['totalPlays'] ?? 0,
+          uniqueTracks: data['uniqueTracks'] ?? 0, // 后端暂未提供
+          totalDuration: data['totalDuration'] ?? 0, // 后端暂未提供
+          lastPlayed: data['lastPlayed'] != null
+              ? PlayHistory.fromDto(data['lastPlayed'] as Map<String, dynamic>)
+              : null,
+        );
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载播放统计失败: $e');
+      AppLogger.error('PlayHistoryProvider', '加载播放统计失败: $e');
     }
   }
 
@@ -117,7 +128,7 @@ class PlayHistoryProvider with ChangeNotifier {
     // 确定音频标识符（本地音频使用文件路径作为 ID）
     final identifier = bvid ?? localPath ?? '';
     if (identifier.isEmpty) {
-      debugPrint('【PlayHistoryProvider】bvid 和 localPath 都为空，无法记录播放');
+      AppLogger.debug('PlayHistoryProvider', 'bvid 和 localPath 都为空，无法记录播放');
       return;
     }
 
@@ -188,9 +199,9 @@ class PlayHistoryProvider with ChangeNotifier {
         _stats = PlayHistoryStats(
           totalPlays: (_stats?.totalPlays ?? 0) + 1,
         );
-        debugPrint('【PlayHistoryProvider】播放历史记录成功');
+        AppLogger.info('PlayHistoryProvider', '播放历史记录成功');
       }).catchError((e) {
-        debugPrint('【PlayHistoryProvider】记录播放失败（不影响播放）: $e');
+        AppLogger.error('PlayHistoryProvider', '记录播放失败（不影响播放）: $e');
       });
     }
   }
@@ -206,7 +217,7 @@ class PlayHistoryProvider with ChangeNotifier {
         await _dioProvider.delete('/history/$bvid');
         return true;
       } catch (e) {
-        debugPrint('删除播放记录失败: $e');
+        AppLogger.error('PlayHistoryProvider', '删除播放记录失败: $e');
       }
     }
     return true;
@@ -223,7 +234,7 @@ class PlayHistoryProvider with ChangeNotifier {
         await _dioProvider.delete('/history/by-id/$id');
         return true;
       } catch (e) {
-        debugPrint('删除播放记录失败: $e');
+        AppLogger.error('PlayHistoryProvider', '删除播放记录失败: $e');
       }
     }
     return true;
@@ -242,7 +253,7 @@ class PlayHistoryProvider with ChangeNotifier {
         await _dioProvider.delete('/history');
         return true;
       } catch (e) {
-        debugPrint('清空播放历史失败: $e');
+        AppLogger.error('PlayHistoryProvider', '清空播放历史失败: $e');
       }
     }
     return true;
@@ -284,7 +295,7 @@ class PlayHistoryProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载本地播放历史失败: $e');
+      AppLogger.error('PlayHistoryProvider', '加载本地播放历史失败: $e');
     }
   }
 
@@ -294,7 +305,7 @@ class PlayHistoryProvider with ChangeNotifier {
       final json = jsonEncode(_history.map((item) => item.toJson()).toList());
       await prefs.setString(_historyKey, json);
     } catch (e) {
-      debugPrint('保存本地播放历史失败: $e');
+      AppLogger.error('PlayHistoryProvider', '保存本地播放历史失败: $e');
     }
   }
 

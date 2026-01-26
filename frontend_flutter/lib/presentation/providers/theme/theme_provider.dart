@@ -3,6 +3,7 @@ import 'package:demo/presentation/theme/light_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 主题控制器
 ///
@@ -29,10 +30,10 @@ class ThemeController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final isDark = prefs.getBool(_themeKey) ?? false;
       _themeData = isDark ? darkMode : lightMode;
-      debugPrint('【ThemeController】Theme loaded: ${isDark ? "dark" : "light"}');
+      AppLogger.info('ThemeController', 'Theme loaded: ${isDark ? "dark" : "light"}');
       notifyListeners();
     } catch (e) {
-      debugPrint('【ThemeController】Failed to load theme: $e');
+      AppLogger.error('ThemeController', 'Failed to load theme: $e');
     }
   }
 
@@ -49,9 +50,9 @@ class ThemeController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_themeKey, isDarkMode);
-      debugPrint('【ThemeController】Theme saved: ${isDarkMode ? "dark" : "light"}');
+      AppLogger.debug('ThemeController', 'Theme saved: ${isDarkMode ? "dark" : "light"}');
     } catch (e) {
-      debugPrint('【ThemeController】Failed to save theme: $e');
+      AppLogger.error('ThemeController', 'Failed to save theme: $e');
     }
   }
 

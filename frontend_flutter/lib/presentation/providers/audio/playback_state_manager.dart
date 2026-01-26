@@ -5,6 +5,7 @@ import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 播放状态管理器
 ///
@@ -70,7 +71,7 @@ class PlaybackStateManager {
     _savePositionTimer?.cancel();
     _saveDebounceTimer?.cancel();
 
-    debugPrint('【PlaybackStateManager】已释放');
+    AppLogger.info('PlaybackStateManager', '已释放');
   }
 
   // ==================== 回调设置 ====================
@@ -111,7 +112,7 @@ class PlaybackStateManager {
     _volume = volume.clamp(0.0, 1.0);
     await _savePlaybackSettings();
     _notifyChanged();
-    debugPrint('【PlaybackStateManager】音量已设置: ${(_volume * 100).toInt()}%');
+    AppLogger.info('PlaybackStateManager', '音量已设置: ${(_volume * 100).toInt()}%');
   }
 
   /// 设置倍速
@@ -119,7 +120,7 @@ class PlaybackStateManager {
     _speed = speed.clamp(0.5, 2.0);
     await _savePlaybackSettings();
     _notifyChanged();
-    debugPrint('【PlaybackStateManager】倍速已设置: ${_speed}x');
+    AppLogger.info('PlaybackStateManager', '倍速已设置: ${_speed}x');
   }
 
   /// 保存播放设置
@@ -128,9 +129,9 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(StorageKeys.playbackVolume, _volume);
       await prefs.setDouble(StorageKeys.playbackSpeed, _speed);
-      debugPrint('【PlaybackStateManager】播放设置已保存: 音量=$_volume 倍速=$_speed');
+      AppLogger.info('PlaybackStateManager', '播放设置已保存: 音量=$_volume 倍速=$_speed');
     } catch (e) {
-      debugPrint('【PlaybackStateManager】保存播放设置失败: $e');
+      AppLogger.error('PlaybackStateManager', '保存播放设置失败: $e');
     }
   }
 
@@ -140,9 +141,9 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       _volume = prefs.getDouble(StorageKeys.playbackVolume) ?? 1.0;
       _speed = prefs.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
-      debugPrint('【PlaybackStateManager】播放设置已加载: 音量=${(_volume * 100).toInt()}% 倍速=$_speed');
+      AppLogger.info('PlaybackStateManager', '播放设置已加载: 音量=${(_volume * 100).toInt()}% 倍速=$_speed');
     } catch (e) {
-      debugPrint('【PlaybackStateManager】加载播放设置失败: $e');
+      AppLogger.error('PlaybackStateManager', '加载播放设置失败: $e');
       _volume = 1.0;
       _speed = 1.0;
     }
@@ -163,14 +164,14 @@ class PlaybackStateManager {
         await _savePlaybackState();
       }
     });
-    debugPrint('【PlaybackStateManager】播放位置定时保存已启动');
+    AppLogger.info('PlaybackStateManager', '播放位置定时保存已启动');
   }
 
   /// 停止播放位置定时保存
   void stopPositionSaveTimer() {
     _savePositionTimer?.cancel();
     _savePositionTimer = null;
-    debugPrint('【PlaybackStateManager】播放位置定时保存已停止');
+    AppLogger.info('PlaybackStateManager', '播放位置定时保存已停止');
   }
 
   /// 保存播放状态到数据库
@@ -190,7 +191,7 @@ class PlaybackStateManager {
       if (currentPlayable is LocalPlayable) {
         final audio = currentPlayable.original;
         if (audio.id == null) {
-          debugPrint('【PlaybackStateManager】音频ID为空，无法保存播放状态');
+          AppLogger.info('PlaybackStateManager', '音频ID为空，无法保存播放状态');
           return;
         }
 
@@ -200,10 +201,10 @@ class PlaybackStateManager {
           position: currentPosition.inSeconds,
           currentIndex: currentIndex,
         );
-        debugPrint('【PlaybackStateManager】已保存本地音频播放状态: ${audio.title}');
+        AppLogger.info('PlaybackStateManager', '已保存本地音频播放状态: ${audio.title}');
       }
     } catch (e) {
-      debugPrint('【PlaybackStateManager】保存播放状态失败: $e');
+      AppLogger.error('PlaybackStateManager', '保存播放状态失败: $e');
     }
   }
 
@@ -224,7 +225,7 @@ class PlaybackStateManager {
     Function(Map<String, dynamic>)? record,
   }) async {
     if (record == null) {
-      debugPrint('【PlaybackStateManager】PlayHistoryProvider 未设置，跳过播放历史记录');
+      AppLogger.debug('PlaybackStateManager', 'PlayHistoryProvider 未设置，跳过播放历史记录');
       return;
     }
 
@@ -240,7 +241,7 @@ class PlaybackStateManager {
           'coverUrl': playable.coverUrl,
           'progress': 0,
         });
-        debugPrint('【PlaybackStateManager】已记录在线音频播放历史: ${playable.title}');
+        AppLogger.info('PlaybackStateManager', '已记录在线音频播放历史: ${playable.title}');
       } else if (playable is LocalPlayable) {
         // 记录本地音频
         final local = playable.original;
@@ -254,10 +255,10 @@ class PlaybackStateManager {
           'progress': 0,
           'localPath': local.filePath,
         });
-        debugPrint('【PlaybackStateManager】已记录本地音频播放历史: ${local.title}');
+        AppLogger.info('PlaybackStateManager', '已记录本地音频播放历史: ${local.title}');
       }
     } catch (e) {
-      debugPrint('【PlaybackStateManager】记录播放历史失败: $e');
+      AppLogger.error('PlaybackStateManager', '记录播放历史失败: $e');
     }
   }
 
@@ -301,7 +302,7 @@ class PlaybackStateManager {
         });
       }
     } catch (e) {
-      debugPrint('【PlaybackStateManager】更新播放进度失败: $e');
+      AppLogger.error('PlaybackStateManager', '更新播放进度失败: $e');
     }
   }
 
@@ -325,14 +326,14 @@ class PlaybackStateManager {
         await updatePlaybackProgress(token: token, update: update);
       }
     });
-    debugPrint('【PlaybackStateManager】播放进度更新定时器已启动');
+    AppLogger.info('PlaybackStateManager', '播放进度更新定时器已启动');
   }
 
   /// 停止播放进度更新定时器
   void stopProgressUpdateTimer() {
     _progressUpdateTimer?.cancel();
     _progressUpdateTimer = null;
-    debugPrint('【PlaybackStateManager】播放进度更新定时器已停止');
+    AppLogger.info('PlaybackStateManager', '播放进度更新定时器已停止');
   }
 
   // ==================== 防抖保存 ====================
@@ -352,7 +353,7 @@ class PlaybackStateManager {
       try {
         await saveFn();
       } catch (e) {
-        debugPrint('【PlaybackStateManager】防抖保存失败: $e');
+        AppLogger.error('PlaybackStateManager', '防抖保存失败: $e');
       } finally {
         _isSaving = false;
       }
@@ -376,9 +377,9 @@ class PlaybackStateManager {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, value);
-      debugPrint('【PlaybackStateManager】保存 $key');
+      AppLogger.info('PlaybackStateManager', '保存 $key');
     } catch (e) {
-      debugPrint('【PlaybackStateManager】保存 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '保存 $key 失败: $e');
     }
   }
 
@@ -388,7 +389,7 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(key);
     } catch (e) {
-      debugPrint('【PlaybackStateManager】获取 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '获取 $key 失败: $e');
       return null;
     }
   }
@@ -399,7 +400,7 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(key, value);
     } catch (e) {
-      debugPrint('【PlaybackStateManager】保存 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '保存 $key 失败: $e');
     }
   }
 
@@ -409,7 +410,7 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getInt(key);
     } catch (e) {
-      debugPrint('【PlaybackStateManager】获取 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '获取 $key 失败: $e');
       return null;
     }
   }
@@ -420,7 +421,7 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(key, value);
     } catch (e) {
-      debugPrint('【PlaybackStateManager】保存 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '保存 $key 失败: $e');
     }
   }
 
@@ -430,7 +431,7 @@ class PlaybackStateManager {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(key);
     } catch (e) {
-      debugPrint('【PlaybackStateManager】获取 $key 失败: $e');
+      AppLogger.error('PlaybackStateManager', '获取 $key 失败: $e');
       return null;
     }
   }

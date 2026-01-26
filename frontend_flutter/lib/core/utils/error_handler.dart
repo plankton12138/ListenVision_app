@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../errors/exceptions.dart';
 import '../../presentation/widgets/error_banner.dart';
 import 'dialog_helper.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 统一错误处理器
 ///
@@ -187,14 +188,14 @@ class ErrorHandler {
 
     if (kDebugMode) {
       // 开发模式：打印完整错误信息
-      debugPrint('$prefix错误类型: ${error.runtimeType}');
-      debugPrint('$prefix错误信息: $error');
+      AppLogger.error('ErrorHandler', '$prefix错误类型: ${error.runtimeType}');
+      AppLogger.error('ErrorHandler', '$prefix错误信息: $error');
       if (stackTrace != null) {
-        debugPrint('$prefix堆栈跟踪:\n$stackTrace');
+        AppLogger.debug('ErrorHandler', '$prefix堆栈跟踪:\n$stackTrace');
       }
     } else {
       // 生产模式：只打印简要信息
-      debugPrint('$prefix${parseErrorMessage(error)}');
+      AppLogger.error('ErrorHandler', '$prefix${parseErrorMessage(error)}');
     }
   }
 

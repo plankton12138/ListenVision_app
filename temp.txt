@@ -1,0 +1,43 @@
+I/flutter ( 2435): ℹ️ [AppLogger] [2026-01-26T11:59:58.225473] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+I/flutter ( 2435): 📁 AppLogger: 日志目录 = /data/user/0/com.example.flutter_application_1/app_flutter/logs
+D/android_logger( 2435): android_logger: log::set_logger failed: attempted to set a logger after the logging system was already initialized
+D/flutter_rust_bridge::misc::user_utils( 2435): Skip setup RUST_BACKTRACE because there is already environment variable
+D/android_logger( 2435): android_logger: log::set_logger failed: attempted to set a logger after the logging system was already initialized
+D/flutter_rust_bridge::misc::user_utils( 2435): Skip setup RUST_BACKTRACE because there is already environment variable
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.319706] [DEBUG] [AppConfig] ========================================
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.320037] [DEBUG] [AppConfig] AppConfig 环境配置
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.320377] [DEBUG] [AppConfig] ----------------------------------------
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.321233] [DEBUG] [AppConfig] 环境: AppEnvironment.test (测试环境)
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.321605] [DEBUG] [AppConfig] API URL: http://192.168.0.197:3000
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.322025] [DEBUG] [AppConfig] API 日志: true
+I/flutter ( 2435): ❌ [AppConfig] [2026-01-26T11:59:58.323148] [ERROR] [AppConfig] 错误报告: false
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.323628] [DEBUG] [AppConfig] 分析: false
+I/flutter ( 2435): 🔍 [AppConfig] [2026-01-26T11:59:58.323839] [DEBUG] [AppConfig] ========================================
+
+
+build\windows\x64\runner\Debug\flutter_application_1.exe
+package:media_kit_libs_windows_audio registered.
+ℹ️ [AppLogger] [2026-01-26T15:08:25.029665] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"C:\\Users\\23104\\Documents/logs","currentLogFile":"C:\\Users\\23104\\Documents/logs/app-2026-01-26.log"}
+📁 AppLogger: 日志目录 = C:\Users\23104\Documents/logs
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] ========================================
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] AppConfig 环境配置
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] ----------------------------------------
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] 环境: AppEnvironment.dev (开发环境)
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] API URL: http://127.0.0.1:3000
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] API 日志: true
+❌ [AppConfig] [2026-01-26T15:08:26.396707] [ERROR] [AppConfig] 错误报告: false
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] 分析: false
+🔍 [AppConfig] [2026-01-26T15:08:26.396707] [DEBUG] [AppConfig] ========================================
+ℹ️ [Dio] [2026-01-26T15:08:26.412491] [INFO] [Dio] Token 已更新
+ℹ️ [Main] [2026-01-26T15:08:26.412491] [INFO] [Main] Token restored from auth_token key
+🔍 [AudioProvider] [2026-01-26T15:08:26.809336] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+ℹ️ [ThemeController] [2026-01-26T15:08:27.032526] [INFO] [ThemeController] Theme loaded: light
+ℹ️ [PlaybackStateManager] [2026-01-26T15:08:27.064077] [INFO] [PlaybackStateManager] 播放设置已加载: 音量=45% 倍速=1.0
+ℹ️ [Dio] [2026-01-26T15:08:27.064077] [INFO] [Dio] Token 已更新
+🔍 [AuthProvider] [2026-01-26T15:08:27.064077] [DEBUG] [AuthProvider] Token restored to DioProvider
+🔍 [AudioProvider] [2026-01-26T15:08:27.095785] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+🔍 [AudioProvider] [2026-01-26T15:08:27.426790] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+🔍 [Dio] [2026-01-26T15:08:27.468414] [DEBUG] [Dio] 请求: GET http://127.0.0.1:3000/api/history?limit=50
+🔍 [Dio] [2026-01-26T15:08:27.468414] [DEBUG] [Dio] 请求: GET http://127.0.0.1:3000/api/history?limit=50
+🔍 [PlaybackController] [2026-01-26T15:08:27.514602] [DEBUG] [PlaybackController] 音量已设置为: 45%
+🔍 [PlaybackController] [2026-01-26T15:08:27.514602] [DEBUG] [PlaybackController] 倍速已设置为: 1.0

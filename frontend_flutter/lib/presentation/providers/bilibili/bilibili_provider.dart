@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:demo/domain/entities/platform_account.dart';
 import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// B站相关状态管理Provider
 ///
@@ -63,13 +64,13 @@ class BilibiliProvider with ChangeNotifier {
   void updateToken(String? token) {
     _token = token;
     _apiService = BilibiliApiService();
-    debugPrint('【BilibiliProvider】Token updated: ${token != null ? "set" : "cleared"}');
+    AppLogger.debug('BilibiliProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }
 
   /// 初始化：检查绑定状态
   Future<void> initialize() async {
     if (_token == null) {
-      debugPrint('【BilibiliProvider】No token, skip initialization');
+      AppLogger.debug('BilibiliProvider', 'No token, skip initialization');
       return;
     }
 
@@ -86,9 +87,9 @@ class BilibiliProvider with ChangeNotifier {
       // 加载搜索历史
       _searchHistory = await _apiService!.getRecentSearches(limit: 10);
 
-      debugPrint('【BilibiliProvider】Initialized: bound=$_isBound');
+      AppLogger.debug('BilibiliProvider', 'Initialized: bound=$_isBound');
     } catch (e) {
-      debugPrint('【BilibiliProvider】Init error: $e');
+      AppLogger.error('BilibiliProvider', 'Init error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -101,7 +102,7 @@ class BilibiliProvider with ChangeNotifier {
   Future<void> ensureInitialized() async {
     // 如果已经有 token 但尚未检查绑定状态，则执行初始化
     if (_token != null && !_isLoading && _searchHistory.isEmpty) {
-      debugPrint('【BilibiliProvider】Ensuring initialization...');
+      AppLogger.debug('BilibiliProvider', 'Ensuring initialization...');
       await initialize();
     }
   }
@@ -124,11 +125,11 @@ class BilibiliProvider with ChangeNotifier {
       // 开始轮询
       _startQRPolling();
 
-      debugPrint('【BilibiliProvider】QR login started');
+      AppLogger.info('BilibiliProvider', 'QR login started');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】QR login start error: $e');
+      AppLogger.error('BilibiliProvider', 'QR login start error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -156,7 +157,7 @@ class BilibiliProvider with ChangeNotifier {
       try {
         await _checkQRStatus();
       } catch (e) {
-        debugPrint('【BilibiliProvider】QR polling error: $e');
+        AppLogger.error('BilibiliProvider', 'QR polling error: $e');
       }
     });
   }
@@ -187,7 +188,7 @@ class BilibiliProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('【BilibiliProvider】QR check error: $e');
+      AppLogger.error('BilibiliProvider', 'QR check error: $e');
     }
   }
 
@@ -213,11 +214,11 @@ class BilibiliProvider with ChangeNotifier {
       _isBound = false;
       _boundUserInfo = null;
 
-      debugPrint('【BilibiliProvider】Account unbound');
+      AppLogger.debug('BilibiliProvider', 'Account unbound');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Unbind error: $e');
+      AppLogger.error('BilibiliProvider', 'Unbind error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -264,11 +265,11 @@ class BilibiliProvider with ChangeNotifier {
       // 更新搜索历史（从服务器获取）
       _searchHistory = await _apiService!.getRecentSearches(limit: 10);
 
-      debugPrint('【BilibiliProvider】Search found ${_searchResults.length} results');
+      AppLogger.debug('BilibiliProvider', 'Search found ${_searchResults.length} results');
       return true;
     } catch (e) {
       _searchError = e.toString();
-      debugPrint('【BilibiliProvider】Search error: $e');
+      AppLogger.error('BilibiliProvider', 'Search error: $e');
       return false;
     } finally {
       _isSearching = false;
@@ -304,7 +305,7 @@ class BilibiliProvider with ChangeNotifier {
       final cached = _videoInfoCache[bvid]!;
       final cachedTime = DateTime.parse(cached['cachedAt'] ?? '');
       if (DateTime.now().difference(cachedTime).inHours < 24) {
-        debugPrint('【BilibiliProvider】Video info from cache: $bvid');
+        AppLogger.debug('BilibiliProvider', 'Video info from cache: $bvid');
         return cached;
       }
     }
@@ -323,11 +324,11 @@ class BilibiliProvider with ChangeNotifier {
         _videoInfoCache.remove(oldestKey);
       }
 
-      debugPrint('【BilibiliProvider】Video info loaded: $bvid');
+      AppLogger.info('BilibiliProvider', 'Video info loaded: $bvid');
       return info;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Get video info error: $e');
+      AppLogger.error('BilibiliProvider', 'Get video info error: $e');
       return null;
     } finally {
       _isLoading = false;
@@ -345,7 +346,7 @@ class BilibiliProvider with ChangeNotifier {
       return stream;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Get audio stream error: $e');
+      AppLogger.error('BilibiliProvider', 'Get audio stream error: $e');
       return null;
     } finally {
       _isLoading = false;
@@ -358,7 +359,7 @@ class BilibiliProvider with ChangeNotifier {
     try {
       return await _apiService!.getAudioMetadata(bvid);
     } catch (e) {
-      debugPrint('【BilibiliProvider】Get audio metadata error: $e');
+      AppLogger.error('BilibiliProvider', 'Get audio metadata error: $e');
       return null;
     }
   }
@@ -370,11 +371,11 @@ class BilibiliProvider with ChangeNotifier {
       notifyListeners();
 
       await _apiService!.refreshAudioMetadata(bvid);
-      debugPrint('【BilibiliProvider】Audio metadata refreshed: $bvid');
+      AppLogger.debug('BilibiliProvider', 'Audio metadata refreshed: $bvid');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Refresh metadata error: $e');
+      AppLogger.error('BilibiliProvider', 'Refresh metadata error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -387,7 +388,7 @@ class BilibiliProvider with ChangeNotifier {
     try {
       return await _apiService!.getBatchMetadata(bvids);
     } catch (e) {
-      debugPrint('【BilibiliProvider】Batch metadata error: $e');
+      AppLogger.error('BilibiliProvider', 'Batch metadata error: $e');
       return {};
     }
   }
@@ -397,7 +398,7 @@ class BilibiliProvider with ChangeNotifier {
     try {
       return await _apiService!.getCacheStats();
     } catch (e) {
-      debugPrint('【BilibiliProvider】Get cache stats error: $e');
+      AppLogger.error('BilibiliProvider', 'Get cache stats error: $e');
       return {'count': 0, 'totalSize': 0};
     }
   }
@@ -446,11 +447,11 @@ class BilibiliProvider with ChangeNotifier {
           ?.whereType<Map<String, dynamic>>()
           .toList() ?? [];
 
-      debugPrint('【BilibiliProvider】Hot playlists loaded: ${_hotPlaylists.length}');
+      AppLogger.info('BilibiliProvider', 'Hot playlists loaded: ${_hotPlaylists.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load hot playlists error: $e');
+      AppLogger.error('BilibiliProvider', 'Load hot playlists error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -478,11 +479,11 @@ class BilibiliProvider with ChangeNotifier {
           ?.whereType<Map<String, dynamic>>()
           .toList() ?? [];
 
-      debugPrint('【BilibiliProvider】Hot rank loaded: ${_hotRank.length}');
+      AppLogger.info('BilibiliProvider', 'Hot rank loaded: ${_hotRank.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load hot rank error: $e');
+      AppLogger.error('BilibiliProvider', 'Load hot rank error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -513,11 +514,11 @@ class BilibiliProvider with ChangeNotifier {
         result['videos'] ?? result['playlists'] ?? [],
       );
 
-      debugPrint('【BilibiliProvider】Personalized response: source=${result['source']}, videos=${result['videos']?.length ?? 0}, playlists=${result['playlists']?.length ?? 0}');
+      AppLogger.debug('BilibiliProvider', 'Personalized response: source=${result['source']}, videos=${result['videos']?.length ?? 0}, playlists=${result['playlists']?.length ?? 0}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load personalized recommendations error: $e');
+      AppLogger.error('BilibiliProvider', 'Load personalized recommendations error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -540,11 +541,11 @@ class BilibiliProvider with ChangeNotifier {
 
       _musicCategories = await _apiService!.getCategoryTids();
 
-      debugPrint('【BilibiliProvider】Music categories loaded: ${_musicCategories.length}');
+      AppLogger.info('BilibiliProvider', 'Music categories loaded: ${_musicCategories.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load music categories error: $e');
+      AppLogger.error('BilibiliProvider', 'Load music categories error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -568,11 +569,11 @@ class BilibiliProvider with ChangeNotifier {
       final result = await _apiService!.getMusicRecommendation(limit: limit);
       _categoryRecommendations = result;
 
-      debugPrint('【BilibiliProvider】Music recommendation loaded: ${_categoryRecommendations.length}');
+      AppLogger.info('BilibiliProvider', 'Music recommendation loaded: ${_categoryRecommendations.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load music recommendation error: $e');
+      AppLogger.error('BilibiliProvider', 'Load music recommendation error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -604,11 +605,11 @@ class BilibiliProvider with ChangeNotifier {
       );
       _categoryRecommendations = List<Map<String, dynamic>>.from(result['videos'] ?? []);
 
-      debugPrint('【BilibiliProvider】Category $tid loaded: ${_categoryRecommendations.length}');
+      AppLogger.info('BilibiliProvider', 'Category $tid loaded: ${_categoryRecommendations.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliProvider】Load category $tid error: $e');
+      AppLogger.error('BilibiliProvider', 'Load category $tid error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -648,12 +649,12 @@ class BilibiliProvider with ChangeNotifier {
         result['data'] ?? [],
       );
 
-      debugPrint('【BilibiliProvider】Music zone loaded: ${_musicZoneRecommendations.length}, fallback: $_musicZoneFallback');
+      AppLogger.info('BilibiliProvider', 'Music zone loaded: ${_musicZoneRecommendations.length}, fallback: $_musicZoneFallback');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
       _musicZoneFallback = true;
-      debugPrint('【BilibiliProvider】Load music zone error: $e');
+      AppLogger.error('BilibiliProvider', 'Load music zone error: $e');
       return false;
     } finally {
       _isLoading = false;

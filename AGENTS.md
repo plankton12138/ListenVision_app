@@ -489,3 +489,52 @@ flutter test test/widget_test.dart
 - **Phase-based development**: Currently in Phase 2 (playlists, favorites, recommendations)
 - **Bilibili API docs**: Local clone at `bilibili-API-collect/` (use Grep/Read, don't search web)
 - **No type suppression**: Never use `as any`, `@ts-ignore`, or `@ts-expect-error` (Dart)
+
+---
+
+## Logging & Debugging
+
+### Frontend (Flutter) App Logs
+
+**Windows**:
+- Log Directory: `C:\Users\<username>\Documents/logs`
+- Current Log File: `C:\Users\<username>\Documents/logs/app-YYYY-MM-DD.log`
+- Example: `C:\Users\23104\Documents/logs/app-2026-01-26.log`
+
+**Android**:
+- Log Directory: `/data/user/0/com.example.flutter_application_1/app_flutter/logs`
+- Current Log File: `/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-YYYY-MM-DD.log`
+- Example: `/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log`
+
+### Backend (Node.js) Logs
+
+- Combined Logs: `listen-vision_api/logs/combined.log`
+- Error Logs: `listen-vision_api/logs/error.log`
+- Framework: Winston logger
+
+### Viewing Logs
+
+**Frontend**:
+```bash
+# Windows: Open the log file in a text editor
+notepad C:\Users\23104\Documents\logs\app-2026-01-26.log
+
+# Android: Use adb to pull logs
+adb pull /data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log
+```
+
+**Backend**:
+```bash
+# View combined logs in real-time
+tail -f listen-vision_api/logs/combined.log
+
+# View error logs
+tail -f listen-vision_api/logs/error.log
+```
+
+### Log Levels
+
+- **INFO**: General information (ℹ️)
+- **DEBUG**: Debug information (🔍)
+- **WARN**: Warning messages (!)
+- **ERROR**: Error messages (❌)

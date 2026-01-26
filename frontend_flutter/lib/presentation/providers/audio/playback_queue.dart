@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 播放命令类型
 enum PlaybackCommandType {
@@ -140,14 +141,14 @@ class PlaybackQueue {
 
     // 检查队列长度
     if (_queue.length >= maxQueueLength) {
-      debugPrint('【PlaybackQueue】队列已满，丢弃最旧的命令');
+      AppLogger.info('PlaybackQueue', '队列已满，丢弃最旧的命令');
       _queue.removeAt(0);
     }
 
     _queue.add(command);
     _notifyStateChanged();
 
-    debugPrint('【PlaybackQueue】命令已入队: $command, 队列长度: ${_queue.length}');
+    AppLogger.info('PlaybackQueue', '命令已入队: $command, 队列长度: ${_queue.length}');
 
     // 如果队列未被锁定，开始处理
     if (!_isLocked) {
@@ -163,7 +164,7 @@ class PlaybackQueue {
       }
     }
     _queue.clear();
-    debugPrint('【PlaybackQueue】已取消所有待处理的命令');
+    AppLogger.info('PlaybackQueue', '已取消所有待处理的命令');
   }
 
   /// 取消待处理的命令（公共方法）
@@ -181,13 +182,13 @@ class PlaybackQueue {
     _isLocked = true;
     _notifyStateChanged();
 
-    debugPrint('【PlaybackQueue】开始处理队列，待处理: ${_queue.length}');
+    AppLogger.info('PlaybackQueue', '开始处理队列，待处理: ${_queue.length}');
 
     while (_queue.isNotEmpty) {
       final cmd = _queue.removeAt(0);
       _notifyStateChanged();
 
-      debugPrint('【PlaybackQueue】执行命令: $cmd');
+      AppLogger.debug('PlaybackQueue', '执行命令: $cmd');
 
       try {
         // 命令的实际执行由外部提供
@@ -196,13 +197,13 @@ class PlaybackQueue {
           await cmd.completer.future.timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('【PlaybackQueue】命令执行超时: $cmd');
+              AppLogger.warn('PlaybackQueue', '命令执行超时: $cmd');
               throw TimeoutException('命令执行超时: $cmd');
             },
           );
         }
       } catch (e) {
-        debugPrint('【PlaybackQueue】命令执行失败: $cmd, 错误: $e');
+        AppLogger.error('PlaybackQueue', '命令执行失败: $cmd, 错误: $e');
         // 继续处理下一个命令
       }
     }
@@ -211,7 +212,7 @@ class PlaybackQueue {
     _isLocked = false;
     _notifyStateChanged();
 
-    debugPrint('【PlaybackQueue】队列处理完成');
+    AppLogger.info('PlaybackQueue', '队列处理完成');
   }
 
   /// 清空队列
@@ -220,7 +221,7 @@ class PlaybackQueue {
     _isProcessing = false;
     _isLocked = false;
     _notifyStateChanged();
-    debugPrint('【PlaybackQueue】队列已清空');
+    AppLogger.info('PlaybackQueue', '队列已清空');
   }
 
   /// 释放资源

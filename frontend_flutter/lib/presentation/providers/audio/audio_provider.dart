@@ -12,6 +12,7 @@ import 'package:demo/domain/entities/online_playable.dart';
 import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/utils/error_handler.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 import 'package:demo/presentation/providers/audio/unified_playlist_manager.dart';
@@ -206,7 +207,7 @@ class AudioProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    debugPrint('【AudioProvider】播放状态已恢复');
+    AppLogger.debug('AudioProvider', '播放状态已恢复');
   }
 
   // ==================== Getters（向后兼容）====================
@@ -257,7 +258,7 @@ class AudioProvider extends ChangeNotifier {
 
   void setHistoryProvider(PlayHistoryProvider? provider) {
     _historyProvider = provider;
-    debugPrint('【AudioProvider】PlayHistoryProvider 已${provider == null ? '清除' : '设置'}');
+    AppLogger.debug('AudioProvider', 'PlayHistoryProvider 已${provider == null ? '清除' : '设置'}');
   }
 
   // ==================== 播放控制 ====================
@@ -303,7 +304,7 @@ class AudioProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('【AudioProvider】togglePlayPause 错误: $e');
+      AppLogger.error('AudioProvider', 'togglePlayPause 错误: $e');
       _playerStatusMessage = '播放失败';
       _hasPlaybackError = true;
       notifyListeners();
@@ -382,7 +383,7 @@ class AudioProvider extends ChangeNotifier {
     }
 
     try {
-      debugPrint('【AudioProvider】准备播放在线音频: ${audio.title}');
+      AppLogger.info('AudioProvider', '准备播放在线音频: ${audio.title}');
 
       // 构建代理 URL
       proxyUrl ??= _buildProxyUrl(audio.id, preferredFormat ?? 'auto');
@@ -405,10 +406,10 @@ class AudioProvider extends ChangeNotifier {
       // ⭐ 保存播放列表和索引
       await _playlistManager.save();
 
-      debugPrint('【AudioProvider】在线播放开始: ${audio.title}');
+      AppLogger.info('AudioProvider', '在线播放开始: ${audio.title}');
       notifyListeners();
     } catch (e) {
-      debugPrint('【AudioProvider】在线播放失败: $e');
+      AppLogger.error('AudioProvider', '在线播放失败: $e');
       rethrow;
     }
   }
@@ -508,7 +509,7 @@ class AudioProvider extends ChangeNotifier {
       _currentOnlineAudio = null;
       _isSeekable = true;
 
-      debugPrint('【AudioProvider】开始加载: $filePath');
+      AppLogger.info('AudioProvider', '开始加载: $filePath');
 
       // 提取文件元数据
       final metadata = await _metadataLoader.extractFromFile(filePath);
@@ -559,7 +560,7 @@ class AudioProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('【AudioProvider】加载失败: $e');
+      AppLogger.error('AudioProvider', '加载失败: $e');
       rethrow;
     }
   }

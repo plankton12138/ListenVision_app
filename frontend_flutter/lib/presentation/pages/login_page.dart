@@ -8,10 +8,10 @@ import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 // P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 登录页面
 ///
@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
             }
           } catch (e) {
             // 歌单初始化失败不影响登录
-            debugPrint('歌单初始化失败: $e');
+            AppLogger.error('LoginPage', '歌单初始化失败: $e');
           }
 
           if (mounted) {

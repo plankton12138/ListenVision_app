@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 应用环境配置
 ///
@@ -20,7 +21,7 @@ import 'package:flutter/foundation.dart';
 /// 环境类型枚举
 enum AppEnvironment {
   dev('开发环境', 'http://127.0.0.1:3000'),
-  test('测试环境', 'https://test-api.listenvision.com'),
+  test('测试环境', 'http://192.168.0.197:3000'),
   staging('预发布环境', 'https://staging-api.listenvision.com'),
   prod('生产环境', 'https://api.listenvision.com');
 
@@ -161,15 +162,15 @@ class AppConfig {
 
   /// 打印配置信息
   void _printConfig() {
-    debugPrint('========================================');
-    debugPrint('AppConfig 环境配置');
-    debugPrint('----------------------------------------');
-    debugPrint('环境: $_currentEnv (${_currentEnv.description})');
-    debugPrint('API URL: $_apiBaseUrl');
-    debugPrint('API 日志: $enableApiLogging');
-    debugPrint('错误报告: $enableErrorReporting');
-    debugPrint('分析: $enableAnalytics');
-    debugPrint('========================================');
+    AppLogger.debug('AppConfig', '========================================');
+    AppLogger.debug('AppConfig', 'AppConfig 环境配置');
+    AppLogger.debug('AppConfig', '----------------------------------------');
+    AppLogger.debug('AppConfig', '环境: $_currentEnv (${_currentEnv.description})');
+    AppLogger.debug('AppConfig', 'API URL: $_apiBaseUrl');
+    AppLogger.debug('AppConfig', 'API 日志: $enableApiLogging');
+    AppLogger.error('AppConfig', '错误报告: $enableErrorReporting');
+    AppLogger.debug('AppConfig', '分析: $enableAnalytics');
+    AppLogger.debug('AppConfig', '========================================');
   }
 
   // ==================== 工具方法 ====================

@@ -1,5 +1,6 @@
 import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// B站视频信息缓存管理Provider
 ///
@@ -36,7 +37,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
   void updateToken(String? token) {
     _token = token;
     _apiService = BilibiliApiService();
-    debugPrint('【BilibiliCacheProvider】Token updated: ${token != null ? "set" : "cleared"}');
+    AppLogger.debug('BilibiliCacheProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }
 
   // ==================== 视频信息缓存 ====================
@@ -48,7 +49,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
       final cached = _videoInfoCache[bvid]!;
       final cachedTime = DateTime.parse(cached['cachedAt'] ?? '');
       if (DateTime.now().difference(cachedTime) < _cacheTTL) {
-        debugPrint('【BilibiliCacheProvider】Video info from cache: $bvid');
+        AppLogger.debug('BilibiliCacheProvider', 'Video info from cache: $bvid');
         return cached;
       }
       // 缓存过期，删除
@@ -71,11 +72,11 @@ class BilibiliCacheProvider extends ChangeNotifier {
       // 限制缓存大小
       _trimCache();
 
-      debugPrint('【BilibiliCacheProvider】Video info loaded: $bvid');
+      AppLogger.info('BilibiliCacheProvider', 'Video info loaded: $bvid');
       return info;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliCacheProvider】Get video info error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Get video info error: $e');
       return null;
     } finally {
       _isLoading = false;
@@ -86,14 +87,14 @@ class BilibiliCacheProvider extends ChangeNotifier {
   /// 批量获取视频元数据
   Future<Map<String, Map<String, dynamic>>> getBatchMetadata(List<String> bvids) async {
     if (_apiService == null) {
-      debugPrint('【BilibiliCacheProvider】ApiService not initialized');
+      AppLogger.debug('BilibiliCacheProvider', 'ApiService not initialized');
       return {};
     }
 
     try {
       return await _apiService!.getBatchMetadata(bvids);
     } catch (e) {
-      debugPrint('【BilibiliCacheProvider】Batch metadata error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Batch metadata error: $e');
       return {};
     }
   }
@@ -113,7 +114,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
       return stream;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliCacheProvider】Get audio stream error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Get audio stream error: $e');
       return null;
     } finally {
       _isLoading = false;
@@ -124,14 +125,14 @@ class BilibiliCacheProvider extends ChangeNotifier {
   /// 获取缓存的音频元数据
   Future<Map<String, dynamic>?> getAudioMetadata(String bvid) async {
     if (_apiService == null) {
-      debugPrint('【BilibiliCacheProvider】ApiService not initialized');
+      AppLogger.debug('BilibiliCacheProvider', 'ApiService not initialized');
       return null;
     }
 
     try {
       return await _apiService!.getAudioMetadata(bvid);
     } catch (e) {
-      debugPrint('【BilibiliCacheProvider】Get audio metadata error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Get audio metadata error: $e');
       return null;
     }
   }
@@ -152,11 +153,11 @@ class BilibiliCacheProvider extends ChangeNotifier {
       // 清除本地缓存
       _videoInfoCache.remove(bvid);
 
-      debugPrint('【BilibiliCacheProvider】Audio metadata refreshed: $bvid');
+      AppLogger.debug('BilibiliCacheProvider', 'Audio metadata refreshed: $bvid');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliCacheProvider】Refresh metadata error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Refresh metadata error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -177,7 +178,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
       final stats = await _apiService!.getCacheStats();
       return stats;
     } catch (e) {
-      debugPrint('【BilibiliCacheProvider】Get cache stats error: $e');
+      AppLogger.error('BilibiliCacheProvider', 'Get cache stats error: $e');
       return {
         'count': _videoInfoCache.length,
         'totalSize': 0,
@@ -202,7 +203,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
     }
 
     if (expiredKeys.isNotEmpty) {
-      debugPrint('【BilibiliCacheProvider】Cleaned ${expiredKeys.length} expired cache entries');
+      AppLogger.debug('BilibiliCacheProvider', 'Cleaned ${expiredKeys.length} expired cache entries');
       notifyListeners();
     }
   }
@@ -210,7 +211,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
   /// 清空本地缓存
   void clearCache() {
     _videoInfoCache.clear();
-    debugPrint('【BilibiliCacheProvider】Cache cleared');
+    AppLogger.debug('BilibiliCacheProvider', 'Cache cleared');
     notifyListeners();
   }
 
@@ -231,7 +232,7 @@ class BilibiliCacheProvider extends ChangeNotifier {
       _videoInfoCache.remove(entries[i].key);
     }
 
-    debugPrint('【BilibiliCacheProvider】Trimmed cache: removed $toRemove entries');
+    AppLogger.debug('BilibiliCacheProvider', 'Trimmed cache: removed $toRemove entries');
   }
 
   /// 清除错误信息

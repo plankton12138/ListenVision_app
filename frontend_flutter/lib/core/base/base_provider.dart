@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// Provider基类
 ///
@@ -85,7 +86,7 @@ abstract class BaseProvider extends ChangeNotifier {
       if (onError != null) {
         onError(e);
       }
-      debugPrint('[$runtimeType] executeAsync error: $e');
+      AppLogger.error('BaseProvider', '[$runtimeType] executeAsync error: $e');
       return null;
     } finally {
       setLoading(false);

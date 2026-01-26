@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 import '../constants/api_constants.dart';
 // import '../constants/app_constants.dart';
@@ -45,15 +45,15 @@ class DioProvider {
     // 添加请求拦截器
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        debugPrint('【Dio】请求: ${options.method} ${options.uri}');
+        AppLogger.debug('Dio', '请求: ${options.method} ${options.uri}');
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        debugPrint('【Dio】响应: ${response.statusCode} ${response.requestOptions.uri}');
+        AppLogger.debug('Dio', '响应: ${response.statusCode} ${response.requestOptions.uri}');
         return handler.next(response);
       },
       onError: (error, handler) {
-        debugPrint('【Dio】错误: ${error.message} ${error.requestOptions.uri}');
+        AppLogger.error('Dio', '错误: ${error.message} ${error.requestOptions.uri}');
         return handler.next(error);
       },
     ));
@@ -67,10 +67,10 @@ class DioProvider {
   void updateToken(String? token) {
     if (token != null && token.isNotEmpty) {
       dio.options.headers['Authorization'] = 'Bearer $token';
-      debugPrint('【Dio】Token 已更新');
+      AppLogger.info('Dio', 'Token 已更新');
     } else {
       dio.options.headers.remove('Authorization');
-      debugPrint('【Dio】Token 已清除');
+      AppLogger.info('Dio', 'Token 已清除');
     }
   }
 

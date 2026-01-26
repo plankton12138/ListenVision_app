@@ -33,7 +33,8 @@
       "Bash(Select-Object:*)",
       "Bash(Get-ChildItem:*)",
       "Bash(tree:*)",
-      "Bash(Format-Table FullName -AutoSize)"
+      "Bash(Format-Table FullName -AutoSize)",
+      "Bash(adb shell:*)"
     ]
   }
 }

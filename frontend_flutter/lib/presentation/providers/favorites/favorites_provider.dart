@@ -1,6 +1,7 @@
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 收藏状态管理
 ///
@@ -39,13 +40,13 @@ class FavoritesProvider extends ChangeNotifier {
   Future<void> initialize(String? token) async {
     _token = token;
     await loadFavorites();
-    debugPrint('【FavoritesProvider】初始化完成');
+    AppLogger.info('FavoritesProvider', '初始化完成');
   }
 
   /// 从服务器加载收藏列表
   Future<void> loadFavorites() async {
     if (_token == null || _token!.isEmpty) {
-      debugPrint('【FavoritesProvider】未登录，跳过服务器加载');
+      AppLogger.debug('FavoritesProvider', '未登录，跳过服务器加载');
       return;
     }
 
@@ -60,13 +61,13 @@ class FavoritesProvider extends ChangeNotifier {
         final data = response['data'] as List;
         _favorites = data.map((item) => item.toString()).toList();
 
-        debugPrint('【FavoritesProvider】加载收藏列表: ${_favorites.length}');
+        AppLogger.debug('FavoritesProvider', '加载收藏列表: ${_favorites.length}');
       } else {
         throw Exception(response['message'] ?? '加载收藏列表失败');
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【FavoritesProvider】加载收藏列表异常: $e');
+      AppLogger.error('FavoritesProvider', '加载收藏列表异常: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -79,7 +80,7 @@ class FavoritesProvider extends ChangeNotifier {
     if (!_favorites.contains(bvid)) {
       _favorites.add(bvid);
       notifyListeners();
-      debugPrint('【FavoritesProvider】添加收藏: $bvid');
+      AppLogger.info('FavoritesProvider', '添加收藏: $bvid');
     }
   }
 
@@ -87,14 +88,14 @@ class FavoritesProvider extends ChangeNotifier {
   Future<void> removeFromFavorites(String bvid) async {
     _favorites.remove(bvid);
     notifyListeners();
-    debugPrint('【FavoritesProvider】移除收藏: $bvid');
+    AppLogger.debug('FavoritesProvider', '移除收藏: $bvid');
   }
 
   /// 清空收藏
   Future<void> clearFavorites() async {
     _favorites.clear();
     notifyListeners();
-    debugPrint('【FavoritesProvider】清空收藏列表');
+    AppLogger.debug('FavoritesProvider', '清空收藏列表');
   }
 
   // 检查指定bvid是否已收藏

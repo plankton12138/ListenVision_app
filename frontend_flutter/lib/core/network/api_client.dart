@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 统一的 API 客户端
 ///
@@ -30,10 +30,10 @@ class ApiClient {
         );
       }
     } on DioException catch (e) {
-      debugPrint('GET 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'GET 请求异常 ($endpoint): $e');
       rethrow;
     } catch (e) {
-      debugPrint('GET 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'GET 请求异常 ($endpoint): $e');
       rethrow;
     }
   }
@@ -60,10 +60,10 @@ class ApiClient {
         );
       }
     } on DioException catch (e) {
-      debugPrint('POST 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'POST 请求异常 ($endpoint): $e');
       rethrow;
     } catch (e) {
-      debugPrint('POST 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'POST 请求异常 ($endpoint): $e');
       rethrow;
     }
   }
@@ -88,10 +88,10 @@ class ApiClient {
         );
       }
     } on DioException catch (e) {
-      debugPrint('PUT 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'PUT 请求异常 ($endpoint): $e');
       rethrow;
     } catch (e) {
-      debugPrint('PUT 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'PUT 请求异常 ($endpoint): $e');
       rethrow;
     }
   }
@@ -116,10 +116,10 @@ class ApiClient {
         );
       }
     } on DioException catch (e) {
-      debugPrint('DELETE 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'DELETE 请求异常 ($endpoint): $e');
       rethrow;
     } catch (e) {
-      debugPrint('DELETE 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'DELETE 请求异常 ($endpoint): $e');
       rethrow;
     }
   }
@@ -144,10 +144,10 @@ class ApiClient {
         );
       }
     } on DioException catch (e) {
-      debugPrint('PATCH 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'PATCH 请求异常 ($endpoint): $e');
       rethrow;
     } catch (e) {
-      debugPrint('PATCH 请求异常 ($endpoint): $e');
+      AppLogger.error('ApiClient', 'PATCH 请求异常 ($endpoint): $e');
       rethrow;
     }
   }

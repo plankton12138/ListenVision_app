@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// QR码登录状态管理Provider
 ///
@@ -45,7 +46,7 @@ class QRLoginProvider extends ChangeNotifier {
   void updateToken(String? token) {
     _token = token;
     _apiService = BilibiliApiService();
-    debugPrint('【QRLoginProvider】Token updated: ${token != null ? "set" : "cleared"}');
+    AppLogger.debug('QRLoginProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }
 
   // ==================== QR码登录 ====================
@@ -72,11 +73,11 @@ class QRLoginProvider extends ChangeNotifier {
       // 开始轮询
       _startQRPolling();
 
-      debugPrint('【QRLoginProvider】QR login started');
+      AppLogger.info('QRLoginProvider', 'QR login started');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【QRLoginProvider】QR login start error: $e');
+      AppLogger.error('QRLoginProvider', 'QR login start error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -104,7 +105,7 @@ class QRLoginProvider extends ChangeNotifier {
       try {
         await _checkQRStatus();
       } catch (e) {
-        debugPrint('【QRLoginProvider】QR polling error: $e');
+        AppLogger.error('QRLoginProvider', 'QR polling error: $e');
       }
     });
   }
@@ -125,12 +126,12 @@ class QRLoginProvider extends ChangeNotifier {
 
       if (_qrLoginStatus == 'success') {
         _stopQRPolling();
-        debugPrint('【QRLoginProvider】QR login success');
+        AppLogger.debug('QRLoginProvider', 'QR login success');
       }
 
       notifyListeners();
     } catch (e) {
-      debugPrint('【QRLoginProvider】QR check error: $e');
+      AppLogger.error('QRLoginProvider', 'QR check error: $e');
     }
   }
 

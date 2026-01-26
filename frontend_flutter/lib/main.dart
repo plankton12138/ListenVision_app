@@ -32,7 +32,6 @@ import 'package:demo/core/utils/app_logger.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,9 +39,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 初始化 JustAudioMediaKit 以支持 Windows 平台音频播放
-  JustAudioMediaKit.ensureInitialized();
 
   // 初始化日志系统（必须在其他初始化之前）
   await AppLogger.instance.initialize();

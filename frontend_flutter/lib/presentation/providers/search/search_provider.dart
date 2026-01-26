@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/network/dio_provider.dart';
 
 /// Phase 3.1: 搜索状态管理 Provider
@@ -47,7 +48,7 @@ class SearchProvider with ChangeNotifier {
   /// 更新认证Token（由AuthProvider调用）
   void updateToken(String? token) {
     _token = token;
-    debugPrint('【SearchProvider】Token updated: ${token != null ? "set" : "cleared"}');
+    AppLogger.debug('SearchProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }
 
   /// 初始化：加载热门关键词和搜索历史
@@ -62,9 +63,9 @@ class SearchProvider with ChangeNotifier {
         if (_token != null) loadSearchHistory(),
       ]);
 
-      debugPrint('【SearchProvider】Initialized');
+      AppLogger.debug('SearchProvider', 'Initialized');
     } catch (e) {
-      debugPrint('【SearchProvider】Init error: $e');
+      AppLogger.error('SearchProvider', 'Init error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -109,11 +110,11 @@ class SearchProvider with ChangeNotifier {
         notifyListeners();
       }
 
-      debugPrint('【SearchProvider】Search found ${_searchResults.length} results');
+      AppLogger.debug('SearchProvider', 'Search found ${_searchResults.length} results');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【SearchProvider】Search error: $e');
+      AppLogger.error('SearchProvider', 'Search error: $e');
       return false;
     } finally {
       _isSearching = false;
@@ -148,11 +149,11 @@ class SearchProvider with ChangeNotifier {
 
       _searchSuggestions = List<String>.from(result['data'] ?? []);
 
-      debugPrint('【SearchProvider】Suggestions: ${_searchSuggestions.length}');
+      AppLogger.debug('SearchProvider', 'Suggestions: ${_searchSuggestions.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【SearchProvider】Get suggestions error: $e');
+      AppLogger.error('SearchProvider', 'Get suggestions error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -181,11 +182,11 @@ class SearchProvider with ChangeNotifier {
 
       _trendingKeywords = List<String>.from(result['data'] ?? []);
 
-      debugPrint('【SearchProvider】Trending keywords: ${_trendingKeywords.length}');
+      AppLogger.debug('SearchProvider', 'Trending keywords: ${_trendingKeywords.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【SearchProvider】Load trending keywords error: $e');
+      AppLogger.error('SearchProvider', 'Load trending keywords error: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -200,7 +201,7 @@ class SearchProvider with ChangeNotifier {
   /// @returns 是否成功
   Future<bool> loadSearchHistory() async {
     if (_token == null) {
-      debugPrint('【SearchProvider】No token, skip loading history');
+      AppLogger.debug('SearchProvider', 'No token, skip loading history');
       return false;
     }
 
@@ -213,11 +214,11 @@ class SearchProvider with ChangeNotifier {
 
       _searchHistory = List<String>.from(result['data'] ?? []);
 
-      debugPrint('【SearchProvider】Search history: ${_searchHistory.length}');
+      AppLogger.debug('SearchProvider', 'Search history: ${_searchHistory.length}');
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【SearchProvider】Load search history error: $e');
+      AppLogger.error('SearchProvider', 'Load search history error: $e');
       return false;
     } finally {
       _isLoading = false;

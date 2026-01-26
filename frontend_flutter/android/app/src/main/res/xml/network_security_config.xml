@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- just_audio 代理需要 localhost 访问 -->
+    <!-- 允许本地网络 HTTP 访问（开发环境） -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <!-- 允许 192.168.x.x 本地网络 -->
+        <domain includeSubdomains="true">192.168.0.197</domain>
     </domain-config>
 </network-security-config>

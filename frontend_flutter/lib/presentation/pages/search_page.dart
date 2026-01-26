@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
@@ -73,6 +74,125 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  /// 处理收藏操作
+  Future<void> _handleFavoriteAction(BuildContext context, dynamic item) async {
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final playlistProvider = context.read<PlaylistProvider>();
+
+    if (!authProvider.isLoggedIn) {
+      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
+      return;
+    }
+
+    // Phase 2B: 标记为正在操作
+    setState(() {
+      _togglingFavoriteBvids.add(bvid);
+    });
+
+    try {
+      final token = authProvider.user?.token ?? '';
+      if (token.isEmpty) {
+        DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
+        return;
+      }
+      final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+      final author = item['author'] ?? 'Unknown';
+
+      final added = await playlistProvider.toggleFavorite(
+        token,
+        bvid,
+        title: title,
+        artist: author,
+      );
+
+      if (mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          added ? '已添加到我喜欢' : '已从我喜欢移除',
+          backgroundColor: Colors.green,
+          duration: 1000,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        DialogHelper.showSnackBar(context, '操作失败: $e', backgroundColor: Colors.red, duration: 2000);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _togglingFavoriteBvids.remove(bvid);
+        });
+      }
+    }
+  }
+
+  /// 处理添加到歌单操作
+  Future<void> _handleAddToPlaylistAction(BuildContext context, dynamic item) async {
+    final bvid = item['bvid'] ?? '';
+    if (bvid.isEmpty) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final playlistProvider = context.read<PlaylistProvider>();
+
+    if (!authProvider.isLoggedIn) {
+      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
+      return;
+    }
+
+    final userPlaylists = playlistProvider.userPlaylists;
+    if (userPlaylists.isEmpty) {
+      DialogHelper.showSnackBar(context, '请先创建歌单', backgroundColor: Colors.orange, duration: 2000);
+      return;
+    }
+
+    // 显示歌单选择对话框
+    final selectedPlaylistId = await showDialog<int>(
+      context: context,
+      builder: (context) => _PlaylistSelectDialog(playlists: userPlaylists),
+    );
+
+    if (selectedPlaylistId != null) {
+      setState(() {
+        _addingToPlaylistBvids.add(bvid);
+      });
+
+      try {
+        final token = authProvider.user?.token ?? '';
+        if (token.isEmpty) {
+          DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
+          return;
+        }
+        final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
+        final author = item['author'] ?? 'Unknown';
+
+        await playlistProvider.addItem(
+          token,
+          selectedPlaylistId.toString(),
+          bvid,
+          title: title,
+          artist: author,
+        );
+
+        if (mounted) {
+          DialogHelper.showSnackBar(context, '已添加到歌单', backgroundColor: Colors.green, duration: 1500);
+        }
+      } catch (e) {
+        if (mounted) {
+          DialogHelper.showSnackBar(context, '添加失败: $e', backgroundColor: Colors.red, duration: 2000);
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _addingToPlaylistBvids.remove(bvid);
+          });
+        }
+      }
+    }
+  }
+
   /// 搜索B站视频
   ///
   /// Phase 1 改进：通过后端API搜索，不再直接调用B站
@@ -105,7 +225,7 @@ class _SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Search',
+          '搜索',
           style: TextStyle(
             fontSize: UIConstants.fontSizeLarge,
           ),
@@ -133,7 +253,7 @@ class _SearchPageState extends State<SearchPage> {
           : [
               // Page number
               Text(
-                'Page $_currentPage',
+                '第 $_currentPage 页',
                 style: const TextStyle(color: Colors.black),
               ),
               // Prev Page Button
@@ -146,7 +266,7 @@ class _SearchPageState extends State<SearchPage> {
                     _searchBilibili(context, _searchController.text, page: _currentPage - 1);
                   },
                   child: const Text(
-                    'Prev Page',
+                    '上一页',
                     style: TextStyle(color: Colors.black),
                   ),
                 ),
@@ -159,7 +279,7 @@ class _SearchPageState extends State<SearchPage> {
                   _searchBilibili(context, _searchController.text, page: _currentPage + 1);
                 },
                 child: const Text(
-                  'Next Page',
+                  '下一页',
                   style: TextStyle(color: Colors.black),
                 ),
               ),
@@ -178,11 +298,11 @@ class _SearchPageState extends State<SearchPage> {
               child: TextFormField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  labelText: 'search for videos',
+                  labelText: '搜索视频',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a keyword';
+                    return '请输入关键词';
                   }
                   return null;
                 },
@@ -203,189 +323,10 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  /// 构建收藏按钮
-  Widget _buildFavoriteButton(BuildContext context, dynamic item) {
-    // 优先使用后端返回的 bvid 字段
-    final bvid = item['bvid'] ?? '';
-    if (bvid.isEmpty) {
-      return const SizedBox.shrink(); // 没有 bvid 则不显示按钮
-    }
-
-    final isToggling = _togglingFavoriteBvids.contains(bvid);
-
-    // 使用 Consumer2 限制 rebuild 范围
-    return Consumer2<AuthProvider, PlaylistProvider>(
-      builder: (context, authProvider, playlistProvider, child) {
-        final isFavorited = playlistProvider.isFavorited(bvid);
-
-        // 获取视频元数据
-        final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
-        final author = item['author'] ?? 'Unknown';
-
-        return IconButton(
-          icon: isToggling
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(isFavorited ? Icons.favorite : Icons.favorite_border),
-          color: isFavorited ? Colors.red : Colors.grey,
-          onPressed: isToggling
-              ? null
-              : () async {
-                  if (!authProvider.isLoggedIn) {
-                    DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
-                    return;
-                  }
-
-                  // Phase 2B: 标记为正在操作，防止重复点击
-                  setState(() {
-                    _togglingFavoriteBvids.add(bvid);
-                  });
-
-                  try {
-                    final token = authProvider.user?.token ?? '';
-                    if (token.isEmpty) {
-                      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
-                      return;
-                    }
-                    final added = await playlistProvider.toggleFavorite(
-                      token,
-                      bvid,
-                      title: title,
-                      artist: author,
-                    );
-
-                    if (mounted) {
-                      DialogHelper.showSnackBar(
-                        context,
-                        added ? '已添加到我喜欢' : '已从我喜欢移除',
-                        backgroundColor: Colors.green,
-                        duration: 1000,
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      DialogHelper.showSnackBar(context, '操作失败: $e', backgroundColor: Colors.red, duration: 2000);
-                    }
-                  } finally {
-                    // Phase 2B: 操作完成，移除标记
-                    if (mounted) {
-                      setState(() {
-                        _togglingFavoriteBvids.remove(bvid);
-                      });
-                    }
-                  }
-                },
-        );
-      },
-    );
-  }
-
-  /// 构建添加到歌单按钮
-  Widget _buildAddToPlaylistButton(BuildContext context, dynamic item) {
-    final bvid = item['bvid'] ?? '';
-    if (bvid.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final isAdding = _addingToPlaylistBvids.contains(bvid);
-
-    // 使用 Consumer2 限制 rebuild 范围
-    return Consumer2<AuthProvider, PlaylistProvider>(
-      builder: (context, authProvider, playlistProvider, child) {
-        // 获取用户歌单（排除系统歌单中的"我喜欢"和"正在播放"）
-        final userPlaylists = playlistProvider.userPlaylists;
-
-        return IconButton(
-          icon: isAdding
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.playlist_add),
-          onPressed: isAdding
-              ? null
-              : () async {
-                  if (!authProvider.isLoggedIn) {
-                    DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
-                    return;
-                  }
-
-                  if (userPlaylists.isEmpty) {
-                    DialogHelper.showSnackBar(context, '请先创建歌单', backgroundColor: Colors.orange, duration: 2000);
-                    return;
-                  }
-
-                  // 显示歌单选择对话框
-                  final selectedPlaylistId = await showDialog<int>(
-                    context: context,
-                    builder: (context) => _PlaylistSelectDialog(playlists: userPlaylists),
-                  );
-
-                  if (selectedPlaylistId != null) {
-                    // Phase 2B: 标记为正在添加，防止重复点击
-                    setState(() {
-                      _addingToPlaylistBvids.add(bvid);
-                    });
-
-                    try {
-                      final token = authProvider.user?.token ?? '';
-                      if (token.isEmpty) {
-                        DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
-                        return;
-                      }
-                      final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
-                      final author = item['author'] ?? 'Unknown';
-
-                      await playlistProvider.addItem(
-                        token,
-                        selectedPlaylistId.toString(),
-                        bvid,
-                        title: title,
-                        artist: author,
-                      );
-
-                      if (mounted) {
-                        DialogHelper.showSnackBar(context, '已添加到歌单', backgroundColor: Colors.green, duration: 1500);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        DialogHelper.showSnackBar(context, '添加失败: $e', backgroundColor: Colors.red, duration: 2000);
-                      }
-                    } finally {
-                      // Phase 2B: 操作完成，移除标记
-                      if (mounted) {
-                        setState(() {
-                          _addingToPlaylistBvids.remove(bvid);
-                        });
-                      }
-                    }
-                  }
-                },
-        );
-      },
-    );
-  }
-
-  /// 构建下载按钮（纯前端下载）
-  Widget _buildDownloadButton(BuildContext context, dynamic item) {
-    // 优先使用 bvid 字段
-    final bvid = item['bvid'] ?? '';
-    if (bvid.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return IconButton(
-      icon: const Icon(Icons.download),
-      onPressed: () async {
-        debugPrint('【SearchPage】Download button clicked');
-        await _downloadManager.addDownload(context, bvid);
-      },
-    );
-  }
+  // 移除旧的按钮构建方法，因为现在使用 PopupMenuButton
+  // _buildFavoriteButton 已废弃
+  // _buildAddToPlaylistButton 已废弃
+  // _buildDownloadButton 已废弃
 
   /// Phase 2: 构建播放按钮
   Widget _buildPlayButton(BuildContext context, dynamic item) {
@@ -449,7 +390,7 @@ class _SearchPageState extends State<SearchPage> {
         DialogHelper.showSnackBar(context, '开始播放: $title', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
-      debugPrint('【SearchPage】播放失败: $e');
+      AppLogger.error('SearchPage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
@@ -489,19 +430,19 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Error: $_searchError'),
+            Text('错误: $_searchError'),
             ElevatedButton(
               onPressed: () {
                 context.read<BilibiliProvider>().clearError();
               },
-              child: const Text('Dismiss'),
+              child: const Text('关闭'),
             ),
           ],
         ),
       );
     }
     if (_results.isEmpty) {
-      return const Center(child: Text('No results found'));
+      return const Center(child: Text('未找到结果'));
     }
     return Expanded(
       child: ListView.builder(
@@ -548,7 +489,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
               subtitle: Text(
-                'UP: ${item['author'] ?? 'Unknown'} \nPLAY: ${item['play'] ?? '0'} \nDURATION: ${item['duration'] ?? '--:--'}',
+                'UP主: ${item['author'] ?? '未知'} \n播放: ${item['play'] ?? '0'} \n时长: ${item['duration'] ?? '--:--'}',
                 style: const TextStyle(fontSize: 8),
               ),
               trailing: Row(
@@ -556,12 +497,54 @@ class _SearchPageState extends State<SearchPage> {
                 children: [
                   // Phase 2: 播放按钮
                   _buildPlayButton(context, item),
-                  // 收藏按钮
-                  _buildFavoriteButton(context, item),
-                  // 添加到歌单按钮
-                  _buildAddToPlaylistButton(context, item),
-                  // 下载按钮
-                  _buildDownloadButton(context, item),
+                  // 更多操作菜单
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) async {
+                      if (value == 'favorite') {
+                        // 触发收藏逻辑 (需要重构 _buildFavoriteButton 的逻辑提取出来)
+                        // 由于原本逻辑耦合在 Widget 构建中，这里我们需要一种方式调用它
+                        // 临时方案：直接在这里实现收藏逻辑，或者将逻辑抽取为方法
+                        _handleFavoriteAction(context, item);
+                      } else if (value == 'add_to_playlist') {
+                         _handleAddToPlaylistAction(context, item);
+                      } else if (value == 'download') {
+                         await _downloadManager.addDownload(context, item['bvid'] ?? '');
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'favorite',
+                        child: Row(
+                          children: [
+                            Icon(Icons.favorite_border, size: 20),
+                            SizedBox(width: 8),
+                            Text('收藏'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'add_to_playlist',
+                        child: Row(
+                          children: [
+                            Icon(Icons.playlist_add, size: 20),
+                            SizedBox(width: 8),
+                            Text('添加到歌单'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'download',
+                        child: Row(
+                          children: [
+                            Icon(Icons.download, size: 20),
+                            SizedBox(width: 8),
+                            Text('下载'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               onTap: () async {

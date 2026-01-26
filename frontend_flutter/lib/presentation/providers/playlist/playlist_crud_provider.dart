@@ -1,6 +1,7 @@
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 歌单 CRUD 状态管理
 ///
@@ -42,7 +43,7 @@ class PlaylistCrudProvider extends ChangeNotifier {
     _token = token;
     await loadPlaylists(token);
     // loadFavorites handled by FavoritesProvider
-    debugPrint('【PlaylistCrudProvider】初始化完成');
+    AppLogger.info('PlaylistCrudProvider', '初始化完成');
   }
 
   // ==================== 歌单 CRUD ====================
@@ -50,7 +51,7 @@ class PlaylistCrudProvider extends ChangeNotifier {
   /// 加载所有歌单
   Future<void> loadPlaylists(String token) async {
     if (token.isEmpty) {
-      debugPrint('【PlaylistCrudProvider】未登录，跳过服务器加载');
+      AppLogger.debug('PlaylistCrudProvider', '未登录，跳过服务器加载');
       return;
     }
 
@@ -65,13 +66,13 @@ class PlaylistCrudProvider extends ChangeNotifier {
         final data = response['data'] as List;
         // P0 修复: 使用 fromDto 而不是 fromJson
         _playlists = data.map((json) => Playlist.fromDto(json as Map<String, dynamic>)).toList();
-        debugPrint('【PlaylistCrudProvider】加载歌单: ${_playlists.length}');
+        AppLogger.debug('PlaylistCrudProvider', '加载歌单: ${_playlists.length}');
       } else {
         throw Exception(response['message'] ?? '加载歌单失败');
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【PlaylistCrudProvider】加载歌单异常: $e');
+      AppLogger.error('PlaylistCrudProvider', '加载歌单异常: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -104,14 +105,14 @@ class PlaylistCrudProvider extends ChangeNotifier {
       );
 
       if (response['success'] == true && response['data'] != null) {
-        debugPrint('【PlaylistCrudProvider】创建歌单成功: $name');
+        AppLogger.info('PlaylistCrudProvider', '创建歌单成功: $name');
         return response['data'] as Map<String, dynamic>;
       } else {
         throw Exception(response['message'] ?? '创建歌单失败');
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【PlaylistCrudProvider】创建歌单异常: $e');
+      AppLogger.error('PlaylistCrudProvider', '创建歌单异常: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -151,14 +152,14 @@ class PlaylistCrudProvider extends ChangeNotifier {
       );
 
       if (response['success'] == true) {
-        debugPrint('【PlaylistCrudProvider】更新歌单成功');
+        AppLogger.info('PlaylistCrudProvider', '更新歌单成功');
         notifyListeners();
       } else {
         throw Exception(response['message'] ?? '更新歌单失败');
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【PlaylistCrudProvider】更新歌单异常: $e');
+      AppLogger.error('PlaylistCrudProvider', '更新歌单异常: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -176,14 +177,14 @@ class PlaylistCrudProvider extends ChangeNotifier {
       final response = await _dioProvider.delete('/playlists/$playlistId');
 
       if (response['success'] == true) {
-        debugPrint('【PlaylistCrudProvider】删除歌单成功: $playlistId');
+        AppLogger.info('PlaylistCrudProvider', '删除歌单成功: $playlistId');
         notifyListeners();
       } else {
         throw Exception(response['message'] ?? '删除歌单失败');
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【PlaylistCrudProvider】删除歌单异常: $e');
+      AppLogger.error('PlaylistCrudProvider', '删除歌单异常: $e');
       rethrow;
     } finally {
       _isLoading = false;

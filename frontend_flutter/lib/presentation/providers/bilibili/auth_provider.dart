@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// B站认证状态管理
 ///
@@ -58,10 +59,10 @@ class BilibiliAuthProvider extends ChangeNotifier {
 
       if (_token != null && _mid != null) {
         _isLoggedIn = true;
-        debugPrint('【BilibiliAuthProvider】从本地存储恢复登录状态');
+        AppLogger.debug('BilibiliAuthProvider', '从本地存储恢复登录状态');
       }
     } catch (e) {
-      debugPrint('【BilibiliAuthProvider】初始化异常: $e');
+      AppLogger.error('BilibiliAuthProvider', '初始化异常: $e');
     }
   }
 
@@ -74,7 +75,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      debugPrint('【BilibiliAuthProvider】开始获取QR码');
+      AppLogger.info('BilibiliAuthProvider', '开始获取QR码');
 
       final response = await _dioProvider.get('/bilibili/qrcode');
 
@@ -82,7 +83,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
         _qrcodeUrl = response['data']['qrCodeUrl'];
         _expiresAt = DateTime.parse(response['data']['expiresAt']);
         _mid = response['data']['mid'];
-        debugPrint('【BilibiliAuthProvider】QR码获取成功');
+        AppLogger.info('BilibiliAuthProvider', 'QR码获取成功');
         notifyListeners();
 
         return {
@@ -95,7 +96,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliAuthProvider】QR码获取异常: $e');
+      AppLogger.error('BilibiliAuthProvider', 'QR码获取异常: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -106,7 +107,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
   /// 验证二维码
   Future<bool> verifyQRCode() async {
     if (_qrcodeUrl == null) {
-      debugPrint('【BilibiliAuthProvider】QR码URL为空，无法验证');
+      AppLogger.debug('BilibiliAuthProvider', 'QR码URL为空，无法验证');
       _errorMessage = 'QR码URL为空';
       notifyListeners();
       return false;
@@ -129,7 +130,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
         await prefs.setString('bilibiliToken', _token!);
         await prefs.setString('bilibiliMid', _mid!);
 
-        debugPrint('【BilibiliAuthProvider】二维码验证成功');
+        AppLogger.info('BilibiliAuthProvider', '二维码验证成功');
         notifyListeners();
         return true;
       } else {
@@ -139,7 +140,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       _errorMessage = e.toString();
-      debugPrint('【BilibiliAuthProvider】二维码验证异常: $e');
+      AppLogger.error('BilibiliAuthProvider', '二维码验证异常: $e');
       notifyListeners();
       return false;
     } finally {
@@ -180,7 +181,7 @@ class BilibiliAuthProvider extends ChangeNotifier {
         };
       }
     } catch (e) {
-      debugPrint('【BilibiliAuthProvider】检查登录状态异常: $e');
+      AppLogger.error('BilibiliAuthProvider', '检查登录状态异常: $e');
       return {
         'isLoggedIn': false,
         'mid': '',
@@ -206,9 +207,9 @@ class BilibiliAuthProvider extends ChangeNotifier {
       await prefs.remove('bilibiliMid');
 
       notifyListeners();
-      debugPrint('【BilibiliAuthProvider】登出完成');
+      AppLogger.info('BilibiliAuthProvider', '登出完成');
     } catch (e) {
-      debugPrint('【BilibiliAuthProvider】登出异常: $e');
+      AppLogger.error('BilibiliAuthProvider', '登出异常: $e');
       rethrow;
     }
   }

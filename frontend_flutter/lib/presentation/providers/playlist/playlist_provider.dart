@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 歌单状态管理
@@ -113,7 +114,7 @@ class PlaylistProvider with ChangeNotifier {
     } catch (e) {
       // 服务器获取失败，设置错误信息并使用本地缓存
       _errorMessage = '加载歌单失败：${e.toString()}';
-      debugPrint('【PlaylistProvider】加载歌单失败: $e');
+      AppLogger.error('PlaylistProvider', '加载歌单失败: $e');
       await _loadPlaylistsFromLocal();
       // 不再 rethrow，让 UI 显示错误信息
     }
@@ -137,7 +138,7 @@ class PlaylistProvider with ChangeNotifier {
       }
     } catch (e) {
       // 加载播放队列失败，使用本地缓存
-      debugPrint('【PlaylistProvider】加载播放队列失败: $e');
+      AppLogger.error('PlaylistProvider', '加载播放队列失败: $e');
       await _loadNowPlayingFromLocal();
     }
   }
@@ -159,7 +160,7 @@ class PlaylistProvider with ChangeNotifier {
       }
     } catch (e) {
       // 静默失败
-      debugPrint('加载播放队列失败: $e');
+      AppLogger.error('PlaylistProvider', '加载播放队列失败: $e');
     }
   }
 
@@ -401,7 +402,7 @@ class PlaylistProvider with ChangeNotifier {
         return true;
       }
     } catch (e) {
-      debugPrint('保存播放队列失败: $e');
+      AppLogger.error('PlaylistProvider', '保存播放队列失败: $e');
     }
     return false;
   }
@@ -412,7 +413,7 @@ class PlaylistProvider with ChangeNotifier {
       await _dioProvider.post('/playlists/$playlistId/play');
     } catch (e) {
       // 静默失败
-      debugPrint('记录播放失败: $e');
+      AppLogger.error('PlaylistProvider', '记录播放失败: $e');
     }
   }
 
@@ -433,7 +434,7 @@ class PlaylistProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载本地歌单失败: $e');
+      AppLogger.error('PlaylistProvider', '加载本地歌单失败: $e');
     }
   }
 
@@ -443,7 +444,7 @@ class PlaylistProvider with ChangeNotifier {
       final json = jsonEncode(_playlists.map((p) => p.toJson()).toList());
       await prefs.setString(_playlistsKey, json);
     } catch (e) {
-      debugPrint('保存本地歌单失败: $e');
+      AppLogger.error('PlaylistProvider', '保存本地歌单失败: $e');
     }
   }
 
@@ -459,7 +460,7 @@ class PlaylistProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载本地收藏失败: $e');
+      AppLogger.error('PlaylistProvider', '加载本地收藏失败: $e');
     }
   }
 
@@ -469,7 +470,7 @@ class PlaylistProvider with ChangeNotifier {
       final json = jsonEncode(_favoritesItems.map((f) => f.toJson()).toList());
       await prefs.setString(_favoritesKey, json);
     } catch (e) {
-      debugPrint('保存本地收藏失败: $e');
+      AppLogger.error('PlaylistProvider', '保存本地收藏失败: $e');
     }
   }
 
@@ -484,7 +485,7 @@ class PlaylistProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('加载本地播放队列失败: $e');
+      AppLogger.error('PlaylistProvider', '加载本地播放队列失败: $e');
     }
   }
 
@@ -494,7 +495,7 @@ class PlaylistProvider with ChangeNotifier {
       final json = jsonEncode(_nowPlayingItems.map((item) => item.toJson()).toList());
       await prefs.setString(_nowPlayingKey, json);
     } catch (e) {
-      debugPrint('保存本地播放队列失败: $e');
+      AppLogger.error('PlaylistProvider', '保存本地播放队列失败: $e');
     }
   }
 

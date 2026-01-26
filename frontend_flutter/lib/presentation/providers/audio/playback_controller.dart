@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/core/utils/error_handler.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers/audio/playback_queue.dart';
 
 /// 播放控制器
@@ -89,7 +89,7 @@ class PlaybackController {
   /// 设置队列回调
   void _setupQueueCallbacks() {
     _queue.setOnStateChanged((state) {
-      debugPrint('【PlaybackController】队列状态: $state');
+      AppLogger.debug('PlaybackController', '队列状态: $state');
     });
   }
 
@@ -105,13 +105,13 @@ class PlaybackController {
               : Duration.zero;
 
           if (elapsed.inSeconds < 2) {
-            debugPrint('【PlaybackController】播放启动保护中，跳过 stream 状态更新');
+            AppLogger.debug('PlaybackController', '播放启动保护中，跳过 stream 状态更新');
             return;
           } else {
             // 保护窗口已过，关闭保护
             _isStartingPlayback = false;
             _playbackStartTime = null;
-            debugPrint('【PlaybackController】播放启动保护窗口已结束');
+            AppLogger.debug('PlaybackController', '播放启动保护窗口已结束');
           }
         }
 
@@ -121,7 +121,7 @@ class PlaybackController {
             state.processingState == ProcessingState.loading) {
           // 保持 _isPlaying 不变，只通知 processingState 变化
           _onProcessingStateChanged?.call(state.processingState);
-          debugPrint('【PlaybackController】缓冲/加载中，保持播放状态: _isPlaying=$_isPlaying, processing=${state.processingState}');
+          AppLogger.debug('PlaybackController', '缓冲/加载中，保持播放状态: _isPlaying=$_isPlaying, processing=${state.processingState}');
           return;
         }
 
@@ -157,28 +157,28 @@ class PlaybackController {
         await _player.play();
         _isPlaying = true;
         _onPlayingChanged?.call(true);
-        debugPrint('【PlaybackController】播放已启动');
+        AppLogger.info('PlaybackController', '播放已启动');
         break;
 
       case PlaybackCommandType.pause:
         await _player.pause();
         _isPlaying = false;
         _onPlayingChanged?.call(false);
-        debugPrint('【PlaybackController】已暂停');
+        AppLogger.info('PlaybackController', '已暂停');
         break;
 
       case PlaybackCommandType.stop:
         await _player.stop();
         _isPlaying = false;
         _onPlayingChanged?.call(false);
-        debugPrint('【PlaybackController】已停止');
+        AppLogger.info('PlaybackController', '已停止');
         break;
 
       case PlaybackCommandType.seek:
         final position = cmd.getParam<Duration>('position');
         if (position != null) {
           await _player.seek(position);
-          debugPrint('【PlaybackController】跳转到: ${position.inSeconds}秒');
+          AppLogger.debug('PlaybackController', '跳转到: ${position.inSeconds}秒');
         }
         break;
 
@@ -187,7 +187,7 @@ class PlaybackController {
         if (volume != null) {
           final clampedVolume = volume.clamp(0.0, 1.0);
           await _player.setVolume(clampedVolume);
-          debugPrint('【PlaybackController】音量已设置为: ${(clampedVolume * 100).toInt()}%');
+          AppLogger.debug('PlaybackController', '音量已设置为: ${(clampedVolume * 100).toInt()}%');
         }
         break;
 
@@ -196,7 +196,7 @@ class PlaybackController {
         if (speed != null) {
           final clampedSpeed = speed.clamp(0.5, 2.0);
           await _player.setSpeed(clampedSpeed);
-          debugPrint('【PlaybackController】倍速已设置为: $clampedSpeed');
+          AppLogger.debug('PlaybackController', '倍速已设置为: $clampedSpeed');
         }
         break;
 
@@ -261,7 +261,7 @@ class PlaybackController {
   Future<void> seek(Duration position, {bool seekable = true}) async {
     if (_disposed) return;
     if (!seekable) {
-      debugPrint('【PlaybackController】当前音频不支持 seek，跳过跳转操作');
+      AppLogger.warn('PlaybackController', '当前音频不支持 seek，跳过跳转操作');
       return;
     }
 
@@ -307,18 +307,18 @@ class PlaybackController {
   Future<void> setFileSource(String filePath) async {
     if (_disposed) return;
 
-    debugPrint('【PlaybackController】设置本地音频源: $filePath');
+    AppLogger.info('PlaybackController', '设置本地音频源: $filePath');
     await _player.setAudioSource(AudioSource.file(filePath));
-    debugPrint('【PlaybackController】本地音频源已设置');
+    AppLogger.info('PlaybackController', '本地音频源已设置');
   }
 
   /// 设置在线音频源
   Future<void> setUrlSource(String url) async {
     if (_disposed) return;
 
-    debugPrint('【PlaybackController】设置在线音频源: $url');
+    AppLogger.info('PlaybackController', '设置在线音频源: $url');
     await _player.setUrl(url);
-    debugPrint('【PlaybackController】在线音频源已设置');
+    AppLogger.info('PlaybackController', '在线音频源已设置');
   }
 
   /// 设置音频源并播放
@@ -337,7 +337,7 @@ class PlaybackController {
     // 设置播放启动保护
     _isStartingPlayback = true;
     _playbackStartTime = DateTime.now();
-    debugPrint('【PlaybackController】播放启动保护已开启（2秒窗口）');
+    AppLogger.debug('PlaybackController', '播放启动保护已开启（2秒窗口）');
 
     bool protectionCleared = false;
 
@@ -353,14 +353,14 @@ class PlaybackController {
       _isStartingPlayback = false;
       _playbackStartTime = null;
       protectionCleared = true;
-      debugPrint('【PlaybackController】播放已确认，保护已清除');
+      AppLogger.debug('PlaybackController', '播放已确认，保护已清除');
     } finally {
       // 只有在保护未清除时才延迟清除
       if (!protectionCleared) {
         Future.delayed(const Duration(seconds: 2), () {
           _isStartingPlayback = false;
           _playbackStartTime = null;
-          debugPrint('【PlaybackController】播放失败，延迟清除保护');
+          AppLogger.warn('PlaybackController', '播放失败，延迟清除保护');
         });
       }
     }
@@ -371,7 +371,7 @@ class PlaybackController {
     PlayableAudio playable,
     Duration timeout,
   ) async {
-    debugPrint('【PlaybackController】设置本地音频源: ${playable.url}');
+    AppLogger.info('PlaybackController', '设置本地音频源: ${playable.url}');
 
     await _player.setAudioSource(AudioSource.file(playable.url));
 
@@ -381,12 +381,12 @@ class PlaybackController {
         .timeout(
           timeout,
           onTimeout: () {
-            debugPrint('【PlaybackController】本地音频加载超时');
+            AppLogger.error('PlaybackController', '本地音频加载超时');
             throw TimeoutException('本地音频加载超时: ${playable.url}');
           },
         );
 
-    debugPrint('【PlaybackController】本地音频源已就绪，请求播放');
+    AppLogger.info('PlaybackController', '本地音频源已就绪，请求播放');
     await _player.play();
 
     // 等待真正的播放状态
@@ -394,7 +394,7 @@ class PlaybackController {
     _isPlaying = true;
     _onPlayingChanged?.call(true);
 
-    debugPrint('【PlaybackController】本地音频播放已开始');
+    AppLogger.info('PlaybackController', '本地音频播放已开始');
   }
 
   /// 设置在线音频源并播放（带重试）
@@ -407,11 +407,11 @@ class PlaybackController {
 
     while (retryCount <= maxRetries) {
       try {
-        debugPrint('【PlaybackController】播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
+        AppLogger.info('PlaybackController', '播放在线音频 (尝试 ${retryCount + 1}/${maxRetries + 1}): ${playable.url}');
 
         // 设置音频源
         await _player.setUrl(playable.url);
-        debugPrint('【PlaybackController】音频源已设置');
+        AppLogger.info('PlaybackController', '音频源已设置');
 
         // 等待就绪
         await _player.playerStateStream
@@ -419,12 +419,12 @@ class PlaybackController {
             .timeout(
               timeout,
               onTimeout: () {
-                debugPrint('【PlaybackController】音频源就绪超时');
+                AppLogger.error('PlaybackController', '音频源就绪超时');
                 throw TimeoutException('音频源就绪超时: ${playable.url}');
               },
             );
 
-        debugPrint('【PlaybackController】音频源已就绪，请求播放');
+        AppLogger.info('PlaybackController', '音频源已就绪，请求播放');
 
         // 调用 play()
         await _player.play();
@@ -434,12 +434,12 @@ class PlaybackController {
         _isPlaying = true;
         _onPlayingChanged?.call(true);
 
-        debugPrint('【PlaybackController】在线音频播放已开始');
+        AppLogger.info('PlaybackController', '在线音频播放已开始');
         break; // 成功，中断重试循环
       } catch (e) {
         retryCount++;
         if (retryCount <= maxRetries) {
-          debugPrint('【PlaybackController】播放失败，重试中...: $e');
+          AppLogger.warn('PlaybackController', '播放失败，重试中...: $e');
           await Future.delayed(const Duration(seconds: 1));
         } else {
           rethrow;
@@ -452,7 +452,7 @@ class PlaybackController {
   Future<void> _waitForPlayingState(Duration timeout) async {
     // 先检查当前状态（可能已经播放了）
     if (_player.playing) {
-      debugPrint('【PlaybackController】播放已开始（检查当前状态）');
+      AppLogger.debug('PlaybackController', '播放已开始（检查当前状态）');
       return;
     }
 
@@ -464,13 +464,13 @@ class PlaybackController {
             timeout,
             onTimeout: () => throw TimeoutException('播放启动超时'),
           );
-      debugPrint('【PlaybackController】播放已开始（等待状态变化）');
+      AppLogger.debug('PlaybackController', '播放已开始（等待状态变化）');
     } on TimeoutException {
       // 超时后再次检查
       if (_player.playing) {
-        debugPrint('【PlaybackController】实际上已在播放（超时后检查）');
+        AppLogger.debug('PlaybackController', '实际上已在播放（超时后检查）');
       } else {
-        debugPrint('【PlaybackController】播放启动失败，当前状态: playing=${_player.playing}, processing=${_player.processingState}');
+        AppLogger.error('PlaybackController', '播放启动失败，当前状态: playing=${_player.playing}, processing=${_player.processingState}');
         rethrow;
       }
     }
@@ -483,7 +483,7 @@ class PlaybackController {
     if (_disposed) return;
 
     try {
-      debugPrint('【PlaybackController】准备音频源: ${playable.title}, 起始位置: $startPosition秒');
+      AppLogger.info('PlaybackController', '准备音频源: ${playable.title}, 起始位置: $startPosition秒');
 
       if (playable.isOnline) {
         await _player.setUrl(playable.url);
@@ -496,9 +496,9 @@ class PlaybackController {
         await _player.seek(Duration(seconds: startPosition));
       }
 
-      debugPrint('【PlaybackController】音频源已准备就绪');
+      AppLogger.info('PlaybackController', '音频源已准备就绪');
     } catch (e) {
-      debugPrint('【PlaybackController】准备音频源失败: $e');
+      AppLogger.error('PlaybackController', '准备音频源失败: $e');
       rethrow;
     }
   }
@@ -527,6 +527,6 @@ class PlaybackController {
     _player.dispose();
     _queue.dispose();
 
-    debugPrint('【PlaybackController】已释放');
+    AppLogger.debug('PlaybackController', '已释放');
   }
 }

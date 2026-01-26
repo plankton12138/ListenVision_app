@@ -910,16 +910,25 @@ Stop-Process -Name node -Force
 
 **日志工具类**: `lib/core/utils/app_logger.dart`
 
-**日志文件位置**（各平台文档目录下的 `logs/` 文件夹）:
-| 平台 | 日志目录路径 |
-|------|-------------|
-| **Windows** | `%APPDATA%\listenvision\logs\` |
-| **Android** | `/data/data/<包名>/app_flutter/logs/` |
-| **iOS** | `<AppData>/Library/Application Support/logs/` |
-| **macOS** | `~/Library/Application Support/listenvision/logs/` |
-| **Linux** | `~/.local/share/listenvision/logs/` |
+**实际日志位置**（当前项目）:
+| 平台 | 日志目录路径 | 示例文件 |
+|------|-------------|---------|
+| **Windows** | `C:\Users\<用户名>\Documents\logs\` | `C:\Users\23104\Documents\logs\app-2026-01-26.log` |
+| **Android** | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/` | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log` |
+| **iOS** | `<AppData>/Library/Application Support/logs/` | - |
+| **macOS** | `~/Library/Application Support/listenvision/logs/` | - |
+| **Linux** | `~/.local/share/listenvision/logs/` | - |
 
-**日志文件名格式**: `app-2026-01-25.log`（按日期命名）
+**日志文件名格式**: `app-2026-01-26.log`（按日期命名）
+
+**查看日志方法**:
+```powershell
+# Windows: 直接用记事本打开
+notepad C:\Users\23104\Documents\logs\app-2026-01-26.log
+
+# Android: 使用 adb 拉取日志
+adb pull /data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log
+```
 
 **日志级别**: DEBUG, INFO, WARN, ERROR
 

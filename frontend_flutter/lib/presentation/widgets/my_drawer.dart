@@ -20,7 +20,7 @@ class MyDrawer extends StatelessWidget {
           backgroundColor: Theme.of(context).colorScheme.surface,
           child: Column(
             children: [
-              _buildDrawerHeader(authProvider, isLoggedIn),
+              _buildDrawerHeader(context, authProvider, isLoggedIn),
               _buildMainMenu(context, isLoggedIn),
               _buildAuthSection(context, authProvider, isLoggedIn),
             ],
@@ -31,40 +31,50 @@ class MyDrawer extends StatelessWidget {
   }
 
   /// 构建抽屉头部（用户信息）
-  Widget _buildDrawerHeader(AuthProvider auth, bool isLoggedIn) {
+  Widget _buildDrawerHeader(BuildContext context, AuthProvider auth, bool isLoggedIn) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return isLoggedIn
         ? UserAccountsDrawerHeader(
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
+              color: colorScheme.surfaceContainerHighest,
             ),
             accountName: Text(
               auth.user?.username ?? '未登录用户',
-              style: const TextStyle(
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: colorScheme.onSurface,
               ),
             ),
             accountEmail: Text(
               auth.user?.email ?? '',
-              style: const TextStyle(color: Colors.blue),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.blue[100],
+              backgroundColor: colorScheme.primaryContainer,
               child: Icon(
                 Icons.person,
                 size: 40,
-                color: Colors.blue[800],
+                color: colorScheme.onPrimaryContainer,
               ),
             ),
           )
-        : const DrawerHeader(
-            child: CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.grey,
-              child: Icon(
-                Icons.person_outline,
-                size: 50,
-                color: Colors.white,
+        : DrawerHeader(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+            ),
+            child: Center(
+              child: CircleAvatar(
+                radius: 40,
+                backgroundColor: colorScheme.surfaceContainerHigh,
+                child: Icon(
+                  Icons.person_outline,
+                  size: 40,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           );
@@ -165,13 +175,14 @@ class MyDrawer extends StatelessWidget {
     String? route,
     VoidCallback? onTap,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(left: 25, top: 5),
       child: ListTile(
         title: Text(title),
         leading: Icon(icon, color: Theme.of(context).iconTheme.color),
         onTap: onTap ?? () => context.go(route!),
-        hoverColor: Colors.blue.withOpacity(0.1),
+        hoverColor: colorScheme.primary.withOpacity(0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),

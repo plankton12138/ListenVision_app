@@ -12,6 +12,7 @@ import 'package:demo/presentation/widgets/sort_options_dialog.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 歌单详情页面
 ///
@@ -611,7 +612,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
         DialogHelper.showSnackBar(context, '开始播放: ${audio.title}', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
-      debugPrint('【PlaylistDetailPage】播放失败: $e');
+      AppLogger.error('PlaylistDetailPage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }

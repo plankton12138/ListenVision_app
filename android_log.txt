@@ -1,0 +1,535 @@
+[2026-01-26T11:26:09.975519] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T11:26:10.091596] [DEBUG] [AppConfig] ========================================
+)
+[2026-01-26T11:26:49.513365] [INFO] [Main] 权限请求成功
+[2026-01-26T11:26:50.678182] [INFO] [PlaybackStateManager] 播放设置已加载: 音量=100% 倍速=1.0
+[2026-01-26T11:26:51.192656] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T11:26:51.373648] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 0 首
+[2026-01-26T11:27:17.521816] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:27:18.092509] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:27:18.122124] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:27:20.022423] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:27:49.859940] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/1e0faa71-88ad-3cf5-83d9-73a05e1055a5/【官方4K修复】陶喆2003 Soul Power演唱会 经典全记录.mp3
+[2026-01-26T11:27:57.053343] [ERROR] [AudioMetadataLoader] 元数据解析失败: AnyhowException(failed to fill whole buffer
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   [2026-01-26T11:27:57.062718] [INFO] [AudioProvider] 开始加载: /data/user/0/com.example.flutter_application_1/cache/1e0faa71-88ad-3cf5-83d9-73a05e1055a5/【官方4K修复】陶喆2003 Soul Power演唱会 经典全记录.mp3
+<unknown>
+  21: <unknown>
+  22: <unknown>
+  23: _ZL15__pthread_startPv
+  24: __start_thread)
+[2026-01-26T11:27:57.188261] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.loading
+[2026-01-26T11:27:58.095894] [INFO] [PlaybackController] 播放已启动
+��设置
+[2026-01-26T11:27:58.129148] [INFO] [UnifiedPlaylistManager] 添加到数据库: 
+�: 1
+[2026-01-26T11:27:58.141121] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T11:28:01.096732] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.buffering
+[2026-01-26T11:28:01.143767] [DEBUG] [PlaybackController] 跳转到: 1606秒
+[2026-01-26T11:28:03.426944] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+[2026-01-26T11:28:03.446649] [INFO] [UnifiedPlaylistManager] 添加到数据库: 
+�: 2
+[2026-01-26T11:28:03.453724] [DEBUG] [UnifiedPlaylistManager] 从本地播放列表同步: 2 首
+[2026-01-26T11:28:03.717213] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/1e0faa71-88ad-3cf5-83d9-73a05e1055a5/【官方4K修复】陶喆2003 Soul Power演唱会 经典全记录.mp3
+nknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: <unknown>
+  19: <unknown>
+  20: <unknown>
+  21: <unknown>
+  22: <unknown>
+  23: _ZL15__pthread_startPv
+  24: __start_thread)
+[2026-01-26T11:28:03.731483] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:28:04.352571] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:28:08.973876] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+ 
+[2026-01-26T11:28:08.978632] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:28:30.165957] [DEBUG] [Dio] 请求: POST http://192.168.0.197:3000/api/auth/login
+[2026-01-26T11:28:31.331773] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/auth/login
+[2026-01-26T11:28:32.266018] [DEBUG] [AuthProvider] Token saved and updated to DioProvider
+[2026-01-26T11:28:32.283849] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.296938] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.548965] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.559458] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.567378] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.627318] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.631023] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/9?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.748657] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:28:32.781333] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:28:32.792326] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:32.800768] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/9?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:28:38.995584] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:28:39.003740] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:28:39.086845] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:28:39.095175] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:28:39.112234] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:28:39.115494] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:28:42.845105] [DEBUG] [BilibiliProvider] Token updated: set
+ (尝试 1/3): http://192.168.0.197:3000/api/bilibili/proxy/audio/BV1jczDBAEto
+g
+�第三季ED】, 总数: 3
+[2026-01-26T11:28:42.884623] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+�更新
+[2026-01-26T11:28:42.974958] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T11:28:42.985952] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T11:28:43.167311] [DEBUG] [AudioMetadataLoader] 封面加载成功，大小: 1553208 bytes
+chive/8102d57241baa9506853bfcb4a9b84dec529d43f.jpg, 当前缓存数: 1
+[2026-01-26T11:28:43.355427] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T11:28:44.459697] [INFO] [PlaybackController] 音频源已就绪，请求播放
+ream 状态更新
+[2026-01-26T11:28:47.440496] [DEBUG] [PlaybackController] 播放启动保护窗口已结束
+[2026-01-26T11:28:47.449313] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+[2026-01-26T11:28:52.667937] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/ce972bc5-4656-3fdb-b542-d7b940b85a6b/【HiRes 24bit48khz】窦唯译乐队1999《幻听》专辑无损音频4K60帧歌词版.mp3
+[2026-01-26T11:28:53.667412] [INFO] [PlaybackController] 播放在线音频 (尝试 2/3): http://192.168.0.197:3000/api/bilibili/proxy/audio/BV1jczDBAEto
+[2026-01-26T11:28:53.680903] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:28:54.554781] [INFO] [PlaybackController] 音频源已就绪，请求播放
+[2026-01-26T11:28:55.137933] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/ce972bc5-4656-3fdb-b542-d7b940b85a6b/【HiRes 24bit48khz】窦唯译乐队1999《幻听》专辑无损音频4K60帧歌词版.mp3
+n>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: <unknown>
+  19: <unknown>
+  20: <unknown>
+  21: <unknown>
+  22: <unknown>
+  23: _ZL15__pthread_startPv
+  24: __start_thread)
+[2026-01-26T11:28:55.152826] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.loading
+[2026-01-26T11:28:55.731261] [INFO] [PlaybackController] 播放已启动
+��设置
+[2026-01-26T11:28:55.753613] [INFO] [UnifiedPlaylistManager] 添加到数据库: 
+�: 4
+[2026-01-26T11:28:55.760601] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T11:28:58.132219] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+[2026-01-26T11:28:58.153291] [INFO] [PlaybackStateManager] 已保存本地音频播放状态: 
+[2026-01-26T11:29:01.385947] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:29:01.391660] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:29:01.478568] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:29:01.483298] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:29:01.508183] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:29:01.520012] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:29:03.133767] [WARN] [PlaybackController] 播放失败，重试中...: TimeoutException: 播放启动超时
+essingState.ready
+[2026-01-26T11:29:04.135528] [INFO] [PlaybackController] 播放在线音频 (尝试 3/3): http://192.168.0.197:3000/api/bilibili/proxy/audio/BV1jczDBAEto
+[2026-01-26T11:29:04.157192] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:29:04.961056] [INFO] [PlaybackController] 音频源已就绪，请求播放
+[2026-01-26T11:29:11.911403] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+[2026-01-26T11:29:11.931018] [INFO] [PlaybackStateManager] 已保存本地音频播放状态: 
+[2026-01-26T11:29:16.912731] [ERROR] [PlaybackController] 播放启动失败，当前状态: playing=false, processing=ProcessingState.ready
+[2026-01-26T11:29:18.915311] [WARN] [PlaybackController] 播放失败，延迟清除保护
+[2026-01-26T11:33:33.255853] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T11:33:33.413960] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T11:33:34.700243] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T11:33:35.091640] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:33:35.171631] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:33:35.356424] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T11:33:35.486654] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 3 首
+[2026-01-26T11:33:35.988473] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:33:35.995841] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:33:36.049181] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:33:36.054613] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:33:36.068733] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:33:48.416041] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:33:49.018119] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:33:49.053139] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:33:50.837146] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:33:59.179102] [DEBUG] [BilibiliProvider] Token updated: set
+tion...
+[2026-01-26T11:33:59.186966] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T11:33:59.473369] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T11:33:59.476513] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T11:33:59.613164] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T11:33:59.693670] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/recommendations/music-zone?page=1&pageSize=20
+[2026-01-26T11:34:00.084450] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/recommendations/music-zone?page=1&pageSize=20
+[2026-01-26T11:34:07.355140] [INFO] [AudioProvider] 开始加载: /data/user/0/com.example.flutter_application_1/cache/9316a165-b5cf-3652-9c07-c55949fe2a0e/《Im OK》专辑无损音频4K60帧歌词版.mp3
+��歌词版.mp3
+[2026-01-26T11:34:10.129822] [DEBUG] [AudioMetadataLoader] 从路径提取元数据: 《Im OK》专辑无损音频4K60帧歌词版 - 
+316a165-b5cf-3652-9c07-c55949fe2a0e/《Im OK》专辑无损音频4K60帧歌词版.mp3
+4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: <unknown>
+  19: <unknown>
+  20: <unknown>
+  21: <unknown>
+  22: <unknown>
+  23: _ZL15__pthread_startPv
+  24: __start_thread)
+[2026-01-26T11:34:10.148767] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.loading
+[2026-01-26T11:34:10.861022] [INFO] [PlaybackController] 播放已启动
+��设置
+[2026-01-26T11:34:10.894525] [INFO] [UnifiedPlaylistManager] 添加到数据库: 《Im OK》专辑无损音频4K60帧歌词版
+�: 4
+[2026-01-26T11:34:10.915705] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T11:35:06.847868] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+ 
+[2026-01-26T11:35:06.862116] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:35:07.148285] [INFO] [PlayHistoryProvider] 播放历史记录成功
+[2026-01-26T11:39:15.262691] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T11:39:15.390914] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T11:39:16.663519] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T11:39:17.070203] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:39:17.293570] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T11:39:17.439060] [DEBUG] [UnifiedPlaylistManager] 从本地播放列表同步: 4 首
+[2026-01-26T11:39:18.233441] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:39:18.242266] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:39:18.287889] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:39:18.296772] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:39:27.150933] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:39:27.276682] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 方大同合集！一小时纯享版！.mp3 (34.74 MB)
+[2026-01-26T11:39:27.763555] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:39:27.793515] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:39:29.496124] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:40:07.655011] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+ 
+[2026-01-26T11:40:07.660543] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:40:07.927334] [INFO] [PlayHistoryProvider] 播放历史记录成功
+[2026-01-26T11:40:11.643685] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/9316a165-b5cf-3652-9c07-c55949fe2a0e/《Im OK》专辑无损音频4K60帧歌词版.mp3
+[2026-01-26T11:40:11.718338] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 《Im OK》专辑无损音频4K60帧歌词版.mp3 (15.82 MB)
+[2026-01-26T11:40:14.253768] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/9316a165-b5cf-3652-9c07-c55949fe2a0e/《Im OK》专辑无损音频4K60帧歌词版.mp3
+art:45:55)
+#2      SseCodec.decodeObject (packa
+ <unknown>
+ ...
+[2026-01-26T11:40:14.275481] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:40:14.954904] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:40:21.579009] [INFO] [AudioProvider] 开始加载: /data/user/0/com.example.flutter_application_1/cache/008cc2b7-2038-3893-937b-91e87f7dc06d/【万青无损】《万能青年旅店 同名专辑》无缝衔接.mp3
+��缝衔接.mp3
+[2026-01-26T11:40:21.668490] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 【万青无损】《万能青年旅店 同名专辑》无缝衔接.mp3 (16.48 MB)
+[2026-01-26T11:40:24.299345] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/008cc2b7-2038-3893-937b-91e87f7dc06d/【万青无损】《万能青年旅店 同名专辑》无缝衔接.mp3
+Codec.decodeObject (packa
+ <unknown>
+ ...
+[2026-01-26T11:40:24.313554] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.loading
+[2026-01-26T11:40:24.945112] [INFO] [PlaybackController] 播放已启动
+��设置
+[2026-01-26T11:40:24.973576] [INFO] [UnifiedPlaylistManager] 添加音频: 《万能青年旅店 同名专辑》无缝衔接, 总数: 5
+[2026-01-26T11:40:24.980825] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T11:40:39.003495] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+已停止
+ 《Im OK》专辑无损音频4K60帧歌词版
+[2026-01-26T11:40:39.060959] [INFO] [PlayHistoryProvider] 播放历史记录成功
+[2026-01-26T11:51:27.170976] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T11:51:27.301194] [DEBUG] [AppConfig] API URL: http://192.168.0.197:3000
+=====
+)
+[2026-01-26T11:51:28.651097] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T11:51:29.059502] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:51:29.272291] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T11:51:29.423146] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 5 首
+[2026-01-26T11:51:30.663407] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T11:51:30.671062] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:51:30.704010] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:51:30.717088] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T11:51:30.723194] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:51:38.325636] [DEBUG] [BilibiliProvider] Token updated: set
+[2026-01-26T11:51:38.338374] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T11:51:38.787343] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T11:51:38.792208] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T11:51:38.889204] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T11:51:44.081452] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search?keyword=%E6%96%B9%E5%A4%A7%E5%90%8C&page=1&pageSize=20
+[2026-01-26T11:51:45.749242] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/search?keyword=%E6%96%B9%E5%A4%A7%E5%90%8C&page=1&pageSize=20
+[2026-01-26T11:51:45.758746] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T11:51:45.775536] [DEBUG] [BilibiliProvider] Search found 18 results
+/api/bilibili/search/recent?limit=10
+[2026-01-26T11:51:45.922451] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:51:45.954216] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:51:45.960244] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:51:45.976496] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T11:51:49.504712] [INFO] [DownloadManager] 开始下载: BV1EDmdBkEh1
+[2026-01-26T11:51:49.514304] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV1EDmdBkEh1
+[2026-01-26T11:51:49.766964] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV1EDmdBkEh1
+[2026-01-26T11:51:52.589580] [INFO] [DownloadManager] 任务创建成功: 1
+[2026-01-26T11:52:15.233584] [DEBUG] [MetadataWriter] 下载封面: http://i0.hdslb.com/bfs/archive/a759538480854c441a7cfef6e4f8265db5284daa.jpg
+小时纯享版！.m4a
+[2026-01-26T11:52:15.767842] [INFO] [DownloadManager] 元数据写入成功
+[2026-01-26T11:52:15.813053] [INFO] [DownloadManager] 验证元数据: title=方大同合集！一小时纯享版！, artist=未知艺术家, hasPicture=true
+[2026-01-26T11:52:21.976768] [DEBUG] [AudioMetadataLoader] 开始提取元数据: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:52:22.093554] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 方大同合集！一小时纯享版！.mp3 (34.74 MB)
+[2026-01-26T11:52:22.573734] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T11:52:22.603855] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T11:52:24.250670] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T11:52:30.875122] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+ 
+[2026-01-26T11:52:30.880077] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T11:52:30.950921] [INFO] [PlayHistoryProvider] 播放历史记录成功
+[2026-01-26T11:59:58.225473] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T11:59:58.337428] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T11:59:59.398016] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T11:59:59.766031] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+i/history?limit=50
+[2026-01-26T11:59:59.968841] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T12:00:00.095428] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:00:00.180151] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stat[2026-01-26T12:00:00.182811] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:00:00.259758] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:00:00.266246] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T12:00:30.083927] [DEBUG] [BilibiliProvider] Token updated: set
+[2026-01-26T12:00:30.416224] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T12:00:30.519110] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T12:00:30.524510] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T12:00:30.544370] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T12:00:33.940761] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search?keyword=%E9%99%B6%E5%96%86&page=1&pageSize=20
+[2026-01-26T12:00:34.752337] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/search?keyword=%E9%99%B6%E5%96%86&page=1&pageSize=20
+[2026-01-26T12:00:34.764178] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T12:00:34.779887] [DEBUG] [BilibiliProvider] Search found 19 results
+/api/bilibili/search/recent?limit=10
+[2026-01-26T12:00:35.019784] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:00:35.057658] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:00:35.065394] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:00:35.085159] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:00:36.908578] [INFO] [DownloadManager] 开始下载: BV1yUiiYkEaX
+[2026-01-26T12:00:36.927369] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV1yUiiYkEaX
+[2026-01-26T12:00:37.200189] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV1yUiiYkEaX
+[2026-01-26T12:00:39.621137] [INFO] [DownloadManager] 使用 MP3 格式下载: http://192.168.0.197:3000/api/bilibili/proxy/audio/BV1yUiiYkEaX?format=mp3
+[2026-01-26T12:00:39.693904] [INFO] [DownloadManager] 任务创建成功: 2
+[2026-01-26T12:01:05.093806] [INFO] [DownloadManager] 已暂停任务: 2
+[2026-01-26T12:01:06.074518] [INFO] [DownloadManager] 已恢复任务: 2
+[2026-01-26T12:01:17.084895] [INFO] [DownloadManager] 开始下载: BV15C41187cx
+[2026-01-26T12:01:17.090875] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV15C41187cx
+[2026-01-26T12:01:26.185252] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV15C41187cx
+[2026-01-26T12:01:28.622860] [INFO] [DownloadManager] 使用 MP3 格式下载: http://192.168.0.197:3000/api/bilibili/proxy/audio/BV15C41187cx?format=mp3
+[2026-01-26T12:01:28.689348] [INFO] [DownloadManager] 任务创建成功: 3
+[2026-01-26T12:04:41.585496] [INFO] [MetadataWriter] 开始写入元数据: /storage/emulated/0/ 我的文件/漫画/音乐/【官方4K修复】陶喆 就是爱你音乐惊奇之旅LoveCan演唱会.mp3
+[2026-01-26T12:04:41.582331] [INFO] [DownloadManager] 开始写入元数据: 【官方4K修复】陶喆 | 就是爱你音乐惊奇之旅LoveCan演唱会 - 未知艺术家
+[2026-01-26T12:04:42.541502] [INFO] [DownloadManager] 元数据写入成功
+[2026-01-26T12:04:42.590577] [INFO] [DownloadManager] 验证元数据: title=【官方4K修复】陶喆 | 就是爱你音乐惊奇之旅LoveCan演唱会, artist=未知艺术家, hasPicture=true
+[2026-01-26T12:05:02.264825] [DEBUG] [MetadataWriter] 下载封面: http://i2.hdslb.com/bfs/archive/c08514c67a9c52e9e96226695afb92f09db85f6e.jpg
+��喆2003 Soul Power演唱会 经典全记录.mp3
+[2026-01-26T12:05:02.881527] [INFO] [MetadataWriter] 元数据写入成功
+[2026-01-26T12:05:02.881800] [INFO] [DownloadManager] 元数据写入成功
+[2026-01-26T12:05:02.896342] [INFO] [DownloadManager] 验证元数据: title=【官方4K修复】陶喆2003 Soul Power演唱会 经典全记录, artist=未知艺术家, hasPicture=true
+[2026-01-26T12:07:28.671694] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T12:07:28.809124] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T12:07:30.252268] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T12:07:30.677422] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:07:30.906488] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T12:07:31.118010] [DEBUG] [UnifiedPlaylistManager] 从本地播放列表同步: 5 首
+[2026-01-26T12:07:32.687368] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:07:32.695108] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:07:32.853266] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:07:32.859172] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T12:07:43.421927] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T12:07:43.551540] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T12:07:44.699112] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T12:07:45.092229] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:07:45.331281] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:07:45.347384] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:07:45.366119] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:07:45.422512] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:07:45.450416] [DEBUG] [PlaybackController] 音量已设置为: 100%[2026-01-26T12:07:45.501020] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T12:07:45.601946] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 5 首
+[2026-01-26T12:22:26.458314] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T12:22:26.615967] [INFO] [Main] Token restored from auth_token key
+===========
+)
+[2026-01-26T12:22:27.910577] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T12:22:28.267764] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:22:28.438900] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T12:22:28.665729] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 5 首
+[2026-01-26T12:22:30.246897] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:22:30.283801] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:22:30.311239] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T12:22:30.318032] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:22:30.330822] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T12:22:30.338203] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+i/history/stats
+[2026-01-26T12:22:30.355093] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T12:22:34.224955] [INFO] [AudioProvider] 开始加载: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T12:22:34.332636] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 方大同合集！一小时纯享版！.mp3 (34.74 MB)
+[2026-01-26T12:22:34.817558] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/e7d35574-aefb-3948-8117-712236fe8b65/方大同合集！一小时纯享版！.mp3
+[2026-01-26T12:22:34.846607] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T12:22:36.663275] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T12:22:39.625267] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+ 
+[2026-01-26T12:22:39.630538] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T12:22:40.113774] [INFO] [PlayHistoryProvider] 播放历史记录成功
+[2026-01-26T12:22:40.379430] [DEBUG] [BilibiliProvider] Token updated: set
+[2026-01-26T12:22:40.655542] [DEBUG] [BilibiliProvider] Token updated: set
+[2026-01-26T12:22:40.875587] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T12:22:41.060536] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T12:22:41.056651] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T12:22:41.087746] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T12:22:44.644406] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search?keyword=%E9%99%B6%E5%96%86&page=1&pageSize=20
+[2026-01-26T12:22:45.749365] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/search?keyword=%E9%99%B6%E5%96%86&page=1&pageSize=20
+[2026-01-26T12:22:45.753700] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T12:22:45.767013] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T12:22:45.994921] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:22:46.357100] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:22:46.365830] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:22:46.384156] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T12:22:49.303622] [INFO] [DownloadManager] 开始下载: BV1yUiiYkEaX
+[2026-01-26T12:22:49.311938] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV1yUiiYkEaX
+[2026-01-26T12:22:49.531668] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV1yUiiYkEaX
+[2026-01-26T12:22:53.202845] [DEBUG] [SearchPage] Download button clicked
+MBxEgF
+[2026-01-26T12:22:53.208565] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV1H3zMBxEgF
+[2026-01-26T12:22:53.418619] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV1H3zMBxEgF
+[2026-01-26T12:22:55.912105] [INFO] [DownloadManager] 使用原始音频流下载: https://upos-sz-estgoss.bilivideo.com/upgcxcode/45/97/35563769745/35563769745-1-30232.m4s?e=ig8euxZM...
+[2026-01-26T12:22:55.984147] [INFO] [DownloadManager] 任务创建成功: 4
+[2026-01-26T12:23:42.456787] [DEBUG] [MetadataWriter] 下载封面: http://i0.hdslb.com/bfs/archive/186ecb8df7a0234bb4b3c2e1da4e8bcfcfb99e43.jpg
+��歌曲合集一小时，洗澡歌单来啦.m4a
+[2026-01-26T12:23:42.933490] [INFO] [DownloadManager] metadata_god 写入成功
+[2026-01-26T12:23:43.003064] [INFO] [DownloadManager] 验证元数据: title=【R&B教父—陶喆】歌曲合集一小时，洗澡歌单来啦, artist=未知艺术家, hasPicture=true
+[2026-01-26T12:23:43.014899] [INFO] [DownloadManager] 已添加到本地播放列表: 【R&B教父—陶喆】歌曲合集一小时，洗澡歌单来啦 - 未知艺术家
+[2026-01-26T12:23:43.015333] [INFO] [DownloadManager] 元数据处理完成: 【R&B教父—陶喆】歌曲合集一小时，洗澡歌单来啦
+[2026-01-26T12:23:47.029655] [INFO] [AudioProvider] 开始加载: /data/user/0/com.example.flutter_application_1/cache/f80aa534-0a60-36ee-beb8-d83a2b56279f/【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3
+[2026-01-26T12:23:47.111144] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3 (35.51 MB)
+[2026-01-26T12:23:52.987131] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/f80aa534-0a60-36ee-beb8-d83a2b56279f/【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3
+seCodec.decodeObject (packa
+ <unknown>
+ ...
+[2026-01-26T12:23:53.009119] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T12:23:54.006243] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T15:19:52.544849] [INFO] [AppLogger] 日志系统初始化成功 | {"logDirectory":"/data/user/0/com.example.flutter_application_1/app_flutter/logs","currentLogFile":"/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log"}
+[2026-01-26T15:19:52.716103] [DEBUG] [AppConfig] API URL: http://192.168.0.197:3000
+环境)
+[2026-01-26T15:19:54.228369] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+��量=100% 倍速=1.0
+[2026-01-26T15:19:54.701358] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T15:19:54.930547] [DEBUG] [PlaybackController] 倍速已设置为: 1.0
+
+[2026-01-26T15:19:55.099551] [DEBUG] [AudioProvider] 播放状态已恢复
+�播放列表
+: 6 首
+[2026-01-26T15:19:55.968314] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history?limit=50
+[2026-01-26T15:19:55.975880] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/history/stats
+[2026-01-26T15:19:56.129199] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/history/stats
+[2026-01-26T15:19:56.134021] [DEBUG] [AudioProvider] PlayHistoryProvider 已设置
+[2026-01-26T15:20:08.228851] [DEBUG] [AudioMetadataLoader] ========== 开始提取元数据: 【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3 ==========
+��】歌曲合集一小时，洗澡歌单来啦.mp3
+[2026-01-26T15:20:08.265854] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3 (35.51 MB)
+[2026-01-26T15:20:14.143975] [INFO] [PlaybackController] 设置本地音频源: /data/user/0/com.example.flutter_application_1/cache/f80aa534-0a60-36ee-beb8-d83a2b56279f/【RB教父—陶喆】歌曲合集一小时，洗澡歌单来啦.mp3
+seCodec.decodeObject (packa
+ <unknown>
+ ...
+[2026-01-26T15:20:14.183063] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+[2026-01-26T15:20:16.199586] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T15:20:22.985371] [INFO] [PlaybackController] 播放已启动
+�时保存已停止
+[2026-01-26T15:20:23.023834] [INFO] [UnifiedPlaylistManager] 添加到数据库: 歌曲合集一小时，洗澡歌单来啦
+[2026-01-26T15:20:23.024555] [INFO] [UnifiedPlaylistManager] 添加音频: 歌曲合集一小时，洗澡歌单来啦, 总数: 7
+[2026-01-26T15:20:23.036582] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T15:20:24.736288] [DEBUG] [BilibiliProvider] Token updated: set
+[2026-01-26T15:20:25.007751] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T15:20:25.563937] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/status
+[2026-01-26T15:20:25.569487] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T15:20:25.685924] [DEBUG] [BilibiliProvider] Initialized: bound=true
+/api/bilibili/search/recent?limit=10
+[2026-01-26T15:20:34.470095] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search?keyword=kingcrimson&page=1&pageSize=20
+[2026-01-26T15:20:36.111559] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/search?keyword=kingcrimson&page=1&pageSize=20
+[2026-01-26T15:20:36.115738] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/search/recent?limit=10
+[2026-01-26T15:20:36.130646] [DEBUG] [BilibiliProvider] Search found 20 results
+/api/bilibili/search/recent?limit=10
+[2026-01-26T15:20:36.394384] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T15:20:36.417175] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T15:20:36.423055] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T15:20:36.435738] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/playlists/now-playing?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInVzZXJuYW1lIjoicGxhbmt0b24iLCJpYXQiOjE3NjkzOTgxMTEsImV4cCI6MTc3MDAwMjkxMX0.m7gWxtR4PH17HcJDBkzHbh-7Bclh5Ft7HBooT9uRlq4
+[2026-01-26T15:20:38.074362] [INFO] [DownloadManager] 开始下载: BV1JiAVeqEk9
+[2026-01-26T15:20:38.092207] [DEBUG] [Dio] 请求: GET http://192.168.0.197:3000/api/bilibili/video/BV1JiAVeqEk9
+[2026-01-26T15:20:38.564834] [DEBUG] [Dio] 响应: 200 http://192.168.0.197:3000/api/bilibili/video/BV1JiAVeqEk9
+[2026-01-26T15:20:41.019179] [INFO] [DownloadManager] 使用原始音频流下载: https://upos-sz-estghw.bilivideo.com/upgcxcode/35/31/28418573135/28418573135-1-30280.m4s?e=ig8euxZM2...
+[2026-01-26T15:20:41.083540] [INFO] [DownloadManager] 任务创建成功: 5
+[2026-01-26T15:21:21.103735] [DEBUG] [MetadataWriter] 下载封面: http://i2.hdslb.com/bfs/archive/4c4ae6dc998a9dc637b441ed14b6fe8e220328cf.jpg
+�】 King Crimson（绯红之王） 1974 Red LP黑胶无损臻品纯享专辑.m4a
+[2026-01-26T15:21:21.514785] [INFO] [DownloadManager] metadata_god 写入成功
+[2026-01-26T15:21:21.542471] [INFO] [DownloadManager] 验证元数据: title=【HiRes无损4K整轨】 King Crimson（绯红之王） |  1974 - Red   | LP黑胶无损臻品纯享专辑, artist=未知艺术家, hasPicture=true
+[2026-01-26T15:21:21.551361] [INFO] [DownloadManager] 元数据处理完成: 【HiRes无损4K整轨】 King Crimson（绯红之王） |  1974 - Red   | LP黑胶无损臻品纯享专辑
+��专辑 - 未知艺术家
+[2026-01-26T15:21:42.309379] [DEBUG] [AudioMetadataLoader] ========== 开始提取元数据: 【HiRes无损4K整轨】 King Crimson（绯红之王） 1974 Red LP黑胶无损臻品纯享专辑.mp3 ==========
+��） 1974 Red LP黑胶无损臻品纯享专辑.mp3
+[2026-01-26T15:21:42.458584] [DEBUG] [AudioMetadataLoader] 尝试读取元数据: 【HiRes无损4K整轨】 King Crimson（绯红之王） 1974 Red LP黑胶无损臻品纯享专辑.mp3 (62.03 MB)
+[2026-01-26T15:21:43.389949] [INFO] [AudioMetadataLoader] 元数据提取结果: tit[2026-01-26T15:21:43.412752] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=false, processing=ProcessingState.loading
+d LP黑胶无损臻品纯享专辑.mp3
+[2026-01-26T15:21:44.327997] [INFO] [PlaybackController] 本地音频源已设置
+[2026-01-26T15:21:52.207693] [INFO] [PlaybackStateManager] 播放位置定时保存已停止
+[2026-01-26T15:21:52.226408] [INFO] [UnifiedPlaylistManager] 添加音频: 1974 Red LP黑胶无损臻品纯享专辑, 总数: 8
+[2026-01-26T15:21:52.233381] [INFO] [PlaybackStateManager] 播放位置定时保存已启动
+首
+[2026-01-26T15:21:54.031380] [DEBUG] [PlaybackController] 缓冲/加载中，保持播放状态: _isPlaying=true, processing=ProcessingState.buffering
+[2026-01-26T15:21:54.083166] [DEBUG] [PlaybackController] 跳转到: 908秒
+[2026-01-26T15:21:55.029817] [INFO] [PlaybackController] 已暂停
+�置定时保存已停止

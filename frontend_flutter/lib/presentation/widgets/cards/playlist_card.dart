@@ -2,6 +2,14 @@
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/material.dart';
 
+/// 歌单卡片变体类型
+enum PlaylistCardVariant {
+  standard,
+  favorite,
+  nowPlaying,
+  bilibili,
+}
+
 /// 歌单卡片组件
 ///
 /// 统一的歌单展示卡片，支持本地Playlist和B站歌单
@@ -16,6 +24,7 @@ class PlaylistCard extends StatelessWidget {
   final Widget? trailing;
   final Color? iconColor;
   final IconData? icon;
+  final PlaylistCardVariant variant;
 
   const PlaylistCard({
     super.key,
@@ -29,6 +38,7 @@ class PlaylistCard extends StatelessWidget {
     this.trailing,
     this.iconColor,
     this.icon,
+    this.variant = PlaylistCardVariant.standard,
   });
 
   /// 从本地Playlist创建
@@ -39,17 +49,17 @@ class PlaylistCard extends StatelessWidget {
     Widget? trailing,
   }) {
     IconData? icon;
-    Color? iconColor;
+    PlaylistCardVariant variant;
 
     if (playlist.isFavorites) {
       icon = Icons.favorite;
-      iconColor = Colors.red;
+      variant = PlaylistCardVariant.favorite;
     } else if (playlist.isNowPlaying) {
       icon = Icons.play_circle;
-      iconColor = Colors.blue;
+      variant = PlaylistCardVariant.nowPlaying;
     } else {
       icon = Icons.playlist_play;
-      iconColor = Colors.grey;
+      variant = PlaylistCardVariant.standard;
     }
 
     return PlaylistCard(
@@ -61,8 +71,8 @@ class PlaylistCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       trailing: trailing,
-      iconColor: iconColor,
       icon: icon,
+      variant: variant,
     );
   }
 
@@ -82,8 +92,8 @@ class PlaylistCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       trailing: trailing,
-      iconColor: Colors.purple,
       icon: Icons.library_music,
+      variant: PlaylistCardVariant.bilibili,
     );
   }
 
@@ -96,32 +106,53 @@ class PlaylistCard extends StatelessWidget {
     return parts.where((s) => s.isNotEmpty).join(' · ');
   }
 
+  Color _getVariantColor(BuildContext context) {
+    if (iconColor != null) return iconColor!;
+    
+    final colorScheme = Theme.of(context).colorScheme;
+    switch (variant) {
+      case PlaylistCardVariant.favorite:
+        return colorScheme.error;
+      case PlaylistCardVariant.nowPlaying:
+        return colorScheme.primary;
+      case PlaylistCardVariant.bilibili:
+        return colorScheme.tertiary;
+      case PlaylistCardVariant.standard:
+        return colorScheme.onSurfaceVariant;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final effectiveIconColor = _getVariantColor(context);
+    final theme = Theme.of(context);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: icon != null
             ? CircleAvatar(
-                backgroundColor: (iconColor ?? Colors.grey).withOpacity(0.1),
-                child: Icon(icon, color: iconColor, size: 20),
+                backgroundColor: effectiveIconColor.withValues(alpha: 0.1),
+                child: Icon(icon, color: effectiveIconColor, size: 20),
               )
             : null,
         title: Text(
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyLarge,
         ),
         subtitle: Text(
           _buildSubtitle(),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12),
+          style: theme.textTheme.bodySmall,
         ),
-        trailing: trailing ?? const Icon(Icons.chevron_right),
+        trailing: trailing ?? Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
         onTap: onTap,
         onLongPress: onLongPress,
       ),
     );
   }
 }
+

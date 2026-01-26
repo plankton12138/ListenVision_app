@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 用户认证状态管理
@@ -36,7 +37,7 @@ class AuthProvider with ChangeNotifier {
       // 恢复 token 到 DioProvider
       if (_user?.token != null) {
         DioProvider.instance.updateToken(_user!.token);
-        debugPrint('【AuthProvider】Token restored to DioProvider');
+        AppLogger.debug('AuthProvider', 'Token restored to DioProvider');
       }
 
       notifyListeners();
@@ -61,7 +62,7 @@ class AuthProvider with ChangeNotifier {
       await prefs.setString(_tokenKey, user.token!);
       // 同步更新 DioProvider 的 Authorization header
       DioProvider.instance.updateToken(user.token!);
-      debugPrint('【AuthProvider】Token saved and updated to DioProvider');
+      AppLogger.debug('AuthProvider', 'Token saved and updated to DioProvider');
     }
 
     notifyListeners();
@@ -76,7 +77,7 @@ class AuthProvider with ChangeNotifier {
 
     // 清除 DioProvider 的 token
     DioProvider.instance.updateToken(null);
-    debugPrint('【AuthProvider】Logged out, token cleared');
+    AppLogger.debug('AuthProvider', 'Logged out, token cleared');
 
     notifyListeners();
   }

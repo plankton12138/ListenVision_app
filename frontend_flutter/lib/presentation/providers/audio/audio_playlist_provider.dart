@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 音频播放列表状态管理
 ///
@@ -26,14 +27,14 @@ class AudioPlaylistProvider extends ChangeNotifier {
     _playlist = playlist;
     _currentIndex = initialIndex;
     notifyListeners();
-    debugPrint('【AudioPlaylistProvider】设置播放列表，长度: ${playlist.length}');
+    AppLogger.debug('AudioPlaylistProvider', '设置播放列表，长度: ${playlist.length}');
   }
 
   /// 添加到播放列表
   void addToPlaylist(Audio audio) {
     _playlist.add(audio);
     notifyListeners();
-    debugPrint('【AudioPlaylistProvider】添加音频: ${audio.title}');
+    AppLogger.info('AudioPlaylistProvider', '添加音频: ${audio.title}');
   }
 
   /// 从播放列表移除
@@ -43,7 +44,7 @@ class AudioPlaylistProvider extends ChangeNotifier {
       _currentIndex = _playlist.length - 1;
     }
     notifyListeners();
-    debugPrint('【AudioPlaylistProvider】移除音频: ${audio.title}');
+    AppLogger.debug('AudioPlaylistProvider', '移除音频: ${audio.title}');
   }
 
   /// 清空播放列表
@@ -51,7 +52,7 @@ class AudioPlaylistProvider extends ChangeNotifier {
     _playlist.clear();
     _currentIndex = -1;
     notifyListeners();
-    debugPrint('【AudioPlaylistProvider】清空播放列表');
+    AppLogger.debug('AudioPlaylistProvider', '清空播放列表');
   }
 
   // ==================== Getters ====================

@@ -1,6 +1,7 @@
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:flutter/foundation.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 播放队列状态管理
 ///
@@ -55,14 +56,14 @@ class NowPlayingProvider extends ChangeNotifier {
     _nowPlayingQueue.addAll(queue);
     _currentIndex = initialIndex;
     notifyListeners();
-    debugPrint('【NowPlayingProvider】设置播放队列，长度: ${queue.length}');
+    AppLogger.debug('NowPlayingProvider', '设置播放队列，长度: ${queue.length}');
   }
 
   /// 添加到队列
   void addToQueue(Audio audio) {
     _nowPlayingQueue.add(audio);
     notifyListeners();
-    debugPrint('【NowPlayingProvider】添加音频: ${audio.title}');
+    AppLogger.info('NowPlayingProvider', '添加音频: ${audio.title}');
   }
 
   /// 从队列移除
@@ -74,7 +75,7 @@ class NowPlayingProvider extends ChangeNotifier {
         _currentIndex = _currentIndex > 0 ? _currentIndex - 1 : 0;
       }
       notifyListeners();
-      debugPrint('【NowPlayingProvider】移除音频: ${audio.title}');
+      AppLogger.debug('NowPlayingProvider', '移除音频: ${audio.title}');
     }
   }
 
@@ -83,7 +84,7 @@ class NowPlayingProvider extends ChangeNotifier {
     _nowPlayingQueue.clear();
     _currentIndex = -1;
     notifyListeners();
-    debugPrint('【NowPlayingProvider】清空播放队列');
+    AppLogger.debug('NowPlayingProvider', '清空播放队列');
   }
 
   /// 下一曲
@@ -91,7 +92,7 @@ class NowPlayingProvider extends ChangeNotifier {
     if (_currentIndex < _nowPlayingQueue.length - 1) {
       _currentIndex++;
       notifyListeners();
-      debugPrint('【NowPlayingProvider】下一曲: ${_nowPlayingQueue[_currentIndex].title}');
+      AppLogger.debug('NowPlayingProvider', '下一曲: ${_nowPlayingQueue[_currentIndex].title}');
     }
   }
 
@@ -100,7 +101,7 @@ class NowPlayingProvider extends ChangeNotifier {
     if (_currentIndex > 0) {
       _currentIndex--;
       notifyListeners();
-      debugPrint('【NowPlayingProvider】上一曲: ${_nowPlayingQueue[_currentIndex].title}');
+      AppLogger.debug('NowPlayingProvider', '上一曲: ${_nowPlayingQueue[_currentIndex].title}');
     }
   }
 
@@ -109,7 +110,7 @@ class NowPlayingProvider extends ChangeNotifier {
     if (index >= 0 && index < _nowPlayingQueue.length) {
       _currentIndex = index;
       notifyListeners();
-      debugPrint('【NowPlayingProvider】跳转到: ${_nowPlayingQueue[index].title}');
+      AppLogger.debug('NowPlayingProvider', '跳转到: ${_nowPlayingQueue[index].title}');
     }
   }
 
@@ -119,7 +120,7 @@ class NowPlayingProvider extends ChangeNotifier {
     if (index != -1) {
       _currentIndex = index;
       notifyListeners();
-      debugPrint('【NowPlayingProvider】设置当前音频: ${audio.title}');
+      AppLogger.debug('NowPlayingProvider', '设置当前音频: ${audio.title}');
     }
   }
 

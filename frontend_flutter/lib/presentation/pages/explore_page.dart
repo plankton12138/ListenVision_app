@@ -11,6 +11,7 @@ import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 发现页面
 ///
@@ -184,7 +185,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       });
     }
 
-    debugPrint('【ExplorePage】Music zone loaded: ${_musicZoneData.length} items');
+    AppLogger.info('ExplorePage', 'Music zone loaded: ${_musicZoneData.length} items');
   }
 
   @override
@@ -593,7 +594,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         DialogHelper.showSnackBar(context, '开始播放: ${audio.title}', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
-      debugPrint('【ExplorePage】播放失败: $e');
+      AppLogger.error('ExplorePage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }

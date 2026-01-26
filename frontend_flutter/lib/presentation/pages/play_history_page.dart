@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 播放历史页面
 ///
@@ -184,7 +185,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         }
       }
     } catch (e) {
-      debugPrint('【PlayHistoryPage】播放失败: $e');
+      AppLogger.error('PlayHistoryPage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
       }

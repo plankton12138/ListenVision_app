@@ -592,6 +592,181 @@ const proxyAudioStreamByBvid = async (req, res) => {
   }
 };
 
+/**
+ * 下载音频文件（带元数据写入和实时进度）
+ *
+ * 使用 Server-Sent Events (SSE) 发送实时进度，最后发送二进制文件
+ *
+ * 流程：
+ * 1. 发送 SSE 进度事件（阶段 + 百分比）
+ * 2. 获取视频信息
+ * 3. 下载 m4s 音频流
+ * 4. FFmpeg 转换为标准 MP3/M4A
+ * 5. 写入元数据
+ * 6. 发送二进制文件
+ *
+ * GET /api/bilibili/download/:bvid?format=mp3
+ */
+const downloadAudioWithMetadata = async (req, res) => {
+  const { bvid } = req.params;
+  const { format = 'mp3' } = req.query;
+
+  if (!bvid) {
+    return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
+  }
+
+  const userId = req.user?.id;
+  const audioService = require('../services/audioService');
+
+  console.log(`[BiliDownload] 开始下载: ${bvid}, 格式: ${format}, 用户: ${userId || 'none'}`);
+
+  // 设置 SSE 响应头（但可能被前端当作下载处理）
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+
+  const sendProgress = (percent, stage, message) => {
+    const event = {
+      type: 'progress',
+      percent: percent,
+      stage: stage,
+      message: message,
+      timestamp: Date.now()
+    };
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    console.log(`[BiliDownload] 进度: ${percent}% - ${stage} - ${message}`);
+  };
+
+  try {
+    // 步骤1: 获取视频信息
+    sendProgress(5, 'fetching_info', '获取视频信息...');
+    const videoInfo = await bilibiliService.getVideoInfo(bvid);
+
+    const metadata = {
+      title: videoInfo.title || '未知标题',
+      artist: videoInfo.owner?.name || '未知艺术家',
+      album: `https://www.bilibili.com/video/${bvid}`,
+      coverUrl: videoInfo.cover
+    };
+
+    console.log(`[BiliDownload] 视频信息: title="${metadata.title}", artist="${metadata.artist}"`);
+    sendProgress(10, 'info_loaded', `已获取: ${metadata.title}`);
+
+    // 步骤2: 获取音频流URL
+    sendProgress(15, 'fetching_audio', '获取音频流...');
+    const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
+
+    if (!audioStream || !audioStream.baseUrl) {
+      sendProgress(0, 'error', '无法获取音频流URL');
+      return res.end();
+    }
+
+    // 步骤3: 转换并写入元数据（带实时进度）
+    sendProgress(20, 'converting', '开始转换...');
+    const result = await audioService.convertWithMetadata(
+      audioStream.baseUrl,
+      metadata,
+      format,
+      { bitrate: '192k', sampleRate: '44100', channels: 2 },
+      (percent, stage) => {
+        // 映射内部进度到总进度 (20% -> 95%)
+        const totalPercent = 20 + Math.floor(percent * 0.75);
+        const stageMap = {
+          'downloading_audio': 'downloading_audio',
+          'downloading_cover': 'downloading_cover',
+          'converting': 'converting',
+          'finishing': 'finishing',
+          'complete': 'complete'
+        };
+        const stageMessages = {
+          'downloading_audio': '下载音频流...',
+          'downloading_cover': '下载封面...',
+          'converting': 'FFmpeg 转换中...',
+          'finishing': '完成处理...',
+          'complete': '准备下载...'
+        };
+        sendProgress(totalPercent, stageMap[stage] || stage, stageMessages[stage] || stage);
+      }
+    );
+
+    // 步骤4: 发送文件完成事件和分块文件数据
+    const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
+    const fileBuffer = result.buffer;
+    const chunkSize = 64 * 1024; // 64KB per chunk (base64 encoded will be ~85KB)
+    const totalChunks = Math.ceil(fileBuffer.length / chunkSize);
+
+    console.log(`[BiliDownload] 发送文件: ${fileName}, 大小: ${fileBuffer.length} bytes, 分块: ${totalChunks}`);
+
+    // 发送文件元数据
+    res.write(`event: fileStart\ndata: ${JSON.stringify({
+      fileName: fileName,
+      contentType: result.contentType,
+      totalChunks: totalChunks,
+      totalSize: fileBuffer.length,
+      timestamp: Date.now()
+    })}\n\n`);
+
+    // 分块发送文件数据
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, fileBuffer.length);
+      const chunk = fileBuffer.slice(start, end);
+      const base64Chunk = chunk.toString('base64');
+
+      res.write(`event: fileChunk\ndata: ${JSON.stringify({
+        chunkIndex: i,
+        totalChunks: totalChunks,
+        data: base64Chunk,
+        timestamp: Date.now()
+      })}\n\n`);
+
+      // 每发送几个块就刷新一次缓冲区
+      if (i % 5 === 0) {
+        // 给客户端一些时间处理
+        await new Promise(resolve => setImmediate(resolve));
+      }
+    }
+
+    // 发送文件完成事件
+    res.write(`event: fileEnd\ndata: ${JSON.stringify({
+      fileName: fileName,
+      timestamp: Date.now()
+    })}\n\n`);
+
+    res.end();
+
+    console.log(`[BiliDownload] ✅ 下载完成: ${bvid}, 大小: ${fileBuffer.length} bytes, 分块: ${totalChunks}`);
+
+  } catch (error) {
+    console.error(`[BiliDownload] 错误: ${error.message}`);
+    console.error(`[BiliDownload] 错误堆栈: ${error.stack}`);
+
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
+    } else {
+      const errorEvent = {
+        type: 'error',
+        error: error.message,
+        timestamp: Date.now()
+      };
+      res.write(`event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`);
+      res.end();
+    }
+  }
+};
+
+/**
+ * 清理文件名（移除非法字符）
+ */
+function sanitizeFileName(input) {
+  // 移除或替换非法字符
+  return input
+    .replace(/[<>:"/\\|?*]/g, '_')  // 替换非法字符
+    .replace(/\s+/g, ' ')           // 合并空格
+    .trim();
+}
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -613,5 +788,8 @@ module.exports = {
   // 代理
   proxyImage,
   proxyAudioStream,
-  proxyAudioStreamByBvid
+  proxyAudioStreamByBvid,
+
+  // 下载
+  downloadAudioWithMetadata  // 新增：带元数据的下载
 };

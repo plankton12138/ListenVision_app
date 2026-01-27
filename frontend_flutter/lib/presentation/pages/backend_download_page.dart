@@ -181,6 +181,13 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 获取实时下载进度状态
+    final downloadStage = _downloadManager.downloadStage;
+    final downloadProgress = _downloadManager.downloadProgress;
+    final hasActiveDownload = downloadStage.isNotEmpty &&
+        downloadStage != '完成' &&
+        downloadStage != '失败';
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
@@ -248,7 +255,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
                   itemCount: downloads.length,
                   itemBuilder: (context, index) {
                     final task = downloads[index];
-                    return _buildTaskItem(task);
+                    return _buildTaskItem(task, hasActiveDownload, downloadStage, downloadProgress);
                   },
                 ),
               ),
@@ -315,11 +322,14 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
   }
 
   /// 单个任务卡片
-  Widget _buildTaskItem(DownloadTask task) {
+  Widget _buildTaskItem(DownloadTask task, bool hasActiveDownload, String downloadStage, int downloadProgress) {
     final status = task.status;
     final progress = _getProgress(task);
     final downloaded = task.downloadedBytes;
     final total = task.totalBytes;
+
+    // 判断是否是当前正在下载的任务（使用实时进度）
+    final isActiveTask = status == DownloadStatus.downloading && hasActiveDownload;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -384,7 +394,7 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   LinearProgressIndicator(
-                    value: progress / 100,
+                    value: isActiveTask ? downloadProgress / 100 : progress / 100,
                     backgroundColor: Colors.grey[200],
                     valueColor: AlwaysStoppedAnimation<Color>(
                       status == DownloadStatus.paused
@@ -393,13 +403,24 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '$progress% · ${_formatBytes(downloaded)}/${_formatBytes(total)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
+                  // 显示进度信息：实时进度（如果正在下载）或数据库进度
+                  if (isActiveTask)
+                    Text(
+                      '$downloadProgress% · $downloadStage',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  else
+                    Text(
+                      '$progress% · ${_formatBytes(downloaded)}/${_formatBytes(total)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
                     ),
-                  ),
                 ],
               ),
 

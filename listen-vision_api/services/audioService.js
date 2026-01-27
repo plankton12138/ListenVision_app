@@ -620,6 +620,269 @@ const cleanExpiredCache = (maxAge = 30 * 24 * 60 * 60 * 1000) => {
   return info.changes;
 };
 
+// ==================== 带元数据写入的下载转换 ====================
+
+/**
+ * 下载封面图片到临时文件（用于 FFmpeg 元数据写入）
+ * @param {string} coverUrl - 封面图片URL
+ * @returns {Promise<string>} 临时文件路径
+ */
+const downloadCoverForMetadata = async (coverUrl) => {
+  try {
+    const uniqueId = crypto.randomUUID();
+    const tempDir = os.tmpdir();
+    const coverPath = path.join(tempDir, `cover-${uniqueId}.jpg`);
+
+    const response = await fetch(coverUrl, {
+      headers: {
+        'Referer': 'https://www.bilibili.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`[AudioService] 封面下载失败: ${response.status}`);
+      return null;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await fs.promises.writeFile(coverPath, buffer);
+
+    console.log(`[AudioService] 封面下载成功: ${coverPath}, 大小: ${buffer.length} bytes`);
+    return coverPath;
+  } catch (error) {
+    console.warn(`[AudioService] 封面下载失败: ${error.message}`);
+    return null;
+  }
+};
+
+/**
+ * 带元数据写入的音频转换（用于下载）
+ *
+ * 流程：
+ * 1. 下载 m4s 音频流
+ * 2. 下载封面图片（可选）
+ * 3. FFmpeg 转换为标准 MP3/M4A，同时写入元数据
+ * 4. 返回转换后的文件和进度回调
+ *
+ * @param {string} m4sUrl - m4s 音频流URL
+ * @param {Object} metadata - 元数据 { title, artist, album, coverUrl }
+ * @param {string} format - 目标格式 (mp3, m4a)
+ * @param {Object} options - 转换选项
+ * @param {Function} onProgress - 进度回调 callback(percent, stage)
+ * @returns {Promise<{buffer: Buffer, contentType: string, format: string}>}
+ */
+const convertWithMetadata = async (
+  m4sUrl,
+  metadata,
+  format = 'mp3',
+  options = {},
+  onProgress = null
+) => {
+  const {
+    bitrate = '192k',
+    sampleRate = '44100',
+    channels = 2
+  } = options;
+
+  const codec = getCodec(format);
+  const outputFormat = getFormat(format);
+  const uniqueId = crypto.randomUUID();
+  const tempDir = os.tmpdir();
+
+  const inputPath = path.join(tempDir, `m4s-input-${uniqueId}.m4s`);
+  const outputPath = path.join(tempDir, `output-${uniqueId}.${format}`);
+  let coverPath = null;
+
+  console.log(`[AudioService] 开始带元数据转换: ${uniqueId}`);
+  console.log(`[AudioService] 元数据: title="${metadata.title}", artist="${metadata.artist}"`);
+
+  try {
+    // 步骤1: 下载 m4s 音频流
+    if (onProgress) onProgress(10, 'downloading_audio');
+    console.log(`[AudioService] 步骤1/4: 下载音频流...`);
+    console.log(`[AudioService] 音频URL: ${m4sUrl?.substring(0, 100)}...`);
+
+    let response;
+    let lastError;
+    const maxRetries = 3;
+
+    // 重试机制
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        console.log(`[AudioService] 尝试下载 (${i + 1}/${maxRetries})...`);
+
+        response = await fetch(m4sUrl, {
+          headers: {
+            'Referer': 'https://www.bilibili.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Origin': 'https://www.bilibili.com',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'audio',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site'
+          }
+        });
+
+        if (response.ok) {
+          break; // 成功，退出重试循环
+        }
+
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        console.log(`[AudioService] 下载失败 (${i + 1}/${maxRetries}): ${response.status}`);
+
+        // 等待后重试
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      } catch (err) {
+        lastError = err;
+        console.log(`[AudioService] 网络错误 (${i + 1}/${maxRetries}): ${err.message}`);
+
+        // 等待后重试
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      }
+    }
+
+    if (!response || !response.ok) {
+      throw new Error(`音频下载失败（已重试${maxRetries}次）: ${lastError?.message || 'Unknown error'}`);
+    }
+
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    await fs.promises.writeFile(inputPath, audioBuffer);
+    console.log(`[AudioService] 音频下载完成: ${audioBuffer.length} bytes`);
+
+    // 步骤2: 下载封面图片
+    if (onProgress) onProgress(25, 'downloading_cover');
+    console.log(`[AudioService] 步骤2/4: 下载封面...`);
+
+    if (metadata.coverUrl) {
+      coverPath = await downloadCoverForMetadata(metadata.coverUrl);
+    }
+
+    // 步骤3: FFmpeg 转换并写入元数据
+    if (onProgress) onProgress(40, 'converting');
+    console.log(`[AudioService] 步骤3/4: FFmpeg 转换并写入元数据...`);
+
+    await queueConversion(() => new Promise((resolve, reject) => {
+      const startTime = Date.now();
+
+      // 构建 FFmpeg 命令
+      let ffmpegCmd = ffmpeg(inputPath)
+        .audioCodec(codec)
+        .audioBitrate(bitrate)
+        .audioFrequency(parseInt(sampleRate))
+        .audioChannels(channels)
+        .format(outputFormat);
+
+      // 添加元数据
+      if (metadata.title) {
+        ffmpegCmd = ffmpegCmd.outputOptions('-metadata', `title=${metadata.title}`);
+      }
+      if (metadata.artist) {
+        ffmpegCmd = ffmpegCmd.outputOptions('-metadata', `artist=${metadata.artist}`);
+      }
+      if (metadata.album) {
+        ffmpegCmd = ffmpegCmd.outputOptions('-metadata', `album=${metadata.album}`);
+      }
+
+      // 添加封面（仅 MP3 和 M4A 支持）
+      if (coverPath && fs.existsSync(coverPath)) {
+        if (format === 'mp3') {
+          // MP3: 使用 -map_image 0
+          ffmpegCmd = ffmpegCmd.input(coverPath).outputOptions('-map', '0:0', '-map', '1:0', '-id3v2_version', '3');
+        } else if (format === 'm4a') {
+          // M4A: 使用 -movflags faststart
+          ffmpegCmd = ffmpegCmd.input(coverPath).outputOptions('-map', '0:0', '-map', '1:0', '-c:v', 'mjpeg');
+        }
+      }
+
+      // 添加 moov atom 到开头（流式优化）
+      if (format === 'm4a') {
+        ffmpegCmd = ffmpegCmd.outputOptions('-movflags', '+faststart');
+      }
+
+      ffmpegCmd
+        .on('start', (commandLine) => {
+          console.log(`[AudioService] FFmpeg 命令: ${commandLine}`);
+        })
+        .on('progress', (progress) => {
+          if (progress.percent) {
+            const percent = Math.floor(progress.percent);
+            // 映射进度: 40% -> 90%
+            const mappedPercent = 40 + Math.floor(percent * 0.5);
+            if (onProgress) onProgress(mappedPercent, 'converting');
+            if (percent % 20 === 0) {
+              console.log(`[AudioService] 转换进度: ${percent}%`);
+            }
+          }
+        })
+        .on('end', () => {
+          const duration = Date.now() - startTime;
+          console.log(`[AudioService] 转换完成: ${uniqueId}, 耗时: ${duration}ms`);
+          if (onProgress) onProgress(95, 'finishing');
+          resolve();
+        })
+        .on('error', (err, stdout, stderr) => {
+          console.error(`[AudioService] FFmpeg 错误: ${err.message}`);
+          console.error(`[AudioService] Stderr: ${stderr}`);
+          reject(new Error(`音频转换失败: ${err.message}`));
+        })
+        .save(outputPath);
+    }));
+
+    // 步骤4: 读取输出文件
+    if (onProgress) onProgress(95, 'reading_output');
+    console.log(`[AudioService] 步骤4/4: 读取输出文件...`);
+
+    const outputBuffer = await fs.promises.readFile(outputPath);
+    const contentType = format === 'mp3' ? 'audio/mpeg' : 'audio/m4a';
+
+    console.log(`[AudioService] ✅ 带元数据转换成功: ${uniqueId}`);
+    console.log(`[AudioService] 输出: ${outputBuffer.length} bytes, 格式: ${format}`);
+
+    if (onProgress) onProgress(100, 'complete');
+
+    return {
+      buffer: outputBuffer,
+      contentType: contentType,
+      format: format
+    };
+
+  } finally {
+    // 清理临时文件
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(inputPath)) {
+          fs.unlinkSync(inputPath);
+          console.log(`[AudioService] 清理输入文件: ${inputPath}`);
+        }
+      } catch (e) {}
+      try {
+        if (fs.existsSync(outputPath)) {
+          fs.unlinkSync(outputPath);
+          console.log(`[AudioService] 清理输出文件: ${outputPath}`);
+        }
+      } catch (e) {}
+      try {
+        if (coverPath && fs.existsSync(coverPath)) {
+          fs.unlinkSync(coverPath);
+          console.log(`[AudioService] 清理封面文件: ${coverPath}`);
+        }
+      } catch (e) {}
+    };
+
+    setImmediate(cleanup);
+  }
+};
+
 module.exports = {
   // FFmpeg configuration
   setFFmpegPath,
@@ -629,6 +892,7 @@ module.exports = {
   convertStream,
   convertFile,
   proxyAndConvert,
+  convertWithMetadata,  // 新增：带元数据写入的转换
 
   // Utilities
   getCodec,

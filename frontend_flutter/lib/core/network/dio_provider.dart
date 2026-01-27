@@ -139,6 +139,29 @@ class DioProvider {
     }
   }
 
+  /// 下载文件
+  ///
+  /// [url] 完整的下载URL
+  /// [savePath] 保存路径
+  /// [onReceiveProgress] 接收进度回调
+  Future<void> download(
+    String url,
+    String savePath, {
+    void Function(int received, int total)? onReceiveProgress,
+  }) async {
+    try {
+      await dio.download(
+        url,
+        savePath,
+        onReceiveProgress: onReceiveProgress,
+      );
+      AppLogger.info('DioProvider', '文件下载成功: $savePath');
+    } on DioException catch (e) {
+      AppLogger.error('DioProvider', '文件下载失败: ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
   /// 错误处理
   Exception _handleDioError(DioException e) {
     if (e.response != null) {

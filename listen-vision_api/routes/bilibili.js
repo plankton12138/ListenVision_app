@@ -433,4 +433,58 @@ router.get('/proxy/audio', optionalAuthMiddleware, bilibiliController.proxyAudio
  */
 router.get('/proxy/audio/:bvid', optionalAuthMiddleware, bilibiliController.proxyAudioStreamByBvid);
 
+/**
+ * @swagger
+ * /api/bilibili/download/{bvid}:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 下载音频文件（带元数据写入）
+ *     description: |
+ *       下载B站视频的音频，自动转换为标准格式并写入元数据（标题、艺术家、封面）。
+ *
+ *       **处理流程**：
+ *       1. 获取视频信息（标题、UP主、封面）
+ *       2. 下载 m4s 音频流
+ *       3. FFmpeg 转换为标准 MP3/M4A
+ *       4. 写入元数据到文件
+ *       5. 返回转换后的文件
+ *
+ *       **优势**：
+ *       - 转换后的文件是标准格式，元数据嵌入文件中
+ *       - 重传或用其他播放器打开也能显示正确信息
+ *       - 封面图片嵌入文件，无需额外下载
+ *     parameters:
+ *       - in: path
+ *         name: bvid
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 视频BVID
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [mp3, m4a]
+ *           default: mp3
+ *         description: 输出格式
+ *     responses:
+ *       200:
+ *         description: 音频文件（带元数据）
+ *         content:
+ *           audio/mpeg:
+ *             type: string
+ *             format: binary
+ *           audio/m4a:
+ *             type: string
+ *             format: binary
+ *         headers:
+ *           Content-Disposition:
+ *             description: 文件名（包含标题）
+ *             schema:
+ *               type: string
+ *       404:
+ *         description: 视频不存在或无法获取音频流
+ */
+router.get('/download/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithMetadata);
+
 module.exports = router;

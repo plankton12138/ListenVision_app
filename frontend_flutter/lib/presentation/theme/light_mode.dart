@@ -17,11 +17,11 @@ ThemeData lightMode = ThemeData(
   // 颜色方案 - 使用更现代、对比度更好的配色
   colorScheme: const ColorScheme.light(
     // 主色调：使用更鲜明的蓝色，替代原来的灰色 #979797
-    primary: Color(0xFF2196F3), 
+    primary: Color.fromARGB(255, 99, 178, 242), 
     onPrimary: Colors.white,
     
     // 次要色调：用于强调
-    secondary: Color(0xFF03DAC6),
+    secondary: Color.fromARGB(255, 160, 227, 134),
     onSecondary: Colors.black,
 
     // 背景色：保持清爽的灰白色，替代原来的 #D8D6D6 (太深了)

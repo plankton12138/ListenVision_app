@@ -21,7 +21,7 @@ ThemeData darkMode = ThemeData(
     onPrimary: Colors.black,
 
     // 次要色调
-    secondary: Color(0xFF03DAC6),
+    secondary: Color.fromARGB(255, 2, 65, 59),
     onSecondary: Colors.black,
 
     // 背景色：深灰色

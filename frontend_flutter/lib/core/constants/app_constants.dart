@@ -161,8 +161,8 @@ class DownloadConstants {
 
 class UIConstants {
   /// 图标尺寸（从 Dimens 迁移）
-  static const double iconSmall = 24;
-  static const double iconMedium = 35;
+  static const double iconSmall = 22;
+  static const double iconMedium = 28;
   static const double iconLarge = 42;
 
   /// 字体尺寸（从 Dimens 迁移）

@@ -123,8 +123,16 @@ const requestLogger = (req, res, next) => {
   next();
 };
 
-module.exports = {
+// 同时支持两种导入方式:
+// const logger = require('./utils/logger')  → 直接获取 logger
+// const { logger, requestLogger } = require(...)  → 解构导入
+const loggerExports = {
   logger,
   httpLogger,
   requestLogger
 };
+
+// 使 logger 对象本身也是 logger 实例
+Object.assign(logger, loggerExports);
+
+module.exports = loggerExports;

@@ -10,6 +10,49 @@
  * throw new AppError('用户不存在', 404);
  */
 
+const logger = require('./../utils/logger');
+
+/**
+ * 敏感字段列表（日志脱敏用）
+ */
+const SENSITIVE_FIELDS = [
+  'password', 'passwd', 'pwd', 'token', 'accessToken', 'refreshToken',
+  'secret', 'apiKey', 'sessdata', 'bili_jct', 'cookie', 'authorization'
+];
+
+/**
+ * 对象递归脱敏（处理嵌套对象）
+ */
+const redactObject = (obj, depth = 0) => {
+  if (!obj || typeof obj !== 'object' || depth > 5) {
+    return obj;
+  }
+
+  const redacted = Array.isArray(obj) ? [] : {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    const lowerKey = key.toLowerCase();
+
+    // 检查是否是敏感字段
+    const isSensitive = SENSITIVE_FIELDS.some(field =>
+      lowerKey.includes(field.toLowerCase())
+    );
+
+    if (isSensitive && typeof value === 'string') {
+      // 保留前3个字符，其余用***替换
+      redacted[key] = value.length > 3
+        ? value.substring(0, 3) + '***'
+        : '***';
+    } else if (typeof value === 'object' && value !== null) {
+      redacted[key] = redactObject(value, depth + 1);
+    } else {
+      redacted[key] = value;
+    }
+  }
+
+  return redacted;
+};
+
 class AppError extends Error {
   constructor(message, statusCode = 500) {
     super(message);
@@ -26,25 +69,34 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // 记录错误日志
-  console.error('Error:', {
+  // 使用 Winston logger 记录错误（已脱敏）
+  logger.error('Request Error', {
     message: err.message,
-    stack: err.stack,
     url: req.originalUrl,
     method: req.method,
-    body: req.body,
+    // 脱敏处理敏感字段
+    body: redactObject(req.body),
     params: req.params,
-    query: req.query
+    query: redactObject(req.query),
+    // 仅在开发环境记录堆栈
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 
-  // MySQL 错误处理
-  if (err.code === 'ER_DUP_ENTRY') {
+  // SQLite 错误处理（better-sqlite3）
+  // SQLite 错误码: https://www.sqlite.org/rescode.html
+  if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
     const message = '数据已存在';
     error = new AppError(message, 409);
   }
 
-  if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+  if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
     const message = '关联数据不存在';
+    error = new AppError(message, 400);
+  }
+
+  // 通用约束错误（兼容其他 SQLITE_CONSTRAINT_* 变体）
+  if (err.code && err.code.startsWith('SQLITE_CONSTRAINT') && !error.statusCode) {
+    const message = '数据约束错误';
     error = new AppError(message, 400);
   }
 

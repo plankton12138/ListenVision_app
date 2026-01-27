@@ -1,234 +1,73 @@
 import 'dart:io';
 
-// ========== P2 Clean Architecture Imports ==========
-// Core Layer - Network & DI
+// ========== Core Imports ==========
+import 'package:demo/core/di/provider_config.dart';
 import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/core/network/dio_provider.dart';
-// Domain Layer - Repositories
-import 'package:demo/domain/repositories/auth_repository.dart';
-import 'package:demo/domain/repositories/playlist_repository.dart';
-import 'package:demo/domain/repositories/bilibili_repository.dart';
-import 'package:demo/domain/repositories/play_history_repository.dart';
-import 'package:demo/domain/repositories/search_repository.dart';
-// ====================================================
-
-// ========== P3: Providers 已迁移到 presentation/providers/ ==========
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
-import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
-import 'package:demo/presentation/providers/bilibili/qr_login_provider.dart';
-import 'package:demo/presentation/providers/bilibili/cache_provider.dart';
-import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
-import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:demo/presentation/providers/search/search_provider.dart';
-import 'package:demo/presentation/providers/theme/theme_provider.dart';
-// P2: 路由已迁移到 presentation/routes/
-import 'package:demo/presentation/routes/router.dart';
-import 'package:demo/presentation/providers/download/download_manager.dart';
-import 'package:demo/core/utils/file_picker_helper.dart';
 import 'package:demo/core/utils/permission_helper.dart';
 import 'package:demo/core/utils/app_logger.dart';
-// ===============================================
+import 'package:demo/presentation/providers/theme/theme_provider.dart';
+import 'package:demo/presentation/routes/router.dart';
 
+// ========== Framework Imports ==========
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+/// 应用入口
+///
+/// 初始化顺序：
+/// 1. WidgetsFlutterBinding
+/// 2. 日志系统
+/// 3. ServiceFactory (Repositories + Dio)
+/// 4. 恢复 Token
+/// 5. 权限处理
+/// 6. 桌面数据库工厂
+/// 7. runApp (Provider 配置在 ProviderConfig 中)
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化日志系统（必须在其他初始化之前）
+  // ========== 1. 日志系统（最先初始化）==========
   await AppLogger.instance.initialize();
 
-  // 音频元数据读写已迁移到 AudioMetadataHelper（基于 audio_metadata_reader）
-  // 纯 Dart 实现，无需初始化，跨平台稳定
-
-  // ========== P2 Clean Architecture: 初始化 ServiceFactory ==========
-  // 必须在 runApp 之前完成初始化，确保 Repository 和 Dio 可用
+  // ========== 2. ServiceFactory 初始化 ==========
+  // 必须在 runApp 之前完成，确保 Repositories 和 Dio 可用
   await ServiceFactory.init();
 
-  // 检查是否首次启动（复用上面的 prefs 实例）
+  // ========== 3. 恢复认证 Token ==========
   final prefs = await SharedPreferences.getInstance();
-  // 从本地恢复 token 到 DioProvider（如果有）
-  // 注意：token 的实际恢复由 AuthProvider._loadUser() 处理
-  // 这里只是为了保险起见，在 Provider 初始化前恢复 token
   final savedToken = prefs.getString('auth_token');
   if (savedToken != null) {
     DioProvider.instance.updateToken(savedToken);
-    AppLogger.info('Main', 'Token restored from auth_token key');
+    AppLogger.info('Main', 'Token restored from storage');
   }
-  // ================================================================
 
-  // 检查是否首次启动（复用上面的 prefs 实例）
-  bool isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
-
+  // ========== 4. 首次启动权限处理 ==========
+  final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
   if (isFirstLaunch) {
-    // 首次启动，请求存储权限
-    bool hasPermission = await requestManageStoragePermission();
+    final hasPermission = await requestManageStoragePermission();
     if (hasPermission) {
-      AppLogger.info('Main', '权限请求成功');
+      AppLogger.info('Main', '存储权限请求成功');
     } else {
-      AppLogger.warn('Main', '用户拒绝权限');
-      openAppSettings();
+      AppLogger.warn('Main', '用户拒绝存储权限');
+      // openAppSettings(); // 已在 permission_helper 中处理
     }
     await prefs.setBool('isFirstLaunch', false);
   }
 
-  // 桌面平台初始化数据库工厂
+  // ========== 5. 桌面平台数据库工厂 ==========
   if (!kIsWeb &&
       (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     databaseFactory = databaseFactoryFfi;
   }
 
+  // ========== 6. 启动应用 ==========
   runApp(
     MultiProvider(
-      providers: [
-        // ========== P2 Clean Architecture: Repositories ==========
-        // Repositories 必须在 Providers 之前注册，因为 Providers 依赖它们
-        Provider<AuthRepository>(
-          create: (_) => ServiceFactory.instance.authRepository,
-        ),
-        Provider<PlaylistRepository>(
-          create: (_) => ServiceFactory.instance.playlistRepository,
-        ),
-        Provider<BilibiliRepository>(
-          create: (_) => ServiceFactory.instance.bilibiliRepository,
-        ),
-        Provider<PlayHistoryRepository>(
-          create: (_) => ServiceFactory.instance.playHistoryRepository,
-        ),
-        Provider<SearchRepository>(
-          create: (_) => ServiceFactory.instance.searchRepository,
-        ),
-        // ==========================================================
-
-        ChangeNotifierProvider(create: (_) => ThemeController()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-
-        // Phase 2: PlayHistoryProvider（需要先于 AudioProvider 创建）
-        ChangeNotifierProxyProvider<AuthProvider, PlayHistoryProvider>(
-          create: (context) => PlayHistoryProvider(),
-          update: (context, authProvider, historyProvider) {
-            // 当用户登录时初始化播放历史
-            Future.microtask(() {
-              if (authProvider.isLoggedIn) {
-                historyProvider?.initialize();
-              }
-            });
-            return historyProvider!;
-          },
-        ),
-
-        // Phase 2: AudioProvider 依赖 PlayHistoryProvider（用于记录播放历史）
-        ChangeNotifierProxyProvider<PlayHistoryProvider, AudioProvider>(
-          create: (context) => AudioProvider(),
-          update: (context, historyProvider, audioProvider) {
-            // 设置 PlayHistoryProvider 到 AudioProvider
-            audioProvider?.setHistoryProvider(historyProvider);
-            return audioProvider!;
-          },
-        ),
-
-        // B站状态管理
-        ChangeNotifierProvider<BilibiliProvider>(
-          create: (context) {
-            final authProvider = context.read<AuthProvider>();
-            final provider = BilibiliProvider();
-            provider.updateToken(authProvider.user?.token);
-
-            // 监听登录状态变化
-            VoidCallback? listener;
-            listener = () {
-              provider.updateToken(authProvider.user?.token);
-              if (authProvider.isLoggedIn) {
-                provider.initialize();
-              } else {
-                provider.cancelQRLogin();
-              }
-            };
-            authProvider.addListener(listener);
-
-            // 处理已登录用户初始化：AuthProvider._loadUser() 是异步的，
-            // 需要等待其完成后再初始化 BilibiliProvider
-            Future.delayed(Duration.zero, () {
-              if (authProvider.isLoggedIn) {
-                provider.updateToken(authProvider.user?.token);
-                provider.initialize();
-              }
-            });
-
-            return provider;
-          },
-        ),
-
-        // P1.1: 新拆分的Provider（渐进式迁移）
-        // QRLoginProvider - QR码登录管理
-        ChangeNotifierProxyProvider<AuthProvider, QRLoginProvider>(
-          create: (context) => QRLoginProvider(),
-          update: (context, authProvider, provider) {
-            provider?.updateToken(authProvider.user?.token);
-            return provider ?? QRLoginProvider();
-          },
-        ),
-
-        // BilibiliCacheProvider - 视频信息缓存管理
-        ChangeNotifierProxyProvider<AuthProvider, BilibiliCacheProvider>(
-          create: (context) => BilibiliCacheProvider(),
-          update: (context, authProvider, provider) {
-            provider?.updateToken(authProvider.user?.token);
-            return provider ?? BilibiliCacheProvider();
-          },
-        ),
-        // 下载管理器
-        ChangeNotifierProxyProvider<AuthProvider, DownloadManager>(
-          create: (_) => DownloadManager(),
-          update: (context, authProvider, downloadManager) {
-            // DownloadManager 现在使用 Repository，不需要额外配置
-            return downloadManager!;
-          },
-        ),
-
-        Provider(create: (_) => FilePickerService()),
-
-        // Phase 2: 歌单和播放历史管理
-        // 使用 ChangeNotifierProxyProvider，因为 DioProvider 是单例，不需要作为 Provider
-        ChangeNotifierProxyProvider<AuthProvider, PlaylistProvider>(
-          create: (context) => PlaylistProvider(dioProvider: DioProvider.instance),
-          update: (context, authProvider, playlistProvider) {
-            // 当用户登录时初始化歌单数据和收藏列表
-            Future.microtask(() async {
-              if (authProvider.isLoggedIn && authProvider.user?.token != null) {
-                final token = authProvider.user!.token ?? '';
-                if (token.isNotEmpty) {
-                  try {
-                    await playlistProvider?.initialize(token);
-                  } catch (e) {
-                    AppLogger.error('Main', '歌单初始化失败', error: e);
-                  }
-                }
-              }
-            });
-            return playlistProvider!;
-          },
-        ),
-
-        // Phase 3: 搜索功能
-        ChangeNotifierProxyProvider<AuthProvider, SearchProvider>(
-          create: (context) => SearchProvider(),
-          update: (context, authProvider, searchProvider) {
-            // 当 Token 变化时更新
-            searchProvider?.updateToken(authProvider.user?.token);
-            // 初始化热门关键词和搜索历史
-            Future.microtask(() {
-              searchProvider?.initialize();
-            });
-            return searchProvider!;
-          },
-        ),
-      ],
+      providers: ProviderConfig.getProviders().cast<SingleChildWidget>(),
       child: const MyApp(),
     ),
   );

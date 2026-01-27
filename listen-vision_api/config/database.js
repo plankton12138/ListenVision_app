@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('../utils/logger');
 
 // 数据库文件路径
 const dataDir = path.join(__dirname, '../data');
@@ -12,7 +13,12 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // 创建数据库实例（verbose 用于开发环境 SQL 日志）
-const db = new Database(dbPath, { verbose: console.log });
+// 使用 logger.debug 记录 SQL 执行日志
+const db = new Database(dbPath, {
+  verbose: process.env.NODE_ENV === 'development'
+    ? (msg) => logger.debug('SQLite: ' + msg)
+    : undefined
+});
 
 // 启用外键约束
 db.pragma('foreign_keys = ON');
@@ -252,7 +258,7 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_bvid ON user_behavior_logs(bvid);
   `);
 
-  console.log('✅ 数据库表初始化完成');
+  logger.info('Database tables initialized successfully');
 };
 
 // 迁移：修复 play_history 表的 bvid 字段约束
@@ -266,7 +272,7 @@ const migratePlayHistory = () => {
     const bvidColumn = tableInfo.find(col => col.name === 'bvid');
 
     if (bvidColumn && bvidColumn.notnull === 1) {
-      console.log('🔄 检测到旧版 play_history 表，开始迁移...');
+      logger.info('Detected old play_history table, starting migration...');
 
       // SQLite 不支持直接修改列约束，需要重建表
       db.exec(`
@@ -323,12 +329,12 @@ const migratePlayHistory = () => {
         COMMIT;
       `);
 
-      console.log('✅ play_history 表迁移完成（bvid 现在可为 NULL）');
+      logger.info('play_history table migration completed (bvid is now nullable)');
     } else {
-      console.log('✅ play_history 表已是最新版本');
+      logger.info('play_history table is already up to date');
     }
   } catch (e) {
-    console.error('❌ play_history 表迁移失败:', e.message);
+    logger.error('play_history table migration failed:', e.message);
     // 不中断程序启动，因为新表创建时已经正确
   }
 };
@@ -340,7 +346,7 @@ migratePlayHistory();
 // 优雅退出处理（由 index.js 统一管理）
 const closeDatabase = () => {
   db.close();
-  console.log('数据库连接已关闭');
+  logger.info('Database connection closed');
 };
 
 module.exports = db;

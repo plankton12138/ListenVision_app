@@ -627,7 +627,7 @@ const cleanExpiredCache = (maxAge = 30 * 24 * 60 * 60 * 1000) => {
  * @param {string} coverUrl - 封面图片URL
  * @returns {Promise<string>} 临时文件路径
  */
-const downloadCoverForMetadata = async (coverUrl) => {
+const downloadCoverForMetadata = async (coverUrl, onProgress = null, startPercent = 25, endPercent = 40) => {
   try {
     const uniqueId = crypto.randomUUID();
     const tempDir = os.tmpdir();
@@ -645,8 +645,42 @@ const downloadCoverForMetadata = async (coverUrl) => {
       return null;
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
+    // 获取封面大小并流式下载
+    const contentLength = response.headers.get('content-length');
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : null;
+    const reader = response.body.getReader();
+    const chunks = [];
+    let receivedBytes = 0;
+    let lastUpdate = startPercent;
+    const interval = (endPercent - startPercent) / 4; // 分4次报告进度
+
+    console.log(`[AudioService] 开始下载封面，大小: ${totalBytes ? (totalBytes / 1024).toFixed(0) + ' KB' : '未知'}`);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      receivedBytes += value.length;
+
+      // 报告封面下载进度
+      if (totalBytes && onProgress) {
+        const downloadPercent = receivedBytes / totalBytes;
+        const currentPercent = Math.floor(startPercent + downloadPercent * (endPercent - startPercent));
+
+        if (currentPercent >= lastUpdate + interval) {
+          lastUpdate = currentPercent;
+          onProgress(Math.min(currentPercent, endPercent), 'downloading_cover');
+          console.log(`[AudioService] 封面下载: ${(downloadPercent * 100).toFixed(0)}% -> ${currentPercent}%`);
+        }
+      }
+    }
+
+    const buffer = Buffer.concat(chunks);
     await fs.promises.writeFile(coverPath, buffer);
+
+    // 最终进度
+    if (onProgress) onProgress(endPercent, 'downloading_cover');
 
     console.log(`[AudioService] 封面下载成功: ${coverPath}, 大小: ${buffer.length} bytes`);
     return coverPath;
@@ -755,21 +789,58 @@ const convertWithMetadata = async (
       throw new Error(`音频下载失败（已重试${maxRetries}次）: ${lastError?.message || 'Unknown error'}`);
     }
 
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    // 获取文件大小（用于进度报告）
+    const contentLength = response.headers.get('content-length');
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : null;
+
+    // 使用流式下载并报告进度
+    const reader = response.body.getReader();
+    const chunks = [];
+    let receivedBytes = 0;
+    let lastProgressUpdate = 10; // 起始进度
+    const progressInterval = 3; // 每3%更新一次
+
+    console.log(`[AudioService] 开始流式下载，总大小: ${totalBytes ? (totalBytes / 1024 / 1024).toFixed(2) + ' MB' : '未知'}`);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      receivedBytes += value.length;
+
+      // 计算并报告下载进度 (10% -> 25%)
+      if (totalBytes && onProgress) {
+        const downloadPercent = Math.floor((receivedBytes / totalBytes) * 100);
+        // 映射到 10-25% 范围
+        const mappedPercent = 10 + Math.floor(downloadPercent * 0.15);
+
+        // 每 progressInterval 更新一次进度
+        if (mappedPercent >= lastProgressUpdate + progressInterval || downloadPercent >= 100) {
+          lastProgressUpdate = mappedPercent;
+          onProgress(mappedPercent, 'downloading_audio');
+          console.log(`[AudioService] 下载进度: ${downloadPercent}% (${(receivedBytes / 1024 / 1024).toFixed(2)} MB)`);
+        }
+      }
+    }
+
+    const audioBuffer = Buffer.concat(chunks);
     await fs.promises.writeFile(inputPath, audioBuffer);
     console.log(`[AudioService] 音频下载完成: ${audioBuffer.length} bytes`);
 
-    // 步骤2: 下载封面图片
-    if (onProgress) onProgress(25, 'downloading_cover');
+    // 步骤2: 下载封面图片（带进度报告 25% -> 40%）
     console.log(`[AudioService] 步骤2/4: 下载封面...`);
 
     if (metadata.coverUrl) {
-      coverPath = await downloadCoverForMetadata(metadata.coverUrl);
+      coverPath = await downloadCoverForMetadata(metadata.coverUrl, onProgress, 25, 40);
+    } else {
+      // 没有封面时直接跳到 40%
+      if (onProgress) onProgress(40, 'downloading_cover');
     }
 
     // 步骤3: FFmpeg 转换并写入元数据
-    if (onProgress) onProgress(40, 'converting');
     console.log(`[AudioService] 步骤3/4: FFmpeg 转换并写入元数据...`);
+    if (onProgress) onProgress(40, 'converting');
 
     await queueConversion(() => new Promise((resolve, reject) => {
       const startTime = Date.now();
@@ -819,8 +890,9 @@ const convertWithMetadata = async (
             // 映射进度: 40% -> 90%
             const mappedPercent = 40 + Math.floor(percent * 0.5);
             if (onProgress) onProgress(mappedPercent, 'converting');
-            if (percent % 20 === 0) {
-              console.log(`[AudioService] 转换进度: ${percent}%`);
+            // 更频繁的日志输出（每5%）
+            if (percent % 5 === 0) {
+              console.log(`[AudioService] 转换进度: ${percent}% -> 映射到 ${mappedPercent}%`);
             }
           }
         })

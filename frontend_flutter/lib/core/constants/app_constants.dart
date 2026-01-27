@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 
 class AppInfo {
   static const String appName = 'ListenVision';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '0.1.0';
   static const String appDescription = 'Listen to your favorite music';
 }
 

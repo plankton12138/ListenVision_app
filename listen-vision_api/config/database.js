@@ -42,18 +42,6 @@ const createTables = () => {
     )
   `);
 
-  // 收藏表
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS favorites (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      url TEXT NOT NULL,
-      title TEXT NOT NULL,
-      username TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
-    )
-  `);
-
   // B站账号绑定表
   db.exec(`
     CREATE TABLE IF NOT EXISTS bilibili_accounts (
@@ -233,8 +221,6 @@ const createTables = () => {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_favorites_username ON favorites(username);
-    CREATE INDEX IF NOT EXISTS idx_favorites_url ON favorites(url);
     CREATE INDEX IF NOT EXISTS idx_bilibili_accounts_user_id ON bilibili_accounts(user_id);
     CREATE INDEX IF NOT EXISTS idx_bilibili_accounts_is_active ON bilibili_accounts(user_id, is_active);
     CREATE INDEX IF NOT EXISTS idx_audio_metadata_bvid ON audio_metadata_cache(bvid);

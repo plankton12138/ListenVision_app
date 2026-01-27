@@ -1,6 +1,5 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/presentation/pages/backend_download_page.dart';
-import 'package:demo/presentation/pages/download_list_page.dart';
 import 'package:demo/presentation/pages/explore_page.dart';
 import 'package:demo/presentation/pages/home_page.dart';
 import 'package:demo/presentation/pages/login_page.dart';
@@ -33,7 +32,6 @@ class AppRoutes {
   static const String searchName = 'search';
   static const String exploreName = 'explore';
   static const String playlistName = 'playlist';
-  static const String downloadListName = 'download_list';
   static const String downloadsName = 'downloads';
   static const String playlistsName = 'playlists';
   static const String playlistDetailName = 'playlist_detail';
@@ -50,7 +48,6 @@ class AppRoutes {
   static const String search = '/search';
   static const String explore = '/explore';
   static const String playlist = '/playlist';
-  static const String downloadList = '/download_list';
   static const String downloads = '/downloads';
   static const String playlists = '/playlists';
   static const String history = '/history';
@@ -87,7 +84,6 @@ final GoRouter router = GoRouter(
       AppRoutes.search,
       AppRoutes.explore,
       AppRoutes.playlist,
-      AppRoutes.downloadList,
       AppRoutes.downloads,
       AppRoutes.playlists,
       AppRoutes.history,
@@ -177,14 +173,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const PlaylistPage(),
     ),
 
-    // 下载列表页
-    GoRoute(
-      name: AppRoutes.downloadListName,
-      path: AppRoutes.downloadList,
-      builder: (context, state) => const DownloadListPage(),
-    ),
-
-    // 后端下载任务管理页 (Phase 3)
+    // 下载任务管理页 (Phase 3)
     GoRoute(
       name: AppRoutes.downloadsName,
       path: AppRoutes.downloads,

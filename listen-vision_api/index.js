@@ -79,7 +79,6 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
-app.use('/api/favorites', require('./routes/favorites'));
 
 try {
   const bilibiliRouter = require('./routes/bilibili');

@@ -34,7 +34,12 @@
       "Bash(Get-ChildItem:*)",
       "Bash(tree:*)",
       "Bash(Format-Table FullName -AutoSize)",
-      "Bash(adb shell:*)"
+      "Bash(adb shell:*)",
+      "Bash(cmd:*)",
+      "Bash(Get-Content \"A:\\\\Projects\\\\Projects_ListenVison\\\\listen-vision_api\\\\logs\\\\combined.log\" -Tail 50)",
+      "Bash(Get-Content:*)",
+      "Bash(Remove-Item:*)",
+      "Bash(rm:*)"
     ]
   }
 }

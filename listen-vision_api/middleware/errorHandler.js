@@ -10,7 +10,7 @@
  * throw new AppError('用户不存在', 404);
  */
 
-const logger = require('./../utils/logger');
+const { logger } = require('./../utils/logger');
 
 /**
  * 敏感字段列表（日志脱敏用）

@@ -6,5 +6,7 @@
         <domain includeSubdomains="false">localhost</domain>
         <!-- 允许 192.168.x.x 本地网络 -->
         <domain includeSubdomains="true">192.168.0.197</domain>
+        <!-- 允许远程测试服务器 HTTP 访问 -->
+        <domain includeSubdomains="false">123.56.225.108</domain>
     </domain-config>
 </network-security-config>

@@ -46,10 +46,9 @@ class ProviderConfig {
   ///
   /// 返回顺序很重要：
   /// 1. Repositories (无依赖)
-  /// 2. 独立 Providers (ThemeController)
+  /// 2. 独立 Providers (ThemeController, AudioProvider)
   /// 3. 基础 Providers (AuthProvider)
   /// 4. 依赖 AuthProvider 的 Providers
-  /// 5. 依赖链末端 Providers (AudioProvider 依赖 PlayHistoryProvider)
   static List<Object> getProviders() {
     return [
       // ========== Repositories (P2 Clean Architecture) ==========
@@ -59,10 +58,7 @@ class ProviderConfig {
       // ========== 独立 Providers ==========
       ..._independentProviders(),
 
-      // ========== PlayHistory Provider ==========
-      _playHistoryProvider(),
-
-      // ========== Audio Provider (依赖 PlayHistoryProvider) ==========
+      // ========== Audio Provider (P1: 无依赖，直接使用 HTTP 记录历史) ==========
       _audioProvider(),
 
       // ========== Bilibili-Dependent Providers ==========
@@ -75,6 +71,7 @@ class ProviderConfig {
       _filePickerService(),
 
       // ========== Auth & Search Providers ==========
+      _playHistoryProvider(),
       _playlistProvider(),
       _searchProvider(),
     ];
@@ -125,14 +122,12 @@ class ProviderConfig {
     );
   }
 
-  // ========== Audio Provider (依赖 PlayHistoryProvider) ==========
+  // ========== Audio Provider (P1: 无依赖) ==========
   static Object _audioProvider() {
-    return ChangeNotifierProxyProvider<PlayHistoryProvider, AudioProvider>(
-      create: (context) => AudioProvider(),
-      update: (context, historyProvider, audioProvider) {
-        audioProvider?.setHistoryProvider(historyProvider);
-        return audioProvider!;
-      },
+    // P1 优化：AudioProvider 不再依赖 PlayHistoryProvider
+    // 依赖链深度：4 层 → 2 层
+    return ChangeNotifierProvider<AudioProvider>(
+      create: (_) => AudioProvider(),
     );
   }
 

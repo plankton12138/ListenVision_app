@@ -14,11 +14,25 @@ const { catchAsync, AppError } = require('../middleware/errorHandler');
 // ==================== 热门推荐 ====================
 
 /**
- * GET /api/recommendations/hot-playlists
- *
- * 获取热门歌单
- *
- * Authentication: 可选
+ * @swagger
+ * /api/recommendations/hot-playlists:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取热门歌单
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const getHotPlaylists = catchAsync(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -30,11 +44,25 @@ const getHotPlaylists = catchAsync(async (req, res) => {
 });
 
 /**
- * GET /api/recommendations/rank
- *
- * 获取热歌榜单
- *
- * Authentication: 可选
+ * @swagger
+ * /api/recommendations/rank:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取热歌榜单
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const getHotRank = catchAsync(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -45,16 +73,26 @@ const getHotRank = catchAsync(async (req, res) => {
   return successResponse(res, result, '获取热歌榜单成功');
 });
 
-// ==================== 个性化推荐 ====================
-
 /**
- * GET /api/recommendations/personalized
- *
- * 获取推荐内容
- *
- * 直接使用热门歌单API（无需WBI签名，稳定可靠）
- *
- * 返回格式：{ source: string, playlists: array }
+ * @swagger
+ * /api/recommendations/personalized:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取个性化推荐内容
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const getPersonalized = catchAsync(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -74,11 +112,31 @@ const getPersonalized = catchAsync(async (req, res) => {
 // ==================== 分区推荐 ====================
 
 /**
- * GET /api/recommendations/category/:tid
- *
- * 获取分区推荐
- *
- * Authentication: 可选
+ * @swagger
+ * /api/recommendations/category/{tid}:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取分区推荐
+ *     parameters:
+ *       - in: path
+ *         name: tid
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 分区ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ *       400:
+ *         description: 无效的分区ID
  */
 const getByCategory = catchAsync(async (req, res) => {
   const tid = parseInt(req.params.tid);
@@ -95,11 +153,20 @@ const getByCategory = catchAsync(async (req, res) => {
 });
 
 /**
- * GET /api/recommendations/music
- *
- * 获取音乐区推荐（综合）
- *
- * Authentication: 可选
+ * @swagger
+ * /api/recommendations/music:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取音乐区推荐（综合）
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const getMusicRecommendation = catchAsync(async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
@@ -112,13 +179,27 @@ const getMusicRecommendation = catchAsync(async (req, res) => {
 // ==================== Phase 2B: 音乐区爬虫 ====================
 
 /**
- * GET /api/recommendations/music-zone
- *
- * 获取音乐区个性化推荐（爬虫方式）
- *
- * 爬取 bilibili.com/c/music 页面获取用户绑定的B站账户的个性化推荐内容
- *
- * Authentication: 必需（需要用户绑定的B站 Cookie）
+ * @swagger
+ * /api/recommendations/music-zone:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取音乐区个性化推荐（爬虫方式）
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ *       401:
+ *         description: 请先登录
  */
 const getMusicZoneRecommendations = catchAsync(async (req, res) => {
   // 必须登录
@@ -146,9 +227,14 @@ const getMusicZoneRecommendations = catchAsync(async (req, res) => {
 // ==================== 常量 ====================
 
 /**
- * GET /api/recommendations/categories
- *
- * 获取可用的分区ID列表
+ * @swagger
+ * /api/recommendations/categories:
+ *   get:
+ *     tags: [推荐]
+ *     summary: 获取可用的分区ID列表
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const getCategoryTids = catchAsync(async (req, res) => {
   return successResponse(res, recommendationService.CATEGORY_TIDS, '获取分区列表成功');

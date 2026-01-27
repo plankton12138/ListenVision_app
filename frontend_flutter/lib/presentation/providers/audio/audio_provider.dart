@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_session/audio_session.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,7 +14,6 @@ import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/utils/error_handler.dart';
 import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 import 'package:demo/presentation/providers/audio/unified_playlist_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
@@ -47,8 +47,13 @@ class AudioProvider extends ChangeNotifier {
 
   // ==================== 向后兼容状态 ====================
 
-  /// PlayHistoryProvider 用于记录播放历史
-  PlayHistoryProvider? _historyProvider;
+  /// 播放历史记录的 Dio 客户端（15秒超时）
+  final Dio _historyDio = Dio(BaseOptions(
+    baseUrl: ApiConstants.fullBaseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+    sendTimeout: const Duration(seconds: 15),
+  ));
 
   /// 当前元数据
   String _title = "未知标题";
@@ -253,13 +258,6 @@ class AudioProvider extends ChangeNotifier {
   // 状态消息
   String get playerStatusMessage => _playerStatusMessage;
   bool get hasPlaybackError => _hasPlaybackError;
-
-  // ==================== 播放历史设置 ====================
-
-  void setHistoryProvider(PlayHistoryProvider? provider) {
-    _historyProvider = provider;
-    AppLogger.debug('AudioProvider', 'PlayHistoryProvider 已${provider == null ? '清除' : '设置'}');
-  }
 
   // ==================== 播放控制 ====================
 
@@ -656,40 +654,25 @@ class AudioProvider extends ChangeNotifier {
 
   /// 记录播放开始
   Future<void> _recordPlaybackStart(PlayableAudio playable) async {
-    if (_historyProvider == null) return;
-
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(StorageKeys.keyToken);
+    if (token == null || token.isEmpty) return;
 
     await _stateManager.recordPlaybackStart(
       playable,
       token: token,
       record: (data) async {
-        // 调用 PlayHistoryProvider
-        if (_historyProvider != null) {
-          if (playable.isOnline) {
-            await _historyProvider!.recordPlay(
-              token: data['token'] as String?,
-              bvid: data['bvid'] as String?,
-              title: data['title'] as String,
-              artist: data['artist'] as String?,
-              duration: data['duration'] as int? ?? 0,
-              coverUrl: data['coverUrl'] as String?,
-              progress: data['progress'] as int? ?? 0,
-            );
-          } else {
-            await _historyProvider!.recordPlay(
-              token: data['token'] as String?,
-              bvid: null,
-              title: data['title'] as String,
-              artist: data['artist'] as String?,
-              duration: data['duration'] as int? ?? 0,
-              coverUrl: null,
-              progress: data['progress'] as int? ?? 0,
-              localPath: data['localPath'] as String?,
-            );
-          }
-        }
+        // 直接发送 HTTP 请求记录播放历史（不依赖 PlayHistoryProvider）
+        _sendHistoryRecord(
+          token: data['token'] as String?,
+          bvid: data['bvid'] as String?,
+          localPath: data['localPath'] as String?,
+          title: data['title'] as String,
+          artist: data['artist'] as String?,
+          duration: data['duration'] as int? ?? 0,
+          coverUrl: data['coverUrl'] as String?,
+          progress: data['progress'] as int? ?? 0,
+        );
       },
     );
   }
@@ -702,32 +685,58 @@ class AudioProvider extends ChangeNotifier {
       _stateManager.startProgressUpdateTimer(
         token: token,
         update: (data) async {
-          // 调用 PlayHistoryProvider 更新进度
-          if (_historyProvider != null) {
-            if (_isCurrentOnline && _currentOnlineAudio != null) {
-              await _historyProvider!.recordPlay(
-                token: data['token'] as String?,
-                bvid: data['bvid'] as String?,
-                title: data['title'] as String,
-                artist: data['artist'] as String?,
-                duration: data['duration'] as int? ?? 0,
-                coverUrl: data['coverUrl'] as String?,
-                progress: data['progress'] as int? ?? 0,
-              );
-            } else {
-              await _historyProvider!.recordPlay(
-                token: data['token'] as String?,
-                localPath: data['localPath'] as String?,
-                title: data['title'] as String,
-                artist: data['artist'] as String?,
-                duration: data['duration'] as int? ?? 0,
-                progress: data['progress'] as int? ?? 0,
-              );
-            }
-          }
+          // 直接发送 HTTP 请求更新播放进度
+          _sendHistoryRecord(
+            token: data['token'] as String?,
+            bvid: _isCurrentOnline ? data['bvid'] as String? : null,
+            localPath: _isCurrentOnline ? null : data['localPath'] as String?,
+            title: data['title'] as String,
+            artist: data['artist'] as String?,
+            duration: data['duration'] as int? ?? 0,
+            coverUrl: data['coverUrl'] as String?,
+            progress: data['progress'] as int? ?? 0,
+          );
         },
       );
     });
+  }
+
+  /// 发送播放历史记录到服务器
+  ///
+  /// P1 优化：直接使用 Dio 发送请求，不依赖 PlayHistoryProvider
+  /// 降低依赖链深度：4 层 → 2 层
+  Future<void> _sendHistoryRecord({
+    required String? token,
+    String? bvid,
+    String? localPath,
+    required String title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
+    int progress = 0,
+  }) async {
+    if (token == null || token.isEmpty) return;
+    if (bvid == null && localPath == null) return;
+
+    try {
+      _historyDio.options.headers['Authorization'] = 'Bearer $token';
+      await _historyDio.post(
+        '/history',
+        data: {
+          if (bvid != null) 'bvid': bvid,
+          if (localPath != null) 'localPath': localPath,
+          'title': title,
+          if (artist != null) 'artist': artist,
+          if (duration != null) 'duration': duration,
+          if (coverUrl != null) 'coverUrl': coverUrl,
+          'progress': progress,
+        },
+      );
+      AppLogger.debug('AudioProvider', '播放历史记录成功');
+    } catch (e) {
+      // 静默失败，不影响播放体验
+      AppLogger.debug('AudioProvider', '记录播放失败（不影响播放）: $e');
+    }
   }
 
   // ==================== 释放资源 ====================

@@ -11,18 +11,33 @@ const { successResponse } = require('../utils/response');
 const { catchAsync, AppError } = require('../middleware/errorHandler');
 const searchService = require('../services/searchService');
 
+// ==================== 本地搜索 ====================
+
 /**
- * GET /api/search/local
- *
- * 本地音频元数据全文搜索（FTS5）
- *
- * Query Parameters:
- * - q: 搜索关键词（必填）
- * - limit: 返回结果数量（可选，默认 20，最大 100）
- *
- * Response:
- * - success: true
- * - data: 搜索结果数组
+ * @swagger
+ * /api/search/local:
+ *   get:
+ *     tags: [搜索]
+ *     summary: 本地音频元数据全文搜索（FTS5）
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 搜索关键词
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *         description: 返回结果数量
+ *     responses:
+ *       200:
+ *         description: 搜索成功
+ *       400:
+ *         description: 搜索关键词不能为空
  */
 const localSearch = catchAsync(async (req, res) => {
   const { q: keyword, limit } = req.query;
@@ -39,16 +54,21 @@ const localSearch = catchAsync(async (req, res) => {
 });
 
 /**
- * GET /api/search/suggestions
- *
- * 获取搜索建议（自动完成）
- *
- * Query Parameters:
- * - q: 搜索前缀（必填）
- *
- * Response:
- * - success: true
- * - data: 建议关键词数组
+ * @swagger
+ * /api/search/suggestions:
+ *   get:
+ *     tags: [搜索]
+ *     summary: 获取搜索建议（自动完成）
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 搜索前缀
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const searchSuggestions = catchAsync(async (req, res) => {
   const { q: prefix } = req.query;
@@ -63,13 +83,14 @@ const searchSuggestions = catchAsync(async (req, res) => {
 });
 
 /**
- * GET /api/search/trending
- *
- * 获取热门搜索关键词
- *
- * Response:
- * - success: true
- * - data: 热门关键词列表（包含搜索次数）
+ * @swagger
+ * /api/search/trending:
+ *   get:
+ *     tags: [搜索]
+ *     summary: 获取热门搜索关键词
+ *     responses:
+ *       200:
+ *         description: 获取成功
  */
 const trendingKeywords = catchAsync(async (req, res) => {
   const trending = searchService.getTrendingKeywords();
@@ -77,16 +98,46 @@ const trendingKeywords = catchAsync(async (req, res) => {
   return successResponse(res, trending, '获取热门关键词成功');
 });
 
+// ==================== 搜索历史 ====================
+
 /**
- * GET /api/search/history
- *
- * 获取用户搜索历史
- *
- * Authentication: 可选（未登录返回全局历史，已登录返回用户历史）
- *
- * Response:
- * - success: true
- * - data: 搜索历史列表
+ * @swagger
+ * /api/search/history:
+ *   get:
+ *     tags: [搜索]
+ *     summary: 获取用户搜索历史
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ *   post:
+ *     tags: [搜索]
+ *     summary: 保存搜索关键词到历史记录
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - keyword
+ *             properties:
+ *               keyword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: 保存成功
+ *   delete:
+ *     tags: [搜索]
+ *     summary: 清空搜索历史
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 清空成功
  */
 const getSearchHistory = catchAsync(async (req, res) => {
   const userId = req.user ? req.user.id : null;
@@ -97,14 +148,22 @@ const getSearchHistory = catchAsync(async (req, res) => {
 });
 
 /**
- * POST /api/search/history
- *
- * 保存搜索关键词到历史记录
- *
- * Authentication: 必需
- *
- * Request Body:
- * - keyword: 搜索关键词
+ * @swagger
+ * /api/search/history/{keyword}:
+ *   delete:
+ *     tags: [搜索]
+ *     summary: 删除指定搜索关键词
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: keyword
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 删除成功
  */
 const saveSearchHistory = catchAsync(async (req, res) => {
   const { keyword } = req.body;
@@ -123,11 +182,7 @@ const saveSearchHistory = catchAsync(async (req, res) => {
 });
 
 /**
- * DELETE /api/search/history/{keyword}
- *
- * 删除指定搜索关键词
- *
- * Authentication: 必需
+ * P1: Swagger 文档已在路由上方定义
  */
 const deleteSearchKeyword = catchAsync(async (req, res) => {
   if (!req.user) {
@@ -141,13 +196,6 @@ const deleteSearchKeyword = catchAsync(async (req, res) => {
   return successResponse(res, { success: true }, '删除搜索关键词成功');
 });
 
-/**
- * DELETE /api/search/history
- *
- * 清空搜索历史
- *
- * Authentication: 必需
- */
 const clearSearchHistory = catchAsync(async (req, res) => {
   if (!req.user) {
     throw new AppError('请先登录', 401);

@@ -222,10 +222,18 @@ This workspace contains three projects:
 - **操作系统**: Windows 11 24H2
 - **Shell**: PowerShell（优先使用PowerShell命令）
 - **IDE**: VSCode + Claude Code
+- **Node.js**: 20.18.2（固定版本，重要！）
 
 **命令规范**:
 - ✅ 使用 PowerShell 命令（如 `Get-ChildItem`, `Move-Item`, `Test-Path`）
 - ❌ 避免使用 Bash/Linux 命令（如 `ls`, `mv`, `rm`）
+
+**Node.js 版本管理** ⚠️:
+- **固定版本**: 后端使用 Node.js 20.18.2（在 `package.json` 中通过 `engines` 字段指定）
+- **原因**: `better-sqlite3` 是原生模块，不同 Node.js 版本的二进制文件不兼容
+- **node_modules**: 保留在 Git 仓库中，避免每次部署时重新编译
+- **本地开发**: Windows 11 使用 Node.js 20.18.2
+- **服务器部署**: 必须使用相同的 Node.js 20.18.2 版本
 
 ### Authentication Architecture
 

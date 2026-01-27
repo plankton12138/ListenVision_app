@@ -4,8 +4,7 @@
 
 # ---------- 依赖 ----------
 
-# Node.js
-node_modules/
+# Node.js (保留 node_modules/ 用于 better-sqlite3 原生模块)
 package-lock.json
 yarn.lock
 pnpm-lock.yaml

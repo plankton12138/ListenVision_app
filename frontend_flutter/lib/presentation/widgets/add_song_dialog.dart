@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/presentation/providers/auth/auth_provider.dart';
 
 /// 添加歌曲对话框
 ///
 /// Phase 5: 歌单管理功能扩展
 /// 提供三种添加歌曲的方式：
-/// 1. 从搜索结果添加
-/// 2. 输入BV号添加
-/// 3. 从播放历史添加
+/// 1. 从搜索结果添加（游客可用）
+/// 2. 输入BV号添加（游客可用）
+/// 3. 从播放历史添加（需要登录）
 class AddSongDialog extends StatelessWidget {
   const AddSongDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final isLoggedIn = authProvider.isLoggedIn;
+
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
@@ -57,16 +62,18 @@ class AddSongDialog extends StatelessWidget {
               },
             ),
 
-            _buildOption(
-              context,
-              icon: Icons.history,
-              title: '从历史记录添加',
-              subtitle: '查看播放历史并添加',
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/history');
-              },
-            ),
+            // 从历史记录添加（需要登录）
+            if (isLoggedIn)
+              _buildOption(
+                context,
+                icon: Icons.history,
+                title: '从历史记录添加',
+                subtitle: '查看播放历史并添加',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.go('/history');
+                },
+              ),
 
             const SizedBox(height: 16),
           ],

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../config/jwt');
 const db = require('../config/database');
+const { AppError } = require('../middleware/errorHandler');
 
 // 预编译语句（模块初始化时编译，提高性能）
 const stmt = {
@@ -33,10 +34,10 @@ const isEmailTaken = (email) => {
 // 用户注册
 const registerUser = async (username, password, email) => {
   if (isUsernameTaken(username)) {
-    throw new Error('用户名已存在');
+    throw new AppError('用户名已存在', 409);
   }
   if (isEmailTaken(email)) {
-    throw new Error('邮箱已存在');
+    throw new AppError('邮箱已存在', 409);
   }
 
   // bcrypt 哈希密码（10轮加密）
@@ -58,13 +59,13 @@ const registerUser = async (username, password, email) => {
 const loginUser = async (username, password) => {
   const user = stmt.userByNameForAuth.get(username);
   if (!user) {
-    throw new Error('用户名或密码错误');
+    throw new AppError('用户名或密码错误', 401);
   }
 
   // 验证密码
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw new Error('用户名或密码错误');
+    throw new AppError('用户名或密码错误', 401);
   }
 
   // 生成 JWT token
@@ -80,7 +81,7 @@ const loginUser = async (username, password) => {
 const getUserById = (userId) => {
   const user = stmt.userById.get(userId);
   if (!user) {
-    throw new Error('用户不存在');
+    throw new AppError('用户不存在', 404);
   }
   return user;
 };

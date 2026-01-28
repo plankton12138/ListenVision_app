@@ -81,6 +81,10 @@ class MyDrawer extends StatelessWidget {
   }
 
   /// 构建主菜单
+  ///
+  /// 游客模式支持：
+  /// - 游客可以访问：首页、搜索、发现、歌单、下载任务
+  /// - 游客不能访问：播放历史、设置
   Widget _buildMainMenu(BuildContext context, bool isLoggedIn) {
     return Expanded(
       child: ListView(
@@ -92,7 +96,27 @@ class MyDrawer extends StatelessWidget {
             icon: Icons.home,
             route: '/',
           ),
-          // Phase 2: 需要登录的页面入口
+          // 公开页面（游客模式可用）
+          _buildListTile(
+            context: context,
+            title: '搜索',
+            icon: Icons.search,
+            route: '/search',
+          ),
+          _buildListTile(
+            context: context,
+            title: '歌单',
+            icon: Icons.playlist_play,
+            route: '/playlists',
+          ),
+          // Phase 3: 下载任务管理（游客可用）
+          _buildListTile(
+            context: context,
+            title: '下载任务',
+            icon: Icons.cloud_download,
+            route: '/downloads',
+          ),
+          // 需要登录的页面
           if (isLoggedIn) ...[
             _buildListTile(
               context: context,
@@ -102,9 +126,9 @@ class MyDrawer extends StatelessWidget {
             ),
             _buildListTile(
               context: context,
-              title: '歌单',
-              icon: Icons.playlist_play,
-              route: '/playlists',
+              title: '设置',
+              icon: Icons.settings,
+              route: '/settings',
             ),
             _buildListTile(
               context: context,
@@ -112,26 +136,7 @@ class MyDrawer extends StatelessWidget {
               icon: Icons.history,
               route: '/history',
             ),
-            // Phase 3: 下载任务管理
-            _buildListTile(
-              context: context,
-              title: '下载任务',
-              icon: Icons.cloud_download,
-              route: '/downloads',
-            ),
           ],
-          _buildListTile(
-            context: context,
-            title: '搜索',
-            icon: Icons.search,
-            route: '/search',
-          ),
-          _buildListTile(
-            context: context,
-            title: '设置',
-            icon: Icons.settings,
-            route: '/settings',
-          ),
         ],
       ),
     );

@@ -43,13 +43,15 @@ class AppRoutes {
   static const String register = '/register';
   static const String resetPassword = '/reset_password';
 
-  // 需要登录的页面
-  static const String settings = '/settings';
+  // 公开页面（游客模式可用）
   static const String search = '/search';
   static const String explore = '/explore';
   static const String playlist = '/playlist';
   static const String downloads = '/downloads';
   static const String playlists = '/playlists';
+
+  // 需要登录的页面
+  static const String settings = '/settings';
   static const String history = '/history';
 
   // 带参数的路由
@@ -73,22 +75,20 @@ final GoRouter router = GoRouter(
   errorBuilder: (context, state) => const NotFoundPage(),
 
   // 全局重定向（登录守卫）
+  //
+  // 游客模式支持：
+  // - 游客可以访问：搜索、下载、本地播放列表
+  // - 游客不能访问：探索页面、设置、播放历史
   redirect: (context, state) {
     final authProvider = context.read<AuthProvider>();
     final isLoggedIn = authProvider.isLoggedIn;
     final loginLocation = state.namedLocation(AppRoutes.loginName);
 
-    // 需要登录的路由列表
+    // 需要登录的路由列表（游客模式不可访问）
     final protectedRoutes = [
+      AppRoutes.explore,      // 探索页面需要登录
       AppRoutes.settings,
-      AppRoutes.search,
-      AppRoutes.explore,
-      AppRoutes.playlist,
-      AppRoutes.downloads,
-      AppRoutes.playlists,
       AppRoutes.history,
-      // 带前缀的匹配（歌单详情）
-      '/playlists/',
     ];
 
     final currentPath = state.uri.path;
@@ -143,14 +143,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const ResetPasswordPage(),
     ),
 
-    // ==================== 需要登录的页面 ====================
-
-    // 设置页
-    GoRoute(
-      name: AppRoutes.settingsName,
-      path: AppRoutes.settings,
-      builder: (context, state) => const SettingsPage(),
-    ),
+    // ==================== 公开页面（游客模式可用） ====================
 
     // 搜索页
     GoRoute(
@@ -166,7 +159,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const ExplorePage(),
     ),
 
-    // 播放列表页
+    // 播放列表页（本地播放列表，游客可用）
     GoRoute(
       name: AppRoutes.playlistName,
       path: AppRoutes.playlist,
@@ -196,6 +189,15 @@ final GoRouter router = GoRouter(
           },
         ),
       ],
+    ),
+
+    // ==================== 需要登录的页面 ====================
+
+    // 设置页
+    GoRoute(
+      name: AppRoutes.settingsName,
+      path: AppRoutes.settings,
+      builder: (context, state) => const SettingsPage(),
     ),
 
     // 播放历史页面 (Phase 2)

@@ -71,14 +71,6 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
 
-    if (authProvider.user?.token == null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '请先登录';
-      });
-      return;
-    }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;

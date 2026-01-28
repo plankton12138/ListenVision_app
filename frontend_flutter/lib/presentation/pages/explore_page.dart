@@ -57,17 +57,23 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     });
   }
 
-  /// 检查登录状态，未登录则跳转到登录页
+  /// 初始化并加载数据
+  ///
+  /// 探索页面访问规则：
+  /// - 游客用户：无法进入探索页面
+  /// - 登录用户：需要绑定B站账号才能查看内容
   Future<void> _checkLoginAndLoad() async {
     // 确保 BilibiliProvider 已完成初始化
-    // 这解决了应用重启后首次进入页面绑定状态未检测到的问题
     await _bilibiliProvider?.ensureInitialized();
 
+    // 检查登录状态
     if (_authProvider == null || !_authProvider!.isLoggedIn) {
       DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
       context.go('/login');
       return;
     }
+
+    // 只有绑定了B站账号后才能加载推荐数据
     _loadData();
   }
 

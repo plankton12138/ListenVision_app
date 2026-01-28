@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { AppError } = require('../middleware/errorHandler');
 
 // 预编译语句
 const stmt = {
@@ -107,7 +108,7 @@ const recordPlay = (userId, options = {}) => {
   const identifier = bvid || localPath;
 
   if (!identifier) {
-    throw new Error('Either bvid or localPath must be provided');
+    throw new AppError('缺少音频标识符', 400);
   }
 
   // 查找是否已有该音频的播放记录

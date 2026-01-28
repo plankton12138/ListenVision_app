@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +52,8 @@ class ErrorHandler {
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
         if (statusCode != null) {
-          return _mapStatusCode(statusCode);
+          final responseData = e.response?.data;
+          return _mapStatusCode(statusCode, responseData);
         }
         return '服务器响应异常';
 
@@ -76,7 +79,17 @@ class ErrorHandler {
   }
 
   /// 映射 HTTP 状态码到中文消息
-  static String _mapStatusCode(int statusCode) {
+  ///
+  /// [responseData] 服务器响应数据，用于提取具体错误信息
+  static String _mapStatusCode(int statusCode, [dynamic responseData]) {
+    // 尝试从响应数据中提取具体错误信息
+    if (responseData != null) {
+      final errorMessage = _extractErrorMessage(responseData);
+      if (errorMessage != null) {
+        return errorMessage;
+      }
+    }
+
     switch (statusCode) {
       case 400:
         return '请求参数错误';
@@ -86,6 +99,8 @@ class ErrorHandler {
         return '没有权限访问';
       case 404:
         return '请求的资源不存在';
+      case 409:
+        return '资源冲突，请检查是否重复提交';
       case 500:
         return '服务器内部错误';
       case 502:
@@ -95,6 +110,73 @@ class ErrorHandler {
       default:
         return '服务器错误 ($statusCode)';
     }
+  }
+
+  /// 从响应数据中提取错误信息
+  static String? _extractErrorMessage(dynamic responseData) {
+    if (responseData is! Map<String, dynamic>) {
+      return null;
+    }
+
+    // 优先使用 message 字段
+    if (responseData['message'] != null) {
+      final message = responseData['message'].toString();
+      // 解析验证错误数组
+      if (message.contains('参数验证失败') || message.contains('验证失败')) {
+        return _parseValidationError(message);
+      }
+      return message;
+    }
+
+    // 其次使用 error 字段
+    if (responseData['error'] != null) {
+      final message = responseData['error'].toString();
+      // 解析验证错误数组
+      if (message.contains('参数验证失败') || message.contains('验证失败')) {
+        return _parseValidationError(message);
+      }
+      return message;
+    }
+
+    return null;
+  }
+
+  /// 解析验证错误信息
+  ///
+  /// 从 "参数验证失败: [{...}]" 格式中提取具体错误
+  static String _parseValidationError(String message) {
+    try {
+      // 提取方括号内的 JSON 数组
+      final startIndex = message.indexOf('[');
+      final endIndex = message.lastIndexOf(']');
+
+      if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+        final jsonStr = message.substring(startIndex, endIndex + 1);
+        final errors = List.from(jsonDecode(jsonStr));
+
+        if (errors.isNotEmpty) {
+          final firstError = errors.first as Map<String, dynamic>;
+          final field = firstError['field']?.toString() ?? '';
+          final errorMsg = firstError['message']?.toString() ?? '';
+
+          if (field.isNotEmpty && errorMsg.isNotEmpty) {
+            return '$field: $errorMsg';
+          } else if (errorMsg.isNotEmpty) {
+            return errorMsg;
+          }
+        }
+      }
+
+      // 如果无法解析 JSON，尝试提取冒号后的部分
+      final colonIndex = message.indexOf(':');
+      if (colonIndex != -1 && colonIndex < message.length - 1) {
+        return message.substring(colonIndex + 1).trim();
+      }
+    } catch (e) {
+      // 解析失败，返回原始消息
+    }
+
+    return message;
   }
 
   /// 映射通用异常到中文消息

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
@@ -163,13 +165,78 @@ class DioProvider {
   }
 
   /// 错误处理
+  ///
+  /// 支持解析多种后端错误格式：
+  /// - 标准格式: {"message": "错误信息"}
+  /// - 错误格式: {"error": "错误信息"}
+  /// - 验证错误: {"error": "参数验证失败: [...]"}
   Exception _handleDioError(DioException e) {
     if (e.response != null) {
       final statusCode = e.response!.statusCode;
-      final message = e.response!.data?['message'] ?? e.message;
-      return ApiException(message, statusCode ?? 500);
+      final responseData = e.response!.data;
+
+      final message = (() {
+        if (responseData is Map<String, dynamic>) {
+          // 优先使用 message 字段，其次使用 error 字段
+          return responseData['message']?.toString() 
+                ?? responseData['error']?.toString() 
+                ?? e.message 
+                ?? '未知错误';
+        } else {
+          return e.message ?? '未知错误';
+        }
+      })();
+
+      // 解析验证错误，提取具体字段错误
+      final parsedMessage = _parseValidationError(message);
+
+      return ApiException(parsedMessage, statusCode ?? 500);
     }
     return ApiException('网络错误: ${e.message}', 500);
+  }
+
+  /// 解析验证错误信息
+  ///
+  /// 从 "参数验证失败: [{...}]" 格式中提取具体错误
+  String _parseValidationError(String message) {
+    // 检查是否是验证错误
+    if (!message.contains('参数验证失败') && !message.contains('验证失败')) {
+      return message;
+    }
+
+    try {
+      // 提取方括号内的 JSON 数组
+      final startIndex = message.indexOf('[');
+      final endIndex = message.lastIndexOf(']');
+
+      if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+        final jsonStr = message.substring(startIndex, endIndex + 1);
+        final errors = jsonDecode(jsonStr) as List<dynamic>;
+
+        if (errors.isNotEmpty) {
+          // 取第一个错误，格式化为用户友好的消息
+          final firstError = errors.first as Map<String, dynamic>;
+          final field = firstError['field']?.toString() ?? '';
+          final errorMsg = firstError['message']?.toString() ?? '';
+
+          if (field.isNotEmpty && errorMsg.isNotEmpty) {
+            return '$field: $errorMsg';
+          } else if (errorMsg.isNotEmpty) {
+            return errorMsg;
+          }
+        }
+      }
+
+      // 如果无法解析 JSON，尝试提取冒号后的部分
+      final colonIndex = message.indexOf(':');
+      if (colonIndex != -1 && colonIndex < message.length - 1) {
+        return message.substring(colonIndex + 1).trim();
+      }
+    } catch (e) {
+      // 解析失败，返回原始消息
+    }
+
+    return message;
   }
 
   /// 关闭 Dio 实例

@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { AppError } = require('../middleware/errorHandler');
 
 // 系统歌单类型常量
 const SYSTEM_TYPES = {
@@ -96,10 +97,10 @@ const getUserPlaylists = (userId) => {
 const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
   if (playlist.user_id !== userId && !playlist.is_public) {
-    throw new Error('无权访问此歌单');
+    throw new AppError('无权访问此歌单', 403);
   }
 
   let items;
@@ -134,7 +135,7 @@ const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
  */
 const createPlaylist = (userId, name, description = null, coverUrl = null) => {
   if (!name || name.trim() === '') {
-    throw new Error('歌单名称不能为空');
+    throw new AppError('歌单名称不能为空', 400);
   }
 
   const result = stmt.insertPlaylist.run(userId, name.trim(), description, coverUrl, 'user', null, 0);
@@ -151,13 +152,13 @@ const createPlaylist = (userId, name, description = null, coverUrl = null) => {
 const updatePlaylist = (playlistId, userId, updates) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
   if (playlist.user_id !== userId) {
-    throw new Error('无权修改此歌单');
+    throw new AppError('无权修改此歌单', 403);
   }
   if (playlist.type === 'system') {
-    throw new Error('系统歌单不能修改名称和描述');
+    throw new AppError('系统歌单不能修改名称和描述', 400);
   }
 
   const { name, description, coverUrl, isPublic } = updates;
@@ -181,13 +182,13 @@ const updatePlaylist = (playlistId, userId, updates) => {
 const deletePlaylist = (playlistId, userId) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
   if (playlist.user_id !== userId) {
-    throw new Error('无权删除此歌单');
+    throw new AppError('无权删除此歌单', 403);
   }
   if (playlist.type === 'system') {
-    throw new Error('系统歌单不能删除');
+    throw new AppError('系统歌单不能删除', 400);
   }
 
   stmt.deletePlaylist.run(playlistId);
@@ -204,13 +205,13 @@ const deletePlaylist = (playlistId, userId) => {
 const addItem = (playlistId, bvid, metadata = {}) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
 
   // 检查是否已存在
   const existing = stmt.itemExists.get(playlistId, bvid);
   if (existing) {
-    throw new Error('该音频已在歌单中');
+    throw new AppError('该音频已在歌单中', 409);
   }
 
   // 获取当前最大位置
@@ -235,7 +236,7 @@ const addItem = (playlistId, bvid, metadata = {}) => {
 const removeItem = (playlistId, bvid) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
 
   stmt.deleteItem.run(playlistId, bvid);
@@ -262,7 +263,7 @@ const removeItem = (playlistId, bvid) => {
 const reorderItems = (playlistId, itemOrders) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
 
   const transaction = db.transaction((orders) => {
@@ -405,10 +406,10 @@ const getOrderByClause = (sortType) => {
 const sortItems = (playlistId, sortType, userId) => {
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
-    throw new Error('歌单不存在');
+    throw new AppError('歌单不存在', 404);
   }
   if (playlist.user_id !== userId) {
-    throw new Error('无权修改此歌单');
+    throw new AppError('无权修改此歌单', 403);
   }
 
   // 获取当前项并按新排序方式重新排序

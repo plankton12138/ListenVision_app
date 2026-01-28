@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/database');
+const { AppError } = require('../middleware/errorHandler');
 
 // SMTP 邮件服务配置
 const transporter = nodemailer.createTransport({
@@ -87,7 +88,7 @@ const sendEmail = async (to, subject, html) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('邮件发送失败:', error);
-    throw new Error('邮件发送失败');
+    throw new AppError('邮件发送失败', 500);
   }
 };
 

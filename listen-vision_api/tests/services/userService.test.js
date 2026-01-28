@@ -67,9 +67,9 @@ describe('用户服务测试', () => {
     test('成功注册新用户', async () => {
       const result = await userService.registerUser('newuser', 'password123', 'newuser@example.com');
 
-      expect(result).toHaveProperty('id');
-      expect(result.username).toBe('newuser');
-      expect(result.email).toBe('newuser@example.com');
+      expect(result.user).toHaveProperty('id');
+      expect(result.user.username).toBe('newuser');
+      expect(result.user.email).toBe('newuser@example.com');
 
       // 验证用户确实被插入数据库
       const user = db.prepare('SELECT * FROM users WHERE username = ?').get('newuser');

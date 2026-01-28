@@ -1,13 +1,9 @@
-import 'dart:io';
-
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/core/errors/exceptions.dart';
 import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-// P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +12,7 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 登录页面
 ///
 /// 用户登录界面，支持用户名/密码登录
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -23,76 +20,62 @@ class LoginPage extends StatefulWidget {
   _LoginPageState createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  // 表单验证key
+class _LoginPageState extends State<LoginPage>
+    with BasePageState, AsyncUIHandlerMixin {
   final _formKey = GlobalKey<FormState>();
-
-  // 用户名和密码输入控制器
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-
   bool _isLoading = false;
 
   /// 提交登录表单
+  ///
+  /// 使用 AsyncUIHandlerMixin 的 runAsyncWithState 方法
+  /// 自动管理加载状态和错误处理
   Future<void> _submit() async {
-    // 验证表单
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    await runAsyncWithState(
+      operation: () async {
+        final authRepository = ServiceFactory.instance.authRepository;
+        final result = await authRepository.login(
+          email: _usernameController.text,
+          password: _passwordController.text,
+        );
 
-    try {
-      final authRepository = ServiceFactory.instance.authRepository;
-      final result = await authRepository.login(
-        email: _usernameController.text,
-        password: _passwordController.text,
-      );
+        result.fold(
+          (failure) {
+            throw Exception(failure.message ?? '登录失败');
+          },
+          (user) async {
+            if (!mounted) return;
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
 
-      result.fold(
-        (failure) {
-          throw Exception(failure.message ?? '登录失败');
-        },
-        (user) async {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          await authProvider.setUser(user);
+            await authProvider.setUser(user);
 
-          // 初始化歌单Provider
-          final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
-          final token = user.token ?? '';
-          try {
-            if (token.isNotEmpty) {
-              await playlistProvider.initialize(token);
-              await playlistProvider.loadFavorites(token);
+            final token = user.token ?? '';
+            try {
+              if (token.isNotEmpty) {
+                await playlistProvider.initialize(token);
+                await playlistProvider.loadFavorites(token);
+              }
+            } catch (e) {
+              AppLogger.error('LoginPage', '歌单初始化失败: $e');
             }
-          } catch (e) {
-            // 歌单初始化失败不影响登录
-            AppLogger.error('LoginPage', '歌单初始化失败: $e');
-          }
 
-          if (mounted) {
-            DialogHelper.showSnackBar(context, '登录成功！', backgroundColor: Colors.green, duration: 1000);
-            context.go('/');
-          }
-        },
-      );
-    } catch (e) {
-      if (e is ApiException) {
-        String errorMessage = e.message;
-        if (e.statusCode == 401) errorMessage = '用户名或密码无效';
-        DialogHelper.showSnackBar(context, errorMessage, backgroundColor: Colors.red, duration: 1000);
-      } else if (e is SocketException) {
-        DialogHelper.showSnackBar(context, '连接被拒绝或网络错误', backgroundColor: Colors.red, duration: 1000);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+            if (mounted) {
+              context.go('/');
+            }
+          },
+        );
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '登录成功！',
+    );
   }
 
   @override
@@ -108,12 +91,9 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         title: Text(
           '登录',
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeLarge,
-          ),
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
-        actions: <Widget>[
-          // 返回首页按钮
+        actions: [
           IconButton(
             icon: const Icon(Icons.home),
             iconSize: UIConstants.iconMedium,
@@ -121,15 +101,12 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
-
       drawer: const MyDrawer(),
-
       body: Form(
         key: _formKey,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            // 用户名输入框
             TextFormField(
               controller: _usernameController,
               decoration: const InputDecoration(
@@ -145,8 +122,6 @@ class _LoginPageState extends State<LoginPage> {
               },
             ),
             const SizedBox(height: 20),
-
-            // 密码输入框
             TextFormField(
               controller: _passwordController,
               obscureText: true,
@@ -166,8 +141,6 @@ class _LoginPageState extends State<LoginPage> {
               },
             ),
             const SizedBox(height: 20),
-
-            // 登录按钮
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -175,34 +148,21 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: _isLoading ? null : _submit,
               child: _isLoading
                   ? const CircularProgressIndicator()
-                  : const Text(
-                      '登录',
-                      style: TextStyle(fontSize: 18, color: Colors.blue),
-                    ),
+                  : const Text('登录', style: TextStyle(fontSize: 18, color: Colors.blue)),
             ),
-
-            // 注册按钮
             TextButton(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => context.go('/register'),
-              child: const Text(
-                '没有账号？去注册',
-                style: TextStyle(fontSize: 18, color: Colors.blue),
-              ),
+              child: const Text('没有账号？去注册', style: TextStyle(fontSize: 18, color: Colors.blue)),
             ),
-
-            // 忘记密码按钮
             TextButton(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () => context.go('/reset_password'),
-              child: const Text(
-                '忘记密码？',
-                style: TextStyle(fontSize: 18, color: Colors.blue),
-              ),
+              child: const Text('忘记密码？', style: TextStyle(fontSize: 18, color: Colors.blue)),
             ),
           ],
         ),

@@ -99,6 +99,9 @@ const searchAudioMetadata = (keyword, limit = 20) => {
  */
 const getSearchSuggestions = (prefix) => {
   try {
+    if (!prefix || prefix.trim() === '') {
+      return [];
+    }
     const suggestions = stmt.searchSuggestions.all(`${prefix}%`);
     return suggestions.map(s => s.keyword);
   } catch (error) {

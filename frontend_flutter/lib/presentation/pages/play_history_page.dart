@@ -248,7 +248,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       filtered = filtered.where((item) {
-        final title = (item.audio.title ?? '').toLowerCase();
+        final title = item.audio.title.toLowerCase();
         final artist = (item.audio.artist ?? '').toLowerCase();
         return title.contains(query) || artist.contains(query);
       }).toList();
@@ -508,7 +508,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
 
   Widget _buildHistoryCard(PlayHistoryItem item, int index) {
     return Dismissible(
-      key: ValueKey(item.id ?? item.audio.id),
+      key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
         _removeItem(item);
@@ -524,7 +524,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         child: ListTile(
           leading: _buildItemCover(item),
           title: Text(
-            item.audio.title ?? item.audio.id,
+            item.audio.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

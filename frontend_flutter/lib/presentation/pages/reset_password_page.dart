@@ -1,17 +1,14 @@
-import 'dart:io';
-
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/di/service_factory.dart';
-import 'package:demo/core/errors/exceptions.dart';
-// P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// 重置密码页面
 ///
 /// 通过邮箱验证码重置用户密码
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
 
@@ -19,7 +16,8 @@ class ResetPasswordPage extends StatefulWidget {
   _ResetPasswordPageState createState() => _ResetPasswordPageState();
 }
 
-class _ResetPasswordPageState extends State<ResetPasswordPage> {
+class _ResetPasswordPageState extends State<ResetPasswordPage>
+    with BasePageState, AsyncUIHandlerMixin {
   final _usernameController = TextEditingController();
   final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -94,26 +92,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
-              try {
-                final authRepository = ServiceFactory.instance.authRepository;
-                final result = await authRepository.sendVerificationCode(
-                  email: _usernameController.text,
-                );
-                result.fold(
-                  (failure) {
-                    throw Exception(failure.message ?? '发送验证码失败');
-                  },
-                  (_) {
-                    DialogHelper.showSnackBar(context, '验证码已发送到您的邮箱', backgroundColor: Colors.green, duration: 1000);
-                  },
-                );
-              } catch (e) {
-                if (e is ApiException) {
-                  DialogHelper.showSnackBar(context, e.message, backgroundColor: Colors.red, duration: 1000);
-                } else if (e is SocketException) {
-                  DialogHelper.showSnackBar(context, '无网络连接', backgroundColor: Colors.red, duration: 1000);
-                }
-              }
+              await runAsync(
+                operation: () async {
+                  final authRepository = ServiceFactory.instance.authRepository;
+                  final result = await authRepository.sendVerificationCode(
+                    email: _usernameController.text,
+                  );
+                  result.fold(
+                    (failure) {
+                      throw Exception(failure.message ?? '发送验证码失败');
+                    },
+                    (_) {},
+                  );
+                },
+                successMessage: '验证码已发送到您的邮箱',
+              );
             }
           },
         ),
@@ -173,28 +166,23 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
-              try {
-                final authRepository = ServiceFactory.instance.authRepository;
-                final result = await authRepository.resetPassword(
-                  email: _usernameController.text,
-                  code: _codeController.text,
-                  newPassword: _newPasswordController.text,
-                );
-                result.fold(
-                  (failure) {
-                    throw Exception(failure.message ?? '重置密码失败');
-                  },
-                  (_) {
-                    DialogHelper.showSnackBar(context, '密码重置成功', backgroundColor: Colors.green, duration: 1000);
-                  },
-                );
-              } catch (e) {
-                if (e is ApiException) {
-                  DialogHelper.showSnackBar(context, e.message, backgroundColor: Colors.red, duration: 1000);
-                } else if (e is SocketException) {
-                  DialogHelper.showSnackBar(context, '无网络连接', backgroundColor: Colors.red, duration: 1000);
-                }
-              }
+              await runAsync(
+                operation: () async {
+                  final authRepository = ServiceFactory.instance.authRepository;
+                  final result = await authRepository.resetPassword(
+                    email: _usernameController.text,
+                    code: _codeController.text,
+                    newPassword: _newPasswordController.text,
+                  );
+                  result.fold(
+                    (failure) {
+                      throw Exception(failure.message ?? '重置密码失败');
+                    },
+                    (_) {},
+                  );
+                },
+                successMessage: '密码重置成功',
+              );
             }
           },
         ),

@@ -1,4 +1,5 @@
 // P2: 页面已迁移到 presentation/pages/
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
@@ -6,7 +7,6 @@ import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/widgets/playlist_cover_dialog.dart';
 import 'package:demo/presentation/pages/playlist_detail_page.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 ///
 /// 展示用户的所有歌单（系统歌单 + 用户歌单）
 /// Phase 2: 完整的歌单管理功能
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class PlaylistLibraryPage extends StatefulWidget {
   const PlaylistLibraryPage({super.key});
 
@@ -22,7 +23,8 @@ class PlaylistLibraryPage extends StatefulWidget {
   _PlaylistLibraryPageState createState() => _PlaylistLibraryPageState();
 }
 
-class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
+class _PlaylistLibraryPageState extends State<PlaylistLibraryPage>
+    with BasePageState, AsyncUIHandlerMixin {
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -37,10 +39,7 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
 
   /// 检查登录状态，未登录则跳转到登录页
   void _checkLoginAndLoad() {
-    final authProvider = context.read<AuthProvider>();
-    if (!authProvider.isLoggedIn) {
-      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
-      context.go('/login');
+    if (!checkLogin()) {
       return;
     }
     _loadPlaylists();
@@ -131,40 +130,29 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
+    final token = authProvider.user?.token ?? '';
+    if (token.isEmpty) {
+      showError('用户未登录');
+      return;
     }
 
-    try {
-      final token = authProvider.user?.token ?? '';
-      if (token.isEmpty) {
-        DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
-        return;
-      }
-      final newPlaylist = await playlistProvider.createPlaylist(
-        token,
-        name,
-        description: description.isEmpty ? null : description,
-      );
+    await runAsyncWithState(
+      operation: () async {
+        final newPlaylist = await playlistProvider.createPlaylist(
+          token,
+          name,
+          description: description.isEmpty ? null : description,
+        );
 
-      if (newPlaylist != null && mounted) {
-        DialogHelper.showSnackBar(context, '歌单创建成功', backgroundColor: Colors.green, duration: 1500);
-      } else {
-        DialogHelper.showSnackBar(context, '歌单创建失败', backgroundColor: Colors.red, duration: 2000);
-      }
-    } catch (e) {
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '创建失败: $e', backgroundColor: Colors.red, duration: 2000);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+        if (newPlaylist == null) {
+          throw Exception('歌单创建失败');
+        }
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '歌单创建成功',
+    );
   }
 
   /// 显示歌单选项菜单
@@ -227,37 +215,27 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      showError('用户未登录');
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
+    await runAsyncWithState(
+      operation: () async {
+        final success = await playlistProvider.updatePlaylist(
+          token,
+          playlist.id,
+          coverUrl: coverUrl,
+        );
 
-    try {
-      final success = await playlistProvider.updatePlaylist(
-        token,
-        playlist.id,
-        coverUrl: coverUrl,
-      );
-
-      if (success && mounted) {
-        DialogHelper.showSnackBar(context, '封面已更新', backgroundColor: Colors.green, duration: 1500);
-      } else {
-        DialogHelper.showSnackBar(context, '更新失败', backgroundColor: Colors.red, duration: 2000);
-      }
-    } catch (e) {
-      DialogHelper.showSnackBar(context, '更新失败: $e', backgroundColor: Colors.red, duration: 2000);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+        if (!success) {
+          throw Exception('更新失败');
+        }
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '封面已更新',
+    );
   }
 
   Future<void> _editPlaylist(Playlist playlist) async {
@@ -312,58 +290,36 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      showError('用户未登录');
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
+    await runAsyncWithState(
+      operation: () async {
+        final success = await playlistProvider.updatePlaylist(
+          token,
+          playlist.id,
+          name: name,
+          description: description.isEmpty ? null : description,
+        );
 
-    try {
-      final success = await playlistProvider.updatePlaylist(
-        token,
-        playlist.id,
-        name: name,
-        description: description.isEmpty ? null : description,
-      );
-
-      if (success && mounted) {
-        DialogHelper.showSnackBar(context, '歌单已更新', backgroundColor: Colors.green, duration: 1500);
-      } else {
-        DialogHelper.showSnackBar(context, '更新失败', backgroundColor: Colors.red, duration: 2000);
-      }
-    } catch (e) {
-      DialogHelper.showSnackBar(context, '更新失败: $e', backgroundColor: Colors.red, duration: 2000);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+        if (!success) {
+          throw Exception('更新失败');
+        }
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '歌单已更新',
+    );
   }
 
   Future<void> _deletePlaylist(Playlist playlist) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除歌单'),
-        content: Text('确定要删除歌单"${playlist.name}"吗？\n此操作无法撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      title: '删除歌单',
+      content: '确定要删除歌单"${playlist.name}"吗？\n此操作无法撤销。',
+      confirmText: '删除',
+      isDangerous: true,
     );
 
     if (confirmed != true) return;
@@ -373,36 +329,26 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      showError('用户未登录');
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
+    await runAsyncWithState(
+      operation: () async {
+        final success = await playlistProvider.deletePlaylist(
+          token,
+          playlist.id,
+        );
 
-    try {
-      final success = await playlistProvider.deletePlaylist(
-        token,
-        playlist.id,
-      );
-
-      if (success && mounted) {
-        DialogHelper.showSnackBar(context, '歌单已删除', backgroundColor: Colors.green, duration: 1500);
-      } else {
-        DialogHelper.showSnackBar(context, '删除失败', backgroundColor: Colors.red, duration: 2000);
-      }
-    } catch (e) {
-      DialogHelper.showSnackBar(context, '删除失败: $e', backgroundColor: Colors.red, duration: 2000);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+        if (!success) {
+          throw Exception('删除失败');
+        }
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '歌单已删除',
+    );
   }
 
   @override

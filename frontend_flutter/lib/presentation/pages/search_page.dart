@@ -1,6 +1,7 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'dart:async';
 
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
@@ -10,13 +11,16 @@ import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
+/// 搜索页面
+///
+/// 搜索B站视频并支持播放、收藏、添加到歌单
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
 
@@ -24,7 +28,8 @@ class SearchPage extends StatefulWidget {
   _SearchPageState createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage>
+    with BasePageState, AsyncUIHandlerMixin {
   final _searchController = TextEditingController();
   late DownloadManager _downloadManager;
   final _formKey = GlobalKey<FormState>();
@@ -83,19 +88,19 @@ class _SearchPageState extends State<SearchPage> {
     final playlistProvider = context.read<PlaylistProvider>();
 
     if (!authProvider.isLoggedIn) {
-      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
+      showInfo('请先登录');
       return;
     }
 
     // Phase 2B: 标记为正在操作
-    setState(() {
+    safeSetState(() {
       _togglingFavoriteBvids.add(bvid);
     });
 
     try {
       final token = authProvider.user?.token ?? '';
       if (token.isEmpty) {
-        DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
+        showError('请先登录');
         return;
       }
       final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
@@ -109,20 +114,11 @@ class _SearchPageState extends State<SearchPage> {
       );
 
       if (mounted) {
-        DialogHelper.showSnackBar(
-          context,
-          added ? '已添加到我喜欢' : '已从我喜欢移除',
-          backgroundColor: Colors.green,
-          duration: 1000,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '操作失败: $e', backgroundColor: Colors.red, duration: 2000);
+        showSuccess(added ? '已添加到我喜欢' : '已从我喜欢移除');
       }
     } finally {
       if (mounted) {
-        setState(() {
+        safeSetState(() {
           _togglingFavoriteBvids.remove(bvid);
         });
       }
@@ -138,13 +134,13 @@ class _SearchPageState extends State<SearchPage> {
     final playlistProvider = context.read<PlaylistProvider>();
 
     if (!authProvider.isLoggedIn) {
-      DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.orange, duration: 1500);
+      showInfo('请先登录');
       return;
     }
 
     final userPlaylists = playlistProvider.userPlaylists;
     if (userPlaylists.isEmpty) {
-      DialogHelper.showSnackBar(context, '请先创建歌单', backgroundColor: Colors.orange, duration: 2000);
+      showInfo('请先创建歌单');
       return;
     }
 
@@ -155,14 +151,14 @@ class _SearchPageState extends State<SearchPage> {
     );
 
     if (selectedPlaylistId != null) {
-      setState(() {
+      safeSetState(() {
         _addingToPlaylistBvids.add(bvid);
       });
 
       try {
         final token = authProvider.user?.token ?? '';
         if (token.isEmpty) {
-          DialogHelper.showSnackBar(context, '请先登录', backgroundColor: Colors.red, duration: 2000);
+          showError('请先登录');
           return;
         }
         final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
@@ -177,15 +173,11 @@ class _SearchPageState extends State<SearchPage> {
         );
 
         if (mounted) {
-          DialogHelper.showSnackBar(context, '已添加到歌单', backgroundColor: Colors.green, duration: 1500);
-        }
-      } catch (e) {
-        if (mounted) {
-          DialogHelper.showSnackBar(context, '添加失败: $e', backgroundColor: Colors.red, duration: 2000);
+          showSuccess('已添加到歌单');
         }
       } finally {
         if (mounted) {
-          setState(() {
+          safeSetState(() {
             _addingToPlaylistBvids.remove(bvid);
           });
         }
@@ -203,11 +195,11 @@ class _SearchPageState extends State<SearchPage> {
 
     // Max page size
     if (page > 50) {
-      DialogHelper.showSnackBar(context, 'Reached max page size', backgroundColor: Colors.red, duration: 1000);
+      showError('已达到最大页码');
       return;
     }
 
-    setState(() {
+    safeSetState(() {
       _currentPage = page;
     });
 
@@ -216,7 +208,7 @@ class _SearchPageState extends State<SearchPage> {
 
     if (!success && mounted) {
       final error = provider.searchError ?? 'Unknown error';
-      DialogHelper.showSnackBar(context, 'Search failed: $error', backgroundColor: Colors.red, duration: 2000);
+      showError('搜索失败: $error');
     }
   }
 
@@ -343,58 +335,52 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   /// Phase 2: 播放在线音频
+  /// 使用 AsyncUIHandlerMixin 的 runAsync 方法统一处理错误
   Future<void> _playOnlineAudio(
     BuildContext context,
     String bvid,
     Map<String, dynamic> item,
   ) async {
     final audioProvider = context.read<AudioProvider>();
-    final bilibiliProvider = context.read<BilibiliProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
     final authProvider = context.read<AuthProvider>();
 
-    try {
-      // 显示加载提示
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
-      }
+    // 创建 Audio 实体
+    final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
 
-      // 创建 Audio 实体
-      final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
-      final audio = Audio.fromDto({
-        'bvid': bvid,
-        'title': title,
-        'artist': item['author'],
-        'cover': item['cover'] ?? item['pic'],
-        'duration': _parseDuration(item['duration']),
-      });
+    await runAsync(
+      operation: () async {
+        final audio = Audio.fromDto({
+          'bvid': bvid,
+          'title': title,
+          'artist': item['author'],
+          'cover': item['cover'] ?? item['pic'],
+          'duration': _parseDuration(item['duration']),
+        });
 
-      // P0 修复: 不再使用已废弃的 streamUrl 参数
-      // audioProvider 会自动构建代理 URL
-      await audioProvider.playOnlineAudio(
-        audio: audio,
-      );
-
-      // 记录播放历史
-      if (authProvider.isLoggedIn) {
-        await historyProvider.recordPlay(
-          bvid: bvid,
-          title: title,
-          artist: item['author'],
-          coverUrl: item['cover'] ?? item['pic'],
-          duration: audio.duration,
+        // P0 修复: 不再使用已废弃的 streamUrl 参数
+        // audioProvider 会自动构建代理 URL
+        await audioProvider.playOnlineAudio(
+          audio: audio,
         );
-      }
 
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '开始播放: $title', backgroundColor: Colors.green, duration: 1500);
-      }
-    } catch (e) {
-      AppLogger.error('SearchPage', '播放失败: $e');
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
-      }
-    }
+        // 记录播放历史
+        if (authProvider.isLoggedIn) {
+          await historyProvider.recordPlay(
+            bvid: bvid,
+            title: title,
+            artist: item['author'],
+            coverUrl: item['cover'] ?? item['pic'],
+            duration: audio.duration,
+          );
+        }
+      },
+      loadingMessage: '正在加载...',
+      successMessage: '开始播放: $title',
+      onError: () {
+        AppLogger.error('SearchPage', '播放失败');
+      },
+    );
   }
 
   /// 解析时长字符串（mm:ss 或 hh:mm:ss -> 秒）

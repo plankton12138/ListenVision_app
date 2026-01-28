@@ -1,15 +1,14 @@
 // P2: 页面已迁移到 presentation/pages/
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/widgets/add_song_dialog.dart';
 import 'package:demo/presentation/widgets/sort_options_dialog.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:demo/core/utils/app_logger.dart';
@@ -18,6 +17,7 @@ import 'package:demo/core/utils/app_logger.dart';
 ///
 /// 展示歌单信息和歌单项列表
 /// Phase 2: 完整的歌单项管理功能
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class PlaylistDetailPage extends StatefulWidget {
   final String playlistId;
 
@@ -27,7 +27,8 @@ class PlaylistDetailPage extends StatefulWidget {
   _PlaylistDetailPageState createState() => _PlaylistDetailPageState();
 }
 
-class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
+class _PlaylistDetailPageState extends State<PlaylistDetailPage>
+    with BasePageState, AsyncUIHandlerMixin {
   PlaylistDetail? _detail;
   Playlist? _playlist;
   bool _isLoading = true;
@@ -116,22 +117,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   Future<void> _removeItem(PlaylistItem item) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('移除歌曲'),
-        content: Text('确定要从歌单中移除"${item.title ?? item.bvid}"吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('移除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      title: '移除歌曲',
+      content: '确定要从歌单中移除"${item.title ?? item.bvid}"吗？',
+      confirmText: '移除',
     );
 
     if (confirmed != true) return;
@@ -141,26 +130,26 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      showError('用户未登录');
       return;
     }
 
-    try {
-      final success = await playlistProvider.removeItem(
-        token,
-        widget.playlistId,
-        item.bvid,
-      );
+    await runAsync(
+      operation: () async {
+        final success = await playlistProvider.removeItem(
+          token,
+          widget.playlistId,
+          item.bvid,
+        );
 
-      if (success && mounted) {
-        DialogHelper.showSnackBar(context, '已移除', backgroundColor: Colors.green, duration: 1500);
-        _loadDetail(); // 重新加载
-      } else {
-        DialogHelper.showSnackBar(context, '移除失败', backgroundColor: Colors.red, duration: 2000);
-      }
-    } catch (e) {
-      DialogHelper.showSnackBar(context, '移除失败: $e', backgroundColor: Colors.red, duration: 2000);
-    }
+        if (!success) {
+          throw Exception('移除失败');
+        }
+        // 重新加载详情
+        await _loadDetail();
+      },
+      successMessage: '已移除',
+    );
   }
 
   void _toggleReorder() {
@@ -208,7 +197,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final token = authProvider.user?.token ?? '';
 
     if (token.isEmpty) {
-      DialogHelper.showSnackBar(context, '用户未登录', backgroundColor: Colors.red, duration: 2000);
+      showError('用户未登录');
       return;
     }
 
@@ -571,6 +560,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
 
   /// Phase 2: 播放歌单项
   /// P0 修复: 使用 proxyUrl 而不是已废弃的 streamUrl 参数
+  /// 使用 AsyncUIHandlerMixin 的 runAsync 方法统一处理错误
   Future<void> _playPlaylistItem(
     BuildContext context,
     PlaylistItem item,
@@ -579,43 +569,39 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     final historyProvider = context.read<PlayHistoryProvider>();
     final authProvider = context.read<AuthProvider>();
 
-    try {
-      DialogHelper.showSnackBar(context, '正在加载...', backgroundColor: Colors.blue, duration: 1000);
+    await runAsync(
+      operation: () async {
+        // 创建 Audio 实体
+        final audio = Audio.fromDto({
+          'bvid': item.bvid,
+          'title': item.title ?? item.bvid,
+          'artist': item.artist,
+          'cover': item.coverUrl,
+          'duration': item.duration,
+        });
 
-      // 创建 Audio 实体
-      final audio = Audio.fromDto({
-        'bvid': item.bvid,
-        'title': item.title ?? item.bvid,
-        'artist': item.artist,
-        'cover': item.coverUrl,
-        'duration': item.duration,
-      });
-
-      // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
-      // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
-      await audioProvider.playOnlineAudio(
-        audio: audio,
-      );
-
-      // 记录播放历史
-      if (authProvider.isLoggedIn) {
-        await historyProvider.recordPlay(
-          bvid: item.bvid,
-          title: audio.title,
-          artist: audio.artist,
-          coverUrl: audio.coverUrl,
-          duration: audio.duration,
+        // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
+        // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
+        await audioProvider.playOnlineAudio(
+          audio: audio,
         );
-      }
 
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '开始播放: ${audio.title}', backgroundColor: Colors.green, duration: 1500);
-      }
-    } catch (e) {
-      AppLogger.error('PlaylistDetailPage', '播放失败: $e');
-      if (mounted) {
-        DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
-      }
-    }
+        // 记录播放历史
+        if (authProvider.isLoggedIn) {
+          await historyProvider.recordPlay(
+            bvid: item.bvid,
+            title: audio.title,
+            artist: audio.artist,
+            coverUrl: audio.coverUrl,
+            duration: audio.duration,
+          );
+        }
+      },
+      loadingMessage: '正在加载...',
+      successMessage: '开始播放: ${item.title ?? item.bvid}',
+      onError: () {
+        AppLogger.error('PlaylistDetailPage', '播放失败');
+      },
+    );
   }
 }

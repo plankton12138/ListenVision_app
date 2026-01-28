@@ -1,6 +1,7 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'dart:async';
 
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
@@ -16,6 +17,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 /// 设置页面
 ///
 /// 提供主题切换、B站账号绑定等应用设置选项
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -23,7 +25,8 @@ class SettingsPage extends StatefulWidget {
   _SettingsPageState createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage>
+    with BasePageState, AsyncUIHandlerMixin {
   @override
   void initState() {
     super.initState();
@@ -314,33 +317,24 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// 确认解绑对话框
+  ///
+  /// 使用 AsyncUIHandlerMixin 的 runAsync 方法
+  /// 自动管理加载状态和错误处理
   Future<void> _confirmUnbind(BuildContext context, BilibiliProvider provider) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('确认解绑'),
-        content: const Text('解绑后将无法使用B站推荐、UP主更新等功能，确认解绑？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('确认解绑'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      title: '确认解绑',
+      content: '解绑后将无法使用B站推荐、UP主更新等功能，确认解绑？',
+      confirmText: '确认解绑',
+      isDangerous: true,
     );
 
     if (confirmed == true && mounted) {
       final success = await provider.unbindAccount();
       if (mounted) {
         if (success) {
-          DialogHelper.showSnackBar(context, '解绑成功', backgroundColor: Colors.green, duration: 2000);
+          showSuccess('解绑成功');
         } else {
-          DialogHelper.showSnackBar(context, provider.errorMessage ?? '解绑失败', backgroundColor: Colors.red, duration: 2000);
+          showError(provider.errorMessage ?? '解绑失败');
         }
       }
     }

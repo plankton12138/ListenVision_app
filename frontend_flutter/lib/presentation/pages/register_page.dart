@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'dart:math';
 
+import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/core/errors/exceptions.dart';
 import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
-// P2: 组件已迁移到 presentation/widgets/
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_captcha/flutter_captcha.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +13,7 @@ import 'package:provider/provider.dart';
 /// 注册页面
 ///
 /// 用户注册界面，包含表单验证和验证码功能
+/// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -23,7 +21,8 @@ class RegisterPage extends StatefulWidget {
   _RegisterPageState createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends State<RegisterPage>
+    with BasePageState, AsyncUIHandlerMixin {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -37,70 +36,45 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void initState() {
     super.initState();
-    // 初始化时设置验证码不随机化位置
     _captchaController.randomizePositions = false;
   }
 
   /// 提交注册表单到服务器
+  ///
+  /// 使用 AsyncUIHandlerMixin 的 runAsyncWithState 方法
+  /// 自动管理加载状态和错误处理
   Future<void> _submit() async {
-    // 验证表单
     if (!_formKey.currentState!.validate()) return;
-    // 检查验证码是否正确
     if (!_onCheck(context)) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    await runAsyncWithState(
+      operation: () async {
+        final authRepository = ServiceFactory.instance.authRepository;
+        final result = await authRepository.register(
+          username: _usernameController.text,
+          password: _passwordController.text,
+          email: _emailController.text,
+        );
 
-    try {
-      final authRepository = ServiceFactory.instance.authRepository;
-      final result = await authRepository.register(
-        username: _usernameController.text,
-        password: _passwordController.text,
-        email: _emailController.text,
-      );
+        result.fold(
+          (failure) {
+            throw Exception(failure.message ?? '注册失败');
+          },
+          (user) async {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            await authProvider.setUser(user);
 
-      result.fold(
-        (failure) {
-          throw Exception(failure.message ?? '注册失败');
-        },
-        (user) async {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          await authProvider.setUser(user);
-
-          if (mounted) {
-            DialogHelper.showSnackBar(context, '注册成功！', backgroundColor: Colors.green, duration: 2000);
-            context.go('/');
-          }
-        },
-      );
-    } catch (e) {
-      // 停止加载状态
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-
-      // 在 setState 外部显示 SnackBar
-      if (!mounted) return;
-
-      if (e is ApiException) {
-        String errorMessage = e.message;
-        if (e.statusCode == 409) {
-          errorMessage = '用户名或邮箱已存在';
-        }
-        DialogHelper.showSnackBar(context, errorMessage, backgroundColor: Colors.red, duration: 3000);
-      } else if (e is SocketException) {
-        DialogHelper.showSnackBar(context, '连接被拒绝或网络错误，请检查后端是否启动', backgroundColor: Colors.red, duration: 3000);
-      } else {
-        // 通用错误处理（如 FormatException 等）
-        DialogHelper.showSnackBar(context, '注册失败: $e', backgroundColor: Colors.red, duration: 3000);
-      }
-    } finally {
-      // 确保加载状态被重置
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+            if (mounted) {
+              context.go('/');
+            }
+          },
+        );
+      },
+      isLoadingSetter: (loading) => safeSetState(() {
+        _isLoading = loading;
+      }),
+      successMessage: '注册成功！',
+    );
   }
 
   /// 检查验证码
@@ -108,8 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_captchaController.checkSolution()) {
       return true;
     }
-
-    DialogHelper.showSnackBar(context, '验证码不正确，请完成验证', backgroundColor: Colors.red, duration: 1000);
+    showError('验证码不正确，请完成验证');
     return false;
   }
 
@@ -127,11 +100,9 @@ class _RegisterPageState extends State<RegisterPage> {
       appBar: AppBar(
         title: const Text(
           '注册',
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeLarge,
-          ),
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
-        actions: <Widget>[
+        actions: [
           IconButton(
             icon: const Icon(Icons.home),
             iconSize: UIConstants.iconMedium,
@@ -139,9 +110,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ],
       ),
-
       drawer: const MyDrawer(),
-
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -214,10 +183,7 @@ class _RegisterPageState extends State<RegisterPage> {
             onPressed: _isLoading ? null : _submit,
             child: _isLoading
                 ? const CircularProgressIndicator()
-                : const Text(
-                    '注册',
-                    style: TextStyle(color: Colors.blue),
-                  ),
+                : const Text('注册', style: TextStyle(color: Colors.blue)),
           ),
           TextButton(
             onPressed: () => context.go('/login'),
@@ -226,7 +192,6 @@ class _RegisterPageState extends State<RegisterPage> {
               style: TextStyle(color: Colors.blue),
             ),
           ),
-          // 提示用户完成验证码
           const Text('提交前请先完成验证码')
         ],
       ),

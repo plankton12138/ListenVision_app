@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:just_audio/just_audio.dart';
 import 'playable_audio.dart';
 import 'local_audio.dart';
 
@@ -7,6 +6,10 @@ import 'local_audio.dart';
 ///
 /// 包装 LocalAudio 实体，实现 PlayableAudio 接口
 /// 用于统一播放列表中的本地音频播放
+///
+/// 迁移说明：从 just_audio 迁移到 audioplayers
+/// - 移除了 AudioSource 相关代码
+/// - 直接使用文件路径作为 url
 class LocalPlayable extends PlayableAudio {
   final LocalAudio _audio;
 
@@ -43,12 +46,6 @@ class LocalPlayable extends PlayableAudio {
 
   @override
   bool get isOnline => false;
-
-  @override
-  AudioSource get audioSource => AudioSource.uri(
-        Uri.file(_audio.filePath),
-        tag: _audio.title,
-      );
 
   @override
   String get url => _audio.filePath;

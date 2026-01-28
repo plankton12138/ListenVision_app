@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 /// 播放控制面板组件
 ///
-/// Phase 5: 更新为使用 just_audio 精确状态检测
+/// Phase 5: 更新为使用 audioplayers 状态检测
 /// 显示播放进度、时间显示和控制按钮（上一曲、播放/暂停、下一曲）
 class ControlsPanel extends StatelessWidget {
   const ControlsPanel({super.key});
@@ -30,9 +30,15 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建时间显示
-  /// Phase 5: 使用 just_audio 精确状态检测
+  /// Phase 5: 使用 audioplayers 状态检测
   /// ✅ UX改进：优先显示用户友好的状态消息和错误提示
+  /// ✅ 修复：当有有效时长和位置时优先显示时间，而不是状态
   Widget _buildTimeDisplay(BuildContext context, AudioProvider controller) {
+    final duration = controller.duration;
+    final position = controller.position;
+    final hasValidDuration = duration > Duration.zero;
+    final hasValidPosition = position >= Duration.zero;
+
     // ✅ UX改进：优先显示错误状态（最优先）
     if (controller.hasPlaybackError) {
       return Row(
@@ -47,6 +53,15 @@ class ControlsPanel extends StatelessWidget {
             style: const TextStyle(color: Colors.red),
           ),
         ],
+      );
+    }
+
+    // ✅ 修复：如果有有效的时间信息，优先显示时间（而不是状态消息）
+    // 这样可以避免自动切歌后显示"播放完成"或"加载中"而不显示时间
+    if (hasValidDuration && hasValidPosition && !controller.isLoading) {
+      return Text(
+        '${position.toString().split('.')[0]} / '
+        '${duration.toString().split('.')[0]}',
       );
     }
 
@@ -69,7 +84,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 精确的加载状态（来自 just_audio ProcessingState）
+    // ✅ 加载状态（来自 PlaybackController）
     if (controller.isLoading) {
       return const Text(
         '加载中...',
@@ -77,7 +92,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 精确的缓冲状态（来自 just_audio ProcessingState.buffering）
+    // ✅ 缓冲状态（audioplayers 不直接提供，通过加载状态推断）
     if (controller.isBuffering) {
       return const Text(
         '缓冲中...',
@@ -85,8 +100,8 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // 已完成状态
-    if (controller.isCompleted) {
+    // 已完成状态 - 只有在没有有效时长时才显示
+    if (controller.isCompleted && !hasValidDuration) {
       return const Text(
         '播放完成',
         style: TextStyle(color: Colors.green),
@@ -101,15 +116,17 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
+    // 默认显示时间（即使为0）
     return Text(
-      '${controller.position.toString().split('.')[0]} / '
-      '${controller.duration.toString().split('.')[0]}',
+      '${position.toString().split('.')[0]} / '
+      '${duration.toString().split('.')[0]}',
     );
   }
 
   /// 构建进度条
-  /// Phase 5: 使用 just_audio 精确状态检测
+  /// Phase 5: 使用 audioplayers 状态检测
   /// ✅ UX改进：在有状态消息或错误时显示友好提示
+  /// ✅ 修复：只要有有效时长就显示进度条，而不是加载指示器
   Widget _buildProgressBar(BuildContext context, AudioProvider controller) {
     final durationSec = controller.duration.inSeconds;
     final positionSec = controller.position.inSeconds;
@@ -118,6 +135,10 @@ class ControlsPanel extends StatelessWidget {
     final safeValue = (durationSec > 0 && positionSec <= durationSec)
         ? positionSec.toDouble()
         : 0.0;
+
+    // ✅ 修复：只要有有效时长，就显示进度条（即使正在加载）
+    // 这样可以避免音频已经开始播放但进度条仍显示加载中的问题
+    final hasValidDuration = durationSec > 0;
 
     // ✅ UX改进：有错误时显示重试提示
     if (controller.hasPlaybackError) {
@@ -139,7 +160,19 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ UX改进：有状态消息时显示提示
+    // ✅ 修复：如果有有效时长，显示进度条（优先于状态消息和加载状态）
+    if (hasValidDuration) {
+      return Slider(
+        value: safeValue,
+        min: 0,
+        max: durationSec.toDouble(),
+        activeColor: Colors.green,
+        inactiveColor: Colors.grey,
+        onChanged: (value) => controller.seek(Duration(seconds: value.toInt())),
+      );
+    }
+
+    // ✅ UX改进：有状态消息时显示提示（没有有效时长时）
     if (controller.playerStatusMessage.isNotEmpty) {
       return const SizedBox(
         height: 24,
@@ -153,10 +186,9 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 加载或缓冲时显示进度指示器
-    // just_audio 的状态是精确的，不会误判
+    // ✅ 加载或缓冲时显示进度指示器（没有有效时长时）
     if (controller.isLoading || controller.isBuffering) {
-      return SizedBox(
+      return const SizedBox(
         height: 24,
         child: Center(
           child: SizedBox(
@@ -164,21 +196,20 @@ class ControlsPanel extends StatelessWidget {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              // 缓冲时显示不确定进度
-              value: controller.isBuffering ? null : (durationSec > 0 ? safeValue / durationSec.toDouble() : null),
             ),
           ),
         ),
       );
     }
 
+    // 默认显示不可用的进度条
     return Slider(
-      value: safeValue,
+      value: 0,
       min: 0,
-      max: durationSec > 0 ? durationSec.toDouble() : 1.0,
+      max: 1.0,
       activeColor: Colors.green,
       inactiveColor: Colors.grey,
-      onChanged: (value) => controller.seek(Duration(seconds: value.toInt())),
+      onChanged: null,
     );
   }
 

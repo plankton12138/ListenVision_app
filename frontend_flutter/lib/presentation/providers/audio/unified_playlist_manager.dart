@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/domain/entities/local_playable.dart';
@@ -96,7 +95,7 @@ class UnifiedPlaylistManager {
     AppLogger.debug('UnifiedPlaylistManager', '设置播放列表，长度: ${playlist.length}');
   }
 
-  /// 添加到播放列表
+  /// 添加到播放列表 - P0修复：确保数据库同步完成
   ///
   /// [playable] 要添加的音频
   /// [playImmediately] 是否立即播放（设置为当前音频）
@@ -125,8 +124,20 @@ class UnifiedPlaylistManager {
       }
     }
 
+    // P0修复：先同步数据库，确认成功后再通知UI
     if (syncLocal && playable is LocalPlayable) {
-      await _addLocalToDatabase(playable.original);
+      final success = await _addLocalToDatabase(playable.original);
+      if (!success) {
+        // 数据库写入失败，回滚内存操作
+        if (existingIndex == -1) {
+          _playlist.removeWhere((p) => p.id == playable.id);
+        }
+        if (_currentIndex >= _playlist.length) {
+          _currentIndex = _playlist.isEmpty ? -1 : _playlist.length - 1;
+        }
+        AppLogger.error('UnifiedPlaylistManager', '数据库写入失败，回滚添加操作');
+        return;
+      }
     }
 
     _notifyChanged();
@@ -255,13 +266,19 @@ class UnifiedPlaylistManager {
     return true;
   }
 
-  /// 下一曲索引
+  /// 是否有下一曲
+  bool get hasNext => _playlist.isNotEmpty && _currentIndex < _playlist.length - 1;
+
+  /// 是否有上一曲
+  bool get hasPrevious => _playlist.isNotEmpty && _currentIndex > 0;
+
+  /// 下一曲索引（循环播放）
   int get nextIndex {
     if (_playlist.isEmpty) return -1;
     return (_currentIndex + 1) % _playlist.length;
   }
 
-  /// 上一曲索引
+  /// 上一曲索引（循环播放）
   int get previousIndex {
     if (_playlist.isEmpty) return -1;
     return (_currentIndex - 1 + _playlist.length) % _playlist.length;
@@ -281,41 +298,117 @@ class UnifiedPlaylistManager {
     AppLogger.debug('UnifiedPlaylistManager', '同步到本地播放列表: ${_localPlaylist.length} 首');
   }
 
-  /// 从本地播放列表同步
+  /// 从本地播放列表同步 - P0修复：使用增量同步
   Future<void> syncFromLocal() async {
     try {
       final db = PlaylistManager();
-      _localPlaylist.clear();
-      _localPlaylist.addAll(await db.getAllAudios());
+      final dbAudios = await db.getAllAudios();
 
-      // 重建统一播放列表中的本地音频部分
-      _playlist.removeWhere((p) => p is LocalPlayable);
+      // P0修复：增量同步，保留在线音频
+      final onlinePlayables = _playlist.whereType<OnlinePlayable>().toList();
+
+      // 更新本地播放列表
+      _localPlaylist.clear();
+      _localPlaylist.addAll(dbAudios);
+
+      // P0修复：重建播放列表，保留在线音频，更新本地音频
+      _playlist.clear();
+      _playlist.addAll(onlinePlayables);
+
       for (final audio in _localPlaylist) {
-        _playlist.add(LocalPlayable(audio));
+        final existingIndex = _playlist.indexWhere((p) =>
+          p is LocalPlayable && p.original.filePath == audio.filePath);
+
+        if (existingIndex == -1) {
+          // 新增音频
+          _playlist.add(LocalPlayable(audio));
+          AppLogger.debug('UnifiedPlaylistManager', '新增本地音频: ${audio.title}');
+        } else {
+          // 更新现有音频（保留索引位置）
+          _playlist[existingIndex] = LocalPlayable(audio);
+          AppLogger.debug('UnifiedPlaylistManager', '更新本地音频: ${audio.title}');
+        }
+      }
+
+      // P0修复：验证当前索引有效性
+      if (_currentIndex >= _playlist.length) {
+        _currentIndex = _playlist.isEmpty ? -1 : 0;
+        AppLogger.debug('UnifiedPlaylistManager', '调整当前索引至: $_currentIndex');
       }
 
       _notifyChanged();
-      AppLogger.debug('UnifiedPlaylistManager', '从本地播放列表同步: ${_localPlaylist.length} 首');
+      AppLogger.debug('UnifiedPlaylistManager', '从本地播放列表同步: ${_localPlaylist.length} 首本地 + ${onlinePlayables.length} 首在线');
     } catch (e) {
       AppLogger.error('UnifiedPlaylistManager', '从本地同步失败: $e');
     }
   }
 
-  /// 添加本地音频到数据库
-  Future<void> _addLocalToDatabase(LocalAudio audio) async {
+  /// P0修复：增量同步（仅添加新项）
+  Future<void> syncIncremental() async {
+    try {
+      final db = PlaylistManager();
+      final dbAudios = await db.getAllAudios();
+
+      int addedCount = 0;
+      int updatedCount = 0;
+
+      for (final audio in dbAudios) {
+        final existingIndex = _playlist.indexWhere((p) =>
+          p is LocalPlayable && p.original.filePath == audio.filePath);
+
+        if (existingIndex == -1) {
+          // 新增音频
+          _playlist.add(LocalPlayable(audio));
+          _localPlaylist.add(audio);
+          addedCount++;
+        } else {
+          // 检查是否需要更新
+          final existing = _playlist[existingIndex] as LocalPlayable;
+          if (existing.original.title != audio.title ||
+              existing.original.artist != audio.artist) {
+            _playlist[existingIndex] = LocalPlayable(audio);
+            updatedCount++;
+          }
+        }
+      }
+
+      if (addedCount > 0 || updatedCount > 0) {
+        _notifyChanged();
+        AppLogger.info('UnifiedPlaylistManager', '增量同步: 新增 $addedCount 首, 更新 $updatedCount 首');
+      }
+    } catch (e) {
+      AppLogger.error('UnifiedPlaylistManager', '增量同步失败: $e');
+    }
+  }
+
+  /// 添加本地音频到数据库 - P0修复：返回操作结果
+  Future<bool> _addLocalToDatabase(LocalAudio audio) async {
     try {
       final db = PlaylistManager();
       final id = await db.insertAudio(audio);
+
       if (id != -1) {
-        // 更新本地播放列表（使用 copyWith 创建新对象）
-        final updatedAudio = audio.copyWith(id: id);
-        if (!_localPlaylist.any((a) => a.id == id)) {
-          _localPlaylist.add(updatedAudio);
+        // P0修复：验证数据库写入成功
+        final savedAudio = await db.getAudioById(id);
+        if (savedAudio != null) {
+          // 更新本地播放列表（使用 copyWith 创建新对象）
+          final updatedAudio = audio.copyWith(id: id);
+          if (!_localPlaylist.any((a) => a.id == id)) {
+            _localPlaylist.add(updatedAudio);
+          }
+          AppLogger.info('UnifiedPlaylistManager', '成功添加到数据库: ${audio.title}, ID: $id');
+          return true;
+        } else {
+          AppLogger.error('UnifiedPlaylistManager', '数据库写入验证失败: ID $id 不存在');
+          return false;
         }
-        AppLogger.info('UnifiedPlaylistManager', '添加到数据库: ${audio.title}');
+      } else {
+        AppLogger.error('UnifiedPlaylistManager', '数据库插入失败: 返回ID为-1');
+        return false;
       }
     } catch (e) {
       AppLogger.error('UnifiedPlaylistManager', '添加到数据库失败: $e');
+      return false;
     }
   }
 

@@ -29,6 +29,20 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// 7. runApp (Provider 配置在 ProviderConfig 中)
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 修复：设置全局错误处理，捕获just_audio_windows线程错误
+  PlatformDispatcher.instance.onError = (error, stack) {
+    final errorString = error.toString();
+    // 忽略just_audio_windows的线程错误
+    if (errorString.contains('just_audio') || 
+        errorString.contains('platform thread') ||
+        errorString.contains('Broadcast event error')) {
+      AppLogger.warn('Main', '忽略音频插件错误: $errorString');
+      return true; // 已处理
+    }
+    AppLogger.error('Main', '未捕获的错误', error: error, stackTrace: stack);
+    return false; // 未处理
+  };
 
   // ========== 1. 日志系统（最先初始化）==========
   await AppLogger.instance.initialize();

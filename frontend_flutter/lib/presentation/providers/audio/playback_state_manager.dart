@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
@@ -70,6 +69,13 @@ class PlaybackStateManager {
 
     _savePositionTimer?.cancel();
     _saveDebounceTimer?.cancel();
+    _settingsDebounceTimer?.cancel();
+    
+    // 立即保存待处理的设置
+    _settingsDebounceTimer?.cancel();
+    if (_settingsDebounceTimer?.isActive ?? false) {
+      _savePlaybackSettings();
+    }
 
     AppLogger.info('PlaybackStateManager', '已释放');
   }
@@ -107,20 +113,37 @@ class PlaybackStateManager {
   /// 获取倍速
   double get speed => _speed;
 
-  /// 设置音量
+  /// 设置音量 - 修复：使用防抖避免频繁保存
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
-    await _savePlaybackSettings();
     _notifyChanged();
-    AppLogger.info('PlaybackStateManager', '音量已设置: ${(_volume * 100).toInt()}%');
+    AppLogger.debug('PlaybackStateManager', '音量已设置: ${(_volume * 100).toInt()}%');
+    
+    // 使用防抖保存，避免频繁写入
+    _debounceSaveSettings();
   }
 
-  /// 设置倍速
+  /// 设置倍速 - 修复：使用防抖避免频繁保存
   Future<void> setSpeed(double speed) async {
     _speed = speed.clamp(0.5, 2.0);
-    await _savePlaybackSettings();
     _notifyChanged();
-    AppLogger.info('PlaybackStateManager', '倍速已设置: ${_speed}x');
+    AppLogger.debug('PlaybackStateManager', '倍速已设置: ${_speed}x');
+    
+    // 使用防抖保存，避免频繁写入
+    _debounceSaveSettings();
+  }
+  
+  /// 防抖保存定时器
+  Timer? _settingsDebounceTimer;
+  static const Duration _settingsDebounceDelay = Duration(seconds: 2);
+  
+  /// 防抖保存播放设置
+  void _debounceSaveSettings() {
+    _settingsDebounceTimer?.cancel();
+    _settingsDebounceTimer = Timer(_settingsDebounceDelay, () async {
+      if (_disposed) return;
+      await _savePlaybackSettings();
+    });
   }
 
   /// 保存播放设置

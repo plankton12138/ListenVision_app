@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:just_audio/just_audio.dart';
 import 'playable_audio.dart';
 import 'audio.dart';
 import '../../core/constants/api_constants.dart';
@@ -8,6 +7,10 @@ import '../../core/constants/api_constants.dart';
 ///
 /// 包装 Audio 实体，实现 PlayableAudio 接口
 /// 用于统一播放列表中的在线音频播放（通过后端代理）
+///
+/// 迁移说明：从 just_audio 迁移到 audioplayers
+/// - 移除了 AudioSource 相关代码
+/// - 直接使用代理 URL 作为播放地址
 class OnlinePlayable extends PlayableAudio {
   final Audio _audio;
   final String? _proxyUrl; // 后端代理URL
@@ -56,19 +59,6 @@ class OnlinePlayable extends PlayableAudio {
 
   @override
   bool get isOnline => true;
-
-  @override
-  AudioSource get audioSource {
-    // 优先使用代理URL，其次使用原始streamUrl
-    final url = _proxyUrl ?? _audio.streamUrl;
-    if (url == null || url.isEmpty) {
-      throw Exception('No valid stream URL for ${_audio.id}');
-    }
-    return AudioSource.uri(
-      Uri.parse(url),
-      tag: _audio.title,
-    );
-  }
 
   @override
   String get url {

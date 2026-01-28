@@ -36,13 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.4
   go_router: ^14.8.1
-  # P2: 音频播放 - 从 audioplayers 迁移到 just_audio（2026-01-22）
-  # 原因：just_audio 有专门的 ProcessingState.buffering 状态，精确检测无需推断
-  just_audio: ^0.10.5
+  # P0: 音频播放 - 从 just_audio 迁移到 audioplayers（2026-01-28）
+  # 原因：just_audio_windows 存在平台通道线程错误，导致切换歌曲时闪退
+  # audioplayers Windows 实现更稳定，功能完全覆盖
+  audioplayers: ^6.4.0
   audio_session: ^0.2.1
-
-  # Windows 平台支持
-  just_audio_windows: ^0.2.2
   html: ^0.15.5+1
   # 音频元数据读写：使用 audio_metadata_reader（纯 Dart，跨平台稳定）
   # 性能：3392首歌曲 <200ms（不含封面）

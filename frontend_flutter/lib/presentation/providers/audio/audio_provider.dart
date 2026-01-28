@@ -14,10 +14,13 @@ import 'package:demo/core/constants/storage_constants.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/utils/error_handler.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/core/utils/debounce_utils.dart';
+import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 import 'package:demo/presentation/providers/audio/unified_playlist_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
+import 'package:demo/presentation/providers/audio/state_transaction.dart';
 
 /// 音频播放状态管理（重构版）
 ///
@@ -77,6 +80,23 @@ class AudioProvider extends ChangeNotifier {
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
 
+  // ==================== P0修复：防抖与版本控制 ====================
+
+  /// 状态版本控制器
+  final StateVersionController _versionController = StateVersionController();
+
+  /// 播放操作防抖器（300ms）
+  final Debouncer _playDebouncer = Debouncer(delay: const Duration(milliseconds: 300));
+
+  /// 切歌操作节流器（500ms）
+  final Throttler _skipThrottler = Throttler(delay: const Duration(milliseconds: 500));
+
+  /// 操作锁（防止并发）
+  final OperationLock _operationLock = OperationLock();
+
+  /// 当前进行中的操作版本号
+  int? _pendingOperationVersion;
+
   // ==================== 构造函数 ====================
 
   AudioProvider()
@@ -93,6 +113,10 @@ class AudioProvider extends ChangeNotifier {
     // 配置音频会话
     final session = await AudioSession.instance;
     await session.configure(AudioSessionConfiguration.music());
+
+    // P0修复：启动网络质量监测
+    AdaptiveNetworkManager().startMonitoring();
+    AppLogger.info('AudioProvider', '网络质量监测已启动');
 
     // 设置组件之间的回调
     _setupCallbacks();
@@ -119,9 +143,15 @@ class AudioProvider extends ChangeNotifier {
           notifyListeners();
         }
       },
-      onProcessingStateChanged: (state) {
+      onPlayerStateChanged: (state) {
         if (!_disposed) {
           notifyListeners();
+        }
+      },
+      onPlaybackComplete: () {
+        if (!_disposed) {
+          AppLogger.info('AudioProvider', '播放完成，准备播放下一首');
+          _handlePlaybackComplete();
         }
       },
     );
@@ -335,6 +365,31 @@ class AudioProvider extends ChangeNotifier {
     await _playbackController.seek(position, seekable: _isSeekable);
   }
 
+  /// 处理播放完成事件
+  /// 自动播放下一首，如果没有下一首则重置当前歌曲到开始位置
+  Future<void> _handlePlaybackComplete() async {
+    if (_disposed) return;
+
+    AppLogger.info('AudioProvider', '处理播放完成事件');
+
+    // 停止进度保存定时器
+    _stateManager.stopPositionSaveTimer();
+
+    // 保存最终状态
+    await _stateManager.saveNow();
+
+    // 检查是否有下一首
+    if (_playlistManager.hasNext) {
+      AppLogger.info('AudioProvider', '有下一首，自动播放');
+      await playNext();
+    } else {
+      AppLogger.info('AudioProvider', '没有下一首，重置到开始位置');
+      // 重置到开始位置，方便用户再次点击播放
+      await _playbackController.seek(Duration.zero);
+      notifyListeners();
+    }
+  }
+
   /// 下一首
   Future<void> playNext() async {
     if (_disposed) return;
@@ -380,6 +435,11 @@ class AudioProvider extends ChangeNotifier {
       return;
     }
 
+    // ✅ 修复：清除之前的状态消息
+    _playerStatusMessage = '正在加载...';
+    _hasPlaybackError = false;
+    notifyListeners();
+
     try {
       AppLogger.info('AudioProvider', '准备播放在线音频: ${audio.title}');
 
@@ -403,6 +463,9 @@ class AudioProvider extends ChangeNotifier {
 
       // ⭐ 保存播放列表和索引
       await _playlistManager.save();
+
+      // ✅ 修复：播放成功后清除状态消息
+      _playerStatusMessage = '';
 
       AppLogger.info('AudioProvider', '在线播放开始: ${audio.title}');
       notifyListeners();
@@ -453,7 +516,7 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 播放统一播放列表中指定索引的音频
+  /// 播放统一播放列表中指定索引的音频 - P0修复：原子状态更新
   Future<void> _playUnifiedAtIndex(int index) async {
     if (_disposed) return;
     if (index < 0 || index >= _playlistManager.length) return;
@@ -461,27 +524,83 @@ class AudioProvider extends ChangeNotifier {
     final playable = _playlistManager[index];
     if (playable == null) return;
 
-    // ⭐ 关键修复：先更新索引，再播放
-    _playlistManager.setCurrentIndex(index, validate: false);
-
-    // 设置在线状态（在线音频也支持 seek，使用流媒体）
-    _isCurrentOnline = playable.isOnline;
-    if (playable.isOnline && playable is OnlinePlayable) {
-      _currentOnlineAudio = playable.original;
-      // ⭐ 修复：在线音频支持 seek（HTTP Range 请求）
-      _isSeekable = true;
-    } else {
-      _currentOnlineAudio = null;
-      _isSeekable = true;
-    }
-
-    await _playPlayable(playable);
-    await _playlistManager.save();
-
+    // ✅ 修复：清除之前的状态消息，避免显示旧的状态
+    _playerStatusMessage = '正在加载...';
+    _hasPlaybackError = false;
     notifyListeners();
+
+    // P0修复：开始新事务
+    final transaction = _versionController.beginTransaction();
+    _pendingOperationVersion = transaction.version;
+
+    // 保存旧状态用于回滚
+    final oldIndex = _playlistManager.currentIndex;
+    final oldIsOnline = _isCurrentOnline;
+    final oldOnlineAudio = _currentOnlineAudio;
+
+    try {
+      // P0修复：原子更新 - 先更新索引
+      _playlistManager.setCurrentIndex(index, validate: false);
+      transaction.setChange('index', oldIndex, index, () {
+        _playlistManager.setCurrentIndex(oldIndex, validate: false);
+      });
+
+      // 设置在线状态（在线音频也支持 seek，使用流媒体）
+      _isCurrentOnline = playable.isOnline;
+      transaction.setChange('isOnline', oldIsOnline, _isCurrentOnline, () {
+        _isCurrentOnline = oldIsOnline;
+      });
+
+      if (playable.isOnline && playable is OnlinePlayable) {
+        _currentOnlineAudio = playable.original;
+        _isSeekable = true;
+      } else {
+        _currentOnlineAudio = null;
+        _isSeekable = true;
+      }
+      transaction.setChange('onlineAudio', oldOnlineAudio, _currentOnlineAudio, () {
+        _currentOnlineAudio = oldOnlineAudio;
+      });
+
+      // P0修复：验证版本号仍然有效（防止操作过期）
+      if (!_versionController.isVersionValid(transaction.version)) {
+        AppLogger.warn('AudioProvider', '操作版本已过期，取消播放');
+        transaction.rollback();
+        return;
+      }
+
+      await _playPlayable(playable);
+
+      // P0修复：再次验证版本号
+      if (!_versionController.isVersionValid(transaction.version)) {
+        AppLogger.warn('AudioProvider', '播放完成后版本已过期');
+        transaction.rollback();
+        return;
+      }
+
+      await _playlistManager.save();
+
+      // ✅ 修复：播放成功后清除状态消息
+      _playerStatusMessage = '';
+
+      // 提交事务
+      transaction.commit();
+      _versionController.commitTransaction();
+
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('AudioProvider', '播放失败，回滚状态: $e');
+      transaction.rollback();
+      _versionController.rollbackTransaction();
+      rethrow;
+    } finally {
+      if (_pendingOperationVersion == transaction.version) {
+        _pendingOperationVersion = null;
+      }
+    }
   }
 
-  /// 播放统一播放列表中指定索引的音频（公开方法）
+  /// 播放统一播放列表中指定索引的音频（公开方法）- P0修复：添加防抖和版本控制
   Future<void> playUnifiedAt(int index) async {
     if (_disposed) return;
     if (index < 0 || index >= _playlistManager.length) return;
@@ -492,12 +611,32 @@ class AudioProvider extends ChangeNotifier {
       return;
     }
 
-    await _playUnifiedAtIndex(index);
+    // P0修复：使用防抖防止快速点击
+    if (_playDebouncer.isActive) {
+      AppLogger.debug('AudioProvider', '播放操作被防抖忽略');
+      return;
+    }
+
+    // P0修复：使用节流器限制切歌频率
+    bool shouldProceed = false;
+    _skipThrottler(() {
+      shouldProceed = true;
+    });
+
+    if (!shouldProceed) {
+      AppLogger.debug('AudioProvider', '切歌操作被节流忽略');
+      return;
+    }
+
+    // P0修复：使用操作锁防止并发
+    await _operationLock.synchronized(() async {
+      await _playUnifiedAtIndex(index);
+    });
   }
 
   // ==================== 加载本地音频 ====================
 
-  /// 加载音频文件并设置元数据
+  /// 加载音频文件并设置元数据 - P0修复：使用增量同步
   Future<void> loadAudio(String filePath) async {
     if (_disposed) return;
 
@@ -535,7 +674,7 @@ class AudioProvider extends ChangeNotifier {
       await _playbackController.setFileSource(filePath);
       await _playbackController.play();
 
-      // 如果音频不在播放列表中，添加到播放列表
+      // P0修复：如果音频不在播放列表中，添加到播放列表并同步
       if (dbIndex == -1) {
         final audio = LocalAudio(
           filePath: filePath,
@@ -545,7 +684,11 @@ class AudioProvider extends ChangeNotifier {
           albumArt: _albumArt,
           url: finalMetadata['album'] as String? ?? '',
         );
-        await addToPlaylist(audio);
+        // 添加到播放列表并同步到数据库
+        await _playlistManager.add(LocalPlayable(audio), syncLocal: true);
+        // 立即刷新播放列表UI
+        await _loadPlaylist();
+        AppLogger.info('AudioProvider', '新音频已添加到播放列表: ${_title}');
       }
 
       // 启动定时保存
@@ -556,6 +699,7 @@ class AudioProvider extends ChangeNotifier {
         await _recordPlaybackStart(LocalPlayable(localPlaylist[dbIndex]));
       }
 
+      // 确保UI更新（包括播放列表和当前播放信息）
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '加载失败: $e');
@@ -745,6 +889,14 @@ class AudioProvider extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+
+    // P0修复：释放防抖和节流器
+    _playDebouncer.dispose();
+    _skipThrottler.dispose();
+    _operationLock.dispose();
+
+    // P0修复：停止网络监测
+    AdaptiveNetworkManager().stopMonitoring();
 
     // 停止定时器
     _stateManager.stopPositionSaveTimer();

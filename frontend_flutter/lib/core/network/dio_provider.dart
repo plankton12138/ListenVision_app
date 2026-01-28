@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/core/network/adaptive_network_manager.dart';
 
 import '../constants/api_constants.dart';
 // import '../constants/app_constants.dart';
@@ -32,17 +33,28 @@ class DioProvider {
     return _dio!;
   }
 
-  /// 创建 Dio 实例
+  /// 创建 Dio 实例 - P0修复：使用自适应网络配置
   Dio _createDio() {
+    final networkManager = AdaptiveNetworkManager();
+
     final dio = Dio(BaseOptions(
       baseUrl: ApiConstants.fullBaseUrl,
-      connectTimeout: ApiConstants.connectTimeout,
-      receiveTimeout: ApiConstants.receiveTimeout,
-      sendTimeout: ApiConstants.sendTimeout,
+      // P0修复：使用自适应超时配置
+      connectTimeout: networkManager.getConnectTimeout(),
+      receiveTimeout: networkManager.getReceiveTimeout(),
+      sendTimeout: networkManager.getConnectTimeout(),
       headers: {
         'Content-Type': 'application/json',
       },
     ));
+
+    // P0修复：监听网络质量变化，动态调整超时
+    networkManager.addQualityListener((quality) {
+      dio.options.connectTimeout = networkManager.getConnectTimeout();
+      dio.options.receiveTimeout = networkManager.getReceiveTimeout();
+      dio.options.sendTimeout = networkManager.getConnectTimeout();
+      AppLogger.info('DioProvider', '网络质量变化，更新超时配置: $quality');
+    });
 
     // 添加请求拦截器
     dio.interceptors.add(InterceptorsWrapper(
@@ -54,8 +66,15 @@ class DioProvider {
         AppLogger.debug('Dio', '响应: ${response.statusCode} ${response.requestOptions.uri}');
         return handler.next(response);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         AppLogger.error('Dio', '错误: ${error.message} ${error.requestOptions.uri}');
+
+        // P0修复：网络错误时刷新网络质量
+        if (error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout) {
+          await networkManager.refreshQuality();
+        }
+
         return handler.next(error);
       },
     ));

@@ -1,5 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +13,7 @@ class AudioInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AudioProvider>();
+    final provider = context.watch<AudioMetadataProvider>();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -28,7 +28,7 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建专辑封面
-  Widget _buildAlbumArt(BuildContext context, AudioProvider controller) {
+  Widget _buildAlbumArt(BuildContext context, AudioMetadataProvider controller) {
     return Container(
       width: MediaQuery.of(context).size.width,
       height: 300,
@@ -37,7 +37,7 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建封面内容（支持本地和网络）
-  Widget _buildAlbumArtContent(BuildContext context, AudioProvider controller) {
+  Widget _buildAlbumArtContent(BuildContext context, AudioMetadataProvider controller) {
     // 优先级1: 本地音频封面 (Uint8List)
     if (controller.albumArt != null) {
       return Container(
@@ -52,7 +52,7 @@ class AudioInfo extends StatelessWidget {
     }
 
     // 优先级2: 在线音频封面 (使用代理解决防盗链)
-    final coverUrl = controller.coverUrl;
+    final coverUrl = controller.currentPlayable?.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
       final bilibiliProvider = context.read<BilibiliProvider>();
       final proxyUrl = bilibiliProvider.getProxyImageUrl(coverUrl);
@@ -79,7 +79,7 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建音频信息（标题和艺术家）
-  Widget _buildAudioInfo(BuildContext context, AudioProvider controller) {
+  Widget _buildAudioInfo(BuildContext context, AudioMetadataProvider controller) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       mainAxisSize: MainAxisSize.min,

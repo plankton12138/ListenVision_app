@@ -1,5 +1,6 @@
 const bilibiliService = require('../services/bilibiliService');
 const { successResponse } = require('../utils/response');
+const { logger } = require('../utils/logger');
 
 /**
  * B站API控制器
@@ -341,7 +342,7 @@ const proxyAudioStream = async (req, res) => {
     // 如果客户端发送了 Range 请求头，透传给上游
     if (req.headers.range) {
       fetchHeaders['Range'] = req.headers.range;
-      console.log(`[BiliProxy] Range 请求透传: ${req.headers.range}`);
+      logger.debug('BiliProxy range passthrough', { range: req.headers.range });
     }
 
     // 使用 fetch 获取音频流
@@ -358,7 +359,7 @@ const proxyAudioStream = async (req, res) => {
       const audioService = require('../services/audioService');
       const inputBuffer = await response.arrayBuffer();
 
-      console.log(`[Audio] Converting audio from m4s to ${targetFormat}...`);
+      logger.info('Audio converting', { from: 'm4s', to: targetFormat });
 
       const { buffer, contentType } = await audioService.convertStream(
         Buffer.from(inputBuffer),
@@ -389,7 +390,7 @@ const proxyAudioStream = async (req, res) => {
           res.setHeader('Content-Length', contentLength);
         }
         res.status(206); // 设置 206 响应状态
-        console.log(`[BiliProxy] 206 响应透传: ${contentRange}`);
+        logger.debug('BiliProxy 206 passthrough', { contentRange });
       } else if (contentLength) {
         res.setHeader('Content-Length', contentLength);
       }
@@ -421,7 +422,7 @@ const proxyAudioStream = async (req, res) => {
       }
     }
   } catch (error) {
-    console.error(`[BiliProxy] 代理音频失败: ${error.message}`);
+    logger.error('BiliProxy proxy audio failed', { error: error.message });
     res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
   }
 };
@@ -452,13 +453,13 @@ const proxyAudioStreamByBvid = async (req, res) => {
   try {
     const userId = req.user?.id;
 
-    console.log(`[BiliProxy] 请求音频: ${bvid}, 格式: ${format}, 用户: ${userId || 'none'}`);
+    logger.info('BiliProxy request audio', { bvid, format, userId: userId || 'none' });
 
     // ✅ 步骤1：获取音频流信息
     const audioData = await bilibiliService.getAudioStream(bvid, null, userId);
 
     if (!audioData || !audioData.baseUrl) {
-      console.error(`[BiliProxy] 无法获取音频流URL: ${JSON.stringify(audioData)}`);
+      logger.warn('BiliProxy missing audio url', { bvid, userId: userId || 'none', audioData });
       return res.status(404).json({ success: false, error: '无法获取音频流URL' });
     }
 
@@ -468,7 +469,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
     if (format === 'auto' || format === 'mp3') {
       const cached = bilibiliService.getCachedAudio(bvid);
       if (cached) {
-        console.log(`[BiliProxy] ✅ 使用缓存 mp3: ${bvid}`);
+        logger.info('BiliProxy cached mp3 hit', { bvid });
         res.setHeader('Content-Type', 'audio/mpeg');
         res.setHeader('Content-Length', cached.data.length);
         res.setHeader('Accept-Ranges', 'bytes');
@@ -484,7 +485,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
 
     if (targetFormat === 'm4s') {
       // ✅ 模式A：直接透传 m4s（真流式，无转换，支持 seek）
-      console.log(`[BiliProxy] 直接透传 m4s: ${bvid}`);
+      logger.info('BiliProxy passthrough m4s', { bvid });
 
       const fetchHeaders = {
         'Referer': 'https://www.bilibili.com/',
@@ -494,7 +495,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
       // 透传 Range 请求（支持 seek）
       if (req.headers.range) {
         fetchHeaders['Range'] = req.headers.range;
-        console.log(`[BiliProxy] Range 请求: ${req.headers.range}`);
+        logger.debug('BiliProxy range request', { range: req.headers.range });
       }
 
       const response = await fetch(streamUrl, { headers: fetchHeaders });
@@ -515,7 +516,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
         if (contentRange) res.setHeader('Content-Range', contentRange);
         if (contentLength) res.setHeader('Content-Length', contentLength);
         res.status(206);
-        console.log(`[BiliProxy] 206 响应: ${contentRange}`);
+        logger.debug('BiliProxy 206 response', { contentRange });
       } else if (contentLength) {
         res.setHeader('Content-Length', contentLength);
       }
@@ -538,7 +539,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
         });
 
         readableStream.pipe(res);
-        console.log(`[BiliProxy] m4s 流式转发开始: ${bvid}`);
+        logger.debug('BiliProxy m4s stream started', { bvid });
       } else {
         // 回退方案
         const buffer = Buffer.from(await response.arrayBuffer());
@@ -547,7 +548,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
 
     } else if (targetFormat === 'mp3') {
       // ✅ 模式B：转换为 mp3（并发控制 + 缓存）
-      console.log(`[BiliProxy] 转换为 mp3: ${bvid}`);
+      logger.info('BiliProxy convert to mp3', { bvid });
 
       const response = await fetch(streamUrl, {
         headers: {
@@ -578,7 +579,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
       // ✅ 缓存转换结果
       bilibiliService.insertCachedAudio(bvid, buffer, 'audio/mpeg');
 
-      console.log(`[BiliProxy] mp3 转换完成: ${bvid}, 大小: ${buffer.length} bytes`);
+      logger.info('BiliProxy mp3 conversion complete', { bvid, bytes: buffer.length });
     } else {
       return res.status(400).json({
         success: false,
@@ -586,8 +587,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(`[BiliProxy] 错误: ${error.message}`);
-    console.error(`[BiliProxy] 错误堆栈: ${error.stack}`);
+    logger.error('BiliProxy error', { error: error.message, stack: error.stack });
     res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
   }
 };
@@ -618,7 +618,7 @@ const downloadAudioWithMetadata = async (req, res) => {
   const userId = req.user?.id;
   const audioService = require('../services/audioService');
 
-  console.log(`[BiliDownload] 开始下载: ${bvid}, 格式: ${format}, 用户: ${userId || 'none'}`);
+  logger.info('BiliDownload start', { bvid, format, userId: userId || 'none' });
 
   // 设置 SSE 响应头（但可能被前端当作下载处理）
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -635,7 +635,7 @@ const downloadAudioWithMetadata = async (req, res) => {
       timestamp: Date.now()
     };
     res.write(`data: ${JSON.stringify(event)}\n\n`);
-    console.log(`[BiliDownload] 进度: ${percent}% - ${stage} - ${message}`);
+    logger.debug('BiliDownload progress', { percent, stage, message });
   };
 
   try {
@@ -650,7 +650,7 @@ const downloadAudioWithMetadata = async (req, res) => {
       coverUrl: videoInfo.cover
     };
 
-    console.log(`[BiliDownload] 视频信息: title="${metadata.title}", artist="${metadata.artist}"`);
+    logger.info('BiliDownload video info', { title: metadata.title, artist: metadata.artist });
     sendProgress(10, 'info_loaded', `已获取: ${metadata.title}`);
 
     // 步骤2: 获取音频流URL
@@ -696,7 +696,7 @@ const downloadAudioWithMetadata = async (req, res) => {
     const chunkSize = 64 * 1024; // 64KB per chunk (base64 encoded will be ~85KB)
     const totalChunks = Math.ceil(fileBuffer.length / chunkSize);
 
-    console.log(`[BiliDownload] 发送文件: ${fileName}, 大小: ${fileBuffer.length} bytes, 分块: ${totalChunks}`);
+    logger.info('BiliDownload send file', { fileName, bytes: fileBuffer.length, totalChunks });
 
     // 发送文件元数据
     res.write(`event: fileStart\ndata: ${JSON.stringify({
@@ -736,11 +736,10 @@ const downloadAudioWithMetadata = async (req, res) => {
 
     res.end();
 
-    console.log(`[BiliDownload] ✅ 下载完成: ${bvid}, 大小: ${fileBuffer.length} bytes, 分块: ${totalChunks}`);
+    logger.info('BiliDownload complete', { bvid, bytes: fileBuffer.length, totalChunks });
 
   } catch (error) {
-    console.error(`[BiliDownload] 错误: ${error.message}`);
-    console.error(`[BiliDownload] 错误堆栈: ${error.stack}`);
+    logger.error('BiliDownload error', { error: error.message, stack: error.stack });
 
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: `下载失败: ${error.message}` });

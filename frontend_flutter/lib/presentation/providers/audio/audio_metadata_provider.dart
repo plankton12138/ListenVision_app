@@ -2,9 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:demo/core/utils/permission_helper.dart';
-import 'package:demo/domain/entities/models_export.dart';
-import 'package:demo/core/utils/audio_metadata_helper.dart';
+import 'package:demo/domain/entities/playable_audio.dart';
+import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
 /// 音频元数据管理
@@ -24,44 +23,56 @@ class AudioMetadataProvider extends ChangeNotifier {
   /// 当前专辑封面
   Uint8List? _currentAlbumArt;
 
-  /// 当前音频
-  Audio? _currentAudio;
+  /// 当前可播放音频
+  PlayableAudio? _currentPlayable;
+
+  /// 元数据加载器
+  final AudioMetadataLoader _metadataLoader = AudioMetadataLoader();
 
   // ==================== 方法 ====================
 
-  /// 从音频文件提取元数据
-  Future<void> loadMetadataFromPath(String filePath) async {
+  /// 同步元数据（来自 AudioProvider）
+  void updateMetadata({
+    required String title,
+    required String artist,
+    required Uint8List? albumArt,
+    required PlayableAudio? playable,
+  }) {
+    final isSameTitle = _title == title;
+    final isSameArtist = _artist == artist;
+    final isSameArt = _currentAlbumArt == albumArt;
+    final isSamePlayable = _currentPlayable?.id == playable?.id;
+
+    if (isSameTitle && isSameArtist && isSameArt && isSamePlayable) {
+      return;
+    }
+
+    _title = title;
+    _artist = artist;
+    _currentAlbumArt = albumArt;
+    _currentPlayable = playable;
+    notifyListeners();
+
+    if (_currentAlbumArt == null && playable?.coverUrl != null) {
+      _loadOnlineCover(playable!.coverUrl!);
+    }
+  }
+
+  /// 加载在线封面
+  Future<Uint8List?> loadOnlineCover(String coverUrl) async {
+    if (coverUrl.isEmpty) return null;
+    return _metadataLoader.loadOnlineCover(coverUrl);
+  }
+
+  Future<void> _loadOnlineCover(String coverUrl) async {
     try {
-      AppLogger.info('AudioMetadataProvider', '开始加载: $filePath');
-
-      // Android 11+ 需要先请求 MANAGE_EXTERNAL_STORAGE 权限
-      if (!kIsWeb && Platform.isAndroid) {
-        final hasPermission = await PermissionHelper.requestManageStoragePermission();
-        if (!hasPermission) {
-          AppLogger.debug('AudioMetadataProvider', '存储权限被拒绝');
-          throw Exception('需要存储权限才能读取音频文件');
-        }
+      final coverData = await loadOnlineCover(coverUrl);
+      if (coverData != null) {
+        _currentAlbumArt = coverData;
+        notifyListeners();
       }
-
-      if (!File(filePath).existsSync()) {
-        AppLogger.debug('AudioMetadataProvider', '文件不存在: $filePath');
-        throw Exception('文件不存在');
-      }
-
-      // 使用 AudioMetadataHelper 读取元数据
-      final helper = AudioMetadataHelper();
-      final result = await helper.readMetadataAsync(filePath: filePath, fetchCover: true);
-
-      // 更新状态
-      _title = result.title.isNotEmpty ? result.title : _title;
-      _artist = result.artist.isNotEmpty ? result.artist : _artist;
-      _currentAlbumArt = result.cover;
-
-      AppLogger.info('AudioMetadataProvider', '加载完成: $_title - $_artist');
-      notifyListeners();
     } catch (e) {
-      AppLogger.error('AudioMetadataProvider', '加载失败: $e');
-      rethrow;
+      AppLogger.error('AudioMetadataProvider', '封面加载失败: $e');
     }
   }
 
@@ -79,7 +90,7 @@ class AudioMetadataProvider extends ChangeNotifier {
 
   String get title => _title;
   String get artist => _artist;
-  Audio? get currentAudio => _currentAudio;
+  PlayableAudio? get currentPlayable => _currentPlayable;
 
   // ==================== 释放资源 ====================
 

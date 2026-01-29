@@ -21,6 +21,9 @@ import 'package:demo/domain/repositories/play_history_repository.dart';
 import 'package:demo/domain/repositories/playlist_repository.dart';
 import 'package:demo/domain/repositories/search_repository.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_playlist_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/bilibili/cache_provider.dart';
@@ -58,8 +61,11 @@ class ProviderConfig {
       // ========== 独立 Providers ==========
       ..._independentProviders(),
 
-      // ========== Audio Provider (P1: 无依赖，直接使用 HTTP 记录历史) ==========
+      // ========== Audio Providers (P1: 无依赖，直接使用 HTTP 记录历史) ==========
       _audioProvider(),
+      ChangeNotifierProvider<NowPlayingProvider>(create: (_) => NowPlayingProvider()),
+      ChangeNotifierProvider<AudioPlaylistProvider>(create: (_) => AudioPlaylistProvider()),
+      _audioProvidersLink(),
 
       // ========== Bilibili-Dependent Providers ==========
       _bilibiliProvider(),
@@ -128,6 +134,20 @@ class ProviderConfig {
     // 依赖链深度：4 层 → 2 层
     return ChangeNotifierProvider<AudioProvider>(
       create: (_) => AudioProvider(),
+    );
+  }
+
+  static Object _audioProvidersLink() {
+    return ChangeNotifierProxyProvider3<AudioProvider, NowPlayingProvider, AudioPlaylistProvider, AudioMetadataProvider>(
+      create: (context) => AudioMetadataProvider(),
+      update: (context, audioProvider, nowPlayingProvider, playlistProvider, metadataProvider) {
+        audioProvider.attachProviders(
+          nowPlayingProvider: nowPlayingProvider,
+          audioPlaylistProvider: playlistProvider,
+          audioMetadataProvider: metadataProvider,
+        );
+        return metadataProvider!;
+      },
     );
   }
 

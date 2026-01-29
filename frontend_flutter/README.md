@@ -168,6 +168,9 @@ lib/
     │   │   └── ...
     │   ├── audio/                    # 音频播放
     │   │   ├── audio_provider.dart
+    │   │   ├── now_playing_provider.dart
+    │   │   ├── audio_playlist_provider.dart
+    │   │   ├── audio_metadata_provider.dart
     │   │   └── audio_player_provider.dart
     │   ├── bilibili/                # B站功能
     │   │   ├── bilibili_provider.dart

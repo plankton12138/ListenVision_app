@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
 /// 音频播放列表状态管理
@@ -11,7 +11,7 @@ class AudioPlaylistProvider extends ChangeNotifier {
   // ==================== 状态变量 ====================
 
   /// 播放列表
-  List<Audio> _playlist = [];
+  List<PlayableAudio> _playlist = [];
 
   /// 当前索引
   int _currentIndex = -1;
@@ -22,46 +22,31 @@ class AudioPlaylistProvider extends ChangeNotifier {
 
   // ==================== 播放列表管理 ====================
 
-  /// 设置播放列表
-  void setPlaylist(List<Audio> playlist, {int initialIndex = -1}) {
-    _playlist = playlist;
-    _currentIndex = initialIndex;
-    notifyListeners();
-    AppLogger.debug('AudioPlaylistProvider', '设置播放列表，长度: ${playlist.length}');
-  }
+  /// 同步播放列表（来自 AudioProvider）
+  void updatePlaylist(List<PlayableAudio> playlist, {int currentIndex = -1}) {
+    final isSameLength = _playlist.length == playlist.length;
+    final isSameIndex = _currentIndex == currentIndex;
+    final isSameItems = isSameLength &&
+        List.generate(_playlist.length, (i) => _playlist[i].id == playlist[i].id)
+            .every((match) => match);
 
-  /// 添加到播放列表
-  void addToPlaylist(Audio audio) {
-    _playlist.add(audio);
-    notifyListeners();
-    AppLogger.info('AudioPlaylistProvider', '添加音频: ${audio.title}');
-  }
-
-  /// 从播放列表移除
-  void removeFromPlaylist(Audio audio) {
-    _playlist.remove(audio);
-    if (_currentIndex >= _playlist.length) {
-      _currentIndex = _playlist.length - 1;
+    if (isSameItems && isSameIndex) {
+      return;
     }
-    notifyListeners();
-    AppLogger.debug('AudioPlaylistProvider', '移除音频: ${audio.title}');
-  }
 
-  /// 清空播放列表
-  void clearPlaylist() {
-    _playlist.clear();
-    _currentIndex = -1;
+    _playlist = List<PlayableAudio>.from(playlist);
+    _currentIndex = currentIndex;
     notifyListeners();
-    AppLogger.debug('AudioPlaylistProvider', '清空播放列表');
+    AppLogger.debug('AudioPlaylistProvider', '同步播放列表，长度: ${playlist.length}');
   }
 
   // ==================== Getters ====================
 
-  List<Audio> get playlist => _playlist;
+  List<PlayableAudio> get playlist => List.unmodifiable(_playlist);
   int get currentIndex => _currentIndex;
 
   /// 当前音频
-  Audio? get currentAudio =>
+  PlayableAudio? get currentAudio =>
       _currentIndex >= 0 && _currentIndex < _playlist.length
           ? _playlist[_currentIndex]
           : null;

@@ -1,5 +1,4 @@
-import 'package:demo/core/network/dio_provider.dart';
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
@@ -9,119 +8,59 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 1. 播放队列管理（添加/移除/清空）
 /// 2. 当前播放音频
 class NowPlayingProvider extends ChangeNotifier {
-  final DioProvider _dioProvider;
 
   // ==================== 状态变量 ====================
 
   /// 当前播放队列
-  final List<Audio> _nowPlayingQueue = [];
+  List<PlayableAudio> _nowPlayingQueue = [];
 
   /// 当前播放索引
   int _currentIndex = -1;
-
-  /// 加载状态
-  bool _isLoading = false;
 
   /// 错误信息
   String? _errorMessage;
 
   // ==================== Getters ====================
 
-  List<Audio> get nowPlayingQueue => _nowPlayingQueue;
+  List<PlayableAudio> get nowPlayingQueue => List.unmodifiable(_nowPlayingQueue);
   int get currentIndex => _currentIndex;
-  Audio? get currentAudio => _currentIndex >= 0 && _currentIndex < _nowPlayingQueue.length
+  PlayableAudio? get currentPlayable =>
+      _currentIndex >= 0 && _currentIndex < _nowPlayingQueue.length
       ? _nowPlayingQueue[_currentIndex]
       : null;
-  bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasQueue => _nowPlayingQueue.isNotEmpty;
 
   /// ==================== 方法 ====================
 
-  NowPlayingProvider({DioProvider? dioProvider})
-      : _dioProvider = dioProvider ?? DioProvider.instance;
+  /// 同步播放队列（来自 AudioProvider）
+  void updateQueue(List<PlayableAudio> queue, {int currentIndex = -1}) {
+    final isSameLength = _nowPlayingQueue.length == queue.length;
+    final isSameIndex = _currentIndex == currentIndex;
+    final isSameItems = isSameLength &&
+        List.generate(_nowPlayingQueue.length, (i) => _nowPlayingQueue[i].id == queue[i].id)
+            .every((match) => match);
 
-  // ==================== 初始化 ====================
+    if (isSameItems && isSameIndex) {
+      return;
+    }
 
-  void _initListeners() {
-    // 状态监听器（如果需要）
-    // _dioProvider.onPlayerComplete...
-  }
-
-  /// ==================== 播放队列管理 ====================
-
-  /// 设置播放队列
-  void setQueue(List<Audio> queue, {int initialIndex = -1}) {
-    _nowPlayingQueue.clear();
-    _nowPlayingQueue.addAll(queue);
-    _currentIndex = initialIndex;
+    _nowPlayingQueue = List<PlayableAudio>.from(queue);
+    _currentIndex = currentIndex;
     notifyListeners();
-    AppLogger.debug('NowPlayingProvider', '设置播放队列，长度: ${queue.length}');
+    AppLogger.debug('NowPlayingProvider', '同步播放队列，长度: ${queue.length}');
   }
 
-  /// 添加到队列
-  void addToQueue(Audio audio) {
-    _nowPlayingQueue.add(audio);
+  /// 设置错误信息
+  void setError(String? message) {
+    _errorMessage = message;
     notifyListeners();
-    AppLogger.info('NowPlayingProvider', '添加音频: ${audio.title}');
   }
 
-  /// 从队列移除
-  void removeFromQueue(Audio audio) {
-    final index = _nowPlayingQueue.indexOf(audio);
-    if (index != -1) {
-      _nowPlayingQueue.removeAt(index);
-      if (index <= _currentIndex) {
-        _currentIndex = _currentIndex > 0 ? _currentIndex - 1 : 0;
-      }
-      notifyListeners();
-      AppLogger.debug('NowPlayingProvider', '移除音频: ${audio.title}');
-    }
-  }
-
-  /// 清空队列
-  void clearQueue() {
-    _nowPlayingQueue.clear();
-    _currentIndex = -1;
+  /// 清空错误信息
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
-    AppLogger.debug('NowPlayingProvider', '清空播放队列');
-  }
-
-  /// 下一曲
-  void next() {
-    if (_currentIndex < _nowPlayingQueue.length - 1) {
-      _currentIndex++;
-      notifyListeners();
-      AppLogger.debug('NowPlayingProvider', '下一曲: ${_nowPlayingQueue[_currentIndex].title}');
-    }
-  }
-
-  /// 上一曲
-  void previous() {
-    if (_currentIndex > 0) {
-      _currentIndex--;
-      notifyListeners();
-      AppLogger.debug('NowPlayingProvider', '上一曲: ${_nowPlayingQueue[_currentIndex].title}');
-    }
-  }
-
-  /// 跳转到指定索引
-  void seekToIndex(int index) {
-    if (index >= 0 && index < _nowPlayingQueue.length) {
-      _currentIndex = index;
-      notifyListeners();
-      AppLogger.debug('NowPlayingProvider', '跳转到: ${_nowPlayingQueue[index].title}');
-    }
-  }
-
-  /// 设置当前音频
-  void setCurrentAudio(Audio audio) {
-    final index = _nowPlayingQueue.indexOf(audio);
-    if (index != -1) {
-      _currentIndex = index;
-      notifyListeners();
-      AppLogger.debug('NowPlayingProvider', '设置当前音频: ${audio.title}');
-    }
   }
 
   // ==================== 释放资源 ====================

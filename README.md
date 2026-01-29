@@ -257,6 +257,9 @@ Projects_ListenVison/
 │   │       │   ├── auth/         # 认证状态管理
 │   │       │   ├── audio/        # 音频播放状态管理
 │   │       │   │   ├── audio_provider.dart
+│   │       │   │   ├── now_playing_provider.dart
+│   │       │   │   ├── audio_playlist_provider.dart
+│   │       │   │   ├── audio_metadata_provider.dart
 │   │       │   │   └── audio_player_provider.dart
 │   │       │   ├── bilibili/     # B站功能状态管理
 │   │       │   │   ├── bilibili_provider.dart

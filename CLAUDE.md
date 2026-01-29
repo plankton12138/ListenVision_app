@@ -633,19 +633,19 @@ From the README, these features are planned or in progress:
 Set-Location "A:\Projects\Projects_ListenVison\listen-vision_api"
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动服务器
 node index.js
 
 # 运行测试
-npm test
+pnpm test
 
 # 运行测试（监视模式）
-npm run test:watch
+pnpm run test:watch
 
 # 运行测试（覆盖率报告）
-npm run test:coverage
+pnpm run test:coverage
 
 # 停止Node进程
 Get-Process node | Stop-Process -Force
@@ -910,7 +910,7 @@ Stop-Process -Name node -Force
 3. 开发过程中按 `r` 热重载
 
 **测试**:
-- 后端：`npm test`
+- 后端：`pnpm test`
 - Flutter：`flutter test`
 
 ---

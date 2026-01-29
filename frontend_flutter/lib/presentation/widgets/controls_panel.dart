@@ -1,4 +1,5 @@
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
 import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:flutter/material.dart';
@@ -14,15 +15,16 @@ class ControlsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AudioProvider>();
+    final nowPlayingProvider = context.watch<NowPlayingProvider>();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 时间显示（当前位置/总时长）
-        _buildTimeDisplay(context, provider),
+        _buildTimeDisplay(context, provider, nowPlayingProvider),
         // 进度条
-        _buildProgressBar(context, provider),
+        _buildProgressBar(context, provider, nowPlayingProvider),
         // 控制按钮
         _buildControlButtons(context, provider),
       ],
@@ -33,14 +35,18 @@ class ControlsPanel extends StatelessWidget {
   /// Phase 5: 使用 audioplayers 状态检测
   /// ✅ UX改进：优先显示用户友好的状态消息和错误提示
   /// ✅ 修复：当有有效时长和位置时优先显示时间，而不是状态
-  Widget _buildTimeDisplay(BuildContext context, AudioProvider controller) {
+  Widget _buildTimeDisplay(
+    BuildContext context,
+    AudioProvider controller,
+    NowPlayingProvider nowPlayingProvider,
+  ) {
     final duration = controller.duration;
     final position = controller.position;
     final hasValidDuration = duration > Duration.zero;
     final hasValidPosition = position >= Duration.zero;
 
     // ✅ UX改进：优先显示错误状态（最优先）
-    if (controller.hasPlaybackError) {
+    if (controller.hasPlaybackError || nowPlayingProvider.errorMessage != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -49,7 +55,7 @@ class ControlsPanel extends StatelessWidget {
           Text(
             controller.playerStatusMessage.isNotEmpty
                 ? controller.playerStatusMessage
-                : '播放失败',
+                : (nowPlayingProvider.errorMessage ?? '播放失败'),
             style: const TextStyle(color: Colors.red),
           ),
         ],
@@ -127,7 +133,11 @@ class ControlsPanel extends StatelessWidget {
   /// Phase 5: 使用 audioplayers 状态检测
   /// ✅ UX改进：在有状态消息或错误时显示友好提示
   /// ✅ 修复：只要有有效时长就显示进度条，而不是加载指示器
-  Widget _buildProgressBar(BuildContext context, AudioProvider controller) {
+  Widget _buildProgressBar(
+    BuildContext context,
+    AudioProvider controller,
+    NowPlayingProvider nowPlayingProvider,
+  ) {
     final durationSec = controller.duration.inSeconds;
     final positionSec = controller.position.inSeconds;
 
@@ -141,7 +151,7 @@ class ControlsPanel extends StatelessWidget {
     final hasValidDuration = durationSec > 0;
 
     // ✅ UX改进：有错误时显示重试提示
-    if (controller.hasPlaybackError) {
+    if (controller.hasPlaybackError || nowPlayingProvider.errorMessage != null) {
       return SizedBox(
         height: 48,
         child: Center(

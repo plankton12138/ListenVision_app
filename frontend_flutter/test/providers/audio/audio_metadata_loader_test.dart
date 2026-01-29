@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 
@@ -275,8 +277,8 @@ void main() {
       });
 
       test('getFileExtension 应该处理无扩展名的文件', () {
-        expect(loader.getFileExtension('filename'), 'filename');
-        expect(loader.getFileExtension('/path/to/filename'), 'filename');
+        expect(loader.getFileExtension('filename'), '');
+        expect(loader.getFileExtension('/path/to/filename'), '');
         expect(loader.getFileExtension('filename.'), '');
       });
 
@@ -292,15 +294,20 @@ void main() {
     });
 
     group('preloadCover', () {
-      test('preloadCover 应该接受回调函数', () {
-        // 测试回调设置不抛出异常
-        // 注意：实际加载需要网络连接，这里只测试方法签名
+      test('preloadCover 应该触发回调（mock 网络）', () async {
+        final adapter = _FakeHttpClientAdapter(Uint8List.fromList([1, 2, 3]));
+        loader.setHttpClientAdapter(adapter);
+
+        final completer = Completer<Uint8List?>();
         loader.preloadCover('https://example.com/cover.jpg', (data) {
-          // 回调函数
+          if (!completer.isCompleted) {
+            completer.complete(data);
+          }
         });
 
-        // 由于是异步的，我们无法立即测试回调是否被调用
-        expect(loader, isNotNull);
+        final received = await completer.future.timeout(const Duration(seconds: 1));
+        expect(received, isNotNull);
+        expect(received, isA<Uint8List>());
       });
     });
 
@@ -313,4 +320,28 @@ void main() {
       });
     });
   });
+}
+
+class _FakeHttpClientAdapter implements HttpClientAdapter {
+  _FakeHttpClientAdapter(this.payload);
+
+  final Uint8List payload;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromBytes(
+      payload,
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
 }

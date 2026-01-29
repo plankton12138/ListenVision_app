@@ -1,9 +1,29 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const _globalChannel = MethodChannel('xyz.luan/audioplayers.global');
+  const _playerChannel = MethodChannel('xyz.luan/audioplayers');
+
+  setUpAll(() {
+    _globalChannel.setMockMethodCallHandler((MethodCall methodCall) async {
+      return null;
+    });
+    _playerChannel.setMockMethodCallHandler((MethodCall methodCall) async {
+      return null;
+    });
+  });
+
+  tearDownAll(() {
+    _globalChannel.setMockMethodCallHandler(null);
+    _playerChannel.setMockMethodCallHandler(null);
+  });
+
   group('PlaybackController', () {
     late PlaybackController controller;
 

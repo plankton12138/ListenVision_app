@@ -92,7 +92,7 @@ void main() {
       test('应该能够添加单个音频到播放列表', () async {
         final audio = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
 
-        await manager.add(audio);
+        await manager.add(audio, syncLocal: false);
 
         expect(manager.length, 1);
         expect(manager.playlist.first.title, 'Song 1');
@@ -102,8 +102,8 @@ void main() {
         final audio1 = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
         final audio2 = LocalPlayable(createTestLocalAudio(id: 2, title: 'Song 2'));
 
-        await manager.add(audio1);
-        await manager.add(audio2, playImmediately: true);
+        await manager.add(audio1, syncLocal: false);
+        await manager.add(audio2, playImmediately: true, syncLocal: false);
 
         expect(manager.currentIndex, 1);
         expect(manager.currentPlayable?.title, 'Song 2');
@@ -113,11 +113,11 @@ void main() {
         final audio1 = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
         final audio2 = LocalPlayable(createTestLocalAudio(id: 2, title: 'Song 2'));
 
-        await manager.add(audio1);
-        await manager.add(audio2);
+        await manager.add(audio1, syncLocal: false);
+        await manager.add(audio2, syncLocal: false);
 
         // 重新添加 audio1 并立即播放
-        await manager.add(audio1, playImmediately: true);
+        await manager.add(audio1, playImmediately: true, syncLocal: false);
 
         expect(manager.length, 2); // 长度不变
         expect(manager.currentIndex, 0); // 索引指向第一个
@@ -126,8 +126,8 @@ void main() {
       test('添加已存在的音频（playImmediately=false）不应该重复添加', () async {
         final audio1 = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
 
-        await manager.add(audio1);
-        await manager.add(audio1);
+        await manager.add(audio1, syncLocal: false);
+        await manager.add(audio1, syncLocal: false);
 
         expect(manager.length, 1); // 只有一个
       });
@@ -139,7 +139,7 @@ void main() {
           LocalPlayable(createTestLocalAudio(id: 3, title: 'Song 3')),
         ];
 
-        await manager.addAll(audios);
+        await manager.addAll(audios, syncLocal: false);
 
         expect(manager.length, 3);
       });
@@ -148,8 +148,8 @@ void main() {
         final audio1 = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
         final audio2 = LocalPlayable(createTestLocalAudio(id: 2, title: 'Song 2'));
 
-        await manager.addAll([audio1, audio2]);
-        await manager.addAll([audio1, audio2]); // 再次添加相同的
+        await manager.addAll([audio1, audio2], syncLocal: false);
+        await manager.addAll([audio1, audio2], syncLocal: false); // 再次添加相同的
 
         expect(manager.length, 2); // 去重后只有2个
       });
@@ -381,7 +381,7 @@ void main() {
         manager.move(3, 0); // 将索引3移到0
 
         // 原索引2现在变成索引3
-        expect(manager.currentIndex, 2);
+        expect(manager.currentIndex, 3);
       });
 
       test('move 向后移动时索引应该正确调整', () {
@@ -522,7 +522,7 @@ void main() {
         });
 
         final audio = LocalPlayable(createTestLocalAudio(id: 1, title: 'Song 1'));
-        await manager.add(audio);
+        await manager.add(audio, syncLocal: false);
 
         expect(callbackCalled, true);
       });

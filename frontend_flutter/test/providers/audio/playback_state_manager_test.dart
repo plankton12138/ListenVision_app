@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
 import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/domain/entities/online_playable.dart';
@@ -6,6 +7,9 @@ import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/domain/entities/audio.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   group('PlaybackStateManager', () {
     late PlaybackStateManager manager;
 

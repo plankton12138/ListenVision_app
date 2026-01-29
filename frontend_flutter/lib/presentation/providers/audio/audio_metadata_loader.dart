@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:demo/core/utils/permission_helper.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/audio_metadata_helper.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 
 /// 音频元数据加载器
 ///
@@ -334,16 +334,19 @@ class AudioMetadataLoader {
     // 文件元数据
     final fileTitle = (fileMetadata['title'] as String?) ?? '';
     final fileArtist = (fileMetadata['artist'] as String?) ?? '';
+    final fileAlbum = (fileMetadata['album'] as String?) ?? '';
     final fileCover = fileMetadata['cover'] as Uint8List?;
 
     // 数据库元数据
     final dbTitle = (dbMetadata?['title'] as String?) ?? '';
     final dbArtist = (dbMetadata?['artist'] as String?) ?? '';
+    final dbAlbum = (dbMetadata?['album'] as String?) ?? '';
     final dbCover = dbMetadata?['albumArt'] as Uint8List?;
 
     // 路径元数据
     final pathTitle = (fallbackPathMetadata?['title'] as String?) ?? '';
     final pathArtist = (fallbackPathMetadata?['artist'] as String?) ?? '未知艺术家';
+    final pathAlbum = (fallbackPathMetadata?['album'] as String?) ?? '';
 
     // 合并策略: 文件元数据 > 数据库 > 路径提取
     final dbHasValidTitle = dbTitle.isNotEmpty && dbTitle != '未知标题';
@@ -352,11 +355,12 @@ class AudioMetadataLoader {
     final title = fileTitle.isNotEmpty ? fileTitle : (dbHasValidTitle ? dbTitle : pathTitle);
     final artist = fileArtist.isNotEmpty ? fileArtist : (dbHasValidArtist ? dbArtist : pathArtist);
     final cover = fileCover ?? dbCover;
+    final album = fileAlbum.isNotEmpty ? fileAlbum : (dbAlbum.isNotEmpty ? dbAlbum : pathAlbum);
 
     return {
       'title': title,
       'artist': artist,
-      'album': fileMetadata['album'] ?? dbMetadata?['album'] ?? '',
+      'album': album,
       'cover': cover,
     };
   }
@@ -365,7 +369,17 @@ class AudioMetadataLoader {
 
   /// 从文件名提取扩展名
   String getFileExtension(String filePath) {
-    return filePath.split(RegExp(r'\.')).last.toLowerCase();
+    final fileName = filePath.split(RegExp(r'[\\/]')).last;
+    final lastDotIndex = fileName.lastIndexOf('.');
+    if (lastDotIndex <= 0 || lastDotIndex == fileName.length - 1) {
+      return '';
+    }
+    return fileName.substring(lastDotIndex + 1).toLowerCase();
+  }
+
+  @visibleForTesting
+  void setHttpClientAdapter(HttpClientAdapter adapter) {
+    _dio.httpClientAdapter = adapter;
   }
 
   /// 判断是否为支持的音频格式

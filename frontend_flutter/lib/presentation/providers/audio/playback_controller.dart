@@ -58,6 +58,7 @@ class PlaybackController {
   PlayerState _lastPlayerState = PlayerState.stopped;
   Duration _currentDuration = Duration.zero;
   Duration _currentPosition = Duration.zero;
+  DateTime? _ignoreCompletedUntil;
 
   PlaybackController({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
     _initListeners();
@@ -105,7 +106,11 @@ class PlaybackController {
 
   /// 是否正在加载（audioplayers 没有明确的 loading 状态）
   /// ✅ 修复：当没有有效时长或正在切换音频源时认为正在加载
-  bool get isLoading => _isSwitchingSource || (_currentSourceUrl != null && _currentDuration == Duration.zero);
+  bool get isLoading => _isSwitchingSource ||
+      (_currentSourceUrl != null &&
+          _currentDuration == Duration.zero &&
+          !_isPlaying &&
+          _currentPosition == Duration.zero);
 
   /// 是否正在缓冲（audioplayers 缓冲状态通过 onLog 或特定事件判断）
   bool get isBuffering => false;  // audioplayers 不直接提供缓冲状态
@@ -166,9 +171,16 @@ class PlaybackController {
         // 当状态变化时更新播放状态
         if (state == PlayerState.playing) {
           _isPlaying = true;
+          _ignoreCompletedUntil = null;
         } else if (state == PlayerState.paused || state == PlayerState.stopped) {
           _isPlaying = false;
         } else if (state == PlayerState.completed) {
+          if (_ignoreCompletedUntil != null &&
+              DateTime.now().isBefore(_ignoreCompletedUntil!)) {
+            AppLogger.debug('PlaybackController', '忽略切歌后的完成状态');
+            return;
+          }
+          _ignoreCompletedUntil = null;
           _isPlaying = false;
           // 触发播放完成回调
           AppLogger.info('PlaybackController', '播放完成，触发完成回调');
@@ -379,7 +391,9 @@ class PlaybackController {
     if (_disposed) return;
 
     AppLogger.info('PlaybackController', '设置本地音频源: $filePath');
-    await _player.setSource(DeviceFileSource(filePath));
+    await _player
+        .setSource(DeviceFileSource(filePath))
+        .timeout(const Duration(seconds: 5));
     _currentSourceUrl = filePath;
     AppLogger.info('PlaybackController', '本地音频源已设置');
   }
@@ -389,7 +403,7 @@ class PlaybackController {
     if (_disposed) return;
 
     AppLogger.info('PlaybackController', '设置在线音频源: $url');
-    await _player.setSource(UrlSource(url));
+    await _player.setSource(UrlSource(url)).timeout(const Duration(seconds: 10));
     _currentSourceUrl = url;
     AppLogger.info('PlaybackController', '在线音频源已设置');
   }
@@ -417,10 +431,12 @@ class PlaybackController {
   ) async {
     // P0修复：标记正在切换音频源
     _isSwitchingSource = true;
+    _ignoreCompletedUntil = DateTime.now().add(_adaptiveProtection.protectionDuration);
 
     // ✅ 修复：重置播放器状态，避免上一首的"已完成"状态残留
     _lastPlayerState = PlayerState.stopped;
     _currentPosition = Duration.zero;
+    _currentDuration = Duration.zero;
     AppLogger.debug('PlaybackController', '重置播放器状态');
 
     // 取消待处理的命令，确保新的播放操作优先

@@ -111,7 +111,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 - **路由**: go_router ^14.8.1
 - **数据库**: sqflite ^2.4.2 (移动端) / sqflite_common_ffi ^2.3.5 (桌面端)
 - **网络**: dio ^5.8.0+1
-- **音频播放**: just_audio ^0.10.5 + audio_session ^0.2.1
+- **音频播放**: audioplayers ^6.x + audio_session ^0.2.1
 - **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
 - **错误处理**: dartz ^0.10.1 (Either 泛型)
 
@@ -345,7 +345,7 @@ Projects_ListenVison/
 - ✅ 创建/编辑/删除歌单
 - ✅ "我喜欢"收藏歌单（系统歌单）
 - ✅ 添加/移除歌单项
-- ✅ 收藏快捷操作（搜索结果/播放器）
+- ⏸️ 收藏功能（暂时关闭）
 - ✅ 播放历史记录与清空
 - ✅ 歌单详情查看
 - ✅ **在线音频播放** (2026-01-23 完成)
@@ -372,7 +372,7 @@ Projects_ListenVison/
 - ✅ 用户注册/登录（JWT 认证）
 - ✅ 邮箱验证码服务
 - ✅ 密码找回功能
-- ✅ 收藏管理 API
+- ⏸️ 收藏管理 API（前端暂时关闭入口）
 - ✅ 歌单管理 API (Phase 2)
 - ✅ 播放历史 API (Phase 2)
 - ✅ 推荐内容 API (Phase 2)

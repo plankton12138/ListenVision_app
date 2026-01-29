@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_session/audio_session.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -140,11 +141,17 @@ class AudioProvider extends ChangeNotifier {
     _playbackController.setCallbacks(
       onPlayingChanged: (isPlaying) {
         if (!_disposed) {
+          if (isPlaying) {
+            _playerStatusMessage = '';
+          }
           notifyListeners();
         }
       },
       onPlayerStateChanged: (state) {
         if (!_disposed) {
+          if (state == PlayerState.playing) {
+            _playerStatusMessage = '';
+          }
           notifyListeners();
         }
       },
@@ -507,6 +514,10 @@ class AudioProvider extends ChangeNotifier {
     // 使用播放控制器设置音频源并播放
     await _playbackController.setSourceAndPlay(playable);
 
+    // 播放开始后立即清除加载提示并刷新UI
+    _playerStatusMessage = '';
+    notifyListeners();
+
     // 记录播放历史
     await _recordPlaybackStart(playable);
 
@@ -648,6 +659,11 @@ class AudioProvider extends ChangeNotifier {
 
       AppLogger.info('AudioProvider', '开始加载: $filePath');
 
+      // 先设置加载状态，避免显示旧的播放信息
+      _playerStatusMessage = '正在加载...';
+      _hasPlaybackError = false;
+      notifyListeners();
+
       // 提取文件元数据
       final metadata = await _metadataLoader.extractFromFile(filePath);
 
@@ -670,6 +686,9 @@ class AudioProvider extends ChangeNotifier {
       _artist = finalMetadata['artist'] as String;
       _albumArt = finalMetadata['cover'] as Uint8List?;
 
+      // 确保当前播放信息立即更新
+      notifyListeners();
+
       // 设置音频源并播放
       await _playbackController.setFileSource(filePath);
       await _playbackController.play();
@@ -686,9 +705,15 @@ class AudioProvider extends ChangeNotifier {
         );
         // 添加到播放列表并同步到数据库
         await _playlistManager.add(LocalPlayable(audio), syncLocal: true);
-        // 立即刷新播放列表UI
-        await _loadPlaylist();
+        // 立即刷新播放列表UI（避免覆盖当前索引）
+        await _playlistManager.syncFromLocal();
         AppLogger.info('AudioProvider', '新音频已添加到播放列表: ${_title}');
+      }
+
+      // 更新统一播放列表索引到当前音频
+      final newIndex = _playlistManager.indexOf('local_${filePath.hashCode}');
+      if (newIndex != -1) {
+        _playlistManager.setCurrentIndex(newIndex, validate: false);
       }
 
       // 启动定时保存
@@ -700,6 +725,7 @@ class AudioProvider extends ChangeNotifier {
       }
 
       // 确保UI更新（包括播放列表和当前播放信息）
+      _playerStatusMessage = '';
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '加载失败: $e');

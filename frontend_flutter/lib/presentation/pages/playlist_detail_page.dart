@@ -429,19 +429,15 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
         children: [
           Row(
             children: [
-              Icon(
-                _playlist?.isFavorites == true
-                    ? Icons.favorite
-                    : _playlist?.isNowPlaying == true
-                        ? Icons.play_circle
-                        : Icons.playlist_play,
-                size: 48,
-                color: _playlist?.isFavorites == true
-                    ? Colors.red
-                    : _playlist?.isNowPlaying == true
-                        ? Colors.blue
-                        : Colors.grey,
-              ),
+                Icon(
+                  _playlist?.isNowPlaying == true
+                      ? Icons.play_circle
+                      : Icons.playlist_play,
+                  size: 48,
+                  color: _playlist?.isNowPlaying == true
+                      ? Colors.blue
+                      : Colors.grey,
+                ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

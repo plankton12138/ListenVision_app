@@ -6,8 +6,8 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
-import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/providers/download/download_manager.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
@@ -43,7 +43,6 @@ class _SearchPageState extends State<SearchPage>
 
   // Phase 2B: 跟踪正在添加到歌单的项目，防止重复点击
   final Set<String> _addingToPlaylistBvids = {};
-  final Set<String> _togglingFavoriteBvids = {};
 
   @override
   void initState() {
@@ -79,51 +78,7 @@ class _SearchPageState extends State<SearchPage>
     });
   }
 
-  /// 处理收藏操作
-  Future<void> _handleFavoriteAction(BuildContext context, dynamic item) async {
-    final bvid = item['bvid'] ?? '';
-    if (bvid.isEmpty) return;
-
-    final authProvider = context.read<AuthProvider>();
-    final playlistProvider = context.read<PlaylistProvider>();
-
-    if (!authProvider.isLoggedIn) {
-      showInfo('请先登录');
-      return;
-    }
-
-    // Phase 2B: 标记为正在操作
-    safeSetState(() {
-      _togglingFavoriteBvids.add(bvid);
-    });
-
-    try {
-      final token = authProvider.user?.token ?? '';
-      if (token.isEmpty) {
-        showError('请先登录');
-        return;
-      }
-      final title = item['title']?.replaceAll(RegExp(r'<[^>]*>'), '') ?? '';
-      final author = item['author'] ?? 'Unknown';
-
-      final added = await playlistProvider.toggleFavorite(
-        token,
-        bvid,
-        title: title,
-        artist: author,
-      );
-
-      if (mounted) {
-        showSuccess(added ? '已添加到我喜欢' : '已从我喜欢移除');
-      }
-    } finally {
-      if (mounted) {
-        safeSetState(() {
-          _togglingFavoriteBvids.remove(bvid);
-        });
-      }
-    }
-  }
+  // 收藏功能已暂时移除
 
   /// 处理添加到歌单操作
   Future<void> _handleAddToPlaylistAction(BuildContext context, dynamic item) async {
@@ -487,28 +442,13 @@ class _SearchPageState extends State<SearchPage>
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) async {
-                      if (value == 'favorite') {
-                        // 触发收藏逻辑 (需要重构 _buildFavoriteButton 的逻辑提取出来)
-                        // 由于原本逻辑耦合在 Widget 构建中，这里我们需要一种方式调用它
-                        // 临时方案：直接在这里实现收藏逻辑，或者将逻辑抽取为方法
-                        _handleFavoriteAction(context, item);
-                      } else if (value == 'add_to_playlist') {
+                      if (value == 'add_to_playlist') {
                          _handleAddToPlaylistAction(context, item);
                       } else if (value == 'download') {
                          await _downloadManager.addDownload(context, item['bvid'] ?? '');
                       }
                     },
                     itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'favorite',
-                        child: Row(
-                          children: [
-                            Icon(Icons.favorite_border, size: 20),
-                            SizedBox(width: 8),
-                            Text('收藏'),
-                          ],
-                        ),
-                      ),
                       const PopupMenuItem<String>(
                         value: 'add_to_playlist',
                         child: Row(

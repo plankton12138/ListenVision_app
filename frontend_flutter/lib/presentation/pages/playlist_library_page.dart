@@ -505,10 +505,7 @@ class _PlaylistLibraryPageState extends State<PlaylistLibraryPage>
     IconData icon;
     Color iconColor;
 
-    if (playlist.isFavorites) {
-      icon = Icons.favorite;
-      iconColor = Colors.red;
-    } else if (playlist.isNowPlaying) {
+    if (playlist.isNowPlaying) {
       icon = Icons.play_circle;
       iconColor = Colors.blue;
     } else {

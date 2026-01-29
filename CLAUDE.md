@@ -123,7 +123,7 @@ Phase 5:   ████████░░░░░░░░░░░░░  40% 
 ```
 
 **音频播放器优化完成** (2026-01-23):
-- ✅ 迁移到 just_audio 播放引擎（替换 audioplayers）
+- ✅ 迁移到 audioplayers 播放引擎（替换 just_audio）
 - ✅ 实现后端音频格式转换（FFmpeg，m4s → MP3）
 - ✅ 修复音频叠加和启动闪退问题
 - ✅ 增强Range请求支持（改善流媒体播放）
@@ -157,7 +157,7 @@ P2 总进度: 100% ✅ 全部完成
 - ✅ 播放列表页面支持在线/本地音频混合显示
 - ✅ playUnifiedAt 统一播放方法
 - ✅ 搜索/推荐/歌单页面播放集成
-- ✅ just_audio 迁移完成（替换 audioplayers）
+- ✅ audioplayers 迁移完成（替换 just_audio）
 - ✅ 后端音频格式转换（FFmpeg m4s → MP3）
 - ✅ 修复音频叠加和启动闪退问题
 - ✅ 增强Range请求支持
@@ -199,7 +199,7 @@ P2 总进度: 100% ✅ 全部完成
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的阶段实施计划（已按优先级重排）
 - 📄 [Phase 1 实施细节](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md) - B站API集成技术细节
 - 📄 [Phase 2 在线播放功能](./docs/PHASE_2_ONLINE_PLAYBACK.md) - 在线音频播放实施计划（关键功能，已完成）
-- 📄 [音频播放器修复方案](./docs/AUDIO_PLAYER_FIX_PLAN.md) - just_audio迁移与FFmpeg音频格式转换（已完成）
+- 📄 [音频播放器修复方案](./docs/AUDIO_PLAYER_FIX_PLAN.md) - audioplayers迁移与FFmpeg音频格式转换（已完成）
 - 📄 [Phase 3 歌单收藏推荐计划](./docs/PHASE_3_PLAYLIST_PLAN.md) - 歌单系统实施计划
 - 📄 [Phase 3A 播放功能改进](./docs/PHASE_3A_PLAYBACK_PLAN.md) - 播放列表持久化
 - 📄 [Phase 4 搜索推荐下载服务](./docs/INCREMENTAL_MIGRATION_PLAN.md#phase-4-搜索推荐与下载服务) - 搜索推荐功能（集成在主文档）
@@ -720,13 +720,13 @@ Get-Process node | Stop-Process -Force
 │   └── bilibili.js            ← 添加 format 参数支持
 ├── package.json               ← 添加 fluent-ffmpeg 依赖
 └── 前端
-    ├── pubspec.yaml            ← 添加 just_audio、audio_session 依赖
+    ├── pubspec.yaml            ← 添加 audioplayers、audio_session 依赖
     ├── lib/domain/entities/
     │   ├── playable_audio.dart ← 统一播放接口（抽象类）
     │   ├── local_playable.dart ← 本地音频包装
     │   └── online_playable.dart ← 在线音频包装
     └── lib/presentation/providers/audio/
-        └── audio_provider.dart  ← just_audio 重构
+        └── audio_provider.dart  ← audioplayers 重构
 ```
 
 **Phase 3 新增架构** (50% 完成):

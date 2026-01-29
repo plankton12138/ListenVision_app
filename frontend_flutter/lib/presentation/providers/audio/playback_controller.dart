@@ -106,11 +106,11 @@ class PlaybackController {
 
   /// 是否正在加载（audioplayers 没有明确的 loading 状态）
   /// ✅ 修复：当没有有效时长或正在切换音频源时认为正在加载
-  bool get isLoading => _isSwitchingSource ||
+  bool get isLoading =>
+      _isSwitchingSource ||
       (_currentSourceUrl != null &&
           _currentDuration == Duration.zero &&
-          !_isPlaying &&
-          _currentPosition == Duration.zero);
+          !_isPlaying);
 
   /// 是否正在缓冲（audioplayers 缓冲状态通过 onLog 或特定事件判断）
   bool get isBuffering => false;  // audioplayers 不直接提供缓冲状态
@@ -453,7 +453,7 @@ class PlaybackController {
     // 等待一小段时间确保资源释放
     await Future.delayed(const Duration(milliseconds: 100));
 
-    // 设置播放启动保护
+    // 设置播放启动保护（切歌时允许更快释放）
     _isStartingPlayback = true;
     _adaptiveProtection.recordOperationStart();
     AppLogger.debug('PlaybackController', '播放启动保护已开启（自适应窗口）');
@@ -474,8 +474,10 @@ class PlaybackController {
       protectionCleared = true;
       AppLogger.debug('PlaybackController', '播放已确认，保护已清除');
     } finally {
-      // P0修复：清除切换标记
-      _isSwitchingSource = false;
+      // P0修复：清除切换标记（延迟一个事件循环，确保状态流先处理播放开始）
+      Future.microtask(() {
+        _isSwitchingSource = false;
+      });
 
       // 只有在保护未清除时才延迟清除
       if (!protectionCleared) {

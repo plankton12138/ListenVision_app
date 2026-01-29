@@ -191,6 +191,7 @@ P2 总进度: 100% ✅ 全部完成
 - ✅ 下载架构重构（前端本地化）
 - ✅ 音乐区爬虫服务（已完成但废弃，改用QQ音乐方案）
 - ✅ **播放控制增强**：音量/倍速控制、歌单排序、在线封面异步加载、修复音频叠加和启动闪退
+- ⏸️ 网络质量监测：全局暂停（维护中）
 - ✅ **测试修复**：后端 searchService 和 userService 测试全部通过 (2026-01-26)
 - ✅ **前端分析**：修复编译错误，分析确认无严重错误
 - 📋 功能扩展：歌单详情页添加歌曲功能（暂搁置）
@@ -923,21 +924,21 @@ Stop-Process -Name node -Force
 **实际日志位置**（当前项目）:
 | 平台 | 日志目录路径 | 示例文件 |
 |------|-------------|---------|
-| **Windows** | `C:\Users\<用户名>\Documents\logs\` | `C:\Users\23104\Documents\logs\app-2026-01-26.log` |
-| **Android** | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/` | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log` |
+| **Windows** | `C:\Users\<用户名>\Documents\logs\` | `C:\Users\23104\Documents\logs\app-2026-01-29.log` |
+| **Android** | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/` | `/data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-29.log` |
 | **iOS** | `<AppData>/Library/Application Support/logs/` | - |
 | **macOS** | `~/Library/Application Support/listenvision/logs/` | - |
 | **Linux** | `~/.local/share/listenvision/logs/` | - |
 
-**日志文件名格式**: `app-2026-01-26.log`（按日期命名）
+**日志文件名格式**: `app-2026-01-29.log`（按日期命名）
 
 **查看日志方法**:
 ```powershell
 # Windows: 直接用记事本打开
-notepad C:\Users\23104\Documents\logs\app-2026-01-26.log
+notepad C:\Users\23104\Documents\logs\app-2026-01-29.log
 
 # Android: 使用 adb 拉取日志
-adb pull /data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-26.log
+adb pull /data/user/0/com.example.flutter_application_1/app_flutter/logs/app-2026-01-29.log
 ```
 
 **日志级别**: DEBUG, INFO, WARN, ERROR
@@ -989,7 +990,7 @@ logError('TAG', 'message', error: e);
 **Windows PowerShell 快捷命令**:
 ```powershell
 # 查看前端日志（Windows）
-Get-Content "$env:APPDATA\listenvision\logs\app-*.log" -Tail 50
+Get-Content "C:\Users\23104\Documents\logs\app-*.log" -Tail 50
 
 # 查看后端日志
 Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.log" -Tail 50

@@ -115,9 +115,8 @@ class AudioProvider extends ChangeNotifier {
     final session = await AudioSession.instance;
     await session.configure(AudioSessionConfiguration.music());
 
-    // P0修复：启动网络质量监测
-    AdaptiveNetworkManager().startMonitoring();
-    AppLogger.info('AudioProvider', '网络质量监测已启动');
+    // P0修复：暂停网络质量监测（按需求全局停用）
+    AdaptiveNetworkManager().pauseMonitoring(reason: 'global pause for maintenance');
 
     // 设置组件之间的回调
     _setupCallbacks();

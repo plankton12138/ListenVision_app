@@ -30,6 +30,11 @@ class AdaptiveNetworkManager {
   final List<NetworkQuality> _qualityHistory = [];
   static const int _maxHistorySize = 10;
 
+  // 监测暂停控制
+  bool _monitoringPaused = false;
+  DateTime? _monitoringPausedAt;
+  String? _monitoringPausedReason;
+
   // 监听器
   final List<Function(NetworkQuality)> _qualityListeners = [];
 
@@ -63,8 +68,32 @@ class AdaptiveNetworkManager {
 
   // ==================== 网络监测 ====================
 
+  /// 暂停网络质量监测（全局）
+  void pauseMonitoring({String reason = 'manual pause'}) {
+    if (_monitoringPaused) return;
+    _monitoringPaused = true;
+    _monitoringPausedAt ??= DateTime.now();
+    _monitoringPausedReason = reason;
+    stopMonitoring();
+    AppLogger.warn(
+      'AdaptiveNetworkManager',
+      '网络监测已暂停: $reason at ${_monitoringPausedAt!.toIso8601String()}',
+    );
+  }
+
+  /// 恢复网络质量监测
+  void resumeMonitoring() {
+    if (!_monitoringPaused) return;
+    _monitoringPaused = false;
+    AppLogger.info('AdaptiveNetworkManager', '网络监测已恢复');
+  }
+
   /// 开始网络质量监测
   void startMonitoring() {
+    if (_monitoringPaused) {
+      AppLogger.warn('AdaptiveNetworkManager', '网络监测已暂停，跳过启动');
+      return;
+    }
     if (_monitoringTimer?.isActive ?? false) return;
 
     _monitoringTimer = Timer.periodic(_checkInterval, (_) {
@@ -86,6 +115,9 @@ class AdaptiveNetworkManager {
 
   /// 检测网络质量 - 修复：使用Isolate避免阻塞主线程
   Future<NetworkQuality> _checkNetworkQuality() async {
+    if (_monitoringPaused) {
+      return _currentQuality;
+    }
     try {
       // 使用Completable和timeout确保不会阻塞太久
       final completer = Completer<NetworkQuality>();
@@ -167,6 +199,9 @@ class AdaptiveNetworkManager {
 
   /// 强制刷新网络质量
   Future<NetworkQuality> refreshQuality() async {
+    if (_monitoringPaused) {
+      return _currentQuality;
+    }
     return await _checkNetworkQuality();
   }
 

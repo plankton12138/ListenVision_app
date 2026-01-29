@@ -21,8 +21,8 @@
 - 🔐 **安全的认证机制** - JWT Token + 服务端AES-256-CBC加密存储 Cookie
 - 🌍 **跨平台支持** - Android、iOS、Web、Windows、Linux、macOS 全覆盖
 - 🎵 **本地音频播放** - 支持导入本地音频文件并管理播放列表,支持 M4A/MP3/FLAC 元数据
-- 📥 **智能下载管理** - 支持多线程下载、断点续传、后台下载
-- 🎨 **Material Design** - 简洁优雅的用户界面,支持深色模式
+ - 📥 **智能下载管理** - 支持多线程下载、断点续传、后台下载
+ - 🎨 **Material Design** - 简洁优雅的用户界面,支持深色模式
 - 🏗️ **Clean Architecture** - 清晰的分层架构,易于维护和测试
 
 ---
@@ -114,6 +114,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 - **音频播放**: audioplayers ^6.x + audio_session ^0.2.1
 - **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
 - **错误处理**: dartz ^0.10.1 (Either 泛型)
+ - **网络监测**: AdaptiveNetworkManager (当前暂停运行)
 
 #### 后端 (Node.js)
 - **框架**: Express ^5.1.0

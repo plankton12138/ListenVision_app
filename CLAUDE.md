@@ -64,7 +64,18 @@ When working in this repository:
    - ✅ 完成任务后提示用户更新相关文档
    - ✅ 保持文档与代码实现同步
 
-5. **外部工具使用限制** ⭐⭐⭐
+5. **文件读取工具选择** ⭐⭐⭐
+   - 📖 **读取完整文件** → 优先使用 `Read` 工具（带行号、格式清晰）
+   - 🔍 **搜索代码内容** → 优先使用 `Grep` 工具（支持正则、可限制行数）
+   - 📁 **查找文件路径** → 优先使用 `Glob` 工具（支持模式匹配）
+   - ⚡ **PowerShell 命令** → 使用 `powershell -Command "..."` 前缀
+   - 📋 **查看日志尾部** → 使用 `Get-Content "path" -Tail 50`
+
+   **避免使用**：
+   - ❌ `cat` / `head` / `tail` 等 Bash 命令（优先用专用工具）
+   - ❌ 直接使用 `Get-Content`（Bash 环境不支持，需加前缀）
+
+6. **外部工具使用限制** ⭐⭐⭐
    - ⚠️ **使用以下工具前必须先询问用户**：
      - `WebSearch` - 网络搜索
      - `WebFetch` / `webReader` - 网页读取
@@ -225,18 +236,18 @@ This workspace contains three projects:
 - **操作系统**: Windows 11 24H2
 - **Shell**: PowerShell（优先使用PowerShell命令）
 - **IDE**: VSCode + Claude Code
-- **Node.js**: 20.18.2（固定版本，重要！）
+- **Node.js**: 24.13.0（固定版本，重要！）
 
 **命令规范**:
 - ✅ 使用 PowerShell 命令（如 `Get-ChildItem`, `Move-Item`, `Test-Path`）
 - ❌ 避免使用 Bash/Linux 命令（如 `ls`, `mv`, `rm`）
 
 **Node.js 版本管理** ⚠️:
-- **固定版本**: 后端使用 Node.js 20.18.2（在 `package.json` 中通过 `engines` 字段指定）
+- **固定版本**: 后端使用 Node.js 24.13.0（在 `package.json` 中通过 `engines` 字段指定）
 - **原因**: `better-sqlite3` 是原生模块，不同 Node.js 版本的二进制文件不兼容
 - **node_modules**: 保留在 Git 仓库中，避免每次部署时重新编译
-- **本地开发**: Windows 11 使用 Node.js 20.18.2
-- **服务器部署**: 必须使用相同的 Node.js 20.18.2 版本
+- **本地开发**: Windows 11 使用 Node.js 24.13.0
+- **服务器部署**: 必须使用相同的 Node.js 24.13.0 版本
 
 ### Authentication Architecture
 

@@ -44,6 +44,7 @@ class ControlsPanel extends StatelessWidget {
     final position = controller.position;
     final hasValidDuration = duration > Duration.zero;
     final hasValidPosition = position >= Duration.zero;
+    final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || controller.isPlaying);
 
     // ✅ UX改进：优先显示错误状态（最优先）
     if (controller.hasPlaybackError || nowPlayingProvider.errorMessage != null) {
@@ -64,10 +65,16 @@ class ControlsPanel extends StatelessWidget {
 
     // ✅ 修复：如果有有效的时间信息，优先显示时间（而不是状态消息）
     // 这样可以避免自动切歌后显示"播放完成"或"加载中"而不显示时间
-    if (hasValidDuration && hasValidPosition && !controller.isLoading) {
+    if (hasValidDuration && hasPlaybackProgress) {
       return Text(
         '${position.toString().split('.')[0]} / '
         '${duration.toString().split('.')[0]}',
+      );
+    }
+
+    if (!hasValidDuration && hasPlaybackProgress) {
+      return Text(
+        '${position.toString().split('.')[0]} / --:--',
       );
     }
 

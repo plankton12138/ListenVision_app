@@ -311,6 +311,7 @@ class AdaptiveNetworkManager {
   Future<T> executeWithRetry<T>(
     Future<T> Function() operation, {
     String? operationName,
+    void Function(String message, int attempt, Duration delay)? onRetry,
   }) async {
     final maxRetries = getRetryCount();
     int attempt = 0;
@@ -330,9 +331,12 @@ class AdaptiveNetworkManager {
         }
 
         final delay = getRetryDelay(attempt - 1);
+        final retryMessage =
+            '${operationName ?? "操作"}失败，${delay.inSeconds}秒后第 $attempt 次重试';
+        onRetry?.call(retryMessage, attempt, delay);
         AppLogger.warn(
           'AdaptiveNetworkManager',
-          '${operationName ?? "操作"} 失败，${delay.inSeconds}秒后第 $attempt 次重试: $e',
+          '$retryMessage: $e',
         );
 
         await Future.delayed(delay);

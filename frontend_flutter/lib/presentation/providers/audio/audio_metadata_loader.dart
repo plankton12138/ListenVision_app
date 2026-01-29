@@ -249,7 +249,6 @@ class AudioMetadataLoader {
 
     // 检查缓存
     if (useCache && _coverCache.containsKey(coverUrl)) {
-      AppLogger.debug('AudioMetadataLoader', '封面缓存命中: $coverUrl');
       return _coverCache[coverUrl];
     }
 

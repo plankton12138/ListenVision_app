@@ -66,6 +66,10 @@ class AudioMetadataProvider extends ChangeNotifier {
 
   Future<void> _loadOnlineCover(String coverUrl) async {
     try {
+      if (!coverUrl.startsWith('http')) {
+        AppLogger.warn('AudioMetadataProvider', '封面URL非法，跳过加载: $coverUrl');
+        return;
+      }
       final coverData = await loadOnlineCover(coverUrl);
       if (coverData != null) {
         _currentAlbumArt = coverData;

@@ -26,7 +26,7 @@ ListenVision API 是一个为音频流媒体应用设计的后端服务，采用
 
 | 类别 | 技术 | 版本 | 用途 |
 |------|------|------|------|
-| 运行环境 | Node.js | 20.18.2 | JavaScript 运行时 (固定版本) |
+| 运行环境 | Node.js | 24.13.0 | JavaScript 运行时 (固定版本) |
 | Web 框架 | Express | 5.1.0 | HTTP 服务器框架 |
 | 数据库 | SQLite | 3.x | 嵌入式关系型数据库 |
 | 数据库驱动 | better-sqlite3 | 12.6.0 | 同步 API、高性能 |
@@ -237,8 +237,8 @@ CREATE INDEX idx_favorites_url ON favorites(url);
 
 ### 环境要求
 
-- **Node.js** = 20.18.2（固定版本，重要！）
-- **npm** 或 **yarn**
+- **Node.js** = 24.13.0（固定版本，重要！）
+- **pnpm**
 - **构建工具**：Windows 需要 Visual Studio Build Tools
 
 > ⚠️ **重要提示**：本项目使用 `better-sqlite3` 原生模块，必须在目标服务器上重新编译。不同 Node.js 版本的二进制文件不兼容。
@@ -247,7 +247,7 @@ CREATE INDEX idx_favorites_url ON favorites(url);
 
 ```bash
 cd listen-vision_api
-npm install
+pnpm install
 ```
 
 > **注意**：better-sqlite3 需要原生编译。Windows 用户请安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/)，选择"使用 C++ 的桌面开发"工作负载。

@@ -164,6 +164,12 @@ class AudioProvider extends ChangeNotifier {
           _handlePlaybackComplete();
         }
       },
+      onPlaybackWarning: (message) {
+        if (!_disposed && !_hasPlaybackError) {
+          _playerStatusMessage = message;
+          notifyListeners();
+        }
+      },
     );
 
     // 播放列表管理器回调
@@ -454,7 +460,7 @@ class AudioProvider extends ChangeNotifier {
     }
 
     // ✅ 修复：清除之前的状态消息
-    _playerStatusMessage = '正在加载...';
+    _playerStatusMessage = '在线音频准备中...';
     _hasPlaybackError = false;
     _nowPlayingProvider?.clearError();
     notifyListeners();

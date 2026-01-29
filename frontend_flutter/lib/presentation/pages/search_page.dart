@@ -330,7 +330,6 @@ class _SearchPageState extends State<SearchPage>
           );
         }
       },
-      loadingMessage: '正在加载...',
       successMessage: '开始播放: $title',
       onError: () {
         AppLogger.error('SearchPage', '播放失败');

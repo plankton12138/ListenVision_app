@@ -133,7 +133,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 
 - Flutter SDK >= 3.38.5
 - Dart SDK >= 3.10.4
-- Node.js >= 18.0
+- Node.js >= 24.13.0
 
 ### 1. 克隆项目
 
@@ -149,7 +149,7 @@ cd Projects_ListenVison
 cd listen-vision_api
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动服务器（数据库文件将自动创建于 data/listenvision.db）
 node index.js

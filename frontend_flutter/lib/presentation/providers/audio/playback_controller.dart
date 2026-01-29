@@ -50,6 +50,7 @@ class PlaybackController {
   Function(bool)? _onPlayingChanged;
   Function(PlayerState)? _onPlayerStateChanged;
   Function()? _onPlaybackComplete;
+  Function(String)? _onPlaybackWarning;
 
   // 当前音频源信息（用于调试和状态恢复）
   String? _currentSourceUrl;
@@ -110,7 +111,8 @@ class PlaybackController {
       _isSwitchingSource ||
       (_currentSourceUrl != null &&
           _currentDuration == Duration.zero &&
-          !_isPlaying);
+          !_isPlaying &&
+          _currentPosition == Duration.zero);
 
   /// 是否正在缓冲（audioplayers 缓冲状态通过 onLog 或特定事件判断）
   bool get isBuffering => false;  // audioplayers 不直接提供缓冲状态
@@ -159,8 +161,8 @@ class PlaybackController {
           }
         }
 
-        // P0修复：音频源切换期间忽略状态更新
-        if (_isSwitchingSource) {
+        // P0修复：音频源切换期间忽略非播放状态更新
+        if (_isSwitchingSource && state != PlayerState.playing) {
           AppLogger.debug('PlaybackController', '音频源切换中，跳过状态更新');
           return;
         }
@@ -172,6 +174,8 @@ class PlaybackController {
         if (state == PlayerState.playing) {
           _isPlaying = true;
           _ignoreCompletedUntil = null;
+          _isSwitchingSource = false;
+          _isStartingPlayback = false;
         } else if (state == PlayerState.paused || state == PlayerState.stopped) {
           _isPlaying = false;
         } else if (state == PlayerState.completed) {
@@ -212,6 +216,10 @@ class PlaybackController {
       (position) {
         if (_disposed) return;
         _currentPosition = position;
+        if (_currentPosition > Duration.zero) {
+          _isSwitchingSource = false;
+          _isStartingPlayback = false;
+        }
       },
       onError: (e) {
         if (!_disposed) ErrorHandler.logError(e, tag: 'PlaybackController.position');
@@ -224,10 +232,12 @@ class PlaybackController {
     Function(bool)? onPlayingChanged,
     Function(PlayerState)? onPlayerStateChanged,
     Function()? onPlaybackComplete,
+    Function(String)? onPlaybackWarning,
   }) {
     _onPlayingChanged = onPlayingChanged;
     _onPlayerStateChanged = onPlayerStateChanged;
     _onPlaybackComplete = onPlaybackComplete;
+    _onPlaybackWarning = onPlaybackWarning;
   }
 
   // ==================== 播放控制 ====================
@@ -553,12 +563,16 @@ class PlaybackController {
           AppLogger.info('PlaybackController', '在线音频已就绪，时长: ${_currentDuration.inSeconds}秒，播放开始');
         } else {
           AppLogger.warn('PlaybackController', '在线音频时长未加载，但播放已开始');
+          _onPlaybackWarning?.call('在线音频正在缓冲，等待时长信息...');
         }
 
         _isPlaying = true;
         _onPlayingChanged?.call(true);
       },
       operationName: '在线音频播放',
+      onRetry: (message, attempt, delay) {
+        _onPlaybackWarning?.call(message);
+      },
     );
   }
 

@@ -163,6 +163,27 @@ core/        # 基础设施（常量、错误、网络）
 
 ---
 
+## 代码规范
+
+### 日志记录
+- **后端**：使用 Winston logger，支持 error/warn/info/debug 四级
+- **前端**：使用 AppLogger 单例，支持 DEBUG/INFO/WARN/ERROR 四级
+- **规范文档**：[LOGGING_STANDARDS.md](./docs/LOGGING_STANDARDS.md)
+
+### 代码注释
+- **后端**：使用 JSDoc 标准注释函数和类
+- **前端**：使用 DartDoc 标准注释类和函数
+- **规范文档**：[CODE_COMMENT_STANDARDS.md](./docs/CODE_COMMENT_STANDARDS.md)
+
+### 开发原则
+1. 所有用户操作必须记录日志（UI层点击 + Provider层触发）
+2. 关键业务流程必须有开始/结束日志
+3. 复杂算法必须有详细注释说明
+4. 禁止提交临时调试代码（console.log）和 TODO 注释
+5. 敏感信息（password/token）必须脱敏处理
+
+---
+
 ## 相关文档
 
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md)

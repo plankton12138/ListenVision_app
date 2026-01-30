@@ -263,7 +263,7 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
           subtitle: '从手机相册选择图片',
           onTap: () {
             AppLogger.logButtonClick('从相册选择', 'PlaylistCoverDialog');
-            // TODO: 实现图片选择功能
+            // 图片选择功能需要 image_picker 包，当前暂未实现
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('图片选择功能开发中'),

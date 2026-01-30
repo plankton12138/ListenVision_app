@@ -94,8 +94,8 @@ const stmt = {
 
   // 音频内容缓存相关（存储转换后的音频数据）
   getCachedAudio: db.prepare(`
-    SELECT data, content_type, created_at FROM audio_content_cache 
-    WHERE bvid = ? AND created_at > datetime('now', '-1 hour')
+    SELECT data, content_type, created_at FROM audio_content_cache
+    WHERE bvid = ? AND created_at > datetime('now', '-24 hours')
   `),
   insertCachedAudio: db.prepare(`
     INSERT OR REPLACE INTO audio_content_cache 

@@ -221,12 +221,18 @@ class AppLogger {
   /// 参数：
   /// - [button] 按钮名称或标识
   /// - [context] 按钮所在的功能上下文
+  /// - [parameters] 操作相关的参数（可选）
   /// - [userId] 用户 ID（可选）
-  static void logButtonClick(String button, String context, {String? userId}) {
+  static void logButtonClick(
+    String button,
+    String context, {
+    Map<String, dynamic>? parameters,
+    String? userId,
+  }) {
     logUserAction(
       context,
       '点击按钮: $button',
-      parameters: {'button': button},
+      parameters: {...?parameters, 'button': button},
       userId: userId,
     );
   }

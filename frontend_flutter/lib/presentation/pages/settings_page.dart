@@ -164,7 +164,6 @@ class _SettingsPageState extends State<SettingsPage>
         // 已登录，显示绑定界面
         return Consumer<BilibiliProvider>(
           builder: (context, bilibiliProvider, child) {
-            final authProvider = context.read<AuthProvider>();
             final isBound = bilibiliProvider.isBound;
             final userInfo = bilibiliProvider.boundUserInfo;
             final isLoading = bilibiliProvider.isLoading;

@@ -11,7 +11,6 @@ import 'package:demo/core/utils/app_logger.dart';
 /// - 登录成功/失败处理
 class QRLoginProvider extends ChangeNotifier {
   BilibiliApiService? _apiService;
-  String? _token;
 
   // ==================== 状态变量 ====================
 
@@ -44,7 +43,6 @@ class QRLoginProvider extends ChangeNotifier {
 
   /// 更新认证Token
   void updateToken(String? token) {
-    _token = token;
     _apiService = BilibiliApiService();
     AppLogger.debug('QRLoginProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }

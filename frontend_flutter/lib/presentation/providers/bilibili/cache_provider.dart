@@ -10,7 +10,6 @@ import 'package:demo/core/utils/app_logger.dart';
 /// - 缓存统计和清理
 class BilibiliCacheProvider extends ChangeNotifier {
   BilibiliApiService? _apiService;
-  String? _token;
 
   // ==================== 状态变量 ====================
 
@@ -35,7 +34,6 @@ class BilibiliCacheProvider extends ChangeNotifier {
 
   /// 更新认证Token
   void updateToken(String? token) {
-    _token = token;
     _apiService = BilibiliApiService();
     AppLogger.debug('BilibiliCacheProvider', 'Token updated: ${token != null ? "set" : "cleared"}');
   }

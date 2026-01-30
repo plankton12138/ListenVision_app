@@ -4,7 +4,6 @@ import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
@@ -131,7 +130,6 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
   /// 支持在线音频和本地音频的播放
   Future<void> _playHistoryItem(PlayHistoryItem item) async {
     final audioProvider = context.read<AudioProvider>();
-    final bilibiliProvider = context.read<BilibiliProvider>();
     final authProvider = context.read<AuthProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
 

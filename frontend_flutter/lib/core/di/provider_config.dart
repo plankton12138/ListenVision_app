@@ -233,7 +233,7 @@ class ProviderConfig {
               try {
                 await playlistProvider?.initialize(token);
               } catch (e) {
-                // AppLogger.error('Main', '歌单初始化失败', error: e);
+                // 歌单初始化失败静默处理
               }
             }
           }

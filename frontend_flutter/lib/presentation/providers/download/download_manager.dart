@@ -199,7 +199,7 @@ class DownloadManager with ChangeNotifier {
         originalUrl: 'https://www.bilibili.com/video/$bvid',
         title: title,
         artist: artist,
-        coverUrl: videoData['pic'] as String?,
+        coverUrl: videoData['pic'],
         bvid: bvid,
       );
 

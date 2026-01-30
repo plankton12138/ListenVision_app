@@ -125,15 +125,10 @@ router.use('/bilibili', require('./bilibili'));
  */
 router.use('/audio', require('./audio'));
 
-// ==================== 收藏相关（兼容） ====================
-
-/**
- * @route   GET    /api/v1/favorites
- * @route   POST   /api/v1/favorites
- * @route   DELETE /api/v1/favorites/:id
- * @access  Private
- * @deprecated 使用 /api/v1/playlists/favorites 代替
- */
-router.use('/favorites', require('./favorites'));
+// ==================== 收藏相关说明 ====================
+// 收藏功能已迁移至 /api/v1/playlists/favorites/* 端点
+// - GET    /api/v1/playlists/favorites       - 获取收藏列表
+// - POST   /api/v1/playlists/favorites/toggle - 切换收藏状态
+// - GET    /api/v1/playlists/favorites/check/:bvid - 检查是否已收藏
 
 module.exports = router;

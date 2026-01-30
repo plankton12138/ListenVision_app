@@ -207,6 +207,17 @@ P2 总进度: 100% ✅ 全部完成
 - ✅ **前端分析**：修复编译错误，分析确认无严重错误
 - 📋 功能扩展：歌单详情页添加歌曲功能（暂搁置）
 
+**代码质量清理完成** (2026-01-30):
+- ✅ **接口修复**: 移除 v1.js 中不存在的 favorites 路由引用
+- ✅ **死代码清理**: 删除未使用的 `verifyCode` 接口、`safeInt` 函数、`_getStatus` 方法等
+- ✅ **未使用导入**: 清理 `dart:convert`、`dart:io`、`flutter/material.dart` 等 5 处
+- ✅ **未使用变量**: 清理 `bilibiliProvider`、`authProvider` 等 4 处
+- ✅ **未使用字段**: 清理 `_token` 等 2 处
+- ✅ **备份文件清理**: 删除 `bilibiliController.js.backup`、`audio_provider.dart.backup`
+- ✅ **组件去重**: 删除旧版本 `playlist_card.dart`
+- ✅ **注释代码清理**: 清理 `audio_info.dart`、`provider_config.dart`
+- **结果**: Flutter analyze 问题从 118 → 101 (-17)
+
 **相关文档**:
 - 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md) - 完整的阶段实施计划（已按优先级重排）
 - 📄 [Phase 1 实施细节](./docs/PHASE_1_IMPLEMENTATION_DETAILS.md) - B站API集成技术细节

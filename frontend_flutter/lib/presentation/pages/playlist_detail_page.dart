@@ -68,7 +68,6 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   }
 
   Future<void> _loadDetail() async {
-    final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
 
     setState(() {

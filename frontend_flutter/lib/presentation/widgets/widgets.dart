@@ -3,11 +3,10 @@
 /// 导出所有可复用的 UI 组件
 library;
 
-// P2 架构组件
+// 架构组件
 export 'async_builder.dart';
 export 'empty_state.dart';
 export 'error_banner.dart';
-export 'playlist_card.dart';
 
 // 从 ui/components/ 迁移的组件
 export 'common/loading_overlay.dart';

@@ -34,7 +34,7 @@ class Audio with _$Audio implements BaseEntity {
 
   /// 从 DTO/后端响应创建
   factory Audio.fromDto(Map<String, dynamic> json) {
-    // ✅ 安全的数值转字符串转换（防御性编程）
+    // 安全的数值转字符串转换（防御性编程）
     final safeString = (dynamic value) {
       if (value == null) return null;
       if (value is String) return value;
@@ -43,16 +43,7 @@ class Audio with _$Audio implements BaseEntity {
       return value.toString();
     };
 
-    // ✅ 安全的数值转换
-    final safeInt = (dynamic value) {
-      if (value == null) return 0;
-      if (value is int) return value;
-      if (value is double) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? 0;
-      return 0;
-    };
-
-    // ✅ 修复：统一封面字段解析（支持多种命名方式）
+    // 统一封面字段解析（支持多种命名方式）
     // 后端可能返回：'cover', 'pic', 'cover', 'coverUrl', 'cover_url'
     final safeCoverUrl = () {
       // 优先级1：检查 'cover'（推荐）
@@ -66,7 +57,6 @@ class Audio with _$Audio implements BaseEntity {
       if (json['pic'] != null) {
         final value = json['pic'];
         if (value is String && value.isNotEmpty) return value;
-        return value.toString();
         if (value is Map && value['url'] != null) return value['url'] as String;
         return value.toString();
       }

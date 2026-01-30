@@ -48,8 +48,7 @@ class AuthEndpoints {
   static const String login = '/auth/login';
   static const String me = '/auth/me';
   static const String sendCode = '/auth/send-code';
-  static const String verifyCode = '/auth/verify-code';
-  static const String resetPassword = '/auth/reset-pwd';  // 修复：与后端一致
+  static const String resetPassword = '/auth/reset-pwd';
 }
 
 // ==================== 用户端点 ====================

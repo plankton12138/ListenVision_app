@@ -565,7 +565,6 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     Map<String, dynamic> item,
   ) async {
     final audioProvider = context.read<AudioProvider>();
-    final bilibiliProvider = context.read<BilibiliProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
     final authProvider = context.read<AuthProvider>();
 

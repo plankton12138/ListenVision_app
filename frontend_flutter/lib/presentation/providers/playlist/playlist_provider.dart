@@ -438,16 +438,6 @@ class PlaylistProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _savePlaylistsToLocal() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_playlists.map((p) => p.toJson()).toList());
-      await prefs.setString(_playlistsKey, json);
-    } catch (e) {
-      AppLogger.error('PlaylistProvider', '保存本地歌单失败: $e');
-    }
-  }
-
   Future<void> _loadFavoritesFromLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -486,16 +476,6 @@ class PlaylistProvider with ChangeNotifier {
       }
     } catch (e) {
       AppLogger.error('PlaylistProvider', '加载本地播放队列失败: $e');
-    }
-  }
-
-  Future<void> _saveNowPlayingToLocal() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_nowPlayingItems.map((item) => item.toJson()).toList());
-      await prefs.setString(_nowPlayingKey, json);
-    } catch (e) {
-      AppLogger.error('PlaylistProvider', '保存本地播放队列失败: $e');
     }
   }
 

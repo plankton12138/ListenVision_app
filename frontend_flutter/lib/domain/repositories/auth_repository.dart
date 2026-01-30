@@ -41,16 +41,6 @@ abstract class AuthRepository {
     required String email,
   });
 
-  /// 验证验证码
-  ///
-  /// [email] 邮箱地址
-  /// [code] 验证码
-  /// 返回验证是否成功
-  Future<Either<Failure, bool>> verifyCode({
-    required String email,
-    required String code,
-  });
-
   /// 重置密码
   ///
   /// [email] 邮箱地址

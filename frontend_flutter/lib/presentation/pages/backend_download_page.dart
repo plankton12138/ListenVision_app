@@ -54,11 +54,6 @@ class _BackendDownloadPageState extends State<BackendDownloadPage> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
-  /// 从 status 字段获取状态
-  DownloadStatus _getStatus(DownloadTask task) {
-    return task.status;
-  }
-
   /// 获取状态颜色
   Color _getStatusColor(DownloadStatus status) {
     switch (status) {

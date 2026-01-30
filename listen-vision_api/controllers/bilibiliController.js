@@ -2,6 +2,96 @@ const bilibiliService = require('../services/bilibiliService');
 const { successResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
+// ==================== 转换任务去重 ====================
+
+/**
+ * 转换任务追踪器
+ * 防止同一 BVID+format 组合被重复转换
+ */
+class ConversionTaskTracker {
+  constructor() {
+    // Map<bvid_format, { Promise, resolve, reject, startTime }>
+    this.pendingTasks = new Map();
+  }
+
+  /**
+   * 获取任务键
+   */
+  _getKey(bvid, format) {
+    return `${bvid}_${format}`;
+  }
+
+  /**
+   * 获取或创建转换任务
+   * @param {string} bvid - 视频 ID
+   * @param {string} format - 目标格式
+   * @param {Function} taskFn - 执行转换的函数
+   * @returns {Promise} 转换结果
+   */
+  async getOrExecute(bvid, format, taskFn) {
+    const key = this._getKey(bvid, format);
+
+    // 检查是否有正在进行的任务
+    const existing = this.pendingTasks.get(key);
+    if (existing) {
+      const waitTime = Date.now() - existing.startTime;
+      logger.info('BiliProxy waiting for existing conversion', {
+        bvid,
+        format,
+        waitingMs: waitTime
+      });
+      return existing.promise;
+    }
+
+    // 创建新任务
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+
+    this.pendingTasks.set(key, {
+      promise,
+      resolve,
+      reject,
+      startTime: Date.now()
+    });
+
+    logger.info('BiliProxy starting new conversion', { bvid, format });
+
+    try {
+      const result = await taskFn();
+      resolve(result);
+      return result;
+    } catch (error) {
+      reject(error);
+      throw error;
+    } finally {
+      // 清理任务（延迟清理，允许快速重试）
+      setTimeout(() => {
+        this.pendingTasks.delete(key);
+      }, 1000);
+    }
+  }
+
+  /**
+   * 获取正在进行的任务数量
+   */
+  getPendingCount() {
+    return this.pendingTasks.size;
+  }
+
+  /**
+   * 清理所有任务（用于测试）
+   */
+  clear() {
+    this.pendingTasks.clear();
+  }
+}
+
+// 全局实例
+const conversionTracker = new ConversionTaskTracker();
+
 /**
  * B站API控制器
  */
@@ -547,39 +637,57 @@ const proxyAudioStreamByBvid = async (req, res) => {
       }
 
     } else if (targetFormat === 'mp3') {
-      // ✅ 模式B：转换为 mp3（并发控制 + 缓存）
+      // ✅ 模式B：转换为 mp3（并发控制 + 去重 + 缓存）
       logger.info('BiliProxy convert to mp3', { bvid });
 
-      const response = await fetch(streamUrl, {
-        headers: {
-          'Referer': 'https://www.bilibili.com/',
-          'User-Agent': 'Mozilla/5.0'
-        }
-      });
+      let result;
+      try {
+        result = await conversionTracker.getOrExecute(bvid, 'mp3', async () => {
+          const response = await fetch(streamUrl, {
+            headers: {
+              'Referer': 'https://www.bilibili.com/',
+              'User-Agent': 'Mozilla/5.0'
+            }
+          });
 
-      if (!response.ok) {
-        return res.status(response.status).send('获取音频失败');
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          // 下载并转换
+          const inputBuffer = Buffer.from(await response.arrayBuffer());
+          const { buffer, contentType } = await require('../services/audioService').convertStream(
+            inputBuffer,
+            'mp3',
+            { bitrate: '192k', sampleRate: '44100', channels: 2 }
+          );
+
+          return { buffer, contentType };
+        });
+      } catch (conversionError) {
+        logger.error('MP3 conversion failed', { bvid, error: conversionError.message });
+        return res.status(502).json({
+          success: false,
+          error: `音频转换失败: ${conversionError.message}`
+        });
       }
 
-      // 下载并转换
-      const inputBuffer = Buffer.from(await response.arrayBuffer());
-      const { buffer, contentType } = await require('../services/audioService').convertStream(
-        inputBuffer,
-        'mp3',
-        { bitrate: '192k', sampleRate: '44100', channels: 2 }
-      );
+      // ✅ 缓存转换结果（先缓存，再发送）
+      try {
+        bilibiliService.insertCachedAudio(bvid, result.buffer, result.contentType);
+      } catch (cacheError) {
+        logger.warn('Failed to cache audio', { bvid, error: cacheError.message });
+        // Continue anyway - non-critical
+      }
 
       // 设置响应头
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Accept-Ranges', 'none');  // mp3 不支持 seek（转码后）
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Content-Length', result.buffer.length);
+      res.setHeader('Accept-Ranges', 'none');
       res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.send(buffer);
+      res.send(result.buffer);
 
-      // ✅ 缓存转换结果
-      bilibiliService.insertCachedAudio(bvid, buffer, 'audio/mpeg');
-
-      logger.info('BiliProxy mp3 conversion complete', { bvid, bytes: buffer.length });
+      logger.info('BiliProxy mp3 conversion complete', { bvid, bytes: result.buffer.length });
     } else {
       return res.status(400).json({
         success: false,

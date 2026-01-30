@@ -61,7 +61,39 @@ Phase 1:  ████████████████████ 100% ✅ 
 Phase 2:  ████████████████████ 100% ✅ 在线播放
 Phase 3:  ████████████████████ 100% ✅ 歌单收藏
 Phase 4:  ███████████████░░░░░  70% 🟡 搜索推荐
-Phase 5:  ████████░░░░░░░░░░░░░  40% 质量优化
+Phase 5:  ████████████░░░░░░░░  65% 🟡 质量优化
+```
+
+---
+
+## 测试覆盖
+
+### 后端测试 (264 tests passing)
+- `tests/controllers/authController.test.js` - 22 tests
+- `tests/services/bilibiliService.test.js` - 25 tests
+- `tests/services/playlistService.test.js` - 60 tests
+- `tests/services/playHistoryService.test.js` - 49 tests
+- `tests/services/audioService.test.js` - 48 tests
+- 覆盖率阈值: 70%
+
+### 前端测试 (178 tests created)
+- `test/providers/auth/auth_provider_test.dart` - 30+ tests
+- `test/providers/search/search_provider_test.dart` - 47 tests
+- `test/providers/player/playback_controller_test.dart` - 59 tests
+- `test/providers/favorites/playlist_provider_test.dart` - 42 tests
+
+### 运行测试
+```powershell
+# 后端
+cd listen-vision_api
+pnpm test                   # 运行所有测试
+pnpm test:coverage           # 覆盖率报告
+
+# 前端
+cd frontend_flutter
+flutter pub get              # 首次运行需安装依赖
+flutter test                 # 运行所有测试
+flutter test --coverage     # 覆盖率报告
 ```
 
 ---

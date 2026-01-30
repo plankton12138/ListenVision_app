@@ -426,6 +426,16 @@ const getBindStatus = (userId) => {
     return { isBound: false };
   }
 
+  // 检查是否过期
+  if (account.expires_at) {
+    const expiresAt = new Date(account.expires_at);
+    if (expiresAt < new Date()) {
+      // 过期则停用
+      stmt.deactivateBiliAccount.run(userId);
+      return { isBound: false };
+    }
+  }
+
   // 检查Cookie是否能正常解密
   const cookie = decryptCookie(account.cookie_encrypted);
   if (cookie === null) {

@@ -41,7 +41,13 @@
       "Bash(Remove-Item:*)",
       "Bash(rm:*)",
       "Bash(pnpm install:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(tests)",
+      "Bash(Where-Object { $_PSIsContainer })",
+      "Bash(find:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm test:coverage:*)",
+      "Bash(git add:*)"
     ]
   }
 }

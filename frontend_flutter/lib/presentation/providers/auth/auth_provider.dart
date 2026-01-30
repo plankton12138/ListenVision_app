@@ -46,6 +46,13 @@ class AuthProvider with ChangeNotifier {
 
   /// 设置当前用户并持久化到本地
   Future<void> setUser(User user) async {
+    AppLogger.logUserAction(
+      'Auth',
+      '登录成功',
+      parameters: {'userId': user.id, 'username': user.username},
+      userId: user.id,
+    );
+
     _user = user;
     final prefs = await SharedPreferences.getInstance();
 
@@ -70,6 +77,14 @@ class AuthProvider with ChangeNotifier {
 
   /// 用户登出，清除本地存储的用户信息
   Future<void> logout() async {
+    final userId = _user?.id;
+    AppLogger.logUserAction(
+      'Auth',
+      '用户登出',
+      parameters: {'userId': userId},
+      userId: userId,
+    );
+
     _user = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_authKey);
@@ -77,7 +92,7 @@ class AuthProvider with ChangeNotifier {
 
     // 清除 DioProvider 的 token
     DioProvider.instance.updateToken(null);
-    AppLogger.debug('AuthProvider', 'Logged out, token cleared');
+    AppLogger.info('AuthProvider', '登出完成，token 已清除');
 
     notifyListeners();
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 
 /// 添加歌曲对话框
@@ -46,6 +47,7 @@ class AddSongDialog extends StatelessWidget {
               title: '从搜索结果添加',
               subtitle: '搜索B站视频或音频',
               onTap: () {
+                AppLogger.logButtonClick('从搜索添加', 'AddSongDialog');
                 Navigator.pop(context);
                 context.go('/search');
               },
@@ -57,6 +59,7 @@ class AddSongDialog extends StatelessWidget {
               title: '输入BV号添加',
               subtitle: '直接输入B站视频BV号',
               onTap: () {
+                AppLogger.logButtonClick('输入BV号', 'AddSongDialog');
                 Navigator.pop(context);
                 _showBvidInputDialog(context);
               },
@@ -70,6 +73,7 @@ class AddSongDialog extends StatelessWidget {
                 title: '从历史记录添加',
                 subtitle: '查看播放历史并添加',
                 onTap: () {
+                  AppLogger.logButtonClick('从历史添加', 'AddSongDialog');
                   Navigator.pop(context);
                   context.go('/history');
                 },
@@ -148,7 +152,10 @@ class AddSongDialog extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppLogger.logButtonClick('取消-输入BV号', 'AddSongDialog');
+              Navigator.pop(context);
+            },
             child: const Text('取消'),
           ),
           TextButton(
@@ -161,10 +168,10 @@ class AddSongDialog extends StatelessWidget {
                 return;
               }
 
+              AppLogger.logButtonClick('搜索BV号', 'AddSongDialog',
+                parameters: {'bvid': bvid});
               // 导航到搜索页面并自动搜索BV号
               Navigator.pop(context);
-              // TODO: 将BV号传递给搜索页面
-              // 暂时只导航到搜索页面
               context.go('/search');
             },
             child: const Text('搜索'),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 歌单封面选择对话框
 ///
@@ -88,7 +89,10 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
           ),
           IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppLogger.logButtonClick('关闭-封面选择', 'PlaylistCoverDialog');
+              Navigator.pop(context);
+            },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -133,6 +137,7 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
 
         return GestureDetector(
           onTap: () {
+            AppLogger.logButtonClick('选择封面-${cover['url']}', 'PlaylistCoverDialog');
             setState(() {
               _selectedCoverUrl = cover['url'];
             });
@@ -257,6 +262,7 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
           title: '从相册选择',
           subtitle: '从手机相册选择图片',
           onTap: () {
+            AppLogger.logButtonClick('从相册选择', 'PlaylistCoverDialog');
             // TODO: 实现图片选择功能
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -273,6 +279,7 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
           title: '输入图片链接',
           subtitle: '使用网络图片URL',
           onTap: () {
+            AppLogger.logButtonClick('输入图片链接', 'PlaylistCoverDialog');
             _showUrlInputDialog(context);
           },
         ),
@@ -347,13 +354,18 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppLogger.logButtonClick('取消-图片链接', 'PlaylistCoverDialog');
+              Navigator.pop(context);
+            },
             child: const Text('取消'),
           ),
           TextButton(
             onPressed: () {
               final url = controller.text.trim();
               if (url.isNotEmpty) {
+                AppLogger.logButtonClick('确定-图片链接', 'PlaylistCoverDialog',
+                  parameters: {'url': url});
                 setState(() {
                   _selectedCoverUrl = url;
                 });
@@ -380,7 +392,10 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                AppLogger.logButtonClick('取消-封面选择', 'PlaylistCoverDialog');
+                Navigator.pop(context);
+              },
               child: const Text('取消'),
             ),
           ),
@@ -389,6 +404,8 @@ class _PlaylistCoverDialogState extends State<PlaylistCoverDialog> {
             child: FilledButton(
               onPressed: _selectedCoverUrl != null
                   ? () {
+                      AppLogger.logButtonClick('确定-封面选择', 'PlaylistCoverDialog',
+                        parameters: {'coverUrl': _selectedCoverUrl});
                       widget.onCoverSelected?.call(_selectedCoverUrl!);
                       Navigator.pop(context, _selectedCoverUrl);
                     }

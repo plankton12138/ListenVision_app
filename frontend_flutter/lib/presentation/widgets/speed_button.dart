@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 
 /// 倍速按钮组件
 ///
@@ -40,7 +41,11 @@ class SpeedButton extends StatelessWidget {
                   : Theme.of(context).colorScheme.primary,
             ),
           ),
-          onPressed: () => _showSpeedMenu(context, provider),
+          onPressed: () {
+            AppLogger.logButtonClick('倍速按钮', 'SpeedButton',
+              parameters: {'currentSpeed': currentSpeed});
+            _showSpeedMenu(context, provider);
+          },
           tooltip: '播放倍速',
         );
       },
@@ -81,6 +86,8 @@ class SpeedButton extends StatelessWidget {
       }).toList(),
     ).then((selectedSpeed) {
       if (selectedSpeed != null) {
+        AppLogger.logButtonClick('倍速选择-${kSpeedLabels[selectedSpeed]}', 'SpeedButton',
+          parameters: {'speed': selectedSpeed});
         provider.setSpeed(selectedSpeed);
       }
     });

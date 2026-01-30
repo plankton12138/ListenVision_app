@@ -2,6 +2,7 @@ import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
 import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -164,6 +165,7 @@ class ControlsPanel extends StatelessWidget {
         child: Center(
           child: TextButton.icon(
             onPressed: () {
+              AppLogger.logButtonClick('重试', 'ControlsPanel');
               controller.clearPlaybackError();
               controller.togglePlayPause();
             },
@@ -185,7 +187,11 @@ class ControlsPanel extends StatelessWidget {
         max: durationSec.toDouble(),
         activeColor: Colors.green,
         inactiveColor: Colors.grey,
-        onChanged: (value) => controller.seek(Duration(seconds: value.toInt())),
+        onChanged: (value) {
+          AppLogger.logButtonClick('进度条', 'ControlsPanel',
+            parameters: {'position': value.toInt()});
+          controller.seek(Duration(seconds: value.toInt()));
+        },
       );
     }
 
@@ -243,17 +249,29 @@ class ControlsPanel extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.skip_previous),
               iconSize: 45,
-              onPressed: () => provider.playPrevious(),
+              onPressed: () {
+                AppLogger.logButtonClick('上一首', 'ControlsPanel');
+                provider.playPrevious();
+              },
             ),
             IconButton(
               icon: Icon(provider.isPlaying ? Icons.pause : Icons.play_arrow),
               iconSize: 45,
-              onPressed: () => provider.togglePlayPause(),
+              onPressed: () {
+                AppLogger.logButtonClick(
+                  provider.isPlaying ? '暂停' : '播放',
+                  'ControlsPanel',
+                );
+                provider.togglePlayPause();
+              },
             ),
             IconButton(
               icon: const Icon(Icons.skip_next),
               iconSize: 45,
-              onPressed: () => provider.playNext(),
+              onPressed: () {
+                AppLogger.logButtonClick('下一首', 'ControlsPanel');
+                provider.playNext();
+              },
             ),
           ],
         ),

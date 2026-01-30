@@ -169,6 +169,70 @@ class AppLogger {
     );
   }
 
+  // ==================== 用户操作追踪 ====================
+
+  /// 记录用户操作
+  ///
+  /// 用于追踪用户在应用中的关键操作，如点击、导航、表单提交等
+  ///
+  /// 参数：
+  /// - [feature] 功能模块名称（如 'AudioPlayer', 'Auth'）
+  /// - [action] 操作描述（如 '播放', '暂停', '登录'）
+  /// - [parameters] 操作相关的参数（可选）
+  /// - [userId] 用户 ID（可选）
+  static void logUserAction(
+    String feature,
+    String action, {
+    Map<String, dynamic>? parameters,
+    String? userId,
+  }) {
+    final data = <String, dynamic>{
+      'action': action,
+      'feature': feature,
+      'timestamp': DateTime.now().toIso8601String(),
+      if (userId != null) 'userId': userId,
+      if (parameters != null) 'parameters': parameters,
+    };
+
+    info(feature, action, extra: data);
+  }
+
+  /// 记录页面导航
+  ///
+  /// 用于追踪用户在应用中的页面跳转行为
+  ///
+  /// 参数：
+  /// - [from] 来源页面名称
+  /// - [to] 目标页面名称
+  /// - [userId] 用户 ID（可选）
+  static void logNavigation(String from, String to, {String? userId}) {
+    logUserAction(
+      'Navigation',
+      '页面跳转',
+      parameters: {'from': from, 'to': to},
+      userId: userId,
+    );
+  }
+
+  /// 记录按钮点击
+  ///
+  /// 用于追踪用户点击按钮的行为
+  ///
+  /// 参数：
+  /// - [button] 按钮名称或标识
+  /// - [context] 按钮所在的功能上下文
+  /// - [userId] 用户 ID（可选）
+  static void logButtonClick(String button, String context, {String? userId}) {
+    logUserAction(
+      context,
+      '点击按钮: $button',
+      parameters: {'button': button},
+      userId: userId,
+    );
+  }
+
+  // ==================== 日志文件管理 ====================
+
   /// 获取所有日志文件
   Future<List<File>> getLogFiles() async {
     if (_logDirectory == null || !await _logDirectory!.exists()) {

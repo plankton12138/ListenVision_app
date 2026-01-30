@@ -898,5 +898,8 @@ module.exports = {
   proxyAudioStreamByBvid,
 
   // 下载
-  downloadAudioWithMetadata  // 新增：带元数据的下载
+  downloadAudioWithMetadata,  // 新增：带元数据的下载
+
+  // 测试辅助
+  conversionTracker  // 导出用于测试
 };

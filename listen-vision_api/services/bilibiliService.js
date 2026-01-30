@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../config/database');
+const { logger } = require('../utils/logger');
 
 /**
  * B站API集成服务
@@ -48,7 +49,7 @@ const decryptCookie = (encryptedData) => {
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
-    console.error('Cookie解密失败:', error.message);
+    logger.error('Cookie解密失败: %s', error.message);
     return null;  // 返回null而不是抛出异常
   }
 };
@@ -196,7 +197,7 @@ const checkQRLoginStatus = async (qrcodeKey) => {
     const url = `https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=${qrcodeKey}`;
     const data = await httpGet(url);
 
-    console.log('[QR码检查] 响应:', JSON.stringify(data));
+    logger.debug('[QR码检查] 响应: %o', data);
 
     // Web端状态码在 data.data.code (数字类型):
     // 0: 登录成功
@@ -205,7 +206,7 @@ const checkQRLoginStatus = async (qrcodeKey) => {
     // 86101: 未扫码
 
     const statusCode = data.data?.code;
-    console.log('[QR码检查] 状态码:', statusCode);
+    logger.debug('[QR码检查] 状态码: %d', statusCode);
 
     const statusMap = {
       86101: 'pending',
@@ -240,7 +241,7 @@ const checkQRLoginStatus = async (qrcodeKey) => {
 
         if (cookieParts.length > 0) {
           cookie = cookieParts.join('; ');
-          console.log('[QR码检查] Cookie提取成功:', cookie);
+          logger.info('[QR码检查] Cookie提取成功');
 
           // 提取用户信息
           const dedeUserId = params.get('DedeUserID');
@@ -250,17 +251,17 @@ const checkQRLoginStatus = async (qrcodeKey) => {
               uid: dedeUserId,
               uname: '' // 用户名需要额外API获取
             };
-            console.log('[QR码检查] 用户信息:', userInfo);
+            logger.debug('[QR码检查] 用户信息: %o', userInfo);
           }
         } else {
-          console.log('[QR码检查] 未找到Cookie参数');
+          logger.warn('[QR码检查] 未找到Cookie参数');
         }
       } catch (e) {
-        console.error('解析登录URL失败:', e);
+        logger.error('解析登录URL失败: %s', e.message);
       }
     }
 
-    console.log('[QR码检查] 返回状态:', status, 'Cookie存在:', !!cookie);
+    logger.debug('[QR码检查] 返回状态: %s, Cookie存在: %s', status, !!cookie);
 
     return {
       code: data.code,
@@ -396,7 +397,7 @@ const getCookie = (userId) => {
   const cookie = decryptCookie(account.cookie_encrypted);
   // 解密失败则停用该账号
   if (cookie === null) {
-    console.log(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
+    logger.warn(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
     stmt.deactivateBiliAccount.run(userId);
   }
   return cookie;
@@ -405,12 +406,16 @@ const getCookie = (userId) => {
 /**
  * 刷新Cookie（如果即将过期）
  *
+ * 注意：B站的 refresh_token 机制需要调用特定的刷新 API。
+ * 当前实现中，refresh_token 已保存但刷新逻辑待实现。
+ *
  * @param {number} userId - 用户ID
  * @returns {boolean} 是否成功
  */
 const refreshCookie = async (userId) => {
-  // TODO: 实现Cookie刷新逻辑
-  // 需要调用B站的刷新Token API
+  // Cookie 刷新逻辑：调用 B站 refresh_token API 更新过期 Cookie
+  // 参考文档：bilibili-API-collect/docs/login/login_action/QR.md
+  // 当前暂不实现，用户重新扫码登录即可
   return true;
 };
 
@@ -440,7 +445,7 @@ const getBindStatus = (userId) => {
   const cookie = decryptCookie(account.cookie_encrypted);
   if (cookie === null) {
     // 解密失败，停用账号
-    console.log(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
+    logger.warn(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
     stmt.deactivateBiliAccount.run(userId);
     return { isBound: false };
   }
@@ -505,7 +510,7 @@ const getVideoInfo = async (bvid) => {
         audioBaseUrl = audio.baseUrl;
       }
     } catch (e) {
-      console.log(`[getVideoInfo] 获取音频流失败: ${e.message}`);
+      logger.debug(`[getVideoInfo] 获取音频流失败: ${e.message}`);
     }
 
     return {
@@ -668,11 +673,11 @@ const getWbiKey = async (userId = null) => {
   const cacheKey = userId ? `user_${userId}` : 'global';
 
   if (wbiKeyCache && wbiKeyCache.key === cacheKey && Date.now() < wbiKeyExpireTime) {
-    console.log('[getWbiKey] Using cached key for', cacheKey);
+    logger.debug('[getWbiKey] Using cached key for %s', cacheKey);
     return wbiKeyCache;
   }
 
-  console.log('[getWbiKey] Fetching WBI key from Bilibili...');
+  logger.debug('[getWbiKey] Fetching WBI key from Bilibili...');
 
   // 构建请求头
   const headers = {};
@@ -680,7 +685,7 @@ const getWbiKey = async (userId = null) => {
     const cookie = getCookie(userId);
     if (cookie) {
       headers['Cookie'] = cookie;
-      console.log('[getWbiKey] Using user cookie');
+      logger.debug('[getWbiKey] Using user cookie');
     }
   }
 
@@ -689,37 +694,36 @@ const getWbiKey = async (userId = null) => {
   try {
     data = await httpGet('https://api.bilibili.com/x/web-interface/nav', headers);
   } catch (error) {
-    console.error('[getWbiKey] HTTP request failed:', error.message);
+    logger.error('[getWbiKey] HTTP request failed: %s', error.message);
     return { imgKey: '', subKey: '' };
   }
 
-  console.log('[getWbiKey] Response code:', data.code);
-  console.log('[getWbiKey] Has wbi_img:', !!data.data?.wbi_img);
+  logger.debug('[getWbiKey] Response code: %d, Has wbi_img: %s', data.code, !!data.data?.wbi_img);
 
   // 根据 bilibili-API-collect/docs/misc/sign/wbi.md
   // 未登录时 code=-101，但 wbi_img 仍然有效
   if (data.code !== 0 && data.code !== -101) {
-    console.error('[getWbiKey] API returned error:', data.message);
+    logger.error('[getWbiKey] API returned error: %s', data.message);
     return { imgKey: '', subKey: '' };
   }
 
   if (data.code === -101) {
-    console.log('[getWbiKey] User not logged in, but WBI key is available');
+    logger.debug('[getWbiKey] User not logged in, but WBI key is available');
   }
 
   if (!data.data?.wbi_img) {
-    console.error('[getWbiKey] No wbi_img in response');
-    console.log('[getWbiKey] Response data keys:', Object.keys(data.data || {}));
+    logger.error('[getWbiKey] No wbi_img in response');
+    logger.debug('[getWbiKey] Response data keys: %o', Object.keys(data.data || {}));
     return { imgKey: '', subKey: '' };
   }
 
   const wbiImg = data.data.wbi_img;
-  console.log('[getWbiKey] wbi_img:', wbiImg);
+  logger.debug('[getWbiKey] wbi_img: %o', wbiImg);
 
   const imgKey = wbiImg.img_url.split('/').pop().replace('.png', '');
   const subKey = wbiImg.sub_url.split('/').pop().replace('.png', '');
 
-  console.log('[getWbiKey] Extracted keys - imgKey:', imgKey, 'subKey:', subKey);
+  logger.debug('[getWbiKey] Extracted keys - imgKey: %s, subKey: %s', imgKey, subKey);
 
   wbiKeyCache = { key: cacheKey, imgKey, subKey };
   wbiKeyExpireTime = Date.now() + 2 * 60 * 60 * 1000; // 2小时过期
@@ -761,7 +765,7 @@ const getMixinKey = (imgKey, subKey) => {
 const signWbi = (params, { imgKey, subKey }) => {
   // 生成混合密钥
   const mixinKey = getMixinKey(imgKey, subKey);
-  console.log('[signWbi] mixinKey:', mixinKey);
+  logger.debug('[signWbi] mixinKey: %s', mixinKey);
 
   // 添加时间戳
   const wts = Math.floor(Date.now() / 1000);
@@ -784,7 +788,7 @@ const signWbi = (params, { imgKey, subKey }) => {
     })
     .join('&');
 
-  console.log('[signWbi] query:', query);
+  logger.debug('[signWbi] query: %s', query);
 
   // 计算签名
   const w_rid = crypto
@@ -792,7 +796,7 @@ const signWbi = (params, { imgKey, subKey }) => {
     .update(query + mixinKey)
     .digest('hex');
 
-  console.log('[signWbi] w_rid:', w_rid);
+  logger.debug('[signWbi] w_rid: %s', w_rid);
 
   return {
     ...paramsWithWts,
@@ -950,15 +954,15 @@ const cleanupInvalidBindings = () => {
         // 解密失败，停用该账号
         db.prepare('UPDATE bilibili_accounts SET is_active = 0 WHERE id = ?').run(account.id);
         cleanedCount++;
-        console.log(`清理无效绑定: 用户ID ${account.user_id}`);
+        logger.info(`清理无效绑定: 用户ID ${account.user_id}`);
       }
     });
 
     if (cleanedCount > 0) {
-      console.log(`清理了 ${cleanedCount} 个无效的B站绑定`);
+      logger.info(`清理了 ${cleanedCount} 个无效的B站绑定`);
     }
   } catch (error) {
-    console.error('清理无效绑定失败:', error.message);
+    logger.error('清理无效绑定失败: %s', error.message);
   }
 };
 

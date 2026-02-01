@@ -1,9 +1,11 @@
 // P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/core/utils/file_picker_helper.dart';
 import 'package:demo/presentation/widgets/audio_info.dart';
 import 'package:demo/presentation/widgets/controls_panel.dart';
+import 'package:demo/presentation/widgets/player_action_bar.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -31,6 +33,7 @@ class _HomePageState extends State<HomePage> {
         await audioProvider.loadAudio(filePath);
       }
     } catch (e) {
+      AppLogger.error('HomePage', '加载音频失败: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('错误: ${e.toString()}')),
       );
@@ -80,8 +83,12 @@ class _HomePageState extends State<HomePage> {
         mainAxisSize: MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: const [
+          // 音频信息（封面、标题、艺术家）
           AudioInfo(),
+          // 控制面板（进度条、播放控制）
           ControlsPanel(),
+          // 底部操作栏（收藏、添加到歌单、更多）
+          PlayerActionBar(),
         ],
       ),
 

@@ -1,9 +1,6 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
-import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
-import 'package:demo/presentation/widgets/cards/favorite_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:demo/core/utils/app_logger.dart';
@@ -83,116 +80,38 @@ class AudioInfo extends StatelessWidget {
 
   /// 构建音频信息（标题和艺术家）
   Widget _buildAudioInfo(BuildContext context, AudioMetadataProvider controller) {
-    final playlistProvider = context.watch<PlaylistProvider>();
-    final currentId = controller.currentPlayable?.id ?? '';
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 15),
+        const SizedBox(height: 20),
 
-        // 标题行 - 添加收藏按钮
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                controller.title,
-                style: const TextStyle(
-                  fontSize: UIConstants.fontSizeMedium,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (currentId.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              FavoriteButton(
-                isFavorited: playlistProvider.isFavorited(currentId),
-                size: 28,
-                onPressed: () => _handleFavoriteToggle(context, playlistProvider, controller),
-              ),
-            ],
-          ],
+        // 标题
+        Text(
+          controller.title,
+          style: const TextStyle(
+            fontSize: UIConstants.fontSizeMedium,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
         ),
 
-        const SizedBox(height: 15),
+        const SizedBox(height: 12),
+
+        // 艺术家
         Text(
           controller.artist,
           style: const TextStyle(
             fontSize: UIConstants.fontSizeSmall,
+            color: Colors.grey,
           ),
           textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       ],
     );
-  }
-
-  /// 处理收藏按钮点击
-  Future<void> _handleFavoriteToggle(
-    BuildContext context,
-    PlaylistProvider playlistProvider,
-    AudioMetadataProvider controller,
-  ) async {
-    final authProvider = context.read<AuthProvider>();
-    if (!authProvider.isLoggedIn || authProvider.user?.token == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('请先登录后收藏'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      return;
-    }
-
-    final currentPlayable = controller.currentPlayable;
-    if (currentPlayable == null) return;
-
-    final bvid = currentPlayable.id;
-    final wasFavorited = playlistProvider.isFavorited(bvid);
-
-    try {
-      await playlistProvider.toggleFavorite(
-        authProvider.user!.token!,
-        bvid,
-        title: currentPlayable.title,
-        artist: currentPlayable.artist,
-        duration: currentPlayable.duration,
-        coverUrl: currentPlayable.coverUrl,
-      );
-
-      // 添加UI层日志记录
-      AppLogger.logButtonClick(
-        wasFavorited ? '取消收藏' : '收藏',
-        'AudioInfo',
-        parameters: {'bvid': bvid, 'title': currentPlayable.title},
-      );
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(wasFavorited ? '已取消收藏' : '已添加到我喜欢'),
-            backgroundColor: wasFavorited ? Colors.grey : Colors.green,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      AppLogger.error('AudioInfo', '收藏操作失败: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('操作失败: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
   }
 }

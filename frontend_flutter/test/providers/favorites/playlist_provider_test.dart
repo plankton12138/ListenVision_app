@@ -227,6 +227,60 @@ void main() {
           },
         )).called(1);
       });
+
+      test('收藏状态变更后正确更新缓存', () async {
+        // 初始状态：未收藏
+        expect(playlistProvider.isFavorited(testBvid), false);
+
+        // Mock API 返回添加成功
+        when(() => mockDioProvider.post(
+          any(),
+          data: any(named: 'data'),
+        )).thenAnswer((_) async => {
+          'success': true,
+          'data': {'added': true},
+        });
+
+        // Mock loadFavorites 返回完整列表
+        when(() => mockDioProvider.get(
+          any(),
+          queryParams: any(named: 'queryParams'),
+        )).thenAnswer((_) async => {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'id': '1',
+                'bvid': testBvid,
+                'title': 'Test Title',
+              },
+            ],
+          },
+        });
+
+        await playlistProvider.toggleFavorite(
+          testToken,
+          testBvid,
+          title: 'Test',
+        );
+
+        // 验证状态已更新为已收藏
+        expect(playlistProvider.isFavorited(testBvid), true);
+
+        // Mock API 返回移除成功
+        when(() => mockDioProvider.post(
+          any(),
+          data: any(named: 'data'),
+        )).thenAnswer((_) async => {
+          'success': true,
+          'data': {'added': false},
+        });
+
+        await playlistProvider.toggleFavorite(testToken, testBvid);
+
+        // 验证状态已更新为未收藏
+        expect(playlistProvider.isFavorited(testBvid), false);
+      });
     });
 
     group('loadFavorites', () {

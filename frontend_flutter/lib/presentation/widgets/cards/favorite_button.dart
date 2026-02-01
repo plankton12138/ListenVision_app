@@ -37,9 +37,13 @@ class _FavoriteButtonState extends State<FavoriteButton>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   @override
@@ -47,9 +51,7 @@ class _FavoriteButtonState extends State<FavoriteButton>
     super.didUpdateWidget(oldWidget);
     if (widget.isFavorited != oldWidget.isFavorited) {
       if (widget.isFavorited) {
-        _animationController.forward().then((_) {
-          _animationController.reverse();
-        });
+        _animationController.forward();
       }
     }
   }

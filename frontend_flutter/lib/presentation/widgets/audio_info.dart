@@ -166,6 +166,13 @@ class AudioInfo extends StatelessWidget {
         coverUrl: currentPlayable.coverUrl,
       );
 
+      // 添加UI层日志记录
+      AppLogger.logButtonClick(
+        wasFavorited ? '取消收藏' : '收藏',
+        'AudioInfo',
+        parameters: {'bvid': bvid, 'title': currentPlayable.title},
+      );
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

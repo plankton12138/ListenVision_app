@@ -32,15 +32,20 @@ class PlaybackController {
   // 播放启动保护（防止 stream 事件覆盖正在启动的播放状态）
   bool _isStartingPlayback = false;
 
-  // ✅ 优化：缩短自适应保护窗口（减少切换延迟）
+  // 自适应保护窗口（优化切换延迟）
   final AdaptiveProtection _adaptiveProtection = AdaptiveProtection(
     baseDuration: const Duration(milliseconds: 500),
     maxDuration: const Duration(seconds: 1),
   );
 
-  // P0修复：音频源切换锁（防止重叠播放）
+  // 音频源切换锁（防止重叠播放）
   bool _isSwitchingSource = false;
   final OperationLock _sourceSwitchLock = OperationLock();
+
+  // 超时常量
+  static const Duration _localSourceTimeout = Duration(seconds: 5);
+  static const Duration _onlineSourceTimeout = Duration(seconds: 10);
+  static const Duration _durationWaitTimeout = Duration(seconds: 5);
 
   // 状态订阅
   StreamSubscription? _playerStateSub;
@@ -107,7 +112,8 @@ class PlaybackController {
   bool get isCompleted => _lastPlayerState == PlayerState.completed;
 
   /// 是否正在加载（audioplayers 没有明确的 loading 状态）
-  /// ✅ 修复：当没有有效时长或正在切换音频源时认为正在加载
+  ///
+  /// 当没有有效时长或正在切换音频源时认为正在加载
   bool get isLoading =>
       _isSwitchingSource ||
       (_currentSourceUrl != null &&
@@ -156,7 +162,7 @@ class PlaybackController {
     });
   }
 
-  // ✅ 优化：减少状态更新间隔限制（更及时的UI响应）
+  // 状态更新间隔限制（优化UI响应及时性）
   DateTime _lastStateUpdateTime = DateTime.now();
   static const Duration _minStateUpdateInterval = Duration(milliseconds: 50);
 
@@ -166,14 +172,14 @@ class PlaybackController {
       (state) {
         if (_disposed) return;
 
-        // 修复：限制状态更新频率，避免平台通道过载
+        // 限制状态更新频率，避免平台通道过载
         final now = DateTime.now();
         if (now.difference(_lastStateUpdateTime) < _minStateUpdateInterval) {
           return;
         }
         _lastStateUpdateTime = now;
 
-        // ✅ 优化：使用自适应保护窗口，但允许 stopped 状态更新
+        // 使用自适应保护窗口，但允许 stopped 状态更新
         if (_isStartingPlayback && state != PlayerState.playing) {
           if (_adaptiveProtection.isInProtectionPeriod) {
             // 允许 stopped 状态更新（用于显示加载状态）
@@ -189,7 +195,7 @@ class PlaybackController {
           }
         }
 
-        // ✅ 优化：音频源切换期间允许 stopped 状态更新
+        // 音频源切换期间允许 stopped 状态更新
         if (_isSwitchingSource && state != PlayerState.playing) {
           if (state == PlayerState.stopped) {
             _lastPlayerState = state;
@@ -437,7 +443,7 @@ class PlaybackController {
     try {
       await _player
           .setSource(DeviceFileSource(filePath))
-          .timeout(const Duration(seconds: 5));
+          .timeout(_localSourceTimeout);
       _currentSourceUrl = filePath;
     } finally {
       _isLoadingSource = false;
@@ -453,7 +459,7 @@ class PlaybackController {
     _isLoadingSource = true;
     _onPlayerStateChanged?.call(_lastPlayerState);
     try {
-      await _player.setSource(UrlSource(url)).timeout(const Duration(seconds: 10));
+      await _player.setSource(UrlSource(url)).timeout(_onlineSourceTimeout);
       _currentSourceUrl = url;
     } finally {
       _isLoadingSource = false;
@@ -461,17 +467,19 @@ class PlaybackController {
     }
   }
 
-  /// 设置音频源并播放 - P0修复：防止音频重叠
+  /// 设置音频源并播放
+  ///
+  /// 防止音频重叠，使用锁确保同一时间只有一个音频源切换操作。
   ///
   /// [playable] 可播放音频对象
-  /// [timeout] 超时时间（在线音频默认30秒，本地音频5秒）
+  /// [timeout] 超时时间（在线音频默认10秒，本地音频5秒）
   Future<void> setSourceAndPlay(
     PlayableAudio playable, {
     Duration? timeout,
   }) async {
     if (_disposed) return;
 
-    // P0修复：使用锁防止并发音频源切换
+    // 使用锁防止并发音频源切换
     await _sourceSwitchLock.synchronized(() async {
       await _setSourceAndPlayInternal(playable, timeout);
     });
@@ -482,11 +490,11 @@ class PlaybackController {
     PlayableAudio playable,
     Duration? timeout,
   ) async {
-    // P0修复：标记正在切换音频源
+    // 标记正在切换音频源
     _isSwitchingSource = true;
     _ignoreCompletedUntil = DateTime.now().add(_adaptiveProtection.protectionDuration);
 
-    // ✅ 修复：重置播放器状态，避免上一首的"已完成"状态残留
+    // 重置播放器状态，避免上一首的"已完成"状态残留
     _lastPlayerState = PlayerState.stopped;
     _currentPosition = Duration.zero;
     _currentDuration = Duration.zero;
@@ -495,7 +503,7 @@ class PlaybackController {
     // 取消待处理的命令，确保新的播放操作优先
     _queue.cancelPending();
 
-    // P0修复：确保播放器完全停止
+    // 确保播放器完全停止
     try {
       await _player.stop();
       AppLogger.debug('PlaybackController', '播放器已停止，准备切换音频源');
@@ -527,7 +535,7 @@ class PlaybackController {
       protectionCleared = true;
       AppLogger.debug('PlaybackController', '播放已确认，保护已清除');
     } finally {
-      // P0修复：清除切换标记（延迟一个事件循环，确保状态流先处理播放开始）
+      // 清除切换标记（延迟一个事件循环，确保状态流先处理播放开始）
       Future.microtask(() {
         _isSwitchingSource = false;
       });
@@ -556,7 +564,7 @@ class PlaybackController {
     // 等待就绪（通过时长变化判断）
     await _waitForDuration(timeout);
 
-    // ✅ 修复：确保时长已加载后才标记为就绪
+    // 确保时长已加载后才标记为就绪
     if (_currentDuration > Duration.zero) {
       AppLogger.info('PlaybackController', '本地音频源已就绪，时长: ${_currentDuration.inSeconds}秒');
     } else {
@@ -568,20 +576,22 @@ class PlaybackController {
     _onPlayingChanged?.call(true);
   }
 
-  /// 设置在线音频源并播放（带自适应重试）- P0修复：使用自适应网络策略
+  /// 设置在线音频源并播放（带自适应重试）
+  ///
+  /// 使用网络感知的智能重试策略。
   Future<void> _setOnlineSourceAndPlay(
     PlayableAudio playable,
     Duration baseTimeout,
   ) async {
     final networkManager = AdaptiveNetworkManager();
 
-    // P0修复：使用网络感知的智能重试
+    // 使用网络感知的智能重试
     await networkManager.executeWithRetry(
       () async {
         AppLogger.info('PlaybackController', '播放在线音频: ${playable.url}');
 
         // 设置音频源并播放
-        // P0修复：根据网络质量设置预加载（通过HTTP headers）
+        // 根据网络质量设置预加载（通过HTTP headers）
         final headers = networkManager.shouldPreload()
             ? {'Range': 'bytes=0-${networkManager.getPreloadBytes()}'}
             : null;
@@ -599,9 +609,9 @@ class PlaybackController {
         AppLogger.info('PlaybackController', '音频源已设置，等待就绪...');
 
         // 等待就绪
-        await _waitForDuration(const Duration(seconds: 5));
+        await _waitForDuration(_durationWaitTimeout);
 
-        // ✅ 修复：确保时长已加载后才标记为播放开始
+        // 确保时长已加载后才标记为播放开始
         if (_currentDuration > Duration.zero) {
           AppLogger.info('PlaybackController', '在线音频已就绪，时长: ${_currentDuration.inSeconds}秒，播放开始');
         } else {
@@ -620,7 +630,8 @@ class PlaybackController {
   }
 
   /// 等待音频时长加载（用于判断音频是否就绪）
-  /// ✅ 优化：添加快速超时机制，播放开始后不等待时长
+  ///
+  /// 添加快速超时机制，播放开始后不等待时长。
   Future<void> _waitForDuration(Duration timeout) async {
     final completer = Completer<void>();
     late StreamSubscription sub;
@@ -712,7 +723,7 @@ class PlaybackController {
     if (_disposed) return;
     _disposed = true;
 
-    // P0修复：释放锁资源
+    // 释放锁资源
     _sourceSwitchLock.dispose();
 
     _playerStateSub?.cancel();

@@ -14,19 +14,11 @@ class FavoriteButton extends StatefulWidget {
   /// 按钮尺寸
   final double size;
 
-  /// 是否禁用
-  final bool disabled;
-
-  /// 颜色
-  final Color? activeColor;
-
   const FavoriteButton({
     super.key,
     required this.isFavorited,
     required this.onPressed,
     this.size = 24,
-    this.disabled = false,
-    this.activeColor,
   });
 
   @override
@@ -71,7 +63,6 @@ class _FavoriteButtonState extends State<FavoriteButton>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = widget.activeColor ?? theme.colorScheme.error;
 
     return SizedBox(
       width: widget.size,
@@ -82,7 +73,7 @@ class _FavoriteButtonState extends State<FavoriteButton>
           icon: Icon(
             widget.isFavorited ? Icons.favorite : Icons.favorite_border,
             color: widget.isFavorited
-                ? activeColor
+                ? theme.colorScheme.error
                 : theme.colorScheme.onSurfaceVariant,
           ),
           iconSize: widget.size,
@@ -91,15 +82,13 @@ class _FavoriteButtonState extends State<FavoriteButton>
             minWidth: widget.size,
             minHeight: widget.size,
           ),
-          onPressed: widget.disabled
-              ? null
-              : () {
-                  AppLogger.logButtonClick(
-                    widget.isFavorited ? '取消收藏' : '收藏',
-                    'FavoriteButton',
-                  );
-                  widget.onPressed();
-                },
+          onPressed: () {
+            AppLogger.logButtonClick(
+              widget.isFavorited ? '取消收藏' : '收藏',
+              'FavoriteButton',
+            );
+            widget.onPressed();
+          },
         ),
       ),
     );

@@ -72,5 +72,44 @@ void main() {
       expect(sizedBox.width, 32);
       expect(sizedBox.height, 32);
     });
+
+    testWidgets('收藏状态变化时触发缩放动画', (tester) async {
+      var favorited = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                return FavoriteButton(
+                  isFavorited: favorited,
+                  onPressed: () => setState(() => favorited = true),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // 初始状态：未收藏
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+
+      // 点击收藏
+      await tester.tap(find.byType(IconButton));
+      await tester.pump(); // 触发状态更新
+
+      // 验证动画控制器被触发（ScaleTransition 存在）
+      expect(find.byType(ScaleTransition), findsOneWidget);
+
+      // 验证图标变为实心爱心
+      expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border), findsNothing);
+
+      // 模拟动画完成
+      await tester.pumpAndSettle();
+
+      // ScaleTransition 依然存在（动画结束后不会移除）
+      expect(find.byType(ScaleTransition), findsOneWidget);
+    });
   });
 }

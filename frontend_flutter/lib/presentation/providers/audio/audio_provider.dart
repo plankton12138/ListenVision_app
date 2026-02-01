@@ -823,7 +823,22 @@ class AudioProvider extends ChangeNotifier {
 
   /// 添加在线音频到播放队列
   ///
-  /// [audio] 音频实体
+  /// 将指定的在线音频添加到播放队列末尾。音频会通过后端代理URL播放。
+  ///
+  /// 参数:
+  /// - [audio] 要添加到队列的在线音频实体，包含音频ID和元数据
+  ///
+  /// 执行流程:
+  /// 1. 记录添加操作日志
+  /// 2. 使用音频ID构建后端代理URL
+  /// 3. 将代理URL添加到在线队列
+  /// 4. 通知监听器更新UI
+  ///
+  /// 示例:
+  /// ```dart
+  /// final audio = Audio(id: 'BV1xx411c7mD', title: '示例歌曲');
+  /// await audioProvider.addToQueueOnline(audio);
+  /// ```
   Future<void> addToQueueOnline(Audio audio) async {
     AppLogger.info('AudioProvider', '添加在线音频到队列: ${audio.title}');
     final proxyUrl = _buildProxyUrl(audio.id);
@@ -831,7 +846,21 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 清空播放队列
+  /// 清空所有播放队列
+  ///
+  /// 清空本地音频队列和在线音频队列中的所有待播放项目。
+  /// 此操作不会影响当前正在播放的音频，也不会中断当前播放。
+  ///
+  /// 执行流程:
+  /// 1. 记录清空操作日志
+  /// 2. 清空本地音频队列
+  /// 3. 清空在线音频队列
+  /// 4. 通知监听器更新UI
+  ///
+  /// 注意:
+  /// - 此操作不可撤销
+  /// - 当前正在播放的音频不受影响
+  /// - 建议在确认不需要队列中所有音频时调用
   void clearQueue() {
     AppLogger.info('AudioProvider', '清空播放队列');
     _localQueue.clear();
@@ -840,35 +869,76 @@ class AudioProvider extends ChangeNotifier {
   }
 
   /// 播放队列中的下一首
+  ///
+  /// 优先从在线队列中获取音频，如果在线队列为空或播放失败，则尝试本地队列。
+  /// 当在线音频解析失败时，会自动继续尝试本地队列，而不是停止播放。
   Future<void> _playNextInQueue() async {
     if (_disposed) return;
 
+    // 优先播放在线队列
     if (_onlineQueue.isNotEmpty) {
       final nextUrl = _onlineQueue.removeAt(0);
-      // 从代理 URL 中提取 bvid
-      final bvid = _extractBvidFromProxyUrl(nextUrl);
-      if (bvid != null) {
-        // 创建最小 Audio 对象用于播放
-        final audio = Audio(
-          id: bvid,
-          title: '队列中的音频',
-        );
-        await playOnlineAudio(audio: audio, proxyUrl: nextUrl);
-      } else {
-        AppLogger.error('AudioProvider', '无法从 URL 提取 bvid: $nextUrl');
+      try {
+        // 从代理 URL 中提取 bvid
+        final bvid = _extractBvidFromProxyUrl(nextUrl);
+        if (bvid != null) {
+          // 创建最小 Audio 对象用于播放
+          final audio = Audio(
+            id: bvid,
+            title: '队列中的音频',
+          );
+          await playOnlineAudio(audio: audio, proxyUrl: nextUrl);
+        } else {
+          AppLogger.error('AudioProvider', '无法从 URL 提取 bvid: $nextUrl');
+          throw FormatException('Invalid proxy URL format: $nextUrl');
+        }
+      } catch (e) {
+        AppLogger.error('AudioProvider', '在线音频播放失败，尝试本地队列: $e');
+        // 在线播放失败，继续尝试本地队列
+        if (_localQueue.isNotEmpty) {
+          final nextPath = _localQueue.removeAt(0);
+          await loadAudio(nextPath);
+        } else {
+          AppLogger.warn('AudioProvider', '本地队列为空，无法继续播放');
+        }
       }
     } else if (_localQueue.isNotEmpty) {
+      // 播放本地队列
       final nextPath = _localQueue.removeAt(0);
       await loadAudio(nextPath);
     }
   }
 
   /// 从代理 URL 中提取 bvid
+  ///
+  /// 使用正则表达式从后端代理URL中提取B站视频ID。
+  ///
+  /// 参数:
+  /// - [url] 后端代理URL，格式为: `/api/bilibili/proxy/audio/{bvid}?format=xxx`
+  ///
+  /// 返回:
+  /// - 成功时返回B站视频ID (bvid)
+  /// - URL格式不匹配时返回 null
+  ///
+  /// 异常处理:
+  /// - 正则表达式匹配失败时返回 null 并记录错误日志
+  /// - 不会抛出异常，调用方应检查返回值
   String? _extractBvidFromProxyUrl(String url) {
-    // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
-    final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
-    final match = bvidPattern.firstMatch(url);
-    return match?.group(1);
+    try {
+      // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
+      final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
+      final match = bvidPattern.firstMatch(url);
+      final bvid = match?.group(1);
+
+      if (bvid == null) {
+        AppLogger.error('AudioProvider', '无法从代理URL提取bvid: $url');
+      }
+
+      return bvid;
+    } catch (e) {
+      AppLogger.error('AudioProvider', '解析代理URL失败: $url, 错误: $e');
+      return null;
+    }
   }
 
   // ==================== 播放列表管理（原有）====================

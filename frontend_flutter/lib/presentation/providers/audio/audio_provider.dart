@@ -821,24 +821,15 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 添加在线音频到播放队列
+  /// 添加到在线播放队列（内部队列，不更新播放列表UI）
   ///
-  /// 将指定的在线音频添加到播放队列末尾。音频会通过后端代理URL播放。
+  /// 将在线音频添加到内部队列，用于快速添加播放。
+  /// 注意：此方法不会更新统一播放列表。
+  ///
+  /// 如需添加到统一播放列表并在UI中显示，请使用 [addToPlaylistOnline]。
   ///
   /// 参数:
-  /// - [audio] 要添加到队列的在线音频实体，包含音频ID和元数据
-  ///
-  /// 执行流程:
-  /// 1. 记录添加操作日志
-  /// 2. 使用音频ID构建后端代理URL
-  /// 3. 将代理URL添加到在线队列
-  /// 4. 通知监听器更新UI
-  ///
-  /// 示例:
-  /// ```dart
-  /// final audio = Audio(id: 'BV1xx411c7mD', title: '示例歌曲');
-  /// await audioProvider.addToQueueOnline(audio);
-  /// ```
+  /// - [audio] 要添加到队列的在线音频
   Future<void> addToQueueOnline(Audio audio) async {
     AppLogger.info('AudioProvider', '添加在线音频到队列: ${audio.title}');
     final proxyUrl = _buildProxyUrl(audio.id);

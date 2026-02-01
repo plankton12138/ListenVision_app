@@ -108,7 +108,8 @@ void main() {
       });
 
       test('搜索完成后应该清空错误信息', () async {
-        searchProvider.setError('previous error');
+        // 注意：SearchProvider 没有公开的 setError 方法
+        // 新的搜索操作会自动清空之前的错误（在 searchLocalAudio 中 _errorMessage = null）
 
         try {
           await searchProvider.searchLocalAudio('test');

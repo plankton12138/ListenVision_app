@@ -1,3 +1,4 @@
+const { logger } = require('../utils/logger');
 const db = require('../config/database');
 const { AppError } = require('../middleware/errorHandler');
 
@@ -71,7 +72,7 @@ const ensureSystemPlaylists = (userId) => {
     const existing = stmt.playlistBySystemType.get(userId, sp.systemType);
     if (!existing) {
       stmt.insertPlaylist.run(userId, sp.name, sp.description, null, 'system', sp.systemType, 0);
-      console.log(`✅ 创建系统歌单: ${sp.name} for user ${userId}`);
+      logger.info('创建系统歌单: %s for user %d', sp.name, userId);
     }
   }
 };

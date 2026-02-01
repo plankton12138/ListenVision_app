@@ -14,6 +14,7 @@ library;
 
 import 'package:demo/core/di/service_factory.dart';
 import 'package:demo/core/network/dio_provider.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/file_picker_helper.dart';
 import 'package:demo/domain/repositories/auth_repository.dart';
 import 'package:demo/domain/repositories/bilibili_repository.dart';
@@ -233,7 +234,7 @@ class ProviderConfig {
               try {
                 await playlistProvider?.initialize(token);
               } catch (e) {
-                // 歌单初始化失败静默处理
+                AppLogger.debug('ProviderConfig', '歌单初始化失败（静默）: $e');
               }
             }
           }

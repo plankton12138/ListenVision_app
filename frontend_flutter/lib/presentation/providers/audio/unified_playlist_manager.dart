@@ -523,6 +523,7 @@ class UnifiedPlaylistManager {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(StorageKeys.isCurrentOnline) ?? false;
     } catch (e) {
+      AppLogger.debug('UnifiedPlaylistManager', '获取在线状态失败: $e');
       return false;
     }
   }

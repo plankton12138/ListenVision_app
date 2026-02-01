@@ -125,7 +125,7 @@ const setResetCode = (username, code, expiry) => {
 const verifyResetCodeAndResetPassword = async (username, code, newPassword) => {
   const user = stmt.verifyResetCode.get(username, code);
   if (!user) {
-    throw new Error('验证码无效');
+    throw new AppError('验证码无效', 400);
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);

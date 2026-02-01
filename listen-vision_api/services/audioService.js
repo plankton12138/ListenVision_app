@@ -1,3 +1,4 @@
+const { logger } = require('../utils/logger');
 const db = require('../config/database');
 const bilibiliService = require('./bilibiliService');
 const ffmpeg = require('fluent-ffmpeg');
@@ -8,6 +9,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { AppError } = require('../middleware/errorHandler');
 
 // ==================== 并发控制 ====================
 
@@ -30,7 +32,7 @@ async function queueConversion(fn) {
     } else {
       // 排队等待
       conversionQueue.push(task);
-      console.log(`[AudioService] 转换任务已排队，当前活跃: ${activeConversions}, 队列: ${conversionQueue.length}`);
+      logger.info('转换任务已排队，当前活跃: %d, 队列: %d', activeConversions, conversionQueue.length);
     }
   });
 }
@@ -149,7 +151,7 @@ const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
   const inputPath = path.join(tempDir, `m4s-input-${uniqueId}.m4s`);
   const outputPath = path.join(tempDir, `mp3-output-${uniqueId}.${format}`);
 
-  console.log(`[AudioService] 开始转换: ${uniqueId}, 大小: ${inputBuffer.length} bytes`);
+  logger.info('开始转换: %s, 大小: %d bytes', uniqueId, inputBuffer.length);
 
   try {
     // ✅ 第1步：异步写入输入文件
@@ -166,21 +168,20 @@ const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
         .audioChannels(channels)
         .format(outputFormat)
         .on('start', (commandLine) => {
-          console.log(`[AudioService] FFmpeg 启动: ${commandLine}`);
+          logger.debug('FFmpeg 启动: %s', commandLine);
         })
         .on('progress', (progress) => {
           if (progress.percent && Math.floor(progress.percent) % 20 === 0) {
-            console.log(`[AudioService] 转换进度: ${Math.floor(progress.percent)}%`);
+            logger.debug('转换进度: %d%%', Math.floor(progress.percent));
           }
         })
         .on('end', () => {
           const duration = Date.now() - startTime;
-          console.log(`[AudioService] 转换完成: ${uniqueId}, 耗时: ${duration}ms`);
+          logger.info('转换完成: %s, 耗时: %dms', uniqueId, duration);
           resolve();
         })
         .on('error', (err, stdout, stderr) => {
-          console.error(`[AudioService] FFmpeg 错误: ${err.message}`);
-          console.error(`[AudioService] Stderr: ${stderr}`);
+          logger.error('FFmpeg 错误: %s, Stderr: %s', err.message, stderr);
           reject(new Error(`音频转换失败: ${err.message}`));
         })
         .save(outputPath);
@@ -190,7 +191,7 @@ const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
     const outputBuffer = await fs.promises.readFile(outputPath);
     const contentType = format === 'mp3' ? 'audio/mpeg' : 'audio/aac';
 
-    console.log(`[AudioService] 转换成功: ${uniqueId}, 输出大小: ${outputBuffer.length} bytes`);
+    logger.info('转换成功: %s, 输出大小: %d bytes', uniqueId, outputBuffer.length);
 
     return { buffer: outputBuffer, contentType };
   } finally {
@@ -199,15 +200,19 @@ const convertStream = async (inputBuffer, format = 'mp3', options = {}) => {
       try {
         if (fs.existsSync(inputPath)) {
           fs.unlinkSync(inputPath);
-          console.log(`[AudioService] 清理输入文件: ${inputPath}`);
+          logger.debug('清理输入文件: %s', inputPath);
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('清理输入文件失败: %s', e.message);
+      }
       try {
         if (fs.existsSync(outputPath)) {
           fs.unlinkSync(outputPath);
-          console.log(`[AudioService] 清理输出文件: ${outputPath}`);
+          logger.debug('清理输出文件: %s', outputPath);
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('清理输出文件失败: %s', e.message);
+      }
     };
 
     // 不阻塞响应，在下一个事件循环中清理
@@ -385,7 +390,7 @@ const getMultipleMetadata = async (bvids) => {
         result.set(bvid, metadata);
       } catch (error) {
         // 记录错误但继续处理其他BVID
-        console.error(`获取 ${bvid} 元数据失败:`, error.message);
+        logger.error('获取 %s 元数据失败: %s', bvid, error.message);
       }
     }));
   }
@@ -491,7 +496,7 @@ const parseCachedMetadata = (row) => {
       result.owner = extra.owner;
       result.pages = extra.pages;
     } catch (e) {
-      // 忽略解析错误
+      logger.warn('解析元数据JSON失败 [%s]: %s', bvid, e.message);
     }
   }
 
@@ -641,7 +646,7 @@ const downloadCoverForMetadata = async (coverUrl, onProgress = null, startPercen
     });
 
     if (!response.ok) {
-      console.warn(`[AudioService] 封面下载失败: ${response.status}`);
+      logger.warn('封面下载失败: %d', response.status);
       return null;
     }
 
@@ -654,7 +659,7 @@ const downloadCoverForMetadata = async (coverUrl, onProgress = null, startPercen
     let lastUpdate = startPercent;
     const interval = (endPercent - startPercent) / 4; // 分4次报告进度
 
-    console.log(`[AudioService] 开始下载封面，大小: ${totalBytes ? (totalBytes / 1024).toFixed(0) + ' KB' : '未知'}`);
+    logger.info('开始下载封面，大小: %s', totalBytes ? (totalBytes / 1024).toFixed(0) + ' KB' : '未知');
 
     while (true) {
       const { done, value } = await reader.read();
@@ -671,7 +676,7 @@ const downloadCoverForMetadata = async (coverUrl, onProgress = null, startPercen
         if (currentPercent >= lastUpdate + interval) {
           lastUpdate = currentPercent;
           onProgress(Math.min(currentPercent, endPercent), 'downloading_cover');
-          console.log(`[AudioService] 封面下载: ${(downloadPercent * 100).toFixed(0)}% -> ${currentPercent}%`);
+          logger.debug('封面下载: %d%% -> %d%%', Math.floor(downloadPercent * 100), currentPercent);
         }
       }
     }
@@ -682,10 +687,10 @@ const downloadCoverForMetadata = async (coverUrl, onProgress = null, startPercen
     // 最终进度
     if (onProgress) onProgress(endPercent, 'downloading_cover');
 
-    console.log(`[AudioService] 封面下载成功: ${coverPath}, 大小: ${buffer.length} bytes`);
+    logger.info('封面下载成功: %s, 大小: %d bytes', coverPath, buffer.length);
     return coverPath;
   } catch (error) {
-    console.warn(`[AudioService] 封面下载失败: ${error.message}`);
+    logger.warn('封面下载失败: %s', error.message);
     return null;
   }
 };
@@ -728,14 +733,14 @@ const convertWithMetadata = async (
   const outputPath = path.join(tempDir, `output-${uniqueId}.${format}`);
   let coverPath = null;
 
-  console.log(`[AudioService] 开始带元数据转换: ${uniqueId}`);
-  console.log(`[AudioService] 元数据: title="${metadata.title}", artist="${metadata.artist}"`);
+  logger.info('开始带元数据转换: %s', uniqueId);
+  logger.debug('元数据: title="%s", artist="%s"', metadata.title, metadata.artist);
 
   try {
     // 步骤1: 下载 m4s 音频流
     if (onProgress) onProgress(10, 'downloading_audio');
-    console.log(`[AudioService] 步骤1/4: 下载音频流...`);
-    console.log(`[AudioService] 音频URL: ${m4sUrl?.substring(0, 100)}...`);
+    logger.info('步骤1/4: 下载音频流...');
+    logger.debug('音频URL: %s...', m4sUrl?.substring(0, 100));
 
     let response;
     let lastError;
@@ -744,7 +749,7 @@ const convertWithMetadata = async (
     // 重试机制
     for (let i = 0; i < maxRetries; i++) {
       try {
-        console.log(`[AudioService] 尝试下载 (${i + 1}/${maxRetries})...`);
+        logger.info('尝试下载 (%d/%d)...', i + 1, maxRetries);
 
         response = await fetch(m4sUrl, {
           headers: {
@@ -768,7 +773,7 @@ const convertWithMetadata = async (
         }
 
         lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
-        console.log(`[AudioService] 下载失败 (${i + 1}/${maxRetries}): ${response.status}`);
+        logger.warn('下载失败 (%d/%d): %d', i + 1, maxRetries, response.status);
 
         // 等待后重试
         if (i < maxRetries - 1) {
@@ -776,7 +781,7 @@ const convertWithMetadata = async (
         }
       } catch (err) {
         lastError = err;
-        console.log(`[AudioService] 网络错误 (${i + 1}/${maxRetries}): ${err.message}`);
+        logger.warn('网络错误 (%d/%d): %s', i + 1, maxRetries, err.message);
 
         // 等待后重试
         if (i < maxRetries - 1) {
@@ -786,7 +791,7 @@ const convertWithMetadata = async (
     }
 
     if (!response || !response.ok) {
-      throw new Error(`音频下载失败（已重试${maxRetries}次）: ${lastError?.message || 'Unknown error'}`);
+      throw new AppError(`音频下载失败（已重试${maxRetries}次）: ${lastError?.message || 'Unknown error'}`, 502);
     }
 
     // 获取文件大小（用于进度报告）
@@ -800,7 +805,7 @@ const convertWithMetadata = async (
     let lastProgressUpdate = 10; // 起始进度
     const progressInterval = 3; // 每3%更新一次
 
-    console.log(`[AudioService] 开始流式下载，总大小: ${totalBytes ? (totalBytes / 1024 / 1024).toFixed(2) + ' MB' : '未知'}`);
+    logger.info('开始流式下载，总大小: %s', totalBytes ? (totalBytes / 1024 / 1024).toFixed(2) + ' MB' : '未知');
 
     while (true) {
       const { done, value } = await reader.read();
@@ -819,17 +824,17 @@ const convertWithMetadata = async (
         if (mappedPercent >= lastProgressUpdate + progressInterval || downloadPercent >= 100) {
           lastProgressUpdate = mappedPercent;
           onProgress(mappedPercent, 'downloading_audio');
-          console.log(`[AudioService] 下载进度: ${downloadPercent}% (${(receivedBytes / 1024 / 1024).toFixed(2)} MB)`);
+          logger.debug('下载进度: %d%% (%.2f MB)', downloadPercent, receivedBytes / 1024 / 1024);
         }
       }
     }
 
     const audioBuffer = Buffer.concat(chunks);
     await fs.promises.writeFile(inputPath, audioBuffer);
-    console.log(`[AudioService] 音频下载完成: ${audioBuffer.length} bytes`);
+    logger.info('音频下载完成: %d bytes', audioBuffer.length);
 
     // 步骤2: 下载封面图片（带进度报告 25% -> 40%）
-    console.log(`[AudioService] 步骤2/4: 下载封面...`);
+    logger.info('步骤2/4: 下载封面...');
 
     if (metadata.coverUrl) {
       coverPath = await downloadCoverForMetadata(metadata.coverUrl, onProgress, 25, 40);
@@ -839,7 +844,7 @@ const convertWithMetadata = async (
     }
 
     // 步骤3: FFmpeg 转换并写入元数据
-    console.log(`[AudioService] 步骤3/4: FFmpeg 转换并写入元数据...`);
+    logger.info('步骤3/4: FFmpeg 转换并写入元数据...');
     if (onProgress) onProgress(40, 'converting');
 
     await queueConversion(() => new Promise((resolve, reject) => {
@@ -882,7 +887,7 @@ const convertWithMetadata = async (
 
       ffmpegCmd
         .on('start', (commandLine) => {
-          console.log(`[AudioService] FFmpeg 命令: ${commandLine}`);
+          logger.debug('FFmpeg 命令: %s', commandLine);
         })
         .on('progress', (progress) => {
           if (progress.percent) {
@@ -892,19 +897,18 @@ const convertWithMetadata = async (
             if (onProgress) onProgress(mappedPercent, 'converting');
             // 更频繁的日志输出（每5%）
             if (percent % 5 === 0) {
-              console.log(`[AudioService] 转换进度: ${percent}% -> 映射到 ${mappedPercent}%`);
+              logger.debug('转换进度: %d%% -> 映射到 %d%%', percent, mappedPercent);
             }
           }
         })
         .on('end', () => {
           const duration = Date.now() - startTime;
-          console.log(`[AudioService] 转换完成: ${uniqueId}, 耗时: ${duration}ms`);
+          logger.info('转换完成: %s, 耗时: %dms', uniqueId, duration);
           if (onProgress) onProgress(95, 'finishing');
           resolve();
         })
         .on('error', (err, stdout, stderr) => {
-          console.error(`[AudioService] FFmpeg 错误: ${err.message}`);
-          console.error(`[AudioService] Stderr: ${stderr}`);
+          logger.error('FFmpeg 错误: %s, Stderr: %s', err.message, stderr);
           reject(new Error(`音频转换失败: ${err.message}`));
         })
         .save(outputPath);
@@ -912,13 +916,13 @@ const convertWithMetadata = async (
 
     // 步骤4: 读取输出文件
     if (onProgress) onProgress(95, 'reading_output');
-    console.log(`[AudioService] 步骤4/4: 读取输出文件...`);
+    logger.info('步骤4/4: 读取输出文件...');
 
     const outputBuffer = await fs.promises.readFile(outputPath);
     const contentType = format === 'mp3' ? 'audio/mpeg' : 'audio/m4a';
 
-    console.log(`[AudioService] ✅ 带元数据转换成功: ${uniqueId}`);
-    console.log(`[AudioService] 输出: ${outputBuffer.length} bytes, 格式: ${format}`);
+    logger.info('带元数据转换成功: %s', uniqueId);
+    logger.info('输出: %d bytes, 格式: %s', outputBuffer.length, format);
 
     if (onProgress) onProgress(100, 'complete');
 
@@ -934,19 +938,23 @@ const convertWithMetadata = async (
       try {
         if (fs.existsSync(inputPath)) {
           fs.unlinkSync(inputPath);
-          console.log(`[AudioService] 清理输入文件: ${inputPath}`);
+          logger.debug('清理输入文件: %s', inputPath);
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('清理输入文件失败: %s', e.message);
+      }
       try {
         if (fs.existsSync(outputPath)) {
           fs.unlinkSync(outputPath);
-          console.log(`[AudioService] 清理输出文件: ${outputPath}`);
+          logger.debug('清理输出文件: %s', outputPath);
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.warn('清理输入文件失败: %s', e.message);
+      }
       try {
         if (coverPath && fs.existsSync(coverPath)) {
           fs.unlinkSync(coverPath);
-          console.log(`[AudioService] 清理封面文件: ${coverPath}`);
+          logger.debug('清理封面文件: %s', coverPath);
         }
       } catch (e) {}
     };

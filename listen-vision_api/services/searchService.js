@@ -10,7 +10,9 @@
  * 4. 搜索统计
  */
 
+const { logger } = require('../utils/logger');
 const db = require('../config/database');
+const { AppError } = require('../middleware/errorHandler');
 
 // 预编译语句（模块初始化时编译，提高性能）
 const stmt = {
@@ -86,8 +88,8 @@ const searchAudioMetadata = (keyword, limit = 20) => {
 
     return results;
   } catch (error) {
-    console.error('全文搜索失败:', error);
-    throw new Error(`搜索失败: ${error.message}`);
+    logger.error('全文搜索失败: %s', error.message);
+    throw new AppError(`搜索失败: ${error.message}`, 500);
   }
 };
 
@@ -105,8 +107,8 @@ const getSearchSuggestions = (prefix) => {
     const suggestions = stmt.searchSuggestions.all(`${prefix}%`);
     return suggestions.map(s => s.keyword);
   } catch (error) {
-    console.error('获取搜索建议失败:', error);
-    throw new Error(`获取搜索建议失败: ${error.message}`);
+    logger.error('获取搜索建议失败: %s', error.message);
+    throw new AppError(`获取搜索建议失败: ${error.message}`, 500);
   }
 };
 
@@ -125,8 +127,8 @@ const getTrendingKeywords = () => {
       searchCount: t.search_count
     }));
   } catch (error) {
-    console.error('获取热门关键词失败:', error);
-    throw new Error(`获取热门关键词失败: ${error.message}`);
+    logger.error('获取热门关键词失败: %s', error.message);
+    throw new AppError(`获取热门关键词失败: ${error.message}`, 500);
   }
 };
 
@@ -141,8 +143,8 @@ const getSearchHistory = (userId = null) => {
     const history = stmt.getSearchHistory.all(userId);
     return history;
   } catch (error) {
-    console.error('获取搜索历史失败:', error);
-    throw new Error(`获取搜索历史失败: ${error.message}`);
+    logger.error('获取搜索历史失败: %s', error.message);
+    throw new AppError(`获取搜索历史失败: ${error.message}`, 500);
   }
 };
 

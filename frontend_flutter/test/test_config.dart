@@ -1,4 +1,3 @@
-import 'package:flutter_test/flutter_test.dart';
 
 /// 测试覆盖率配置
 ///

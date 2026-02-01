@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'package:demo/presentation/providers/audio/playback_queue.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/domain/entities/online_playable.dart';
+import 'package:demo/domain/entities/local_audio.dart';
+import 'package:demo/domain/entities/audio.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -140,12 +143,13 @@ void main() {
       });
 
       test('prepareSource 本地音频应该不抛出异常', () async {
-        final playable = LocalPlayable(
-          id: 'test_id',
-          title: 'Test Audio',
+        final audio = LocalAudio(
           filePath: '/path/to/audio.mp3',
+          title: 'Test Audio',
+          artist: 'Test Artist',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         await expectLater(
           controller.prepareSource(playable),
@@ -154,11 +158,11 @@ void main() {
       });
 
       test('prepareSource 在线音频应该不抛出异常', () async {
-        final playable = OnlinePlayable(
+        final audio = const Audio(
           id: 'test_id',
           title: 'Test Audio',
-          url: 'https://example.com/audio.mp3',
         );
+        final playable = OnlinePlayable(audio, 'https://example.com/audio.mp3');
 
         await expectLater(
           controller.prepareSource(playable),
@@ -167,12 +171,13 @@ void main() {
       });
 
       test('prepareSource 带起始位置应该不抛出异常', () async {
-        final playable = LocalPlayable(
-          id: 'test_id',
-          title: 'Test Audio',
+        final audio = LocalAudio(
           filePath: '/path/to/audio.mp3',
+          title: 'Test Audio',
+          artist: 'Test Artist',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         await expectLater(
           controller.prepareSource(playable, startPosition: 30),
@@ -183,12 +188,13 @@ void main() {
 
     group('播放控制完整流程', () {
       test('setSourceAndPlay 本地音频应该不抛出异常', () async {
-        final playable = LocalPlayable(
-          id: 'test_id',
-          title: 'Test Audio',
+        final audio = LocalAudio(
           filePath: '/path/to/audio.mp3',
+          title: 'Test Audio',
+          artist: 'Test Artist',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         await expectLater(
           controller.setSourceAndPlay(playable),
@@ -197,11 +203,11 @@ void main() {
       });
 
       test('setSourceAndPlay 在线音频应该不抛出异常', () async {
-        final playable = OnlinePlayable(
+        final audio = const Audio(
           id: 'test_id',
           title: 'Test Audio',
-          url: 'https://example.com/audio.mp3',
         );
+        final playable = OnlinePlayable(audio, 'https://example.com/audio.mp3');
 
         await expectLater(
           controller.setSourceAndPlay(playable),
@@ -210,11 +216,11 @@ void main() {
       });
 
       test('setSourceAndPlay 自定义超时应该不抛出异常', () async {
-        final playable = OnlinePlayable(
+        final audio = const Audio(
           id: 'test_id',
           title: 'Test Audio',
-          url: 'https://example.com/audio.mp3',
         );
+        final playable = OnlinePlayable(audio, 'https://example.com/audio.mp3');
 
         await expectLater(
           controller.setSourceAndPlay(
@@ -460,12 +466,13 @@ void main() {
 
     group('边界情况', () {
       test('播放不存在的本地文件应该处理错误', () async {
-        final playable = LocalPlayable(
-          id: 'nonexistent',
-          title: 'Nonexistent',
+        final audio = LocalAudio(
           filePath: '/path/to/nonexistent.mp3',
+          title: 'Nonexistent',
+          artist: 'Unknown',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         // 应该不抛出未捕获的异常
         await expectLater(
@@ -475,11 +482,11 @@ void main() {
       });
 
       test('播放无效的在线 URL 应该处理错误', () async {
-        final playable = OnlinePlayable(
+        final audio = const Audio(
           id: 'invalid',
           title: 'Invalid URL',
-          url: 'https://invalid-url-that-does-not-exist.com/audio.mp3',
         );
+        final playable = OnlinePlayable(audio, 'https://invalid-url-that-does-not-exist.com/audio.mp3');
 
         // 应该不抛出未捕获的异常
         await expectLater(
@@ -525,19 +532,21 @@ void main() {
       });
 
       test('连续切换音频源应该是安全的', () async {
-        final playable1 = LocalPlayable(
-          id: 'test1',
-          title: 'Test 1',
+        final audio1 = LocalAudio(
           filePath: '/path/to/audio1.mp3',
+          title: 'Test 1',
+          artist: 'Artist 1',
           duration: 180,
         );
+        final playable1 = LocalPlayable(audio1);
 
-        final playable2 = LocalPlayable(
-          id: 'test2',
-          title: 'Test 2',
+        final audio2 = LocalAudio(
           filePath: '/path/to/audio2.mp3',
+          title: 'Test 2',
+          artist: 'Artist 2',
           duration: 200,
         );
+        final playable2 = LocalPlayable(audio2);
 
         await controller.setSourceAndPlay(playable1);
         await controller.setSourceAndPlay(playable2);
@@ -549,12 +558,13 @@ void main() {
 
     group('完整播放流程', () {
       test('加载 -> 播放 -> 暂停 -> 恢复 -> 停止 完整流程', () async {
-        final playable = LocalPlayable(
-          id: 'test',
-          title: 'Test Audio',
+        final audio = LocalAudio(
           filePath: '/path/to/audio.mp3',
+          title: 'Test Audio',
+          artist: 'Test Artist',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         // 1. 加载并播放
         await controller.setSourceAndPlay(playable);
@@ -573,11 +583,11 @@ void main() {
       });
 
       test('播放 -> 跳转 -> 继续播放 完整流程', () async {
-        final playable = OnlinePlayable(
+        final audio = const Audio(
           id: 'test',
           title: 'Test Audio',
-          url: 'https://example.com/audio.mp3',
         );
+        final playable = OnlinePlayable(audio, 'https://example.com/audio.mp3');
 
         // 1. 播放
         await controller.setSourceAndPlay(playable);
@@ -592,12 +602,13 @@ void main() {
       });
 
       test('调整音量和倍速 -> 播放 完整流程', () async {
-        final playable = LocalPlayable(
-          id: 'test',
-          title: 'Test Audio',
+        final audio = LocalAudio(
           filePath: '/path/to/audio.mp3',
+          title: 'Test Audio',
+          artist: 'Test Artist',
           duration: 180,
         );
+        final playable = LocalPlayable(audio);
 
         // 1. 设置音量
         await controller.setVolume(0.8);

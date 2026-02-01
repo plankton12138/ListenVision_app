@@ -1,5 +1,7 @@
+const { logger } = require('../utils/logger');
 const db = require('../config/database');
 const { searchBilibili, getWbiKey, signWbi, getCookie } = require('./bilibiliService');
+const { AppError } = require('../middleware/errorHandler');
 
 /**
  * B站推荐内容服务（Phase 3.2 扩展）
@@ -87,7 +89,7 @@ const httpGet = async (url, headers = {}) => {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    throw new AppError(`HTTP ${response.status}: ${response.statusText}`, 502);
   }
 
   return response.json();
@@ -110,7 +112,7 @@ const getHotPlaylists = async (page = 1, pageSize = 10) => {
     const data = await httpGet(url);
 
     if (data.code !== 0) {
-      throw new Error(data.message || '获取热门歌单失败');
+      throw new AppError(data.message || '获取热门歌单失败', 502);
     }
 
     const playlists = (data.data?.data || []).map(p => ({
@@ -143,7 +145,8 @@ const getHotPlaylists = async (page = 1, pageSize = 10) => {
       total: data.data?.totalSize || 0
     };
   } catch (error) {
-    throw new Error(`获取热门歌单失败: ${error.message}`);
+    logger.error('[热门歌单] 获取失败: %s', error.message);
+    throw new AppError(`获取热门歌单失败: ${error.message}`, 502);
   }
 };
 
@@ -162,7 +165,7 @@ const getHotRank = async (page = 1, pageSize = 10) => {
     const data = await httpGet(url);
 
     if (data.code !== 0) {
-      throw new Error(data.message || '获取热歌榜单失败');
+      throw new AppError(data.message || '获取热歌榜单失败', 502);
     }
 
     const playlists = (data.data?.data || []).map(p => ({
@@ -195,7 +198,8 @@ const getHotRank = async (page = 1, pageSize = 10) => {
       total: data.data?.totalSize || 0
     };
   } catch (error) {
-    throw new Error(`获取热歌榜单失败: ${error.message}`);
+    logger.error('[热歌榜单] 获取失败: %s', error.message);
+    throw new AppError(`获取热歌榜单失败: ${error.message}`, 502);
   }
 };
 
@@ -238,7 +242,7 @@ const getPersonalized = async (userId, limit = 20) => {
         recommendations.push(...result.videos.slice(0, 3));
       } catch (e) {
         // 忽略单个搜索失败
-        console.error(`个性化搜索失败: ${keyword}`, e.message);
+        logger.error('个性化搜索失败: %s - %s', keyword, e.message);
       }
       if (recommendations.length >= limit) break;
     }
@@ -249,7 +253,7 @@ const getPersonalized = async (userId, limit = 20) => {
       videos: recommendations.slice(0, limit)
     };
   } catch (error) {
-    throw new Error(`获取个性化推荐失败: ${error.message}`);
+    throw new AppError(`获取个性化推荐失败: ${error.message}`, 502);
   }
 };
 
@@ -283,11 +287,11 @@ const getByCategory = async (tid, page = 1, pageSize = 20, userId = null) => {
   try {
     // 获取WBI签名（传入userId以使用Cookie）
     const wbiKey = await getWbiKey(userId);
-    console.log(`[getByCategory] WBI Key:`, wbiKey);
+    logger.debug('[getByCategory] WBI Key: %j', wbiKey);
 
     // 如果没有WBI key，返回空结果
     if (!wbiKey.imgKey || !wbiKey.subKey) {
-      console.warn('[getByCategory] No valid WBI key, returning empty result');
+      logger.warn('[getByCategory] No valid WBI key, returning empty result');
       return { tid, videos: [], page, pageSize, total: 0 };
     }
 
@@ -300,7 +304,7 @@ const getByCategory = async (tid, page = 1, pageSize = 20, userId = null) => {
     const signedParams = signWbi(params, wbiKey);
 
     const url = `https://api.bilibili.com/x/web-interface/wbi/search/type?${new URLSearchParams(signedParams).toString()}`;
-    console.log(`[getByCategory] URL: ${url}`);
+    logger.debug('[getByCategory] URL: %s', url);
 
     // 构建请求头（如果有Cookie）
     const headers = {};
@@ -316,14 +320,14 @@ const getByCategory = async (tid, page = 1, pageSize = 20, userId = null) => {
     try {
       data = await httpGet(url, headers);
     } catch (httpError) {
-      console.error(`[getByCategory] HTTP Error: ${httpError.message}`);
-      throw new Error(`请求错误: ${httpError.message}`);
+      logger.error('[getByCategory] HTTP Error: %s', httpError.message);
+      throw new AppError(`请求错误: ${httpError.message}`, 502);
     }
 
-    console.log(`[getByCategory] Response code: ${data.code}`);
+    logger.debug('[getByCategory] Response code: %d', data.code);
 
     if (data.code !== 0) {
-      throw new Error(data.message || '获取分区推荐失败');
+      throw new AppError(data.message || '获取分区推荐失败', 502);
     }
 
     const results = data.data?.result || [];
@@ -348,8 +352,8 @@ const getByCategory = async (tid, page = 1, pageSize = 20, userId = null) => {
       total: data.data?.numResults || videos.length
     };
   } catch (error) {
-    console.error(`[getByCategory] Error: ${error.message}`);
-    throw new Error(`获取分区推荐失败: ${error.message}`);
+    logger.error('[getByCategory] Error: %s', error.message);
+    throw new AppError(`获取分区推荐失败: ${error.message}`, 502);
   }
 };
 
@@ -379,13 +383,13 @@ const getMusicRecommendation = async (limit = 20, userId = null) => {
           videos: result.videos
         });
       } catch (e) {
-        console.error(`获取${cat.name}推荐失败:`, e.message);
+        logger.error('获取%s推荐失败: %s', cat.name, e.message);
       }
     }
 
     return results;
   } catch (error) {
-    throw new Error(`获取音乐区推荐失败: ${error.message}`);
+    throw new AppError(`获取音乐区推荐失败: ${error.message}`, 502);
   }
 };
 
@@ -447,9 +451,9 @@ const extractBvid = (url) => {
 const logBehavior = (userId, bvid, action) => {
   try {
     stmt.logUserBehavior.run(userId, bvid, action);
-    console.log(`[Behavior Log] User ${userId}: ${action} - ${bvid}`);
+    logger.info('Behavior Log - User %d: %s - %s', userId, action, bvid);
   } catch (error) {
-    console.error('[Behavior Log] Failed:', error);
+    logger.error('[Behavior Log] Failed: %s', error.message);
   }
 };
 
@@ -489,8 +493,8 @@ const getBehaviorBasedRecommendations = async (userId, limit = 20) => {
 
     return recommendations;
   } catch (error) {
-    console.error('[Behavior Recommendation] Failed:', error);
-    throw new Error(`获取行为推荐失败: ${error.message}`);
+    logger.error('[Behavior Recommendation] Failed: %s', error.message);
+    throw new AppError(`获取行为推荐失败: ${error.message}`, 502);
   }
 };
 
@@ -560,8 +564,8 @@ const getHybridRecommendations = async (userId, limit = 20) => {
       behaviorStats: behaviorCounts
     };
   } catch (error) {
-    console.error('[Hybrid Recommendation] Failed:', error);
-    throw new Error(`获取混合推荐失败: ${error.message}`);
+    logger.error('[Hybrid Recommendation] Failed: %s', error.message);
+    throw new AppError(`获取混合推荐失败: ${error.message}`, 502);
   }
 };
 
@@ -593,13 +597,13 @@ module.exports = {
       }
 
       const url = `https://api.bilibili.com/x/web-interface/dynamic/region?rid=3&pn=${page}&ps=${pageSize}`;
-      console.log('[MusicZone] URL:', url);
+      logger.debug('[MusicZone] URL: %s', url);
 
       const data = await httpGet(url, headers);
-      console.log('[MusicZone] Response code:', data.code);
+      logger.debug('[MusicZone] Response code: %d', data.code);
 
       if (data.code !== 0) {
-        throw new Error(data.message || '获取音乐区推荐失败');
+        throw new AppError(data.message || '获取音乐区推荐失败', 502);
       }
 
       // 转换数据格式以兼容前端
@@ -615,7 +619,7 @@ module.exports = {
         arcurl: `https://www.bilibili.com/video/${item.bvid}`
       }));
 
-      console.log('[MusicZone] Found', videos.length, 'videos');
+      logger.debug('[MusicZone] Found %d videos', videos.length);
 
       return {
         data: videos,
@@ -625,7 +629,7 @@ module.exports = {
         source: 'region_api'
       };
     } catch (error) {
-      console.error('[MusicZone] API error:', error.message);
+      logger.error('[MusicZone] API error: %s', error.message);
       // 返回降级状态
       return {
         data: [],

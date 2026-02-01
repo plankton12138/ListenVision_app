@@ -48,6 +48,7 @@ class PlaybackCommand {
         completer.complete();
       }
     } catch (e) {
+      AppLogger.error('PlaybackCommand', '命令执行失败 [$type]: $e');
       if (!completer.isCompleted) {
         completer.completeError(e);
       }

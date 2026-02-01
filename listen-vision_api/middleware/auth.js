@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { logger } = require('../utils/logger');
 
 /**
  * JWT 认证中间件
@@ -95,7 +96,8 @@ const optionalAuthMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    // 静默失败，继续处理请求
+    // 可选认证失败，记录日志但继续处理请求
+    logger.debug('[OptionalAuth] Token验证失败，跳过认证: %s', error.message);
     next();
   }
 };

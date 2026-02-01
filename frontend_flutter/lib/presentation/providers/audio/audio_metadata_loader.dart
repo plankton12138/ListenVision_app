@@ -235,6 +235,13 @@ class AudioMetadataLoader {
     }
   }
 
+  /// 从文件路径快速提取元数据（公开方法，用于不阻塞的默认元数据）
+  ///
+  /// 当无法从文件元数据获取时，从文件名推断
+  Map<String, dynamic> extractMetadataFromPath(String filePath) {
+    return _extractMetadataFromPath(filePath);
+  }
+
   // ==================== 在线封面加载 ====================
 
   /// 从 URL 加载封面图片

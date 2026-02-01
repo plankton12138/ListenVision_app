@@ -92,7 +92,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
       final response = await DioProvider.instance.get('/playlists/${widget.playlistId}');
 
       if (response['success'] == true && response['data'] != null) {
-        // P0 修复: 使用 fromDto 而不是 fromJson，正确处理后端 snake_case 字段名
+        // 使用 fromDto 正确处理后端 snake_case 字段名
         _detail = PlaylistDetail.fromDto(response['data'] as Map<String, dynamic>);
       }
 
@@ -116,6 +116,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
 
     if (confirmed != true) return;
 
+    if (!mounted) return;
     final authProvider = context.read<AuthProvider>();
     final playlistProvider = context.read<PlaylistProvider>();
     final token = authProvider.user?.token ?? '';
@@ -420,7 +421,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       child: Column(
@@ -586,8 +587,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
 
           AppLogger.info('PlaylistDetailPage', '播放在线歌曲: ${audio.title}');
 
-          // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
-          // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
+          // audioProvider 会自动构建代理 URL
           await audioProvider.playOnlineAudio(
             audio: audio,
           );

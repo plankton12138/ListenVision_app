@@ -449,9 +449,16 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
                         color: Colors.blue,
                         iconSize: 32,
                         onPressed: () {
-                          if (bvid.isNotEmpty) {
-                            _playOnlineAudio(context, bvid, item);
+                          if (bvid.isEmpty) {
+                            DialogHelper.showSnackBar(
+                              context,
+                              '视频ID无效，无法播放',
+                              backgroundColor: Colors.orange,
+                              duration: 1500,
+                            );
+                            return;
                           }
+                          _playOnlineAudio(context, bvid, item);
                         },
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
@@ -657,16 +664,9 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       await playlistProvider.toggleFavorite(
         authProvider.user!.token!,
         bvid,
-        title: item['title'],
-        artist: item['author'],
-        coverUrl: item['cover'],
-      );
-
-      // 添加UI层日志记录
-      AppLogger.logButtonClick(
-        wasFavorited ? '取消收藏' : '收藏',
-        'ExplorePage',
-        parameters: {'bvid': bvid, 'title': item['title']},
+        title: item['title'] ?? '',
+        artist: item['author'] ?? '',
+        coverUrl: item['cover'] ?? '',
       );
 
       if (mounted) {

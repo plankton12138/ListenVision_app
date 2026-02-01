@@ -4,6 +4,7 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
 import 'package:demo/domain/entities/local_audio.dart';
+import 'package:demo/data/managers/playlist_manager.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
@@ -618,7 +619,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   /// 播放歌单项（支持在线和本地歌曲）
   ///
   /// 根据歌曲类型（在线/本地）选择不同的播放方式
-  /// - 本地歌曲: bvid为空或使用localPath字段
+  /// - 本地歌曲: bvid为空、以'local_'开头、以'file://'开头，或使用localPath字段
   /// - 在线歌曲: 使用bvid字段和playOnlineAudio方法
   ///
   /// [autoPlay] 是否自动播放（默认true），false则仅添加到队列
@@ -626,6 +627,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     BuildContext context,
     PlaylistItem item, {
     bool autoPlay = true,
+    bool showLoading = true,  // 新增参数控制是否显示 loading
   }) async {
     final audioProvider = context.read<AudioProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
@@ -634,15 +636,43 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     await runAsync(
       operation: () async {
         // 判断是否为本地歌曲
-        final isLocal = item.bvid.isEmpty || item.bvid.startsWith('file://');
+        // 本地音频的 bvid 格式: 'local_{id}' 或为空，或以 'file://' 开头
+        final isLocal = item.bvid.isEmpty ||
+                       item.bvid.startsWith('local_') ||
+                       item.bvid.startsWith('file://');
 
         if (isLocal) {
           // 本地歌曲播放逻辑
-          if (item.localPath == null && item.bvid.isEmpty) {
-            throw Exception('本地歌曲路径为空');
+          String? localPath;
+
+          if (item.localPath != null && item.localPath!.isNotEmpty) {
+            // 优先使用服务器返回的 localPath
+            localPath = item.localPath!;
+          } else if (item.bvid.startsWith('file://')) {
+            // 直接使用 file:// 路径
+            localPath = item.bvid.replaceFirst('file://', '');
+          } else if (item.bvid.startsWith('local_')) {
+            // 从 bvid 提取 ID，尝试从本地数据库查询
+            final idString = item.bvid.replaceFirst('local_', '');
+            final id = int.tryParse(idString);
+            if (id != null) {
+              final playlistManager = PlaylistManager();
+              final localAudio = await playlistManager.getAudioById(id);
+              if (localAudio != null) {
+                localPath = localAudio.filePath;
+              }
+            }
+            // 如果找不到，记录警告并跳过
+            if (localPath == null) {
+              AppLogger.warn('PlaylistDetailPage', '本地音频文件不存在，已跳过: ${item.title ?? item.bvid}');
+              return; // 跳过此歌曲，继续播放其他歌曲
+            }
           }
 
-          final localPath = item.localPath ?? item.bvid.replaceFirst('file://', '');
+          if (localPath == null || localPath.isEmpty) {
+            AppLogger.warn('PlaylistDetailPage', '本地歌曲路径为空，已跳过: ${item.title ?? item.bvid}');
+            return; // 跳过此歌曲
+          }
 
           AppLogger.info('PlaylistDetailPage', autoPlay ? '播放本地歌曲: $localPath' : '添加本地歌曲到队列: $localPath');
 
@@ -676,10 +706,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
             );
           } else {
             // 仅添加到播放列表，不播放
-            // 注意：需要直接使用playlistManager，因为playOnlineAudio会立即播放
-            // 这里暂时跳过，因为AudioProvider没有公开"仅添加到队列"的方法
-            // 作为替代，记录日志但不实际添加
-            AppLogger.warn('PlaylistDetailPage', '在线歌曲暂不支持仅添加到队列，将跳过: ${audio.title}');
+            // 使用 addToPlaylistOnline 添加到统一播放列表
+            await audioProvider.addToPlaylistOnline(audio);
           }
         }
 
@@ -694,7 +722,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
           );
         }
       },
-      loadingMessage: autoPlay ? '正在加载...' : null,
+      loadingMessage: (autoPlay && showLoading) ? '正在加载...' : null,
       successMessage: autoPlay ? '开始播放: ${item.title ?? item.bvid}' : null,
       onError: () {
         AppLogger.error('PlaylistDetailPage', '播放失败');
@@ -728,15 +756,15 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
       operation: () async {
         final items = _detail!.items;
 
-        // 先播放第一首
+        // 先播放第一首（不显示内层 loading，避免对话框嵌套）
         if (!mounted) return;
-        await _playPlaylistItem(context, items.first, autoPlay: true);
+        await _playPlaylistItem(context, items.first, autoPlay: true, showLoading: false);
 
         // 将剩余歌曲添加到播放队列（不自动播放）
         for (var i = 1; i < items.length; i++) {
           if (!mounted) return;
           // ignore: use_build_context_synchronously
-          await _playPlaylistItem(context, items[i], autoPlay: false);
+          await _playPlaylistItem(context, items[i], autoPlay: false, showLoading: false);
         }
 
         AppLogger.info('PlaylistDetailPage', '已添加 ${items.length - 1} 首歌曲到播放队列');

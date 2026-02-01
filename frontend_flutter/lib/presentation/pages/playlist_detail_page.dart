@@ -25,9 +25,11 @@ class PlaylistDetailPage extends StatefulWidget {
   const PlaylistDetailPage({super.key, required this.playlistId});
 
   @override
+  // ignore: library_private_types_in_public_api
   _PlaylistDetailPageState createState() => _PlaylistDetailPageState();
 }
 
+// ignore: library_private_types_in_public_api
 class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     with BasePageState, AsyncUIHandlerMixin {
   PlaylistDetail? _detail;
@@ -681,6 +683,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
         // 将剩余歌曲添加到播放队列（不自动播放）
         for (var i = 1; i < items.length; i++) {
           if (!mounted) return;
+          // ignore: use_build_context_synchronously
           await _playPlaylistItem(context, items[i], autoPlay: false);
         }
 

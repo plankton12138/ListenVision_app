@@ -846,6 +846,31 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 添加在线音频到统一播放列表（不立即播放）
+  ///
+  /// 将在线音频添加到播放列表末尾，但不立即播放。
+  /// 与 addToQueueOnline 不同，此方法会更新统一播放列表。
+  ///
+  /// 参数:
+  /// - [audio] 要添加的在线音频
+  Future<void> addToPlaylistOnline(Audio audio) async {
+    AppLogger.info('AudioProvider', '添加在线音频到播放列表: ${audio.title}');
+
+    // 构建代理 URL
+    final proxyUrl = _buildProxyUrl(audio.id);
+
+    // 创建在线可播放对象
+    final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
+
+    // 添加到播放列表（不立即播放）
+    await _playlistManager.add(playable, playImmediately: false);
+
+    // 同步状态
+    await _playlistManager.save();
+    _syncPlaylistProviders();
+    notifyListeners();
+  }
+
   /// 清空所有播放队列
   ///
   /// 清空本地音频队列和在线音频队列中的所有待播放项目。

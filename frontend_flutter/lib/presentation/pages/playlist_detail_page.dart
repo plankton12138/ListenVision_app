@@ -417,6 +417,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
+  /// 构建歌单信息区域（含播放全部按钮）
   Widget _buildPlaylistInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -463,6 +464,19 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // 播放全部按钮
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _playAll(context),
+              icon: const Icon(Icons.play_arrow, size: 20),
+              label: const Text('播放全部'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
           ),
         ],
       ),
@@ -610,5 +624,87 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
         AppLogger.error('PlaylistDetailPage', '播放失败');
       },
     );
+  }
+
+  /// 播放全部歌曲
+  ///
+  /// 将歌单中所有歌曲添加到播放队列并开始播放第一首
+  Future<void> _playAll(BuildContext context) async {
+    if (_detail == null || _detail!.items.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('歌单为空'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+      return;
+    }
+
+    final audioProvider = context.read<AudioProvider>();
+
+    AppLogger.info('PlaylistDetailPage', '开始播放歌单: ${_playlist?.name}, 共 ${_detail!.items.length} 首');
+
+    // 显示加载提示
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 16),
+              Text('正在准备播放...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    try {
+      final items = _detail!.items;
+
+      // 先播放第一首
+      await _playPlaylistItem(context, items.first);
+
+      // 将剩余歌曲添加到播放队列
+      for (var i = 1; i < items.length; i++) {
+        final item = items[i];
+        final isLocal = item.bvid.isEmpty || item.bvid.startsWith('file://');
+
+        if (isLocal) {
+          // 本地歌曲添加到队列
+          final localPath = item.localPath ?? item.bvid.replaceFirst('file://', '');
+          await audioProvider.addToQueue(localPath, isLocal: true);
+        } else {
+          // 在线歌曲添加到队列
+          final audio = Audio.fromDto({
+            'bvid': item.bvid,
+            'title': item.title ?? item.bvid,
+            'artist': item.artist,
+            'cover': item.coverUrl,
+            'duration': item.duration,
+          });
+          await audioProvider.addToQueueOnline(audio);
+        }
+      }
+
+      AppLogger.info('PlaylistDetailPage', '已添加 ${items.length - 1} 首歌曲到播放队列');
+    } catch (e) {
+      AppLogger.error('PlaylistDetailPage', '播放全部失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('播放失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

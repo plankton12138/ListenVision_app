@@ -346,6 +346,8 @@ class PlaylistProvider with ChangeNotifier {
     int? duration,
     String? coverUrl,
   }) async {
+    AppLogger.info('PlaylistProvider', '切换收藏状态: bvid=$bvid');
+
     try {
       final response = await _dioProvider.post(
         '/playlists/favorites/toggle',
@@ -372,10 +374,13 @@ class PlaylistProvider with ChangeNotifier {
 
         _saveFavoritesToLocal();
         notifyListeners();
+
+        AppLogger.info('PlaylistProvider', '收藏状态变更完成: bvid=$bvid, added=$added');
         return added;
       }
     } catch (e) {
       _errorMessage = e.toString();
+      AppLogger.error('PlaylistProvider', '切换收藏失败: $e');
     }
     return false;
   }

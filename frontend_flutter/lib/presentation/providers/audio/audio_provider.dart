@@ -94,8 +94,8 @@ class AudioProvider extends ChangeNotifier {
   /// 本地播放队列（文件路径）
   final List<String> _localQueue = [];
 
-  /// 在线播放队列
-  final List<Audio> _onlineQueue = [];
+  /// 在线播放队列（URL字符串）
+  final List<String> _onlineQueue = [];
 
   // ==================== P0修复：防抖与版本控制 ====================
 
@@ -806,12 +806,18 @@ class AudioProvider extends ChangeNotifier {
 
   // ==================== 播放列表管理 ====================
 
-  /// 添加本地音频到播放队列
+  /// 添加到播放队列
   ///
-  /// [path] 本地文件路径
-  Future<void> addToQueue(String path) async {
-    AppLogger.info('AudioProvider', '添加本地音频到队列: $path');
-    _localQueue.add(path);
+  /// [path] 文件路径（本地或在线URL）
+  /// [isLocal] 是否为本地音频，默认为true
+  Future<void> addToQueue(String path, {bool isLocal = true}) async {
+    AppLogger.info('AudioProvider', '添加到队列: $path (isLocal: $isLocal)');
+
+    if (isLocal) {
+      _localQueue.add(path);
+    } else {
+      _onlineQueue.add(path);
+    }
     notifyListeners();
   }
 
@@ -820,7 +826,8 @@ class AudioProvider extends ChangeNotifier {
   /// [audio] 音频实体
   Future<void> addToQueueOnline(Audio audio) async {
     AppLogger.info('AudioProvider', '添加在线音频到队列: ${audio.title}');
-    _onlineQueue.add(audio);
+    final proxyUrl = _buildProxyUrl(audio.id);
+    _onlineQueue.add(proxyUrl);
     notifyListeners();
   }
 
@@ -837,12 +844,31 @@ class AudioProvider extends ChangeNotifier {
     if (_disposed) return;
 
     if (_onlineQueue.isNotEmpty) {
-      final nextAudio = _onlineQueue.removeAt(0);
-      await playOnlineAudio(audio: nextAudio);
+      final nextUrl = _onlineQueue.removeAt(0);
+      // 从代理 URL 中提取 bvid
+      final bvid = _extractBvidFromProxyUrl(nextUrl);
+      if (bvid != null) {
+        // 创建最小 Audio 对象用于播放
+        final audio = Audio(
+          id: bvid,
+          title: '队列中的音频',
+        );
+        await playOnlineAudio(audio: audio, proxyUrl: nextUrl);
+      } else {
+        AppLogger.error('AudioProvider', '无法从 URL 提取 bvid: $nextUrl');
+      }
     } else if (_localQueue.isNotEmpty) {
       final nextPath = _localQueue.removeAt(0);
       await loadAudio(nextPath);
     }
+  }
+
+  /// 从代理 URL 中提取 bvid
+  String? _extractBvidFromProxyUrl(String url) {
+    // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
+    final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
+    final match = bvidPattern.firstMatch(url);
+    return match?.group(1);
   }
 
   // ==================== 播放列表管理（原有）====================

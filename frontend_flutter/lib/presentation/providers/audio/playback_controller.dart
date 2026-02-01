@@ -73,6 +73,8 @@ class PlaybackController {
   }
 
   /// 获取底层播放器（供高级操作使用）
+  ///
+  /// 返回底层的 AudioPlayer 实例，用于需要直接访问播放器功能的场景。
   AudioPlayer get player => _player;
 
   /// 是否正在播放
@@ -83,9 +85,13 @@ class PlaybackController {
 
   /// 播放队列状态
   PlaybackQueueState get queueState => _queue.state;
+
+  /// 是否有待处理的命令
   bool get hasPendingCommands => _queue.hasPending;
 
   /// 取消待处理的播放命令
+  ///
+  /// 清空队列中所有待执行的播放命令。
   void cancelPendingCommands() {
     _queue.cancelPending();
   }
@@ -113,7 +119,7 @@ class PlaybackController {
 
   /// 是否正在加载（audioplayers 没有明确的 loading 状态）
   ///
-  /// 当没有有效时长或正在切换音频源时认为正在加载
+  /// 当没有有效时长或正在切换音频源时认为正在加载。
   bool get isLoading =>
       _isSwitchingSource ||
       (_currentSourceUrl != null &&
@@ -131,6 +137,9 @@ class PlaybackController {
   bool get isLoadingOrBuffering => isLoading || isBuffering;
 
   /// 获取统一的播放状态
+  ///
+  /// 返回:
+  /// - 对应的 PlaybackStatus 枚举值
   PlaybackStatus get playbackStatus {
     if (_lastPlayerState == PlayerState.stopped && _currentSourceUrl == null) {
       return PlaybackStatus.idle;
@@ -265,6 +274,12 @@ class PlaybackController {
   }
 
   /// 设置状态变化回调
+  ///
+  /// 参数:
+  /// - [onPlayingChanged] 播放状态变化时的回调，参数为当前是否正在播放
+  /// - [onPlayerStateChanged] 播放器状态变化时的回调，参数为新的 PlayerState
+  /// - [onPlaybackComplete] 播放完成时的回调
+  /// - [onPlaybackWarning] 播放警告时的回调，参数为警告消息
   void setCallbacks({
     Function(bool)? onPlayingChanged,
     Function(PlayerState)? onPlayerStateChanged,
@@ -280,6 +295,9 @@ class PlaybackController {
   // ==================== 播放控制 ====================
 
   /// 执行播放命令
+  ///
+  /// 参数:
+  /// - [cmd] 要执行的播放命令
   Future<void> _executeCommand(PlaybackCommand cmd) async {
     switch (cmd.type) {
       case PlaybackCommandType.play:
@@ -337,6 +355,8 @@ class PlaybackController {
   }
 
   /// 播放（通过队列）
+  ///
+  /// 恢复或开始播放当前音频。
   Future<void> play() async {
     if (_disposed) return;
 
@@ -349,6 +369,8 @@ class PlaybackController {
   }
 
   /// 暂停（通过队列）
+  ///
+  /// 暂停当前正在播放的音频。
   Future<void> pause() async {
     if (_disposed) return;
 
@@ -361,6 +383,8 @@ class PlaybackController {
   }
 
   /// 停止（通过队列）
+  ///
+  /// 停止播放并清空音频源。
   Future<void> stop() async {
     if (_disposed) return;
 
@@ -373,6 +397,8 @@ class PlaybackController {
   }
 
   /// 切换播放/暂停（通过队列）
+  ///
+  /// 根据当前播放状态切换播放或暂停。
   Future<void> togglePlayPause() async {
     if (_disposed) return;
 
@@ -434,6 +460,9 @@ class PlaybackController {
   // ==================== 音频源管理 ====================
 
   /// 设置本地音频源
+  ///
+  /// 参数:
+  /// - [filePath] 本地音频文件的完整路径
   Future<void> setFileSource(String filePath) async {
     if (_disposed) return;
 
@@ -452,6 +481,9 @@ class PlaybackController {
   }
 
   /// 设置在线音频源
+  ///
+  /// 参数:
+  /// - [url] 在线音频流的 URL 地址
   Future<void> setUrlSource(String url) async {
     if (_disposed) return;
 
@@ -676,7 +708,11 @@ class PlaybackController {
 
   /// 准备音频源（不自动播放）
   ///
-  /// 用于恢复播放状态时设置音频源，用户点击播放时可以立即开始
+  /// 用于恢复播放状态时设置音频源，用户点击播放时可以立即开始。
+  ///
+  /// 参数:
+  /// - [playable] 可播放音频对象
+  /// - [startPosition] 起始播放位置（秒），默认为 0
   Future<void> prepareSource(PlayableAudio playable, {int startPosition = 0}) async {
     if (_disposed) return;
 
@@ -706,12 +742,18 @@ class PlaybackController {
   // ==================== 位置监听 ====================
 
   /// 位置变化流
+  ///
+  /// 返回播放位置变化的 Stream，用于更新进度条等 UI。
   Stream<Duration> get positionStream => _player.onPositionChanged;
 
   /// 时长变化流
+  ///
+  /// 返回音频时长变化的 Stream。
   Stream<Duration> get durationStream => _player.onDurationChanged;
 
   /// 播放状态流
+  ///
+  /// 返回播放器状态变化的 Stream。
   Stream<PlayerState> get playerStateStream => _player.onPlayerStateChanged;
 
   /// 缓冲位置流（audioplayers 不直接支持，返回空流）
@@ -719,6 +761,9 @@ class PlaybackController {
 
   // ==================== 释放资源 ====================
 
+  /// 释放资源
+  ///
+  /// 取消所有订阅并释放播放器资源。调用后对象不可再使用。
   void dispose() {
     if (_disposed) return;
     _disposed = true;

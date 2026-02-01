@@ -52,6 +52,12 @@ class PlayerActionBar extends StatelessWidget {
   }
 
   /// 处理收藏按钮点击
+  ///
+  /// 切换当前播放歌曲的收藏状态。
+  ///
+  /// 参数:
+  /// - [playlistProvider] 歌单提供者，用于管理收藏
+  /// - [metadataProvider] 元数据提供者，用于获取当前播放信息
   Future<void> _handleFavorite(
     BuildContext context,
     PlaylistProvider playlistProvider,
@@ -103,18 +109,27 @@ class PlayerActionBar extends StatelessWidget {
   }
 
   /// 处理添加到歌单
+  ///
+  /// 显示开发中的功能提示。
   void _handleAddToPlaylist(BuildContext context) {
     AppLogger.logButtonClick('添加到歌单', 'PlayerActionBar');
     _showSnackBar(context, '添加到歌单功能开发中', Colors.orange);
   }
 
   /// 处理更多选项
+  ///
+  /// 显示开发中的功能提示。
   void _handleMore(BuildContext context) {
     AppLogger.logButtonClick('更多选项', 'PlayerActionBar');
     _showSnackBar(context, '更多选项功能开发中', Colors.orange);
   }
 
   /// 显示提示消息
+  ///
+  /// 参数:
+  /// - [context] BuildContext
+  /// - [message] 要显示的消息内容
+  /// - [backgroundColor] 消息背景颜色
   void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -127,6 +142,8 @@ class PlayerActionBar extends StatelessWidget {
 }
 
 /// 操作按钮组件
+///
+/// 用于显示播放器操作栏中的单个按钮（图标+文字）。
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;

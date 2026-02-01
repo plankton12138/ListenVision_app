@@ -13,6 +13,9 @@ class AudioInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    /// 构建音频信息显示组件
+    ///
+    /// 显示专辑封面、歌曲标题和艺术家信息。
     final provider = context.watch<AudioMetadataProvider>();
 
     return Column(
@@ -28,6 +31,9 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建专辑封面
+  ///
+  /// 参数:
+  /// - [controller] 元数据控制器
   Widget _buildAlbumArt(BuildContext context, AudioMetadataProvider controller) {
     return Container(
       width: MediaQuery.of(context).size.width,
@@ -37,6 +43,14 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建封面内容（支持本地和网络）
+  ///
+  /// 优先级：
+  /// 1. 本地音频封面 (Uint8List)
+  /// 2. 在线音频封面（通过代理URL）
+  /// 3. 默认封面图片
+  ///
+  /// 参数:
+  /// - [controller] 元数据控制器
   Widget _buildAlbumArtContent(BuildContext context, AudioMetadataProvider controller) {
     // 优先级1: 本地音频封面 (Uint8List)
     if (controller.albumArt != null) {
@@ -79,6 +93,9 @@ class AudioInfo extends StatelessWidget {
   }
 
   /// 构建音频信息（标题和艺术家）
+  ///
+  /// 参数:
+  /// - [controller] 元数据控制器
   Widget _buildAudioInfo(BuildContext context, AudioMetadataProvider controller) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,

@@ -58,6 +58,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   }
 
   /// 获取过滤后的歌单项列表
+  ///
+  /// 根据当前搜索查询过滤歌单项，返回匹配的歌曲列表。
+  ///
+  /// 返回:
+  /// - 过滤后的歌单项列表
   List<PlaylistItem> get _filteredItems {
     if (_detail == null) return [];
     if (_searchQuery.isEmpty) return _detail!.items;
@@ -70,6 +75,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     }).toList();
   }
 
+  /// 加载歌单详情
+  ///
+  /// 从后端 API 获取歌单的完整信息，包括歌单项列表。
   Future<void> _loadDetail() async {
     final playlistProvider = context.read<PlaylistProvider>();
 
@@ -110,6 +118,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     }
   }
 
+  /// 从歌单中移除歌曲
+  ///
+  /// 参数:
+  /// - [item] 要移除的歌单项
   Future<void> _removeItem(PlaylistItem item) async {
     final confirmed = await showConfirmDialog(
       title: '移除歌曲',
@@ -147,13 +159,18 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
+  /// 切换拖拽排序模式
+  ///
+  /// 在普通模式和拖拽排序模式之间切换。
   void _toggleReorder() {
     setState(() {
       _isReordering = !_isReordering;
     });
   }
 
-  // Phase 5: 显示添加歌曲对话框
+  /// 显示添加歌曲对话框
+  ///
+  /// 打开底部弹窗，允许用户通过搜索添加歌曲到歌单。
   void _showAddSongDialog() {
     showModalBottomSheet(
       context: context,
@@ -163,7 +180,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
-  // Phase 5: 显示排序选项对话框
+  /// 显示排序选项对话框
+  ///
+  /// 打开对话框，允许用户选择歌曲排序方式（如按歌名、歌手、时长等）。
   void _showSortOptionsDialog() {
     showDialog(
       context: context,
@@ -171,6 +190,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
+  /// 重新排序歌单项
+  ///
+  /// 参数:
+  /// - [oldIndex] 原始索引
+  /// - [newIndex] 新的目标索引
   Future<void> _reorderItems(int oldIndex, int newIndex) async {
     if (_detail == null) return;
 
@@ -251,7 +275,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
-  /// 显示搜索栏
+  /// 显示/隐藏搜索栏
+  ///
+  /// 在搜索模式和普通模式之间切换。
   void _showSearchBar() {
     setState(() {
       if (_searchQuery.isEmpty) {
@@ -265,6 +291,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     });
   }
 
+  /// 构建页面主体
+  ///
+  /// 根据加载状态、错误状态或数据状态返回相应的 Widget。
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -343,6 +372,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   }
 
   /// 构建搜索框
+  ///
+  /// 返回一个带实时搜索功能的文本输入框。
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -391,6 +422,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   }
 
   /// 构建空搜索结果提示
+  ///
+  /// 当搜索没有匹配结果时显示的提示界面。
   Widget _buildEmptySearchResult() {
     return Center(
       child: Column(
@@ -421,6 +454,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   }
 
   /// 构建歌单信息区域（含播放全部按钮）
+  ///
+  /// 显示歌单名称、描述、歌曲数量和播放全部按钮。
   Widget _buildPlaylistInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -486,6 +521,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
+  /// 构建歌单项卡片
+  ///
+  /// 参数:
+  /// - [item] 歌单项数据
+  /// - [index] 歌单项在列表中的索引
   Widget _buildItemCard(PlaylistItem item, int index) {
     return Container(
       key: ValueKey(item.id ?? item.bvid),
@@ -524,6 +564,12 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
+  /// 构建歌单项封面
+  ///
+  /// 参数:
+  /// - [item] 歌单项数据
+  ///
+  /// 返回优先使用网络封面，失败则使用默认封面。
   Widget _buildItemCover(PlaylistItem item) {
     final coverUrl = item.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
@@ -543,6 +589,12 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     return _buildDefaultCover(index: _detail?.items.indexOf(item) ?? 0);
   }
 
+  /// 构建默认封面
+  ///
+  /// 当歌单项没有封面或加载失败时使用。
+  ///
+  /// 参数:
+  /// - [index] 歌曲序号（1-based）
   Widget _buildDefaultCover({required int index}) {
     return Container(
       width: 48,

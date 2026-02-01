@@ -6,6 +6,7 @@ import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/debounce_utils.dart';
 import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_queue.dart';
+import 'package:demo/core/constants/playback_status.dart';
 
 /// 播放控制器（audioplayers 版本）
 ///
@@ -31,10 +32,10 @@ class PlaybackController {
   // 播放启动保护（防止 stream 事件覆盖正在启动的播放状态）
   bool _isStartingPlayback = false;
 
-  // P0修复：自适应保护窗口（根据设备性能动态调整）
+  // ✅ 优化：缩短自适应保护窗口（减少切换延迟）
   final AdaptiveProtection _adaptiveProtection = AdaptiveProtection(
-    baseDuration: const Duration(seconds: 2),
-    maxDuration: const Duration(seconds: 5),
+    baseDuration: const Duration(milliseconds: 500),
+    maxDuration: const Duration(seconds: 1),
   );
 
   // P0修复：音频源切换锁（防止重叠播放）
@@ -123,6 +124,29 @@ class PlaybackController {
   /// 是否正在加载或缓冲
   bool get isLoadingOrBuffering => isLoading || isBuffering;
 
+  /// 获取统一的播放状态
+  PlaybackStatus get playbackStatus {
+    if (_lastPlayerState == PlayerState.stopped && _currentSourceUrl == null) {
+      return PlaybackStatus.idle;
+    }
+    if (_isLoadingSource) {
+      return PlaybackStatus.loading;
+    }
+    if (_lastPlayerState == PlayerState.playing) {
+      return PlaybackStatus.playing;
+    }
+    if (_lastPlayerState == PlayerState.paused) {
+      return PlaybackStatus.paused;
+    }
+    if (_lastPlayerState == PlayerState.completed) {
+      return PlaybackStatus.completed;
+    }
+    return PlaybackStatus.ready;
+  }
+
+  /// 是否正在加载音频源
+  bool _isLoadingSource = false;
+
   // ==================== 初始化 ====================
 
   /// 设置队列回调
@@ -132,9 +156,9 @@ class PlaybackController {
     });
   }
 
-  // 修复：添加状态去重，减少不必要的UI更新
+  // ✅ 优化：减少状态更新间隔限制（更及时的UI响应）
   DateTime _lastStateUpdateTime = DateTime.now();
-  static const Duration _minStateUpdateInterval = Duration(milliseconds: 100);
+  static const Duration _minStateUpdateInterval = Duration(milliseconds: 50);
 
   void _initListeners() {
     // 播放状态监听
@@ -149,10 +173,14 @@ class PlaybackController {
         }
         _lastStateUpdateTime = now;
 
-        // P0修复：使用自适应保护窗口替代固定2秒
+        // ✅ 优化：使用自适应保护窗口，但允许 stopped 状态更新
         if (_isStartingPlayback && state != PlayerState.playing) {
           if (_adaptiveProtection.isInProtectionPeriod) {
-            AppLogger.debug('PlaybackController', '自适应保护中，跳过 stream 状态更新');
+            // 允许 stopped 状态更新（用于显示加载状态）
+            if (state == PlayerState.stopped) {
+              _lastPlayerState = state;
+            }
+            AppLogger.debug('PlaybackController', '自适应保护中，仅更新 stopped 状态');
             return;
           } else {
             // 保护窗口已过，关闭保护
@@ -161,9 +189,12 @@ class PlaybackController {
           }
         }
 
-        // P0修复：音频源切换期间忽略非播放状态更新
+        // ✅ 优化：音频源切换期间允许 stopped 状态更新
         if (_isSwitchingSource && state != PlayerState.playing) {
-          AppLogger.debug('PlaybackController', '音频源切换中，跳过状态更新');
+          if (state == PlayerState.stopped) {
+            _lastPlayerState = state;
+          }
+          AppLogger.debug('PlaybackController', '音频源切换中，仅更新 stopped 状态');
           return;
         }
 
@@ -401,11 +432,17 @@ class PlaybackController {
     if (_disposed) return;
 
     AppLogger.info('PlaybackController', '设置本地音频源: $filePath');
-    await _player
-        .setSource(DeviceFileSource(filePath))
-        .timeout(const Duration(seconds: 5));
-    _currentSourceUrl = filePath;
-    AppLogger.info('PlaybackController', '本地音频源已设置');
+    _isLoadingSource = true;
+    _onPlayerStateChanged?.call(_lastPlayerState);
+    try {
+      await _player
+          .setSource(DeviceFileSource(filePath))
+          .timeout(const Duration(seconds: 5));
+      _currentSourceUrl = filePath;
+    } finally {
+      _isLoadingSource = false;
+      _onPlayerStateChanged?.call(_lastPlayerState);
+    }
   }
 
   /// 设置在线音频源
@@ -413,9 +450,15 @@ class PlaybackController {
     if (_disposed) return;
 
     AppLogger.info('PlaybackController', '设置在线音频源: $url');
-    await _player.setSource(UrlSource(url)).timeout(const Duration(seconds: 10));
-    _currentSourceUrl = url;
-    AppLogger.info('PlaybackController', '在线音频源已设置');
+    _isLoadingSource = true;
+    _onPlayerStateChanged?.call(_lastPlayerState);
+    try {
+      await _player.setSource(UrlSource(url)).timeout(const Duration(seconds: 10));
+      _currentSourceUrl = url;
+    } finally {
+      _isLoadingSource = false;
+      _onPlayerStateChanged?.call(_lastPlayerState);
+    }
   }
 
   /// 设置音频源并播放 - P0修复：防止音频重叠
@@ -473,9 +516,9 @@ class PlaybackController {
     try {
       // 设置音频源
       if (playable.isOnline) {
-        await _setOnlineSourceAndPlay(playable, timeout ?? const Duration(seconds: 30));
+        await _setOnlineSourceAndPlay(playable, timeout ?? const Duration(seconds: 10));
       } else {
-        await _setFileSourceAndPlay(playable, timeout ?? const Duration(seconds: 5));
+        await _setFileSourceAndPlay(playable, timeout ?? const Duration(seconds: 3));
       }
 
       // 确认播放已开始，清除保护
@@ -556,7 +599,7 @@ class PlaybackController {
         AppLogger.info('PlaybackController', '音频源已设置，等待就绪...');
 
         // 等待就绪
-        await _waitForDuration(const Duration(seconds: 10));
+        await _waitForDuration(const Duration(seconds: 5));
 
         // ✅ 修复：确保时长已加载后才标记为播放开始
         if (_currentDuration > Duration.zero) {
@@ -577,14 +620,29 @@ class PlaybackController {
   }
 
   /// 等待音频时长加载（用于判断音频是否就绪）
+  /// ✅ 优化：添加快速超时机制，播放开始后不等待时长
   Future<void> _waitForDuration(Duration timeout) async {
     final completer = Completer<void>();
     late StreamSubscription sub;
-    
+
+    // 快速超时：如果500ms内没有时长信息，先允许继续（不阻塞播放）
+    final quickTimeout = const Duration(milliseconds: 500);
+    bool quickTimeoutHit = false;
+    Timer? quickTimer;
+
+    quickTimer = Timer(quickTimeout, () {
+      if (!completer.isCompleted) {
+        quickTimeoutHit = true;
+        AppLogger.debug('PlaybackController', '时长加载延迟，播放将立即开始');
+        // 不完成，继续等待完整超时以获取时长信息
+      }
+    });
+
     sub = _player.onDurationChanged.listen((duration) {
       if (duration > Duration.zero && !completer.isCompleted) {
         completer.complete();
         sub.cancel();
+        quickTimer?.cancel();
       }
     });
 
@@ -593,10 +651,16 @@ class PlaybackController {
       if (!completer.isCompleted) {
         completer.complete();
         sub.cancel();
+        quickTimer?.cancel();
       }
     });
 
     await completer.future;
+    quickTimer.cancel();
+
+    if (quickTimeoutHit) {
+      AppLogger.debug('PlaybackController', '播放已开始，等待时长信息加载...');
+    }
   }
 
   /// 准备音频源（不自动播放）

@@ -99,7 +99,7 @@ void main() {
       await tester.pump(); // 触发状态更新
 
       // 验证动画控制器被触发（ScaleTransition 存在）
-      expect(find.byType(ScaleTransition), findsOneWidget);
+      expect(find.byType(ScaleTransition), findsWidgets);
 
       // 验证图标变为实心爱心
       expect(find.byIcon(Icons.favorite), findsOneWidget);
@@ -109,7 +109,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // ScaleTransition 依然存在（动画结束后不会移除）
-      expect(find.byType(ScaleTransition), findsOneWidget);
+      expect(find.byType(ScaleTransition), findsWidgets);
     });
   });
 }

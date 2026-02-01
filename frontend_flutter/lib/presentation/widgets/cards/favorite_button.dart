@@ -51,6 +51,10 @@ class _FavoriteButtonState extends State<FavoriteButton>
     super.didUpdateWidget(oldWidget);
     if (widget.isFavorited != oldWidget.isFavorited) {
       if (widget.isFavorited) {
+        // 停止任何正在进行的动画，防止快速点击导致动画冲突
+        if (_animationController.status != AnimationStatus.dismissed) {
+          _animationController.stop();
+        }
         _animationController.forward();
       }
     }

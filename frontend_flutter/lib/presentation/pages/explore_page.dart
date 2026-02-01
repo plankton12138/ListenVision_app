@@ -6,7 +6,9 @@ import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
+import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/presentation/widgets/cards/favorite_button.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -124,6 +126,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
           break;
       }
     } catch (e) {
+      AppLogger.error('ExplorePage', '加载推荐内容失败: $e');
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -422,17 +425,40 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
                   ],
                 ),
               ),
-              // Phase 2: 播放按钮
-              IconButton(
-                icon: const Icon(Icons.play_circle_outline),
-                color: Colors.blue,
-                onPressed: () {
-                  if (bvid.isNotEmpty) {
-                    _playOnlineAudio(context, bvid, item);
-                  }
+              // 收藏状态按钮和播放按钮
+              Consumer<PlaylistProvider>(
+                builder: (context, playlistProvider, _) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 收藏按钮
+                      FavoriteButton(
+                        isFavorited: playlistProvider.isFavorited(bvid),
+                        size: 24,
+                        onPressed: () => _handleFavoriteToggle(
+                          context,
+                          playlistProvider,
+                          bvid,
+                          item,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // 播放按钮
+                      IconButton(
+                        icon: const Icon(Icons.play_circle_outline),
+                        color: Colors.blue,
+                        iconSize: 32,
+                        onPressed: () {
+                          if (bvid.isNotEmpty) {
+                            _playOnlineAudio(context, bvid, item);
+                          }
+                        },
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  );
                 },
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
               ),
             ],
           ),
@@ -602,6 +628,62 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
       AppLogger.error('ExplorePage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
+      }
+    }
+  }
+
+  /// 处理收藏按钮点击
+  Future<void> _handleFavoriteToggle(
+    BuildContext context,
+    PlaylistProvider playlistProvider,
+    String bvid,
+    Map<String, dynamic> item,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isLoggedIn || authProvider.user?.token == null) {
+      if (mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          '请先登录后收藏',
+          backgroundColor: Colors.orange,
+        );
+      }
+      return;
+    }
+
+    final wasFavorited = playlistProvider.isFavorited(bvid);
+
+    try {
+      await playlistProvider.toggleFavorite(
+        authProvider.user!.token!,
+        bvid,
+        title: item['title'],
+        artist: item['author'],
+        coverUrl: item['cover'],
+      );
+
+      // 添加UI层日志记录
+      AppLogger.logButtonClick(
+        wasFavorited ? '取消收藏' : '收藏',
+        'ExplorePage',
+        parameters: {'bvid': bvid, 'title': item['title']},
+      );
+
+      if (mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          wasFavorited ? '已取消收藏' : '已添加到我喜欢',
+          backgroundColor: wasFavorited ? Colors.grey : Colors.green,
+        );
+      }
+    } catch (e) {
+      AppLogger.error('ExplorePage', '收藏操作失败: $e');
+      if (mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          '操作失败: $e',
+          backgroundColor: Colors.red,
+        );
       }
     }
   }

@@ -5,7 +5,9 @@ import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/play_history/play_history_provider.dart';
+import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/presentation/widgets/cards/favorite_button.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -78,6 +80,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     try {
       await historyProvider.initialize();
     } catch (e) {
+      AppLogger.error('PlayHistoryPage', '初始化失败: $e');
       setState(() {
         _errorMessage = e.toString();
       });
@@ -119,6 +122,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         DialogHelper.showSnackBar(context, '播放历史已清空', backgroundColor: Colors.green, duration: 1500);
       }
     } catch (e) {
+      AppLogger.error('PlayHistoryPage', '清空播放历史失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '清空失败: $e', backgroundColor: Colors.red, duration: 2000);
       }
@@ -186,6 +190,46 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
       AppLogger.error('PlayHistoryPage', '播放失败: $e');
       if (mounted) {
         DialogHelper.showSnackBar(context, '播放失败: $e', backgroundColor: Colors.red, duration: 2000);
+      }
+    }
+  }
+
+  /// 处理收藏按钮点击
+  Future<void> _handleFavoriteToggle(
+    BuildContext context,
+    PlaylistProvider playlistProvider,
+    PlayHistoryItem item,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    final audio = item.audio;
+
+    final wasFavorited = playlistProvider.isFavorited(audio.id);
+
+    try {
+      await playlistProvider.toggleFavorite(
+        authProvider.user!.token!,
+        audio.id,
+        title: audio.title,
+        artist: audio.artist,
+        duration: audio.duration,
+        coverUrl: audio.coverUrl,
+      );
+
+      if (context.mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          wasFavorited ? '已取消收藏' : '已添加到我喜欢',
+          backgroundColor: wasFavorited ? Colors.grey : Colors.green,
+        );
+      }
+    } catch (e) {
+      AppLogger.error('PlayHistoryPage', '收藏操作失败: $e');
+      if (context.mounted) {
+        DialogHelper.showSnackBar(
+          context,
+          '操作失败: $e',
+          backgroundColor: Colors.red,
+        );
       }
     }
   }
@@ -563,9 +607,30 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
               ),
             ],
           ),
-          trailing: IconButton(
-            icon: const Icon(Icons.play_circle_outline),
-            onPressed: () => _playHistoryItem(item),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 收藏按钮
+              Consumer<PlaylistProvider>(
+                builder: (context, playlistProvider, _) {
+                  return FavoriteButton(
+                    isFavorited: playlistProvider.isFavorited(item.audio.id),
+                    size: 24,
+                    onPressed: () => _handleFavoriteToggle(
+                      context,
+                      playlistProvider,
+                      item,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
+              // 播放按钮
+              IconButton(
+                icon: const Icon(Icons.play_circle_outline),
+                onPressed: () => _playHistoryItem(item),
+              ),
+            ],
           ),
           onTap: () => _playHistoryItem(item),
         ),

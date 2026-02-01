@@ -545,9 +545,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     );
   }
 
-  /// Phase 2: 播放歌单项
-  /// P0 修复: 使用 proxyUrl 而不是已废弃的 streamUrl 参数
-  /// 使用 AsyncUIHandlerMixin 的 runAsync 方法统一处理错误
+  /// 播放歌单项（支持在线和本地歌曲）
+  ///
+  /// 根据歌曲类型（在线/本地）选择不同的播放方式
+  /// - 本地歌曲: bvid为空或使用localPath字段
+  /// - 在线歌曲: 使用bvid字段和playOnlineAudio方法
   Future<void> _playPlaylistItem(
     BuildContext context,
     PlaylistItem item,
@@ -558,29 +560,47 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
 
     await runAsync(
       operation: () async {
-        // 创建 Audio 实体
-        final audio = Audio.fromDto({
-          'bvid': item.bvid,
-          'title': item.title ?? item.bvid,
-          'artist': item.artist,
-          'cover': item.coverUrl,
-          'duration': item.duration,
-        });
+        // 判断是否为本地歌曲
+        final isLocal = item.bvid.isEmpty || item.bvid.startsWith('file://');
 
-        // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
-        // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
-        await audioProvider.playOnlineAudio(
-          audio: audio,
-        );
+        if (isLocal) {
+          // 本地歌曲播放逻辑
+          if (item.localPath == null && item.bvid.isEmpty) {
+            throw Exception('本地歌曲路径为空');
+          }
+
+          final localPath = item.localPath ?? item.bvid.replaceFirst('file://', '');
+
+          AppLogger.info('PlaylistDetailPage', '播放本地歌曲: $localPath');
+
+          await audioProvider.loadAudio(localPath);
+        } else {
+          // 在线歌曲播放逻辑
+          final audio = Audio.fromDto({
+            'bvid': item.bvid,
+            'title': item.title ?? item.bvid,
+            'artist': item.artist,
+            'cover': item.coverUrl,
+            'duration': item.duration,
+          });
+
+          AppLogger.info('PlaylistDetailPage', '播放在线歌曲: ${audio.title}');
+
+          // P0 修复: 使用 proxyUrl（audioProvider 会自动构建代理 URL）
+          // 不需要从 bilibiliProvider.getAudioStream 获取流 URL
+          await audioProvider.playOnlineAudio(
+            audio: audio,
+          );
+        }
 
         // 记录播放历史
         if (authProvider.isLoggedIn) {
           await historyProvider.recordPlay(
-            bvid: item.bvid,
-            title: audio.title,
-            artist: audio.artist,
-            coverUrl: audio.coverUrl,
-            duration: audio.duration,
+            bvid: item.bvid.isEmpty ? (item.localPath ?? '') : item.bvid,
+            title: item.title ?? item.bvid,
+            artist: item.artist ?? '',
+            coverUrl: item.coverUrl,
+            duration: item.duration,
           );
         }
       },

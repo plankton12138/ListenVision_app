@@ -156,6 +156,7 @@ class PlaylistItem with _$PlaylistItem {
     String? artist,
     int? duration,
     String? coverUrl,
+    String? localPath,
     required int position,
     DateTime? addedAt,
   }) = _PlaylistItem;
@@ -173,6 +174,7 @@ class PlaylistItem with _$PlaylistItem {
       artist: json['artist'] as String? ?? json['author'] as String?,
       duration: json['duration'] as int?,
       coverUrl: json['cover_url'] as String? ?? json['coverUrl'] as String?,
+      localPath: json['local_path'] as String? ?? json['localPath'] as String?,
       position: json['position'] as int? ?? 0,
       addedAt: Playlist._parseDateTime(json['added_at'] ?? json['addedAt']),
     );
@@ -210,6 +212,7 @@ class PlaylistItem with _$PlaylistItem {
       if (artist != null) 'artist': artist,
       if (duration != null) 'duration': duration,
       if (coverUrl != null) 'cover_url': coverUrl,
+      if (localPath != null) 'local_path': localPath,
       'position': position,
     };
   }

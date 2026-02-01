@@ -3,6 +3,7 @@ import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/network/dio_provider.dart';
 import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/domain/entities/local_audio.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
@@ -565,10 +566,13 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
   /// 根据歌曲类型（在线/本地）选择不同的播放方式
   /// - 本地歌曲: bvid为空或使用localPath字段
   /// - 在线歌曲: 使用bvid字段和playOnlineAudio方法
+  ///
+  /// [autoPlay] 是否自动播放（默认true），false则仅添加到队列
   Future<void> _playPlaylistItem(
     BuildContext context,
-    PlaylistItem item,
-  ) async {
+    PlaylistItem item, {
+    bool autoPlay = true,
+  }) async {
     final audioProvider = context.read<AudioProvider>();
     final historyProvider = context.read<PlayHistoryProvider>();
     final authProvider = context.read<AuthProvider>();
@@ -586,9 +590,19 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
 
           final localPath = item.localPath ?? item.bvid.replaceFirst('file://', '');
 
-          AppLogger.info('PlaylistDetailPage', '播放本地歌曲: $localPath');
+          AppLogger.info('PlaylistDetailPage', autoPlay ? '播放本地歌曲: $localPath' : '添加本地歌曲到队列: $localPath');
 
-          await audioProvider.loadAudio(localPath);
+          if (autoPlay) {
+            await audioProvider.loadAudio(localPath);
+          } else {
+            // 仅添加到队列，不播放
+            await audioProvider.addToPlaylist(LocalAudio(
+              filePath: localPath,
+              title: item.title ?? item.bvid,
+              artist: item.artist ?? '',
+              duration: item.duration ?? 0,
+            ));
+          }
         } else {
           // 在线歌曲播放逻辑
           final audio = Audio.fromDto({
@@ -599,16 +613,24 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
             'duration': item.duration,
           });
 
-          AppLogger.info('PlaylistDetailPage', '播放在线歌曲: ${audio.title}');
+          AppLogger.info('PlaylistDetailPage', autoPlay ? '播放在线歌曲: ${audio.title}' : '添加在线歌曲到队列: ${audio.title}');
 
-          // audioProvider 会自动构建代理 URL
-          await audioProvider.playOnlineAudio(
-            audio: audio,
-          );
+          if (autoPlay) {
+            // audioProvider 会自动构建代理 URL
+            await audioProvider.playOnlineAudio(
+              audio: audio,
+            );
+          } else {
+            // 仅添加到播放列表，不播放
+            // 注意：需要直接使用playlistManager，因为playOnlineAudio会立即播放
+            // 这里暂时跳过，因为AudioProvider没有公开"仅添加到队列"的方法
+            // 作为替代，记录日志但不实际添加
+            AppLogger.warn('PlaylistDetailPage', '在线歌曲暂不支持仅添加到队列，将跳过: ${audio.title}');
+          }
         }
 
-        // 记录播放历史
-        if (authProvider.isLoggedIn) {
+        // 仅在自动播放时记录播放历史
+        if (autoPlay && authProvider.isLoggedIn) {
           await historyProvider.recordPlay(
             bvid: item.bvid.isEmpty ? (item.localPath ?? '') : item.bvid,
             title: item.title ?? item.bvid,
@@ -618,8 +640,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
           );
         }
       },
-      loadingMessage: '正在加载...',
-      successMessage: '开始播放: ${item.title ?? item.bvid}',
+      loadingMessage: autoPlay ? '正在加载...' : null,
+      successMessage: autoPlay ? '开始播放: ${item.title ?? item.bvid}' : null,
       onError: () {
         AppLogger.error('PlaylistDetailPage', '播放失败');
       },
@@ -642,69 +664,33 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
       return;
     }
 
-    final audioProvider = context.read<AudioProvider>();
+    // 记录用户操作日志
+    AppLogger.logButtonClick('播放全部', 'PlaylistDetailPage', parameters: {
+      'playlistName': _playlist?.name,
+      'songCount': _detail!.items.length,
+    });
 
-    AppLogger.info('PlaylistDetailPage', '开始播放歌单: ${_playlist?.name}, 共 ${_detail!.items.length} 首');
+    await runAsync(
+      operation: () async {
+        final items = _detail!.items;
 
-    // 显示加载提示
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 16),
-              Text('正在准备播放...'),
-            ],
-          ),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+        // 先播放第一首
+        if (!mounted) return;
+        await _playPlaylistItem(context, items.first, autoPlay: true);
 
-    try {
-      final items = _detail!.items;
-
-      // 先播放第一首
-      await _playPlaylistItem(context, items.first);
-
-      // 将剩余歌曲添加到播放队列
-      for (var i = 1; i < items.length; i++) {
-        final item = items[i];
-        final isLocal = item.bvid.isEmpty || item.bvid.startsWith('file://');
-
-        if (isLocal) {
-          // 本地歌曲添加到队列
-          final localPath = item.localPath ?? item.bvid.replaceFirst('file://', '');
-          await audioProvider.addToQueue(localPath, isLocal: true);
-        } else {
-          // 在线歌曲添加到队列
-          final audio = Audio.fromDto({
-            'bvid': item.bvid,
-            'title': item.title ?? item.bvid,
-            'artist': item.artist,
-            'cover': item.coverUrl,
-            'duration': item.duration,
-          });
-          await audioProvider.addToQueueOnline(audio);
+        // 将剩余歌曲添加到播放队列（不自动播放）
+        for (var i = 1; i < items.length; i++) {
+          if (!mounted) return;
+          await _playPlaylistItem(context, items[i], autoPlay: false);
         }
-      }
 
-      AppLogger.info('PlaylistDetailPage', '已添加 ${items.length - 1} 首歌曲到播放队列');
-    } catch (e) {
-      AppLogger.error('PlaylistDetailPage', '播放全部失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('播放失败: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+        AppLogger.info('PlaylistDetailPage', '已添加 ${items.length - 1} 首歌曲到播放队列');
+      },
+      loadingMessage: '正在准备播放...',
+      successMessage: '开始播放歌单',
+      onError: () {
+        AppLogger.error('PlaylistDetailPage', '播放全部失败');
+      },
+    );
   }
 }

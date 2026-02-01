@@ -75,6 +75,9 @@ class AudioProvider extends ChangeNotifier {
   bool _isSeekable = true;
   String? _currentContentType;
 
+  /// 当前播放的文件路径（用于异步元数据验证）
+  String? _currentFilePath;
+
   /// 播放器状态消息
   String _playerStatusMessage = '';
   bool _hasPlaybackError = false;
@@ -85,6 +88,14 @@ class AudioProvider extends ChangeNotifier {
   /// 位置订阅
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
+
+  // ==================== 播放队列 ====================
+
+  /// 本地播放队列（文件路径）
+  final List<String> _localQueue = [];
+
+  /// 在线播放队列
+  final List<Audio> _onlineQueue = [];
 
   // ==================== P0修复：防抖与版本控制 ====================
 
@@ -311,6 +322,10 @@ class AudioProvider extends ChangeNotifier {
   String get playerStatusMessage => _playerStatusMessage;
   bool get hasPlaybackError => _hasPlaybackError;
 
+  // 播放队列
+  /// 获取播放队列总长度
+  int get queueLength => _localQueue.length + _onlineQueue.length;
+
   // ==================== 播放控制 ====================
 
   /// 播放/暂停
@@ -390,7 +405,7 @@ class AudioProvider extends ChangeNotifier {
   }
 
   /// 处理播放完成事件
-  /// 自动播放下一首，如果没有下一首则重置当前歌曲到开始位置
+  /// 自动播放下一首，优先从播放队列中取，如果没有下一首则重置当前歌曲到开始位置
   Future<void> _handlePlaybackComplete() async {
     if (_disposed) return;
 
@@ -402,9 +417,16 @@ class AudioProvider extends ChangeNotifier {
     // 保存最终状态
     await _stateManager.saveNow();
 
-    // 检查是否有下一首
+    // 优先检查播放队列
+    if (queueLength > 0) {
+      AppLogger.info('AudioProvider', '播放队列中有 $queueLength 首歌曲，播放下一首');
+      await _playNextInQueue();
+      return;
+    }
+
+    // 检查播放列表中是否有下一首
     if (_playlistManager.hasNext) {
-      AppLogger.info('AudioProvider', '有下一首，自动播放');
+      AppLogger.info('AudioProvider', '播放列表中有下一首，自动播放');
       await playNext();
     } else {
       AppLogger.info('AudioProvider', '没有下一首，重置到开始位置');
@@ -661,15 +683,19 @@ class AudioProvider extends ChangeNotifier {
 
   // ==================== 加载本地音频 ====================
 
-  /// 加载音频文件并设置元数据 - P0修复：使用增量同步
+  /// 加载音频文件并设置元数据 - 优化：异步元数据加载，不阻塞播放
   Future<void> loadAudio(String filePath) async {
     if (_disposed) return;
+
+    // 保存当前文件路径用于异步验证
+    final currentFilePath = filePath;
 
     try {
       // 设置为本地播放
       _isCurrentOnline = false;
       _currentOnlineAudio = null;
       _isSeekable = true;
+      _currentFilePath = filePath;
 
       AppLogger.info('AudioProvider', '开始加载: $filePath');
 
@@ -679,8 +705,9 @@ class AudioProvider extends ChangeNotifier {
       _nowPlayingProvider?.clearError();
       notifyListeners();
 
-      // 提取文件元数据
-      final metadata = await AudioMetadataLoader().extractFromFile(filePath);
+      // ✅ 优化：先用文件路径提取默认元数据（快速，不阻塞）
+      final metadataLoader = AudioMetadataLoader();
+      final defaultMetadata = metadataLoader.extractMetadataFromPath(filePath);
 
       // 从本地播放列表查找数据库元数据
       final localPlaylist = _playlistManager.localPlaylist;
@@ -691,9 +718,9 @@ class AudioProvider extends ChangeNotifier {
         'albumArt': localPlaylist[dbIndex].albumArt,
       } : null;
 
-      // 合并文件和数据库元数据
-      final finalMetadata = AudioMetadataLoader().mergeMetadata(
-        fileMetadata: metadata,
+      // 合并默认元数据
+      final finalMetadata = metadataLoader.mergeMetadata(
+        fileMetadata: defaultMetadata,
         dbMetadata: dbMetadata,
       );
 
@@ -705,9 +732,36 @@ class AudioProvider extends ChangeNotifier {
       _syncMetadataProvider();
       notifyListeners();
 
-      // 设置音频源并播放
+      // ✅ 优化：立即启动播放（不等待完整元数据）
       await _playbackController.setFileSource(filePath);
       await _playbackController.play();
+      _playerStatusMessage = '';  // 清除加载状态
+      notifyListeners();
+
+      // ✅ 优化：后台异步加载完整元数据
+      metadataLoader.extractFromFile(filePath).then((fullMetadata) {
+        if (_disposed || _currentFilePath != currentFilePath) return;  // 确保还是同一首歌
+
+        // 合并完整元数据
+        final mergedMetadata = metadataLoader.mergeMetadata(
+          fileMetadata: fullMetadata,
+          dbMetadata: dbMetadata,
+        );
+
+        final oldTitle = _title;
+        final oldArtist = _artist;
+
+        _title = mergedMetadata['title'] as String;
+        _artist = mergedMetadata['artist'] as String;
+        _albumArt = mergedMetadata['cover'] as Uint8List?;
+
+        // 只有元数据真正变化时才通知
+        if (_title != oldTitle || _artist != oldArtist) {
+          AppLogger.debug('AudioProvider', '元数据已更新: $_title - $_artist');
+          _syncMetadataProvider();
+          notifyListeners();
+        }
+      });
 
       // P0修复：如果音频不在播放列表中，添加到播放列表并同步
       if (dbIndex == -1) {
@@ -723,7 +777,7 @@ class AudioProvider extends ChangeNotifier {
         await _playlistManager.add(LocalPlayable(audio), syncLocal: true);
         // 立即刷新播放列表UI（避免覆盖当前索引）
         await _playlistManager.syncFromLocal();
-        AppLogger.info('AudioProvider', '新音频已添加到播放列表: ${_title}');
+        AppLogger.info('AudioProvider', '新音频已添加到播放列表: $_title');
       }
 
       // 更新统一播放列表索引到当前音频
@@ -741,9 +795,7 @@ class AudioProvider extends ChangeNotifier {
       }
 
       // 确保UI更新（包括播放列表和当前播放信息）
-      _playerStatusMessage = '';
       _syncPlaylistProviders();
-      _syncMetadataProvider();
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '加载失败: $e');
@@ -753,6 +805,47 @@ class AudioProvider extends ChangeNotifier {
   }
 
   // ==================== 播放列表管理 ====================
+
+  /// 添加本地音频到播放队列
+  ///
+  /// [path] 本地文件路径
+  Future<void> addToQueue(String path) async {
+    AppLogger.info('AudioProvider', '添加本地音频到队列: $path');
+    _localQueue.add(path);
+    notifyListeners();
+  }
+
+  /// 添加在线音频到播放队列
+  ///
+  /// [audio] 音频实体
+  Future<void> addToQueueOnline(Audio audio) async {
+    AppLogger.info('AudioProvider', '添加在线音频到队列: ${audio.title}');
+    _onlineQueue.add(audio);
+    notifyListeners();
+  }
+
+  /// 清空播放队列
+  void clearQueue() {
+    AppLogger.info('AudioProvider', '清空播放队列');
+    _localQueue.clear();
+    _onlineQueue.clear();
+    notifyListeners();
+  }
+
+  /// 播放队列中的下一首
+  Future<void> _playNextInQueue() async {
+    if (_disposed) return;
+
+    if (_onlineQueue.isNotEmpty) {
+      final nextAudio = _onlineQueue.removeAt(0);
+      await playOnlineAudio(audio: nextAudio);
+    } else if (_localQueue.isNotEmpty) {
+      final nextPath = _localQueue.removeAt(0);
+      await loadAudio(nextPath);
+    }
+  }
+
+  // ==================== 播放列表管理（原有）====================
 
   /// 添加到播放列表
   Future<void> addToPlaylist(LocalAudio audio) async {

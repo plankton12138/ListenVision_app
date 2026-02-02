@@ -2,9 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
 import 'package:demo/domain/entities/local_playable.dart';
-import 'package:demo/domain/entities/online_playable.dart';
 import 'package:demo/domain/entities/local_audio.dart';
-import 'package:demo/domain/entities/audio.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,22 +23,6 @@ void main() {
         artist: artist,
         duration: 180,
         id: id,
-      ));
-    }
-
-    // 测试用的在线音频
-    OnlinePlayable createTestOnlinePlayable({
-      required String id,
-      required String title,
-      String artist = 'Test Artist',
-    }) {
-      return OnlinePlayable(Audio(
-        id: id,
-        title: title,
-        artist: artist,
-        duration: 180,
-        streamUrl: 'https://example.com/audio.mp3',
-        coverUrl: 'https://example.com/cover.jpg',
       ));
     }
 
@@ -201,181 +183,6 @@ void main() {
         manager.stopPositionSaveTimer();
         expect(manager, isNotNull);
       });
-
-      test('startProgressUpdateTimer 应该启动进度更新定时器', () {
-        manager.setStateCallbacks(
-          getCurrentIndex: () async => 0,
-          getCurrentPlayable: () async => createTestLocalPlayable(id: 1, title: 'Test'),
-          getCurrentPosition: () async => const Duration(seconds: 10),
-          getIsPlaying: () async => true,
-        );
-
-        manager.startProgressUpdateTimer();
-
-        expect(manager, isNotNull);
-      });
-
-      test('stopProgressUpdateTimer 应该停止进度更新定时器', () {
-        manager.startProgressUpdateTimer();
-        manager.stopProgressUpdateTimer();
-
-        // 再次停止不应该报错
-        manager.stopProgressUpdateTimer();
-        expect(manager, isNotNull);
-      });
-
-      test('多次启动定时器应该取消之前的定时器', () {
-        manager.setStateCallbacks(
-          getCurrentIndex: () async => 0,
-          getCurrentPlayable: () async => null,
-          getCurrentPosition: () async => Duration.zero,
-          getIsPlaying: () async => false,
-        );
-
-        manager.startPositionSaveTimer();
-        manager.startPositionSaveTimer(); // 应该取消之前的定时器
-
-        manager.startProgressUpdateTimer();
-        manager.startProgressUpdateTimer(); // 应该取消之前的定时器
-
-        expect(manager, isNotNull);
-      });
-    });
-
-    group('播放历史记录', () {
-      test('recordPlaybackStart 应该记录在线音频', () async {
-        var recorded = false;
-        Map<String, dynamic>? recordedData;
-
-        final onlineAudio = createTestOnlinePlayable(
-          id: 'BV123456',
-          title: 'Online Song',
-          artist: 'Online Artist',
-        );
-
-        await manager.recordPlaybackStart(
-          onlineAudio,
-          token: 'test_token',
-          record: (data) {
-            recorded = true;
-            recordedData = data;
-          },
-        );
-
-        expect(recorded, true);
-        expect(recordedData?['bvid'], 'BV123456');
-        expect(recordedData?['title'], 'Online Song');
-        expect(recordedData?['artist'], 'Online Artist');
-        expect(recordedData?['isOnline'], null); // 不包含 isOnline 字段
-      });
-
-      test('recordPlaybackStart 应该记录本地音频', () async {
-        var recorded = false;
-        Map<String, dynamic>? recordedData;
-
-        final localAudio = createTestLocalPlayable(
-          id: 1,
-          title: 'Local Song',
-          artist: 'Local Artist',
-        );
-
-        await manager.recordPlaybackStart(
-          localAudio,
-          token: 'test_token',
-          record: (data) {
-            recorded = true;
-            recordedData = data;
-          },
-        );
-
-        expect(recorded, true);
-        expect(recordedData?['bvid'], null);
-        expect(recordedData?['title'], 'Local Song');
-        expect(recordedData?['localPath'], '/test/path/Local Song.mp3');
-      });
-
-      test('recordPlaybackStart 没有设置 record 回调时不应该报错', () async {
-        final audio = createTestOnlinePlayable(
-          id: 'BV123456',
-          title: 'Test Song',
-        );
-
-        // 不设置 record 回调，应该优雅地跳过
-        await manager.recordPlaybackStart(audio);
-
-        expect(manager, isNotNull);
-      });
-
-      test('updatePlaybackProgress 应该更新在线音频进度', () async {
-        var updated = false;
-        Map<String, dynamic>? updatedData;
-
-        manager.setStateCallbacks(
-          getCurrentIndex: () async => 0,
-          getCurrentPlayable: () async => createTestOnlinePlayable(
-            id: 'BV123456',
-            title: 'Test Song',
-          ),
-          getCurrentPosition: () async => const Duration(seconds: 30),
-          getIsPlaying: () async => true,
-        );
-
-        await manager.updatePlaybackProgress(
-          token: 'test_token',
-          update: (data) {
-            updated = true;
-            updatedData = data;
-          },
-        );
-
-        expect(updated, true);
-        expect(updatedData?['progress'], 30);
-      });
-
-      test('updatePlaybackProgress 应该更新本地音频进度', () async {
-        var updated = false;
-        Map<String, dynamic>? updatedData;
-
-        manager.setStateCallbacks(
-          getCurrentIndex: () async => 0,
-          getCurrentPlayable: () async => createTestLocalPlayable(
-            id: 1,
-            title: 'Test Song',
-          ),
-          getCurrentPosition: () async => const Duration(seconds: 45),
-          getIsPlaying: () async => true,
-        );
-
-        await manager.updatePlaybackProgress(
-          token: 'test_token',
-          update: (data) {
-            updated = true;
-            updatedData = data;
-          },
-        );
-
-        expect(updated, true);
-        expect(updatedData?['progress'], 45);
-      });
-
-      test('updatePlaybackProgress 索引无效时应该跳过', () async {
-        var updated = false;
-
-        manager.setStateCallbacks(
-          getCurrentIndex: () async => -1, // 无效索引
-          getCurrentPlayable: () async => null,
-          getCurrentPosition: () async => Duration.zero,
-          getIsPlaying: () async => true,
-        );
-
-        await manager.updatePlaybackProgress(
-          update: (data) {
-            updated = true;
-          },
-        );
-
-        expect(updated, false);
-      });
     });
 
     group('防抖保存', () {
@@ -481,7 +288,6 @@ void main() {
 
       test('dispose 后定时器应该被取消', () {
         manager.startPositionSaveTimer();
-        manager.startProgressUpdateTimer();
 
         manager.dispose();
 

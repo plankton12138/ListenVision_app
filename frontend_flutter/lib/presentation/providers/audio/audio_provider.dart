@@ -75,6 +75,10 @@ class AudioProvider extends ChangeNotifier {
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
 
+  /// 播放历史进度更新定时器（每30秒）
+  Timer? _progressUpdateTimer;
+  static const Duration _progressUpdateInterval = Duration(seconds: 30);
+
   // ==================== 播放队列 ====================
   // 注意：播放队列已统一由 PlaybackQueueManager 管理
 
@@ -900,10 +904,18 @@ class AudioProvider extends ChangeNotifier {
     }
   }
 
-  /// 播放进度更新定时器
+  /// 启动播放历史进度更新定时器
+  ///
+  /// 每30秒更新一次播放历史记录中的播放进度
   void _startProgressUpdateTimer() {
-    _stateManager.startProgressUpdateTimer(
-      update: (data) async {
+    _progressUpdateTimer?.cancel();
+    _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (_) async {
+      if (_disposed) return;
+
+      final isPlaying = _playbackController.isPlaying;
+      final currentIndex = _queueManager.currentIndex;
+
+      if (currentIndex >= 0 && isPlaying) {
         final playable = _queueManager.currentPlayable;
         final position = _playbackController.position;
 
@@ -927,8 +939,16 @@ class AudioProvider extends ChangeNotifier {
             progress: position.inSeconds,
           );
         }
-      },
-    );
+      }
+    });
+    AppLogger.info('AudioProvider', '播放历史进度更新定时器已启动');
+  }
+
+  /// 停止播放历史进度更新定时器
+  void _stopProgressUpdateTimer() {
+    _progressUpdateTimer?.cancel();
+    _progressUpdateTimer = null;
+    AppLogger.info('AudioProvider', '播放历史进度更新定时器已停止');
   }
 
   // ==================== 释放资源 ====================
@@ -948,7 +968,7 @@ class AudioProvider extends ChangeNotifier {
 
     // 停止定时器
     _stateManager.stopPositionSaveTimer();
-    _stateManager.stopProgressUpdateTimer();
+    _stopProgressUpdateTimer();
     _stateManager.dispose();
 
     // 释放播放历史记录 Provider

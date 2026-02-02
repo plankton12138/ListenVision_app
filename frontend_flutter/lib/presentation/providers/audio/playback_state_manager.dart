@@ -10,9 +10,9 @@ import 'package:demo/core/utils/app_logger.dart';
 ///
 /// 职责：
 /// 1. 播放进度定时保存
-/// 2. 播放历史记录
-/// 3. 播放设置持久化（音量、倍速）
-/// 4. 播放位置记录（本地音频数据库）
+/// 2. 播放设置持久化（音量、倍速）
+/// 3. 播放位置记录（本地音频数据库）
+/// 4. 通用键值对持久化
 class PlaybackStateManager {
   // ==================== 定时器配置 ====================
 
@@ -237,127 +237,6 @@ class PlaybackStateManager {
     await _savePlaybackState();
   }
 
-  // ==================== 播放历史记录 ====================
-
-  /// 记录播放开始
-  ///
-  /// 通过 PlayHistoryProvider 记录播放历史
-  Future<void> recordPlaybackStart(
-    PlayableAudio playable, {
-    String? token,
-    Function(Map<String, dynamic>)? record,
-  }) async {
-    if (record == null) {
-      AppLogger.debug('PlaybackStateManager', 'PlayHistoryProvider 未设置，跳过播放历史记录');
-      return;
-    }
-
-    try {
-      if (playable.isOnline) {
-        // 记录在线音频
-        await record({
-          'token': token,
-          'bvid': playable.id,
-          'title': playable.title,
-          'artist': playable.artist,
-          'duration': playable.duration,
-          'coverUrl': playable.coverUrl,
-          'progress': 0,
-        });
-        AppLogger.info('PlaybackStateManager', '已记录在线音频播放历史: ${playable.title}');
-      } else if (playable is LocalPlayable) {
-        // 记录本地音频
-        final local = playable.original;
-        await record({
-          'token': token,
-          'bvid': null,
-          'title': local.title,
-          'artist': local.artist,
-          'duration': local.duration,
-          'coverUrl': null,
-          'progress': 0,
-          'localPath': local.filePath,
-        });
-        AppLogger.info('PlaybackStateManager', '已记录本地音频播放历史: ${local.title}');
-      }
-    } catch (e) {
-      AppLogger.error('PlaybackStateManager', '记录播放历史失败: $e');
-    }
-  }
-
-  /// 更新播放进度
-  ///
-  /// 定期调用（每30秒），更新播放历史中的进度
-  Future<void> updatePlaybackProgress({
-    String? token,
-    Function(Map<String, dynamic>)? update,
-  }) async {
-    if (update == null) return;
-
-    try {
-      final currentIndex = await _getCurrentIndex?.call() ?? -1;
-      if (currentIndex < 0) return;
-
-      final currentPlayable = await _getCurrentPlayable?.call();
-      final currentPosition = await _getCurrentPosition?.call() ?? Duration.zero;
-
-      if (currentPlayable == null) return;
-
-      if (currentPlayable.isOnline) {
-        await update({
-          'token': token,
-          'bvid': currentPlayable.id,
-          'title': currentPlayable.title,
-          'artist': currentPlayable.artist,
-          'duration': currentPlayable.duration,
-          'coverUrl': currentPlayable.coverUrl,
-          'progress': currentPosition.inSeconds,
-        });
-      } else if (currentPlayable is LocalPlayable) {
-        final local = currentPlayable.original;
-        await update({
-          'token': token,
-          'localPath': local.filePath,
-          'title': local.title,
-          'artist': local.artist,
-          'duration': local.duration,
-          'progress': currentPosition.inSeconds,
-        });
-      }
-    } catch (e) {
-      AppLogger.error('PlaybackStateManager', '更新播放进度失败: $e');
-    }
-  }
-
-  /// 播放进度更新定时器（每30秒）
-  Timer? _progressUpdateTimer;
-  static const Duration _progressUpdateInterval = Duration(seconds: 30);
-
-  /// 启动播放进度更新定时器
-  void startProgressUpdateTimer({
-    String? token,
-    Function(Map<String, dynamic>)? update,
-  }) {
-    _progressUpdateTimer?.cancel();
-    _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (_) async {
-      if (_disposed) return;
-
-      final isPlaying = await _getIsPlaying?.call() ?? false;
-      final currentIndex = await _getCurrentIndex?.call() ?? -1;
-
-      if (currentIndex >= 0 && isPlaying) {
-        await updatePlaybackProgress(token: token, update: update);
-      }
-    });
-    AppLogger.info('PlaybackStateManager', '播放进度更新定时器已启动');
-  }
-
-  /// 停止播放进度更新定时器
-  void stopProgressUpdateTimer() {
-    _progressUpdateTimer?.cancel();
-    _progressUpdateTimer = null;
-    AppLogger.info('PlaybackStateManager', '播放进度更新定时器已停止');
-  }
 
   // ==================== 防抖保存 ====================
 

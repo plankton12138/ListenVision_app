@@ -65,9 +65,7 @@ class AudioProvider extends ChangeNotifier {
   String _artist = "未知艺术家";
   Uint8List? _albumArt;
 
-  /// 在线播放相关状态
-  Audio? _currentOnlineAudio;
-  bool _isCurrentOnline = false;
+  /// 在线播放相关状态（冗余状态已改为 getter）
   bool _isSeekable = true;
   String? _currentContentType;
 
@@ -235,7 +233,7 @@ class AudioProvider extends ChangeNotifier {
   /// 恢复播放状态
   Future<void> _restorePlaybackState() async {
     final savedPosition = await _queueManager.restore();
-    final wasOnline = await _queueManager.getSavedOnlineState();
+    await _queueManager.getSavedOnlineState(); // 恢复在线状态标记
 
     final currentPlayable = _queueManager.currentPlayable;
     if (currentPlayable != null) {
@@ -244,11 +242,8 @@ class AudioProvider extends ChangeNotifier {
       _artist = currentPlayable.artist ?? '未知艺术家';
       _albumArt = currentPlayable.coverData;
 
-      // 设置在线状态
-      _isCurrentOnline = wasOnline;
+      // 在线音频支持 seek（HTTP Range 请求）
       if (currentPlayable.isOnline && currentPlayable is OnlinePlayable) {
-        _currentOnlineAudio = currentPlayable.original;
-        // 在线音频支持 seek（HTTP Range 请求）
         _isSeekable = true;
       }
 
@@ -282,17 +277,28 @@ class AudioProvider extends ChangeNotifier {
   /// 当前本地音频（向后兼容）
   /// LocalPlayable 是包装类，需要通过 .original 获取原始 LocalAudio
   LocalAudio? get currentAudio {
-    if (_isCurrentOnline) return null;
+    if (isCurrentOnline) return null;
     final playable = _queueManager.currentPlayable;
     return playable is LocalPlayable ? playable.original : null;
   }
   PlayableAudio? get currentPlayable => _queueManager.currentPlayable;
-  bool get isCurrentOnline => _isCurrentOnline;
-  Audio? get currentOnlineAudio => _currentOnlineAudio;
+
+  /// 当前是否为在线音频（从 PlaybackQueueManager 获取）
+  bool get isCurrentOnline {
+    final playable = _queueManager.currentPlayable;
+    return playable?.isOnline ?? false;
+  }
+
+  /// 当前在线音频（从 PlaybackQueueManager 获取）
+  Audio? get currentOnlineAudio {
+    final playable = _queueManager.currentPlayable;
+    return (playable is OnlinePlayable) ? playable.original : null;
+  }
+
   bool get isSeekable => _isSeekable;
   String? get currentContentType => _currentContentType;
-  String? get currentBvid => _isCurrentOnline && _currentOnlineAudio != null ? _currentOnlineAudio!.id : null;
-  String? get coverUrl => _isCurrentOnline && _currentOnlineAudio != null ? _currentOnlineAudio!.coverUrl : null;
+  String? get currentBvid => isCurrentOnline && currentOnlineAudio != null ? currentOnlineAudio!.id : null;
+  String? get coverUrl => isCurrentOnline && currentOnlineAudio != null ? currentOnlineAudio!.coverUrl : null;
 
   // 播放器状态
   bool get isLoading => _playbackController.isLoading;
@@ -347,7 +353,7 @@ class AudioProvider extends ChangeNotifier {
             notifyListeners();
             rethrow;
           }
-        } else if (_playbackController.isCompleted && !_isCurrentOnline) {
+        } else if (_playbackController.isCompleted && !isCurrentOnline) {
           await _playbackController.seek(Duration.zero);
         }
 
@@ -378,7 +384,7 @@ class AudioProvider extends ChangeNotifier {
   /// 恢复播放
   Future<void> resume() async {
     if (_disposed) return;
-    if (_playbackController.isCompleted && !_isCurrentOnline) {
+    if (_playbackController.isCompleted && !isCurrentOnline) {
       await _playbackController.seek(Duration.zero);
     }
     await _playbackController.play();
@@ -455,8 +461,9 @@ class AudioProvider extends ChangeNotifier {
     bool autoFallback = true,
   }) async {
     // 检查是否已在播放
-    if (_isCurrentOnline &&
-        _currentOnlineAudio?.id == audio.id &&
+    final currentOnline = currentOnlineAudio;
+    if (isCurrentOnline &&
+        currentOnline?.id == audio.id &&
         _playbackController.isPlaying) {
       return;
     }
@@ -475,9 +482,6 @@ class AudioProvider extends ChangeNotifier {
       // 创建在线可播放对象
       final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
 
-      // 设置在线状态
-      _isCurrentOnline = true;
-      _currentOnlineAudio = audio;
       // ⭐ 修复：在线音频也支持 seek
       _isSeekable = true;
 
@@ -558,8 +562,6 @@ class AudioProvider extends ChangeNotifier {
 
     // 保存旧状态用于回滚
     final oldIndex = _queueManager.currentIndex;
-    final oldIsOnline = _isCurrentOnline;
-    final oldOnlineAudio = _currentOnlineAudio;
 
     try {
       // P0修复：原子更新 - 先更新索引
@@ -568,22 +570,8 @@ class AudioProvider extends ChangeNotifier {
         _queueManager.setCurrentIndex(oldIndex, validate: false);
       });
 
-      // 设置在线状态（在线音频也支持 seek，使用流媒体）
-      _isCurrentOnline = playable.isOnline;
-      transaction.setChange('isOnline', oldIsOnline, _isCurrentOnline, () {
-        _isCurrentOnline = oldIsOnline;
-      });
-
-      if (playable.isOnline && playable is OnlinePlayable) {
-        _currentOnlineAudio = playable.original;
-        _isSeekable = true;
-      } else {
-        _currentOnlineAudio = null;
-        _isSeekable = true;
-      }
-      transaction.setChange('onlineAudio', oldOnlineAudio, _currentOnlineAudio, () {
-        _currentOnlineAudio = oldOnlineAudio;
-      });
+      // 设置 seek 状态
+      _isSeekable = true;
 
       // P0修复：验证版本号仍然有效（防止操作过期）
       if (!_versionController.isVersionValid(transaction.version)) {
@@ -671,9 +659,6 @@ class AudioProvider extends ChangeNotifier {
     final currentFilePath = filePath;
 
     try {
-      // 设置为本地播放
-      _isCurrentOnline = false;
-      _currentOnlineAudio = null;
       _isSeekable = true;
       _currentFilePath = filePath;
 
@@ -897,8 +882,6 @@ class AudioProvider extends ChangeNotifier {
     _title = "无歌曲";
     _artist = "请添加音频开始播放";
     _albumArt = null;
-    _isCurrentOnline = false;
-    _currentOnlineAudio = null;
     _stateManager.stopPositionSaveTimer();
   }
 
@@ -981,8 +964,8 @@ class AudioProvider extends ChangeNotifier {
           // 直接发送 HTTP 请求更新播放进度
           _sendHistoryRecord(
             token: data['token'] as String?,
-            bvid: _isCurrentOnline ? data['bvid'] as String? : null,
-            localPath: _isCurrentOnline ? null : data['localPath'] as String?,
+            bvid: isCurrentOnline ? data['bvid'] as String? : null,
+            localPath: isCurrentOnline ? null : data['localPath'] as String?,
             title: data['title'] as String,
             artist: data['artist'] as String?,
             duration: data['duration'] as int? ?? 0,

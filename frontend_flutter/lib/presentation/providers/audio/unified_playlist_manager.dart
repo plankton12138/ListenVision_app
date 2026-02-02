@@ -126,8 +126,8 @@ class UnifiedPlaylistManager {
 
     // P0修复：先同步数据库，确认成功后再通知UI
     if (syncLocal && playable is LocalPlayable) {
-      final success = await _addLocalToDatabase(playable.original);
-      if (!success) {
+      final updatedAudio = await _addLocalToDatabase(playable.original);
+      if (updatedAudio == null) {
         // 数据库写入失败，回滚内存操作
         if (existingIndex == -1) {
           _playlist.removeWhere((p) => p.id == playable.id);
@@ -137,6 +137,15 @@ class UnifiedPlaylistManager {
         }
         AppLogger.error('UnifiedPlaylistManager', '数据库写入失败，回滚添加操作');
         return;
+      }
+
+      // P0修复：更新 _playlist 中的 LocalPlayable，使用带数据库ID的 LocalAudio
+      // 这样 LocalPlayable.id 会使用正确的数据库ID，而不是filePath.hashCode
+      final updatedPlayable = LocalPlayable(updatedAudio);
+      final playlistIndex = _playlist.indexWhere((p) => p.id == playable.id);
+      if (playlistIndex != -1) {
+        _playlist[playlistIndex] = updatedPlayable;
+        AppLogger.debug('UnifiedPlaylistManager', '更新播放列表中的本地音频ID: ${playable.id} -> ${updatedPlayable.id}');
       }
     }
 
@@ -399,8 +408,10 @@ class UnifiedPlaylistManager {
     }
   }
 
-  /// 添加本地音频到数据库 - P0修复：返回操作结果
-  Future<bool> _addLocalToDatabase(LocalAudio audio) async {
+  /// 添加本地音频到数据库 - P0修复：返回更新后的音频（包含数据库ID）
+  ///
+  /// 返回更新后的 LocalAudio（包含数据库分配的ID），失败返回null
+  Future<LocalAudio?> _addLocalToDatabase(LocalAudio audio) async {
     try {
       final db = PlaylistManager();
       final id = await db.insertAudio(audio);
@@ -415,18 +426,18 @@ class UnifiedPlaylistManager {
             _localPlaylist.add(updatedAudio);
           }
           AppLogger.info('UnifiedPlaylistManager', '成功添加到数据库: ${audio.title}, ID: $id');
-          return true;
+          return updatedAudio;  // 返回带ID的音频对象
         } else {
           AppLogger.error('UnifiedPlaylistManager', '数据库写入验证失败: ID $id 不存在');
-          return false;
+          return null;
         }
       } else {
         AppLogger.error('UnifiedPlaylistManager', '数据库插入失败: 返回ID为-1');
-        return false;
+        return null;
       }
     } catch (e) {
       AppLogger.error('UnifiedPlaylistManager', '添加到数据库失败: $e');
-      return false;
+      return null;
     }
   }
 

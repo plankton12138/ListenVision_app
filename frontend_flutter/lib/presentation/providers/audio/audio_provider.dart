@@ -766,9 +766,15 @@ class AudioProvider extends ChangeNotifier {
       }
 
       // 更新统一播放列表索引到当前音频
-      final newIndex = _playlistManager.indexOf('local_${filePath.hashCode}');
+      // P0修复：使用文件路径查找，因为数据库同步后ID会改变（local_hashCode -> local_64）
+      final newIndex = _playlistManager.playlist.indexWhere((p) =>
+        p is LocalPlayable && p.original.filePath == filePath);
       if (newIndex != -1) {
         _playlistManager.setCurrentIndex(newIndex, validate: false);
+        AppLogger.debug('AudioProvider', '设置当前索引: $newIndex (文件: $filePath)');
+      } else {
+        // P0修复：如果找不到，说明是新音频，等待 add() 完成后再次查找
+        AppLogger.warn('AudioProvider', '未在播放列表中找到音频: $filePath');
       }
 
       // 启动定时保存
@@ -777,10 +783,22 @@ class AudioProvider extends ChangeNotifier {
       // 记录本地音频播放历史
       if (dbIndex != -1) {
         await _recordPlaybackStart(LocalPlayable(localPlaylist[dbIndex]));
+      } else {
+        // P0修复：新音频，使用更新后的 LocalPlayable 记录播放历史
+        final updatedIndex = _playlistManager.playlist.indexWhere((p) =>
+          p is LocalPlayable && p.original.filePath == filePath);
+        if (updatedIndex != -1) {
+          final playable = _playlistManager.playlist[updatedIndex];
+          if (playable is LocalPlayable) {
+            await _recordPlaybackStart(playable);
+          }
+        }
       }
 
-      // 确保UI更新（包括播放列表和当前播放信息）
+      // P0修复：确保UI更新（包括播放列表和当前播放信息）
+      // 必须在 setCurrentIndex 之后调用，以更新 AudioMetadataProvider.currentPlayable
       _syncPlaylistProviders();
+      _syncMetadataProvider();  // 更新 currentPlayable.id
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '加载失败: $e');

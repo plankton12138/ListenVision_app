@@ -10,6 +10,7 @@ import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/domain/entities/online_playable.dart';
 import 'package:demo/core/constants/api_constants.dart';
+import 'package:demo/core/constants/playback_config.dart';
 import 'package:demo/core/utils/error_handler.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/debounce_utils.dart';
@@ -79,11 +80,11 @@ class AudioProvider extends ChangeNotifier {
 
   // ==================== 防抖与节流控制 ====================
 
-  /// 播放操作防抖器（300ms）
-  final Debouncer _playDebouncer = Debouncer(delay: const Duration(milliseconds: 300));
+  /// 播放操作防抖器
+  final Debouncer _playDebouncer = Debouncer(delay: PlaybackConfig.playDebounceDelay);
 
-  /// 切歌操作节流器（500ms）
-  final Throttler _skipThrottler = Throttler(delay: const Duration(milliseconds: 500));
+  /// 切歌操作节流器
+  final Throttler _skipThrottler = Throttler(delay: PlaybackConfig.skipThrottleDelay);
 
   /// 操作锁（防止并发）
   final OperationLock _operationLock = OperationLock();

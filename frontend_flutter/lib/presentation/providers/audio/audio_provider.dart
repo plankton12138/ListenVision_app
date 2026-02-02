@@ -19,7 +19,6 @@ import 'package:demo/presentation/providers/audio/playback_queue_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
-import 'package:demo/presentation/providers/history/play_history_provider.dart';
 
 /// 音频播放状态管理（重构版）
 ///
@@ -44,9 +43,7 @@ class AudioProvider extends ChangeNotifier {
   /// 播放状态管理器
   final PlaybackStateManager _stateManager;
 
-  /// 播放历史记录 Provider
-  final PlayHistoryProvider _historyProvider = PlayHistoryProvider();
-
+  
   /// 元数据 Provider
   AudioMetadataProvider? _audioMetadataProvider;
 
@@ -76,9 +73,7 @@ class AudioProvider extends ChangeNotifier {
   StreamSubscription? _durationSub;
 
   /// 播放历史进度更新定时器（每30秒）
-  Timer? _progressUpdateTimer;
-  static const Duration _progressUpdateInterval = Duration(seconds: 30);
-
+  
   // ==================== 播放队列 ====================
   // 注意：播放队列已统一由 PlaybackQueueManager 管理
 
@@ -524,12 +519,7 @@ class AudioProvider extends ChangeNotifier {
     _syncMetadataProvider();
     notifyListeners();
 
-    // 记录播放历史
-    await _recordPlaybackStart(playable);
-
-    // 启动进度更新定时器
-    _startProgressUpdateTimer();
-
+    
     notifyListeners();
   }
 
@@ -699,21 +689,6 @@ class AudioProvider extends ChangeNotifier {
       // 启动定时保存
       _stateManager.startPositionSaveTimer();
 
-      // 记录本地音频播放历史
-      if (dbIndex != -1) {
-        await _recordPlaybackStart(LocalPlayable(localPlaylist[dbIndex]));
-      } else {
-        // P0修复：新音频，使用更新后的 LocalPlayable 记录播放历史
-        final updatedIndex = _queueManager.playlist.indexWhere((p) =>
-          p is LocalPlayable && p.original.filePath == filePath);
-        if (updatedIndex != -1) {
-          final playable = _queueManager.playlist[updatedIndex];
-          if (playable is LocalPlayable) {
-            await _recordPlaybackStart(playable);
-          }
-        }
-      }
-
       // 修复：确保UI更新（包括播放队列和当前播放信息）
       // 必须在 setCurrentIndex 之后调用，以更新 AudioMetadataProvider.currentPlayable
       _syncMetadataProvider();  // 更新 currentPlayable.id
@@ -881,76 +856,7 @@ class AudioProvider extends ChangeNotifier {
     );
   }
 
-  // ==================== 播放历史记录 ====================
-
-  /// 记录播放开始
-  Future<void> _recordPlaybackStart(PlayableAudio playable) async {
-    if (playable.isOnline) {
-      await _historyProvider.recordStart(
-        bvid: playable.id,
-        title: playable.title,
-        artist: playable.artist,
-        duration: playable.duration,
-        coverUrl: playable.coverUrl,
-      );
-    } else if (playable is LocalPlayable) {
-      final local = playable.original;
-      await _historyProvider.recordStart(
-        localPath: local.filePath,
-        title: local.title,
-        artist: local.artist,
-        duration: local.duration,
-      );
-    }
-  }
-
-  /// 启动播放历史进度更新定时器
-  ///
-  /// 每30秒更新一次播放历史记录中的播放进度
-  void _startProgressUpdateTimer() {
-    _progressUpdateTimer?.cancel();
-    _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (_) async {
-      if (_disposed) return;
-
-      final isPlaying = _playbackController.isPlaying;
-      final currentIndex = _queueManager.currentIndex;
-
-      if (currentIndex >= 0 && isPlaying) {
-        final playable = _queueManager.currentPlayable;
-        final position = _playbackController.position;
-
-        if (playable == null) return;
-
-        if (playable.isOnline) {
-          await _historyProvider.updateProgress(
-            bvid: playable.id,
-            title: playable.title,
-            artist: playable.artist,
-            duration: playable.duration,
-            progress: position.inSeconds,
-          );
-        } else if (playable is LocalPlayable) {
-          final local = playable.original;
-          await _historyProvider.updateProgress(
-            localPath: local.filePath,
-            title: local.title,
-            artist: local.artist,
-            duration: local.duration,
-            progress: position.inSeconds,
-          );
-        }
-      }
-    });
-    AppLogger.info('AudioProvider', '播放历史进度更新定时器已启动');
-  }
-
-  /// 停止播放历史进度更新定时器
-  void _stopProgressUpdateTimer() {
-    _progressUpdateTimer?.cancel();
-    _progressUpdateTimer = null;
-    AppLogger.info('AudioProvider', '播放历史进度更新定时器已停止');
-  }
-
+  
   // ==================== 释放资源 ====================
 
   @override
@@ -968,11 +874,7 @@ class AudioProvider extends ChangeNotifier {
 
     // 停止定时器
     _stateManager.stopPositionSaveTimer();
-    _stopProgressUpdateTimer();
     _stateManager.dispose();
-
-    // 释放播放历史记录 Provider
-    _historyProvider.dispose();
 
     // 取消订阅
     _positionSub?.cancel();

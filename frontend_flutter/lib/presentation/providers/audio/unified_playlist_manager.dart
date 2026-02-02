@@ -304,6 +304,11 @@ class UnifiedPlaylistManager {
       final db = PlaylistManager();
       final dbAudios = await db.getAllAudios();
 
+      // P0修复：保存当前播放的音频ID，防止播放状态丢失
+      final String? currentId = _currentIndex >= 0 && _currentIndex < _playlist.length
+          ? _playlist[_currentIndex]?.id
+          : null;
+
       // P0修复：增量同步，保留在线音频
       final onlinePlayables = _playlist.whereType<OnlinePlayable>().toList();
 
@@ -330,10 +335,23 @@ class UnifiedPlaylistManager {
         }
       }
 
-      // P0修复：验证当前索引有效性
-      if (_currentIndex >= _playlist.length) {
-        _currentIndex = _playlist.isEmpty ? -1 : 0;
-        AppLogger.debug('UnifiedPlaylistManager', '调整当前索引至: $_currentIndex');
+      // P0修复：恢复当前播放索引
+      if (currentId != null) {
+        final newIndex = _playlist.indexWhere((p) => p.id == currentId);
+        if (newIndex != -1) {
+          _currentIndex = newIndex;
+          AppLogger.debug('UnifiedPlaylistManager', '恢复播放索引: $_currentIndex (音频ID: $currentId)');
+        } else {
+          // 当前音频不在新播放列表中，重置索引
+          _currentIndex = _playlist.isEmpty ? -1 : 0;
+          AppLogger.debug('UnifiedPlaylistManager', '当前音频已移除，重置索引至: $_currentIndex');
+        }
+      } else {
+        // 没有当前播放的音频，确保索引有效
+        if (_currentIndex >= _playlist.length) {
+          _currentIndex = _playlist.isEmpty ? -1 : 0;
+          AppLogger.debug('UnifiedPlaylistManager', '索引越界，调整至: $_currentIndex');
+        }
       }
 
       _notifyChanged();

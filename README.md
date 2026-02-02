@@ -4,32 +4,34 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.38.5-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.10.4-blue)](https://dart.dev)
-[![Node.js](https://img.shields.io/badge/Node.js-Express-green)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-24.13.0-green)](https://nodejs.org)
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-orange)](https://sqlite.org)
+[![API Version](https://img.shields.io/badge/API-v1-blueviolet)](listen-vision_api/README.md)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## 📖 项目简介
 
-**ListenVision** 是一个功能完整的跨平台音频应用,专注于为用户提供便捷的音频内容获取、播放和管理体验。通过集成 Bilibili API,用户可以搜索、下载、播放 B站 的音频内容(包括音乐、播客、曲艺等)。
+**ListenVision** 是一个功能完整的跨平台音频应用，专注于为用户提供便捷的音频内容获取、播放和管理体验。通过集成 Bilibili API，用户可以搜索、下载、播放 B站 的音频内容（包括音乐、播客、曲艺等）。
 
 ### 核心特色
 
-- 🎯 **灵活的账号体系** - 支持邮箱注册登录,可选绑定 B站 账号获取个性化推荐
+- 🎯 **灵活的账号体系** - 支持邮箱注册登录，可选绑定 B站 账号获取个性化推荐
 - 🔓 **游客模式** - 未登录用户也能搜索、下载、播放本地音频
-- 🔐 **安全的认证机制** - JWT Token + 服务端AES-256-CBC加密存储 Cookie
+- 🔐 **安全的认证机制** - JWT Token + 服务端 AES-256-CBC 加密存储 Cookie
 - 🌍 **跨平台支持** - Android、iOS、Web、Windows、Linux、macOS 全覆盖
-- 🎵 **本地音频播放** - 支持导入本地音频文件并管理播放列表,支持 M4A/MP3/FLAC 元数据
- - 📥 **智能下载管理** - 支持多线程下载、断点续传、后台下载
- - 🎨 **Material Design** - 简洁优雅的用户界面,支持深色模式
-- 🏗️ **Clean Architecture** - 清晰的分层架构,易于维护和测试
+- 🎵 **本地音频播放** - 支持导入本地音频文件并管理播放列表，支持 M4A/MP3/FLAC 元数据
+- 📥 **智能下载管理** - 支持多线程下载、断点续传、后台下载
+- 🎨 **Material Design** - 简洁优雅的用户界面，支持深色模式
+- 🏗️ **Clean Architecture** - 清晰的分层架构，易于维护和测试
+- 🔄 **API 版本控制** - 统一的 v1 API 版本管理
 
 ---
 
 ## 🏗️ 项目架构
 
-ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架构:
+ListenVision 采用 **Clean Architecture** 设计原则，遵循清晰的分层架构：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -46,7 +48,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 │  ┌─────────────┐  ┌─────────────────────────────────────┐  │
 │  │  Entities   │  │            Repositories             │  │
 │  │   (实体)     │  │            (仓储接口)               │  │
-│  │             │  │   定义"做什么",不管"怎么做"          │  │
+│  │             │  │   定义"做什么"，不管"怎么做"          │  │
 │  └─────────────┘  └─────────────────────────────────────┘  │
 └────────────────────────┬────────────────────────────────────┘
                          │ 实现
@@ -69,7 +71,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 数据流示例 (以"下载音频"为例)
+### 数据流示例（以"下载音频"为例）
 
 ```
 用户点击下载按钮
@@ -111,17 +113,19 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 - **路由**: go_router ^14.8.1
 - **数据库**: sqflite ^2.4.2 (移动端) / sqflite_common_ffi ^2.3.5 (桌面端)
 - **网络**: dio ^5.8.0+1
+- **API 版本**: v1 (`/api/v1`)
 - **音频播放**: audioplayers ^6.x + audio_session ^0.2.1
 - **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
 - **错误处理**: dartz ^0.10.1 (Either 泛型)
- - **网络监测**: AdaptiveNetworkManager (当前暂停运行)
 
 #### 后端 (Node.js)
 - **框架**: Express ^5.1.0
-- **数据库**: better-sqlite3 ^12.6.0 (嵌入式SQLite)
+- **API 版本**: v1 (`/api/v1`)
+- **数据库**: better-sqlite3 ^12.6.0 (嵌入式 SQLite)
 - **认证**: bcrypt ^5.1.1 + JWT
 - **加密**: AES-256-CBC (Cookie 加密存储)
 - **B站API**: WBI签名、QR码登录、元数据缓存
+- **音频处理**: fluent-ffmpeg ^2.1.3 (格式转换)
 - **邮件**: nodemailer ^7.0.3
 - **跨域**: cors ^2.8.5
 
@@ -134,6 +138,7 @@ ListenVision 采用 **Clean Architecture** 设计原则,遵循清晰的分层架
 - Flutter SDK >= 3.38.5
 - Dart SDK >= 3.10.4
 - Node.js >= 24.13.0
+- FFmpeg (用于后端音频转换)
 
 ### 1. 克隆项目
 
@@ -151,11 +156,17 @@ cd listen-vision_api
 # 安装依赖
 pnpm install
 
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，设置 JWT_SECRET 等配置
+
 # 启动服务器（数据库文件将自动创建于 data/listenvision.db）
 node index.js
 ```
 
 后端服务将运行在 `http://localhost:3000`
+
+API 文档: `http://localhost:3000/api-docs`
 
 ### 3. 前端设置
 
@@ -189,129 +200,75 @@ Projects_ListenVison/
 │   │   ├── main.dart             # 应用入口
 │   │   ├── core/                 # Clean Architecture - 核心层
 │   │   │   ├── base/             # 基类 (BaseEntity, BaseProvider)
+│   │   │   ├── config/           # 配置 (AppConfig, API 版本)
 │   │   │   ├── constants/        # 常量 (API, Storage)
 │   │   │   ├── di/               # 依赖注入 (ServiceFactory)
 │   │   │   ├── errors/           # 错误定义 (Exceptions, Failures)
-│   │   │   ├── network/          # 网络层 (DioProvider)
+│   │   │   ├── network/          # 网络层 (DioProvider, ApiClient)
 │   │   │   └── utils/            # 工具函数
-│   │   │       ├── dialog_helper.dart
-│   │   │       ├── file_picker_helper.dart
-│   │   │       ├── metadata_writer.dart
-│   │   │       ├── permission_helper.dart
-│   │   │       └── ...
 │   │   ├── domain/               # Clean Architecture - 领域层
 │   │   │   ├── entities/         # 领域实体
-│   │   │   │   ├── audio.dart              # 在线音频实体
-│   │   │   │   ├── local_audio.dart        # 本地音频实体
-│   │   │   │   ├── download_task.dart      # 下载任务实体
-│   │   │   │   ├── user.dart               # 用户实体
-│   │   │   │   ├── playlist.dart           # 歌单实体
-│   │   │   │   ├── play_history.dart       # 播放历史实体
-│   │   │   │   ├── recommendation.dart     # 推荐实体
-│   │   │   │   ├── platform_account.dart   # 平台账号实体
-│   │   │   │   ├── platform_types.dart     # 平台类型枚举
-│   │   │   │   ├── domain_types.dart       # 领域类型定义
-│   │   │   │   └── models_export.dart      # 统一导出
 │   │   │   ├── repositories/     # 仓储接口 (抽象)
-│   │   │   │   ├── auth_repository.dart
-│   │   │   │   ├── bilibili_repository.dart
-│   │   │   │   ├── download_repository.dart
-│   │   │   │   ├── play_history_repository.dart
-│   │   │   │   ├── playlist_repository.dart
-│   │   │   │   └── search_repository.dart
 │   │   │   └── usecases/         # 用例 (可选)
 │   │   ├── data/                 # Clean Architecture - 数据层
-│   │   │   ├── datasources/      # 数据源
-│   │   │   │   ├── local/        # 本地数据源
-│   │   │   │   │   ├── download_local_datasource.dart
-│   │   │   │   │   └── auth_local_datasource.dart
-│   │   │   │   └── remote/       # 远程数据源
-│   │   │   │       ├── bilibili_remote_datasource.dart
-│   │   │   │       ├── bilibili_api_datasource.dart
-│   │   │   │       ├── auth_remote_datasource.dart
-│   │   │   │       ├── playlist_remote_datasource.dart
-│   │   │   │       ├── play_history_remote_datasource.dart
-│   │   │   │       └── search_remote_datasource.dart
+│   │   │   ├── datasources/      # 数据源 (Local/Remote)
 │   │   │   ├── managers/         # 管理器
-│   │   │   │   ├── playlist_manager.dart
-│   │   │   │   └── download_executor.dart
 │   │   │   └── repositories/     # 仓储实现
-│   │   │       ├── auth_repository_impl.dart
-│   │   │       ├── bilibili_repository_impl.dart
-│   │   │       ├── download_repository_impl.dart
-│   │   │       ├── play_history_repository_impl.dart
-│   │   │       ├── playlist_repository_impl.dart
-│   │   │       └── search_repository_impl.dart
 │   │   └── presentation/         # Clean Architecture - 表现层
 │   │       ├── pages/            # 页面
-│   │       │   ├── home_page.dart
-│   │       │   ├── login_page.dart
-│   │       │   ├── register_page.dart
-│   │       │   ├── search_page.dart
-│   │       │   ├── play_list_page.dart
-│   │       │   ├── backend_download_page.dart
-│   │       │   ├── download_list_page.dart
-│   │       │   ├── settings_page.dart
-│   │       │   └── ...
 │   │       ├── providers/        # 状态管理 (按功能分目录)
-│   │       │   ├── auth/         # 认证状态管理
-│   │       │   ├── audio/        # 音频播放状态管理
-│   │       │   │   ├── audio_provider.dart
-│   │       │   │   ├── now_playing_provider.dart
-│   │       │   │   ├── audio_playlist_provider.dart
-│   │       │   │   ├── audio_metadata_provider.dart
-│   │       │   │   └── audio_player_provider.dart
-│   │       │   ├── bilibili/     # B站功能状态管理
-│   │       │   │   ├── bilibili_provider.dart
-│   │       │   │   ├── cache_provider.dart
-│   │       │   │   └── qr_login_provider.dart
-│   │       │   ├── playlist/     # 歌单状态管理
-│   │       │   ├── search/       # 搜索状态管理
-│   │       │   ├── download/     # 下载状态管理
-│   │       │   │   └── download_manager.dart
-│   │       │   ├── play_history/ # 播放历史状态管理
-│   │       │   ├── theme/        # 主题状态管理
-│   │       │   └── ...
 │   │       ├── routes/           # 路由配置
-│   │       │   └── router.dart
 │   │       └── widgets/          # 可复用组件
-│   │           ├── my_drawer.dart
-│   │           └── ...
 │   ├── assets/                   # 资源文件
 │   ├── pubspec.yaml              # 依赖配置
 │   └── README.md                 # 前端文档
 │
 ├── listen-vision_api/            # Node.js 后端服务
-│   ├── index.js                  # 主服务器文件
-│   ├── services/
-│   │   ├── bilibiliService.js    # B站API集成
-│   │   ├── audioService.js       # 音频元数据服务
-│   │   ├── playlistService.js    # 歌单管理服务
-│   │   ├── playHistoryService.js # 播放历史服务
-│   │   ├── recommendationService.js # 推荐服务
-│   │   └── searchService.js      # FTS5全文搜索
-│   ├── routes/
-│   │   ├── bilibili.js           # B站API路由
-│   │   ├── audio.js              # 音频API路由
-│   │   ├── playlists.js          # 歌单API路由
-│   │   ├── history.js            # 历史API路由
-│   │   ├── recommendations.js    # 推荐API路由
-│   │   └── search.js             # 搜索API路由
-│   ├── config/
-│   │   └── database.js           # 数据库配置
-│   ├── middleware/
-│   │   └── rateLimiter.js        # 请求限流中间件
-│   ├── package.json              # 依赖配置
+│   ├── index.js                  # 应用入口文件
+│   ├── config/                   # 配置文件
+│   │   ├── database.js           # 数据库配置
+│   │   ├── jwt.js                # JWT 配置
+│   │   └── swagger.js            # API 文档配置
+│   ├── middleware/               # 中间件
+│   │   ├── auth.js               # JWT 认证
+│   │   ├── errorHandler.js       # 错误处理
+│   │   ├── logger.js             # HTTP 请求日志
+│   │   ├── rateLimiter.js        # 请求限流
+│   │   └── validator.js          # 参数验证
+│   ├── routes/                   # 路由定义
+│   │   ├── v1.js                 # v1 API 路由统一入口
+│   │   ├── auth.js               # 认证路由
+│   │   ├── users.js              # 用户路由
+│   │   ├── playlists.js          # 歌单路由
+│   │   ├── bilibili.js           # B站 API 路由
+│   │   ├── audio.js              # 音频服务路由
+│   │   ├── search.js             # 搜索路由
+│   │   ├── history.js            # 播放历史路由
+│   │   └── recommendations.js    # 推荐路由
+│   ├── controllers/              # 控制器
+│   │   ├── authController.js
+│   │   ├── playlistController.js
+│   │   ├── bilibiliController.js
+│   │   └── audioController.js
+│   ├── services/                 # 服务层
+│   │   ├── audio/                # 音频服务模块
+│   │   │   ├── index.js          # 统一入口
+│   │   │   ├── conversionService.js    # 音频转换
+│   │   │   ├── metadataService.js      # 元数据缓存
+│   │   │   └── searchHistoryService.js # 搜索历史
+│   │   ├── userService.js
+│   │   ├── playlistService.js
+│   │   ├── bilibiliService.js
+│   │   └── searchService.js
+│   ├── utils/                    # 工具函数
+│   ├── data/                     # 数据存储目录
 │   └── README.md                 # 后端文档
 │
 ├── docs/                         # 项目文档
-│   ├── AUDIO_PLAYER_FIX_PLAN.md       # 音频播放器综合修复方案（2026-01-23 完成）
-│   ├── PHASE_5_BUGFIX_AND_IMPROVEMENTS.md  # Phase 5 Bug修复与改进
-│   ├── PHASE_2_ONLINE_PLAYBACK.md           # Phase 2 在线播放功能（已完成）
-│   ├── PHASE_3_PLAYLIST_PLAN.md             # Phase 3 播放列表云同步
-│   ├── PHASE_3A_PLAYBACK_PLAN.md            # Phase 3A 播放列表页面改进
-│   ├── INCREMENTAL_MIGRATION_PLAN.md        # 渐进式架构迁移计划
-│   └── PHASE_1_IMPLEMENTATION_DETAILS.md    # Phase 1 实施细节
+│   ├── plans/                    # 开发计划
+│   ├── CODE_COMMENT_STANDARDS.md # 代码注释规范
+│   ├── LOGGING_STANDARDS.md      # 日志规范
+│   └── ...
 │
 ├── bilibili-API-collect/         # B站API文档 (本地克隆)
 ├── PRD.md                        # 产品需求文档
@@ -328,9 +285,9 @@ Projects_ListenVison/
 
 #### 未登录用户（游客模式）
 - ✅ 本地音频导入与播放
-- ✅ 搜索音频内容音频到本地
-- ✅ 播放
-- ✅ 下载列表管理
+- ✅ 搜索音频内容
+- ✅ 下载音频到本地
+- ✅ 播放列表管理
 - ✅ 音频播放控制 (播放/暂停/上一曲/下一曲/进度条)
 - ✅ 深色模式切换
 - ✅ 文件浏览与选择
@@ -345,171 +302,108 @@ Projects_ListenVison/
 - ✅ 用户名/密码登录
 - ✅ 忘记密码（邮箱验证码找回）
 
-**歌单与收藏** (Phase 2)：
+**歌单与收藏**：
 - ✅ 创建/编辑/删除歌单
 - ✅ "我喜欢"收藏歌单（系统歌单）
 - ✅ 添加/移除歌单项
-- ⏸️ 收藏功能（暂时关闭）
+- ✅ 歌单排序（按标题/艺术家/添加时间等）
 - ✅ 播放历史记录与清空
 - ✅ 歌单详情查看
-- ✅ **在线音频播放** (2026-01-23 完成)
-- ✅ **歌单排序功能** (2026-01-24 新增)
-- ✅ **添加歌曲到歌单** (2026-01-24 新增)
-- ✅ **歌单排序功能** (2026-01-24 新增)
-- ✅ **添加歌曲到歌单** (2026-01-24 新增)
+- ✅ 在线音频播放
 
-**发现与推荐** (Phase 2)：
+**发现与推荐**：
 - ✅ 热门歌单推荐
 - ✅ 热歌榜单
 - ✅ 个性化推荐内容
-- ✅ 登录访问控制（需要登录才能访问）
-- ✅ **在线音频播放功能** (2026-01-23 完成)
 
-**可选 - Bilibili 账号绑定** (Phase 1)：
+**可选 - Bilibili 账号绑定**：
 - ✅ Bilibili 二维码登录
 - ✅ 账号绑定与解绑
 - ✅ 服务端加密 Cookie 存储 (AES-256-CBC)
 - ✅ 获取 B站 推荐内容
-- ✅ 设置页面优化
 
-#### 后端服务
+#### 后端服务 (API v1)
 - ✅ 用户注册/登录（JWT 认证）
 - ✅ 邮箱验证码服务
 - ✅ 密码找回功能
-- ⏸️ 收藏管理 API（前端暂时关闭入口）
-- ✅ 歌单管理 API (Phase 2)
-- ✅ 播放历史 API (Phase 2)
-- ✅ 推荐内容 API (Phase 2)
-- ✅ **在线音频播放 API** (Phase 2 - 2026-01-23 完成)
-  - ✅ 获取音频流URL (`GET /api/bilibili/audio/:bvid`)
-  - ✅ 音频流代理 (`GET /api/bilibili/proxy/audio`)
-  - ✅ 图片代理 (`GET /api/bilibili/proxy/image`)
-  - ✅ 音频格式转换（FFmpeg m4s → MP3）
-  - ✅ **歌单排序API** (2026-01-24 新增) - `PUT /api/playlists/:id/sort` (支持按标题/艺术家/添加时间等排序)
-- ✅ 全文搜索 API (Phase 3 - FTS5)
+- ✅ 歌单管理 API (`/api/v1/playlists`)
+- ✅ 播放历史 API (`/api/v1/history`)
+- ✅ 推荐内容 API (`/api/v1/recommendations`)
+- ✅ 在线音频播放 API (`/api/v1/bilibili/audio/:bvid`)
+- ✅ 音频流代理 (`/api/v1/bilibili/proxy/audio/:bvid`)
+- ✅ 音频格式转换（FFmpeg m4s → MP3/AAC）
+- ✅ 音频元数据缓存服务
+- ✅ 全文搜索 API (`/api/v1/search`)
+- ✅ B站 API 集成（QR登录、视频信息、音频流）
+- ✅ 资源代理服务（解决B站防盗链）
 - ✅ CORS 跨域支持
 - ✅ 请求限流中间件
 - ✅ SQLite 数据库（better-sqlite3）
-- ✅ B站API集成（QR登录、视频信息、音频流）(Phase 1)
-- ✅ 音频元数据缓存服务 (Phase 1)
-- ✅ 资源代理服务（解决B站防盗链）(Phase 1)
-
-### 架构迁移状态 ✅
-
-**前端 Clean Architecture 迁移完成 (100%)**:
-- ✅ Core 层：基类、常量、错误定义、网络层、依赖注入
-- ✅ Domain 层：实体 (LocalAudio, DownloadTask, User, Playlist 等)
-- ✅ Domain 层：仓储接口 (Repository Interfaces)
-- ✅ Data 层：数据源 (Remote/Local DataSources)
-- ✅ Data 层：仓储实现 (Repository Implementations)
-- ✅ Data 层：管理器 (Managers)
-- ✅ Presentation 层：Provider 状态管理（按功能分目录）
-- ✅ 已删除旧目录：models/, services/, theme/
-
-### 规划中功能 🚧
-
-已完成：
-- ✅ **在线流式播放 (边下边播)** - Phase 2 已完成
-- ✅ **播放控制增强** (2026-01-24) - 音量/倍速控制、歌单排序、在线封面异步加载
-
-待实现：
-- 🎵 音频可视化 (波形图/频谱图)
-- 🎨 简易音频剪辑功能
-- 🌐 多语言支持
-- 🎵 音乐平台推荐扩展（QQ音乐榜单）
-- 📝 播放列表导入/导出
-- 🔄 多线程下载优化
-- 🔄 播放队列跨设备同步
 
 ---
 
-## 📚 文档索引
+## 🔌 API 版本
 
-- **[PRD.md](./PRD.md)** - 产品需求文档
-- **[CLAUDE.md](./CLAUDE.md)** - Claude Code 开发指导文档
-- **[AGENTS.md](./AGENTS.md)** - Agent 开发指南
-- **[docs/INCREMENTAL_MIGRATION_PLAN.md](./docs/INCREMENTAL_MIGRATION_PLAN.md)** - 渐进式架构迁移计划
-- **[docs/PHASE_2_ONLINE_PLAYBACK.md](./docs/PHASE_2_ONLINE_PLAYBACK.md)** - Phase 2 在线播放功能（已完成）
-- **[docs/AUDIO_PLAYER_FIX_PLAN.md](./docs/AUDIO_PLAYER_FIX_PLAN.md)** - 音频播放器修复方案（已完成）
-- **[frontend_flutter/README.md](./frontend_flutter/README.md)** - 前端详细文档
-- **[listen-vision_api/README.md](./listen-vision_api/README.md)** - 后端详细文档
+当前 API 版本：**v1**
 
----
+所有 API 端点均以 `/api/v1` 为前缀：
 
-## 🔐 认证架构
+```
+# 认证
+POST   /api/v1/auth/register
+POST   /api/v1/auth/login
+GET    /api/v1/auth/me
 
-### 混合账号体系
+# 歌单
+GET    /api/v1/playlists
+POST   /api/v1/playlists
+GET    /api/v1/playlists/:id
+PUT    /api/v1/playlists/:id
+DELETE /api/v1/playlists/:id
 
-ListenVision 采用 **传统账号 + 可选平台绑定** 的混合认证模式。
+# B站
+GET    /api/v1/bilibili/video/:bvid
+GET    /api/v1/bilibili/audio/:bvid
+GET    /api/v1/bilibili/proxy/audio/:bvid
+GET    /api/v1/bilibili/search
 
-详见项目文档中的认证架构章节。
+# 搜索
+GET    /api/v1/search
+GET    /api/v1/search/history
 
----
-
-## 🛠️ 开发指南
-
-### 代码规范
-
-- **语言**: 代码注释使用英文,用户文档使用中文
-- **命名**: 遵循 Dart 官方命名规范
-- **架构**: 遵循 Clean Architecture 原则
-- **状态管理**: 使用 Provider 模式
-- **错误处理**: 使用 dartz 的 Either 泛型
-
-### 提交规范
-
-```bash
-# 功能开发
-git commit -m "feat: 添加音频可视化功能"
-
-# Bug 修复
-git commit -m "fix: 修复下载进度不更新的问题"
-
-# 文档更新
-git commit -m "docs: 更新 README 安装说明"
-
-# 代码重构
-git commit -m "refactor: 重构 API 服务层"
+# 更多端点详见 API 文档
 ```
 
-### 测试
-
-```bash
-# 运行单元测试
-flutter test
-
-# 代码分析
-flutter analyze
-```
+完整 API 文档：`http://localhost:3000/api-docs`
 
 ---
 
-## 📄 开源协议
+## 📚 开发文档
 
-本项目采用 [MIT License](LICENSE) 开源协议。
-
----
-
-## 🙏 致谢
-
-- [Bilibili API Collect](https://github.com/SocialSisterYi/bilibili-API-collect) - B站 API 文档
-- [Flutter](https://flutter.dev/) - 跨平台 UI 框架
-- [Provider](https://pub.dev/packages/provider) - 状态管理
-- [Express](https://expressjs.com/) - Node.js Web 框架
+- [后端 API 文档](listen-vision_api/README.md) - 后端架构和 API 说明
+- [前端开发文档](frontend_flutter/README.md) - Flutter 开发指南
+- [代码注释规范](docs/CODE_COMMENT_STANDARDS.md) - 注释标准
+- [日志规范](docs/LOGGING_STANDARDS.md) - 日志记录规范
+- [Claude Code 指导](CLAUDE.md) - AI 开发助手指南
 
 ---
 
-## 📞 联系方式
+## 🤝 贡献指南
 
-- **问题反馈**: [GitHub Issues](https://github.com/yourusername/Projects_ListenVison/issues)
-- **邮件**: planktontian@qq.com
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
 
 ---
 
-<div align="center">
+## 📄 许可证
 
-**如果觉得这个项目有帮助,请给个 ⭐️ Star 支持一下!**
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
-Made with ❤️ by ListenVision Team
+---
 
-</div>
+## 📧 联系方式
+
+planktontian@163.com

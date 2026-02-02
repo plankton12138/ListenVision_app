@@ -12,15 +12,15 @@ const options = {
       title: 'ListenVision API',
       version: '1.0.0',
       description: `
-        ListenVision 后端 API 文档
+        ListenVision 后端 API 文档 (v1)
 
         ## 认证说明
 
         大部分 API 需要 JWT Bearer Token 认证。
 
         **获取 Token:**
-        1. 注册账号: \`POST /api/auth/register\`
-        2. 登录: \`POST /api/auth/login\`
+        1. 注册账号: \`POST /api/v1/auth/register\`
+        2. 登录: \`POST /api/v1/auth/login\`
         3. 复制返回的 \`token\` 字段
 
         **使用 Token:**
@@ -49,6 +49,10 @@ const options = {
           "error": "错误信息"
         }
         \`\`\`
+
+        ## API 版本
+
+        当前仅支持 v1 版本，所有端点均以 \`/api/v1\` 开头。
       `,
       contact: {
         name: 'ListenVision Team',
@@ -67,10 +71,6 @@ const options = {
       {
         url: 'https://api.listenvision.com/api/v1',
         description: '生产服务器 (v1)'
-      },
-      {
-        url: 'http://localhost:3000/api',
-        description: '开发服务器 (兼容模式 - 已弃用)'
       }
     ],
     components: {

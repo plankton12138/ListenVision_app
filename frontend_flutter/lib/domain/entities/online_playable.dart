@@ -33,7 +33,7 @@ class OnlinePlayable extends PlayableAudio {
     final bvid = audio.id;
     // P0 修复: 使用 127.0.0.1 替代 localhost（MPV 兼容性）
     final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    final proxyUrl = '$baseUrl/api/bilibili/proxy/audio/$bvid?format=auto';
+    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
 
     return OnlinePlayable(audio, proxyUrl);
   }

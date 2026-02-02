@@ -1,4 +1,3 @@
-const { logger } = require('../utils/logger');
 const db = require('../config/database');
 const { AppError } = require('../middleware/errorHandler');
 
@@ -7,6 +6,14 @@ const SYSTEM_TYPES = {
   FAVORITES: 'favorites',
   NOW_PLAYING: 'now_playing'
 };
+
+// 有效的排序类型
+const VALID_SORT_TYPES = [
+  'added_at_desc', 'added_at_asc',
+  'title_asc', 'title_desc',
+  'artist_asc', 'artist_desc',
+  'position_asc'
+];
 
 // 预编译语句
 const stmt = {
@@ -44,8 +51,8 @@ const stmt = {
   maxPosition: db.prepare('SELECT COALESCE(MAX(position), -1) as max_pos FROM playlist_items WHERE playlist_id = ?'),
   // 歌单项 CRUD
   insertItem: db.prepare(`
-    INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, local_path, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, position)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   updateItemPosition: db.prepare(`
     UPDATE playlist_items SET position = ? WHERE id = ?
@@ -72,7 +79,7 @@ const ensureSystemPlaylists = (userId) => {
     const existing = stmt.playlistBySystemType.get(userId, sp.systemType);
     if (!existing) {
       stmt.insertPlaylist.run(userId, sp.name, sp.description, null, 'system', sp.systemType, 0);
-      logger.info('创建系统歌单: %s for user %d', sp.name, userId);
+      console.log(`✅ 创建系统歌单: ${sp.name} for user ${userId}`);
     }
   }
 };
@@ -83,7 +90,6 @@ const ensureSystemPlaylists = (userId) => {
  * @returns {Array} 歌单列表
  */
 const getUserPlaylists = (userId) => {
-  // 先确保系统歌单存在
   ensureSystemPlaylists(userId);
   return stmt.playlistsByUserId.all(userId);
 };
@@ -106,10 +112,8 @@ const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
 
   let items;
   if (sortType === 'position_asc') {
-    // 使用现有预编译语句
     items = stmt.itemsByPlaylistId.all(playlistId);
   } else {
-    // 动态排序查询
     const orderBy = getOrderByClause(sortType);
     const dynamicStmt = db.prepare(`
       SELECT * FROM playlist_items
@@ -122,7 +126,7 @@ const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
   return {
     ...playlist,
     items,
-    sortType // 返回当前排序方式
+    sortType
   };
 };
 
@@ -135,11 +139,17 @@ const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
  * @returns {Object} 新创建的歌单
  */
 const createPlaylist = (userId, name, description = null, coverUrl = null) => {
+  // 验证歌单名称
   if (!name || name.trim() === '') {
     throw new AppError('歌单名称不能为空', 400);
   }
 
-  const result = stmt.insertPlaylist.run(userId, name.trim(), description, coverUrl, 'user', null, 0);
+  const trimmedName = name.trim();
+  if (trimmedName.length < 1 || trimmedName.length > 100) {
+    throw new AppError('歌单名称长度必须在1-100个字符之间', 400);
+  }
+
+  const result = stmt.insertPlaylist.run(userId, trimmedName, description, coverUrl, 'user', null, 0);
   return stmt.playlistById.get(result.lastInsertRowid);
 };
 
@@ -159,12 +169,21 @@ const updatePlaylist = (playlistId, userId, updates) => {
     throw new AppError('无权修改此歌单', 403);
   }
   if (playlist.type === 'system') {
-    throw new AppError('系统歌单不能修改名称和描述', 400);
+    throw new AppError('系统歌单不能修改', 400);
   }
 
   const { name, description, coverUrl, isPublic } = updates;
+
+  // 验证名称
+  if (name !== undefined) {
+    const trimmedName = name.trim();
+    if (trimmedName.length < 1 || trimmedName.length > 100) {
+      throw new AppError('歌单名称长度必须在1-100个字符之间', 400);
+    }
+  }
+
   stmt.updatePlaylist.run(
-    name || playlist.name,
+    name !== undefined ? name.trim() : playlist.name,
     description !== undefined ? description : playlist.description,
     coverUrl !== undefined ? coverUrl : playlist.cover_url,
     isPublic !== undefined ? (isPublic ? 1 : 0) : playlist.is_public,
@@ -199,12 +218,17 @@ const deletePlaylist = (playlistId, userId) => {
 /**
  * 添加音频到歌单
  * @param {number} playlistId - 歌单ID
- * @param {string} bvid - 视频BVID
- * @param {Object} metadata - 音频元数据
- * @param {string} metadata.localPath - 本地音频路径（可选）
+ * @param {Object} itemData - 音频数据 { bvid, title, artist, duration, coverUrl }
  * @returns {Object} 添加的歌单项
  */
-const addItem = (playlistId, bvid, metadata = {}) => {
+const addItem = (playlistId, itemData) => {
+  const { bvid, title, artist, duration, coverUrl } = itemData;
+
+  // 验证必要参数
+  if (!bvid || bvid.trim() === '') {
+    throw new AppError('BVID不能为空', 400);
+  }
+
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new AppError('歌单不存在', 404);
@@ -220,10 +244,9 @@ const addItem = (playlistId, bvid, metadata = {}) => {
   const { max_pos } = stmt.maxPosition.get(playlistId);
   const nextPosition = max_pos + 1;
 
-  const { title, artist, duration, coverUrl, localPath } = metadata;
   const result = stmt.insertItem.run(
-    playlistId, bvid, title || null, artist || null,
-    duration || null, coverUrl || null, localPath || null, nextPosition
+    playlistId, bvid.trim(), title || null, artist || null,
+    duration || null, coverUrl || null, nextPosition
   );
 
   return stmt.getItemById.get(result.lastInsertRowid);
@@ -236,12 +259,16 @@ const addItem = (playlistId, bvid, metadata = {}) => {
  * @returns {boolean} 成功返回true
  */
 const removeItem = (playlistId, bvid) => {
+  if (!bvid || bvid.trim() === '') {
+    throw new AppError('BVID不能为空', 400);
+  }
+
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new AppError('歌单不存在', 404);
   }
 
-  stmt.deleteItem.run(playlistId, bvid);
+  stmt.deleteItem.run(playlistId, bvid.trim());
 
   // 重新排序剩余项
   const items = stmt.itemsByPlaylistId.all(playlistId);
@@ -259,21 +286,28 @@ const removeItem = (playlistId, bvid) => {
 /**
  * 调整歌单项顺序
  * @param {number} playlistId - 歌单ID
- * @param {Array} itemOrders - 项ID和位置数组 [{id: 1, position: 0}, ...]
+ * @param {Array} items - 项数组
  * @returns {boolean} 成功返回true
  */
-const reorderItems = (playlistId, itemOrders) => {
+const reorderItems = (playlistId, items) => {
+  // 验证参数
+  if (!Array.isArray(items)) {
+    throw new AppError('items必须是数组', 400);
+  }
+
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new AppError('歌单不存在', 404);
   }
 
-  const transaction = db.transaction((orders) => {
-    orders.forEach(({ id, position }) => {
-      stmt.updateItemById.run(position, id);
+  const transaction = db.transaction((itemList) => {
+    itemList.forEach(({ id, position }) => {
+      if (id && typeof position === 'number') {
+        stmt.updateItemById.run(position, id);
+      }
     });
   });
-  transaction(itemOrders);
+  transaction(items);
 
   return true;
 };
@@ -281,11 +315,17 @@ const reorderItems = (playlistId, itemOrders) => {
 /**
  * 切换收藏状态（快捷方法）
  * @param {number} userId - 用户ID
- * @param {string} bvid - 视频BVID
- * @param {Object} metadata - 音频元数据
+ * @param {Object} itemData - 音频数据 { bvid, title, artist, duration, coverUrl }
  * @returns {Object} { added: boolean, favorited: boolean }
  */
-const toggleFavorite = (userId, bvid, metadata = {}) => {
+const toggleFavorite = (userId, itemData) => {
+  const { bvid, title, artist, duration, coverUrl } = itemData;
+
+  // 验证必要参数
+  if (!bvid || bvid.trim() === '') {
+    throw new AppError('BVID不能为空', 400);
+  }
+
   ensureSystemPlaylists(userId);
   const favoritesPlaylist = stmt.playlistBySystemType.get(userId, SYSTEM_TYPES.FAVORITES);
 
@@ -296,7 +336,7 @@ const toggleFavorite = (userId, bvid, metadata = {}) => {
     return { added: false, favorited: false };
   } else {
     // 未收藏，添加
-    addItem(favoritesPlaylist.id, bvid, metadata);
+    addItem(favoritesPlaylist.id, { bvid, title, artist, duration, coverUrl });
     return { added: true, favorited: true };
   }
 };
@@ -308,6 +348,10 @@ const toggleFavorite = (userId, bvid, metadata = {}) => {
  * @returns {boolean} 是否已收藏
  */
 const isFavorited = (userId, bvid) => {
+  if (!bvid || bvid.trim() === '') {
+    throw new AppError('BVID不能为空', 400);
+  }
+
   ensureSystemPlaylists(userId);
   const favoritesPlaylist = stmt.playlistBySystemType.get(userId, SYSTEM_TYPES.FAVORITES);
   const existing = stmt.itemExists.get(favoritesPlaylist.id, bvid);
@@ -332,6 +376,11 @@ const getFavorites = (userId) => {
  * @returns {boolean} 成功返回true
  */
 const saveNowPlaying = (userId, items) => {
+  // 验证参数
+  if (!Array.isArray(items)) {
+    throw new AppError('items必须是数组', 400);
+  }
+
   ensureSystemPlaylists(userId);
   const nowPlayingPlaylist = stmt.playlistBySystemType.get(userId, SYSTEM_TYPES.NOW_PLAYING);
 
@@ -339,22 +388,24 @@ const saveNowPlaying = (userId, items) => {
   stmt.clearPlaylist.run(nowPlayingPlaylist.id);
 
   // 插入新内容
-  if (items && items.length > 0) {
+  if (items.length > 0) {
     const insertStmt = db.prepare(`
       INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, position)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    const transaction = db.transaction((items) => {
-      items.forEach((item, index) => {
-        insertStmt.run(
-          nowPlayingPlaylist.id,
-          item.bvid,
-          item.title || null,
-          item.artist || null,
-          item.duration || null,
-          item.coverUrl || null,
-          index
-        );
+    const transaction = db.transaction((itemList) => {
+      itemList.forEach((item, index) => {
+        if (item && item.bvid) {
+          insertStmt.run(
+            nowPlayingPlaylist.id,
+            item.bvid,
+            item.title || null,
+            item.artist || null,
+            item.duration || null,
+            item.coverUrl || null,
+            index
+          );
+        }
       });
     });
     transaction(items);
@@ -406,6 +457,11 @@ const getOrderByClause = (sortType) => {
  * @param {number} userId - 用户ID（用于权限验证）
  */
 const sortItems = (playlistId, sortType, userId) => {
+  // 验证排序类型
+  if (!sortType || !VALID_SORT_TYPES.includes(sortType)) {
+    throw new AppError('无效的排序类型', 400);
+  }
+
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new AppError('歌单不存在', 404);

@@ -6,7 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
-const { requestLogger, logger } = require('./utils/logger');
+const { requestLogger } = require('./middleware/logger');
+const { logger } = require('./utils/logger');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const swaggerSpecs = require('./config/swagger');
 
@@ -55,86 +56,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
 
 // ========== API 路由配置 ==========
 
-// 版本路由（优先匹配，避免与旧路由冲突）
+// v1 API 路由（唯一版本）
 try {
   const v1Router = require('./routes/v1');
   app.use('/api/v1', v1Router);
   logger.info('v1 API routes registered (/api/v1/*)');
 } catch (e) {
   logger.error('Failed to load v1 routes:', e.message);
-}
-
-// 兼容旧路由（无版本前缀，逐步废弃）
-// 请求日志记录
-app.use('/api', (req, res, next) => {
-  logger.debug(`${req.method} ${req.originalUrl}`);
-
-  // 如果请求没有版本前缀，添加警告头
-  if (!req.path.startsWith('/api/v') && req.path !== '/api-docs') {
-    res.setHeader('X-API-Deprecation', 'true');
-    res.setHeader('X-API-Migration', 'Please use /api/v1/ endpoints instead');
-  }
-  next();
-});
-
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-
-try {
-  const bilibiliRouter = require('./routes/bilibili');
-  app.use('/api/bilibili', bilibiliRouter);
-  logger.info('Bilibili routes registered, stack length:', bilibiliRouter.stack.length);
-  bilibiliRouter.stack.forEach((layer, i) => {
-    if (layer.route) {
-      logger.debug(`  - Route ${i}: ${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`);
-    }
-  });
-} catch (e) {
-  logger.error('Failed to load bilibili routes:', e.message);
-}
-
-try {
-  const audioRouter = require('./routes/audio');
-  app.use('/api/audio', audioRouter);
-  logger.info('Audio routes registered');
-} catch (e) {
-  logger.error('Failed to load audio routes:', e.message);
-}
-
-// ========== Phase 2: 歌单、历史、推荐路由 ==========
-
-try {
-  const playlistsRouter = require('./routes/playlists');
-  app.use('/api/playlists', playlistsRouter);
-  logger.info('Playlists routes registered');
-} catch (e) {
-  logger.error('Failed to load playlists routes:', e.message);
-}
-
-try {
-  const historyRouter = require('./routes/history');
-  app.use('/api/history', historyRouter);
-  logger.info('History routes registered');
-} catch (e) {
-  logger.error('Failed to load history routes:', e.message);
-}
-
-try {
-  const recommendationsRouter = require('./routes/recommendations');
-  app.use('/api/recommendations', recommendationsRouter);
-  logger.info('Recommendations routes registered');
-} catch (e) {
-  logger.error('Failed to load recommendations routes:', e.message);
-}
-
-// ========== Phase 3: 搜索、推荐与下载路由 ==========
-
-try {
-  const searchRouter = require('./routes/search');
-  app.use('/api/search', searchRouter);
-  logger.info('Search routes registered');
-} catch (e) {
-  logger.error('Failed to load search routes:', e.message);
 }
 
 // ========== 错误处理 ==========
@@ -150,7 +78,6 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, () => {
-  // 服务器启动信息（保留 console.log 用于启动时可视化）
   console.log('\n========================================');
   console.log('  ListenVision API Server');
   console.log('========================================');
@@ -162,7 +89,6 @@ const server = app.listen(PORT, () => {
   console.log(`  API Docs: http://localhost:${PORT}/api-docs`);
   console.log(`  Health: http://localhost:${PORT}/health`);
   console.log('========================================\n');
-  // 同时记录到日志文件
   logger.info(`Server started on port ${PORT}`);
 });
 
@@ -173,7 +99,6 @@ const gracefulShutdown = (signal) => {
   console.log(`\n⚠️  ${signal} 信号接收，正在关闭服务器...`);
 
   server.close(() => {
-    // 关闭数据库连接
     const db = require('./config/database');
     if (db && typeof db.close === 'function') {
       db.close();
@@ -184,7 +109,6 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
 
-  // 如果 10 秒后还没关闭，强制退出
   setTimeout(() => {
     logger.error('Server shutdown timeout, forcing exit');
     console.error('❌ 服务器关闭超时，强制退出');
@@ -195,7 +119,6 @@ const gracefulShutdown = (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// 未捕获的异常
 process.on('uncaughtException', (err) => {
   logger.error('未捕获的异常:', err);
   process.exit(1);

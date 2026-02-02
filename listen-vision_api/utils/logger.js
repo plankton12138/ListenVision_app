@@ -2,13 +2,15 @@ const winston = require('winston');
 const path = require('path');
 
 /**
- * Winston 日志系统
+ * 应用日志系统
+ *
+ * 职责：记录应用程序日志（错误、警告、信息等）
+ * 不包含 HTTP 请求日志（由 middleware/logger.js 处理）
  *
  * 日志级别：
  * - error: 错误信息
  * - warn: 警告信息
  * - info: 一般信息
- * - http: HTTP 请求日志
  * - debug: 调试信息
  */
 
@@ -62,77 +64,4 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 }
 
-// 生产环境添加单独的 HTTP 日志
-if (process.env.NODE_ENV === 'production') {
-  logger.add(new winston.transports.File({
-    filename: path.join(__dirname, '../logs/http.log'),
-    level: 'http',
-    maxsize: 5242880,
-    maxFiles: 10
-  }));
-}
-
-/**
- * HTTP 请求日志中间件
- */
-const httpLogger = winston.createLogger({
-  level: 'http',
-  format: logFormat,
-  defaultMeta: { service: 'listen-vision-api' },
-  transports: [
-    new winston.transports.File({
-      filename: path.join(__dirname, '../logs/http.log'),
-      maxsize: 5242880,
-      maxFiles: 10
-    })
-  ]
-});
-
-// 开发环境也输出 HTTP 日志到控制台
-if (process.env.NODE_ENV !== 'production') {
-  httpLogger.add(new winston.transports.Console({
-    format: consoleFormat
-  }));
-}
-
-/**
- * Express 中间件：记录 HTTP 请求
- */
-const requestLogger = (req, res, next) => {
-  const startTime = Date.now();
-
-  // 记录请求
-  httpLogger.http('Incoming request', {
-    method: req.method,
-    url: req.originalUrl,
-    ip: req.ip,
-    userAgent: req.get('user-agent')
-  });
-
-  // 监听响应完成
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    httpLogger.http('Request completed', {
-      method: req.method,
-      url: req.originalUrl,
-      status: res.statusCode,
-      duration: `${duration}ms`
-    });
-  });
-
-  next();
-};
-
-// 同时支持两种导入方式:
-// const logger = require('./utils/logger')  → 直接获取 logger
-// const { logger, requestLogger } = require(...)  → 解构导入
-const loggerExports = {
-  logger,
-  httpLogger,
-  requestLogger
-};
-
-// 使 logger 对象本身也是 logger 实例
-Object.assign(logger, loggerExports);
-
-module.exports = loggerExports;
+module.exports = { logger };

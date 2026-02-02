@@ -12,10 +12,10 @@ const express = require('express');
 
 // Mock 依赖
 jest.mock('../services/bilibiliService');
-jest.mock('../services/audioService');
+jest.mock('../services/audio');
 
 const bilibiliService = require('../services/bilibiliService');
-const audioService = require('../services/audioService');
+const audioService = require('../services/audio');
 
 // 重新加载控制器（确保 mocks 生效）
 const bilibiliController = require('../controllers/bilibiliController');

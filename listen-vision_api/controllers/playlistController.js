@@ -1,10 +1,16 @@
 const playlistService = require('../services/playlistService');
 const { successResponse } = require('../utils/response');
-const { AppError, catchAsync } = require('../middleware/errorHandler');
+const { catchAsync } = require('../middleware/errorHandler');
 
 /**
  * 歌单控制器
- * 处理歌单、收藏、播放队列相关请求
+ *
+ * 职责：
+ * 1. 接收 HTTP 请求，提取参数
+ * 2. 调用 Service 层执行业务逻辑
+ * 3. 返回统一格式的响应
+ *
+ * 注意：不包含业务验证逻辑，验证在 Service 层处理
  */
 
 // ==================== 歌单管理 ====================
@@ -13,10 +19,7 @@ const { AppError, catchAsync } = require('../middleware/errorHandler');
  * 获取用户所有歌单
  */
 const getUserPlaylists = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-
-  const playlists = playlistService.getUserPlaylists(userId);
-
+  const playlists = await playlistService.getUserPlaylists(req.user.id);
   return successResponse(res, playlists, '获取歌单列表成功');
 });
 
@@ -25,10 +28,13 @@ const getUserPlaylists = catchAsync(async (req, res) => {
  */
 const getPlaylistDetail = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id;
-  const { sortType } = req.query; // 从查询参数获取排序类型
+  const { sortType } = req.query;
 
-  const detail = playlistService.getPlaylistDetail(parseInt(id), userId, sortType);
+  const detail = await playlistService.getPlaylistDetail(
+    parseInt(id),
+    req.user.id,
+    sortType
+  );
 
   return successResponse(res, detail, '获取歌单详情成功');
 });
@@ -37,14 +43,14 @@ const getPlaylistDetail = catchAsync(async (req, res) => {
  * 创建歌单
  */
 const createPlaylist = catchAsync(async (req, res) => {
-  const userId = req.user.id;
   const { name, description, coverUrl } = req.body;
 
-  if (!name || name.trim() === '') {
-    throw new AppError('歌单名称不能为空', 400);
-  }
-
-  const playlist = playlistService.createPlaylist(userId, name, description, coverUrl);
+  const playlist = await playlistService.createPlaylist(
+    req.user.id,
+    name,
+    description,
+    coverUrl
+  );
 
   return successResponse(res, playlist, '创建歌单成功', 201);
 });
@@ -54,11 +60,13 @@ const createPlaylist = catchAsync(async (req, res) => {
  */
 const updatePlaylist = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id;
-  const { name, description, coverUrl, isPublic } = req.body;
+  const updates = req.body;
 
-  const updates = { name, description, coverUrl, isPublic };
-  const playlist = playlistService.updatePlaylist(parseInt(id), userId, updates);
+  const playlist = await playlistService.updatePlaylist(
+    parseInt(id),
+    req.user.id,
+    updates
+  );
 
   return successResponse(res, playlist, '更新歌单成功');
 });
@@ -68,9 +76,8 @@ const updatePlaylist = catchAsync(async (req, res) => {
  */
 const deletePlaylist = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id;
 
-  playlistService.deletePlaylist(parseInt(id), userId);
+  await playlistService.deletePlaylist(parseInt(id), req.user.id);
 
   return successResponse(res, { success: true }, '删除歌单成功');
 });
@@ -82,14 +89,9 @@ const deletePlaylist = catchAsync(async (req, res) => {
  */
 const addItem = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { bvid, title, artist, duration, coverUrl, localPath } = req.body;
+  const itemData = req.body;
 
-  if (!bvid) {
-    throw new AppError('BVID不能为空', 400);
-  }
-
-  const metadata = { title, artist, duration, coverUrl, localPath };
-  const item = playlistService.addItem(parseInt(id), bvid, metadata);
+  const item = await playlistService.addItem(parseInt(id), itemData);
 
   return successResponse(res, item, '添加到歌单成功', 201);
 });
@@ -100,7 +102,7 @@ const addItem = catchAsync(async (req, res) => {
 const removeItem = catchAsync(async (req, res) => {
   const { id, bvid } = req.params;
 
-  playlistService.removeItem(parseInt(id), bvid);
+  await playlistService.removeItem(parseInt(id), bvid);
 
   return successResponse(res, { success: true }, '从歌单移除成功');
 });
@@ -112,11 +114,7 @@ const reorderItems = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { items } = req.body;
 
-  if (!Array.isArray(items)) {
-    throw new AppError('items必须是数组', 400);
-  }
-
-  playlistService.reorderItems(parseInt(id), items);
+  await playlistService.reorderItems(parseInt(id), items);
 
   return successResponse(res, { success: true }, '调整顺序成功');
 });
@@ -126,22 +124,9 @@ const reorderItems = catchAsync(async (req, res) => {
  */
 const sortItems = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id;
   const { sortType } = req.body;
 
-  // 验证sortType参数
-  const validSortTypes = [
-    'added_at_desc', 'added_at_asc',
-    'title_asc', 'title_desc',
-    'artist_asc', 'artist_desc',
-    'position_asc'
-  ];
-
-  if (!sortType || !validSortTypes.includes(sortType)) {
-    throw new AppError('无效的排序类型', 400);
-  }
-
-  playlistService.sortItems(parseInt(id), sortType, userId);
+  await playlistService.sortItems(parseInt(id), sortType, req.user.id);
 
   return successResponse(res, { success: true }, '排序成功');
 });
@@ -152,27 +137,24 @@ const sortItems = catchAsync(async (req, res) => {
  * 切换收藏状态
  */
 const toggleFavorite = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-  const { bvid, title, artist, duration, coverUrl, localPath } = req.body;
+  const itemData = req.body;
 
-  if (!bvid) {
-    throw new AppError('BVID不能为空', 400);
-  }
+  const result = await playlistService.toggleFavorite(req.user.id, itemData);
 
-  const metadata = { title, artist, duration, coverUrl, localPath };
-  const result = playlistService.toggleFavorite(userId, bvid, metadata);
-
-  return successResponse(res, result, result.added ? '已添加到我喜欢' : '已从我喜欢移除');
+  return successResponse(
+    res,
+    result,
+    result.added ? '已添加到我喜欢' : '已从我喜欢移除'
+  );
 });
 
 /**
  * 检查是否已收藏
  */
 const checkFavorite = catchAsync(async (req, res) => {
-  const userId = req.user.id;
   const { bvid } = req.params;
 
-  const favorited = playlistService.isFavorited(userId, bvid);
+  const favorited = await playlistService.isFavorited(req.user.id, bvid);
 
   return successResponse(res, { favorited }, '检查收藏状态成功');
 });
@@ -181,9 +163,7 @@ const checkFavorite = catchAsync(async (req, res) => {
  * 获取收藏列表（我喜欢）
  */
 const getFavorites = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-
-  const favorites = playlistService.getFavorites(userId);
+  const favorites = await playlistService.getFavorites(req.user.id);
 
   return successResponse(res, favorites, '获取收藏列表成功');
 });
@@ -194,14 +174,9 @@ const getFavorites = catchAsync(async (req, res) => {
  * 保存当前播放队列
  */
 const saveNowPlaying = catchAsync(async (req, res) => {
-  const userId = req.user.id;
   const { items } = req.body;
 
-  if (!Array.isArray(items)) {
-    throw new AppError('items必须是数组', 400);
-  }
-
-  playlistService.saveNowPlaying(userId, items);
+  await playlistService.saveNowPlaying(req.user.id, items);
 
   return successResponse(res, { success: true }, '保存播放队列成功');
 });
@@ -210,9 +185,7 @@ const saveNowPlaying = catchAsync(async (req, res) => {
  * 获取当前播放队列
  */
 const getNowPlaying = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-
-  const queue = playlistService.getNowPlaying(userId);
+  const queue = await playlistService.getNowPlaying(req.user.id);
 
   return successResponse(res, queue, '获取播放队列成功');
 });
@@ -223,7 +196,7 @@ const getNowPlaying = catchAsync(async (req, res) => {
 const incrementPlayCount = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  playlistService.incrementPlayCount(parseInt(id));
+  await playlistService.incrementPlayCount(parseInt(id));
 
   return successResponse(res, { success: true }, '记录播放成功');
 });

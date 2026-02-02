@@ -1,4 +1,4 @@
-const audioService = require('../services/audioService');
+const audioService = require('../services/audio');
 const { successResponse } = require('../utils/response');
 
 /**

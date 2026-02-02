@@ -520,7 +520,7 @@ class AudioProvider extends ChangeNotifier {
   /// 构建后端代理URL
   String _buildProxyUrl(String bvid, [String format = 'auto']) {
     final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    return '$baseUrl/api/bilibili/proxy/audio/$bvid?format=$format';
+    return '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=$format';
   }
 
   // ==================== 内部播放方法 ====================

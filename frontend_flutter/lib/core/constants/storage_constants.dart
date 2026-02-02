@@ -93,6 +93,12 @@ class StorageKeys {
   /// 是否正在播放在线音频
   static const String isCurrentOnline = 'is_current_online';
 
+  /// 最后播放索引
+  static const String keyLastIndex = 'last_playlist_index';
+
+  /// 是否是在线音频（恢复用）
+  static const String keyWasOnline = 'was_online_audio';
+
   // ==================== Phase 3B: 播放控制设置 ====================
 
   /// 播放音量（0.0 - 1.0）

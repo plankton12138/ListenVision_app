@@ -63,10 +63,6 @@ final class ServerFailure extends Failure {
     super.exception,
   });
 
-  /// 请求失败
-  const ServerFailure.requestFailed({super.message, super.exception})
-      : super(code: 'REQUEST_FAILED');
-
   /// 服务器内部错误
   const ServerFailure.internalError({super.message, super.exception})
       : super(code: 'INTERNAL_ERROR');

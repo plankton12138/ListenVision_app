@@ -1,6 +1,5 @@
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
-import 'package:demo/core/utils/error_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -300,7 +299,8 @@ mixin AsyncUIHandlerMixin<T extends StatefulWidget> on BasePageState<T> {
         }
         onSuccess?.call();
       }
-    } catch (e, _) {
+    } catch (e, stackTrace) {
+      // 使用 AppLogger 记录错误
       if (mounted) {
         final message = _parseError(e);
         showError(message);
@@ -310,9 +310,14 @@ mixin AsyncUIHandlerMixin<T extends StatefulWidget> on BasePageState<T> {
   }
 
   /// 解析错误消息
-  ///
-  /// 使用统一的 ErrorHandler 解析各种类型的错误
   String _parseError(dynamic error) {
-    return ErrorHandler.parseErrorMessage(error);
+    if (error is Exception) {
+      final msg = error.toString();
+      if (msg.contains('SocketException')) return '网络连接失败';
+      if (msg.contains('TimeoutException')) return '操作超时';
+      if (msg.contains(': ')) return msg.split(': ').last;
+      return msg;
+    }
+    return error.toString();
   }
 }

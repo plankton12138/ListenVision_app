@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import 'package:demo/presentation/widgets/controls_panel.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
 
 class FakeAudioProvider extends ChangeNotifier implements AudioProvider {
   Duration _duration = Duration.zero;
@@ -137,13 +136,8 @@ void main() {
     return MaterialApp(
       home: MediaQuery(
         data: const MediaQueryData(size: Size(360, 640)),
-        child: MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AudioProvider>.value(value: provider),
-            ChangeNotifierProvider<NowPlayingProvider>(
-              create: (_) => NowPlayingProvider(),
-            ),
-          ],
+        child: ChangeNotifierProvider<AudioProvider>.value(
+          value: provider,
           child: const Scaffold(body: ControlsPanel()),
         ),
       ),

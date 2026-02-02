@@ -21,9 +21,10 @@ import 'package:demo/domain/repositories/bilibili_repository.dart';
 import 'package:demo/domain/repositories/play_history_repository.dart';
 import 'package:demo/domain/repositories/playlist_repository.dart';
 import 'package:demo/domain/repositories/search_repository.dart';
+import 'package:demo/domain/usecases/record_playback_usecase.dart';
+import 'package:demo/domain/usecases/update_playback_progress_usecase.dart';
+import 'package:demo/domain/usecases/get_play_history_usecase.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
-import 'package:demo/presentation/providers/audio/audio_playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
@@ -56,17 +57,19 @@ class ProviderConfig {
   static List<Object> getProviders() {
     return [
       // ========== Repositories (P2 Clean Architecture) ==========
-      // 必须在最前面，因为其他 Providers 依赖它们
+      // 必须在最前面，因为 UseCases 依赖它们
       ..._repositories(),
+
+      // ========== UseCases (P2 Clean Architecture) ==========
+      // 依赖 Repositories，被 Providers 使用
+      ..._useCases(),
 
       // ========== 独立 Providers ==========
       ..._independentProviders(),
 
       // ========== Audio Providers (P1: 无依赖，直接使用 HTTP 记录历史) ==========
       _audioProvider(),
-      ChangeNotifierProvider<NowPlayingProvider>(create: (_) => NowPlayingProvider()),
-      ChangeNotifierProvider<AudioPlaylistProvider>(create: (_) => AudioPlaylistProvider()),
-      _audioProvidersLink(),
+      _audioMetadataProvider(),
 
       // ========== Bilibili-Dependent Providers ==========
       _bilibiliProvider(),
@@ -105,6 +108,28 @@ class ProviderConfig {
     ];
   }
 
+  // ========== UseCases (P2 Clean Architecture) ==========
+  static List<Object> _useCases() {
+    return [
+      // 播放历史相关 UseCase
+      ProxyProvider<PlayHistoryRepository, RecordPlaybackUseCase>(
+        update: (_, repository, __) => RecordPlaybackUseCase(repository),
+      ),
+      ProxyProvider<PlayHistoryRepository, UpdatePlaybackProgressUseCase>(
+        update: (_, repository, __) => UpdatePlaybackProgressUseCase(repository),
+      ),
+      ProxyProvider<PlayHistoryRepository, GetPlayHistoryUseCase>(
+        update: (_, repository, __) => GetPlayHistoryUseCase(repository),
+      ),
+      ProxyProvider<PlayHistoryRepository, GetRecentPlaysUseCase>(
+        update: (_, repository, __) => GetRecentPlaysUseCase(repository),
+      ),
+      ProxyProvider<PlayHistoryRepository, GetMostPlayedUseCase>(
+        update: (_, repository, __) => GetMostPlayedUseCase(repository),
+      ),
+    ];
+  }
+
   // ========== 独立 Providers ==========
   static List<Object> _independentProviders() {
     return [
@@ -138,13 +163,11 @@ class ProviderConfig {
     );
   }
 
-  static Object _audioProvidersLink() {
-    return ChangeNotifierProxyProvider3<AudioProvider, NowPlayingProvider, AudioPlaylistProvider, AudioMetadataProvider>(
+  static Object _audioMetadataProvider() {
+    return ChangeNotifierProxyProvider<AudioProvider, AudioMetadataProvider>(
       create: (context) => AudioMetadataProvider(),
-      update: (context, audioProvider, nowPlayingProvider, playlistProvider, metadataProvider) {
-        audioProvider.attachProviders(
-          nowPlayingProvider: nowPlayingProvider,
-          audioPlaylistProvider: playlistProvider,
+      update: (context, audioProvider, metadataProvider) {
+        audioProvider.attachMetadataProvider(
           audioMetadataProvider: metadataProvider,
         );
         return metadataProvider!;

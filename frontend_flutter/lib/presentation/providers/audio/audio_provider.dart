@@ -18,11 +18,9 @@ import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/debounce_utils.dart';
 import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
-import 'package:demo/presentation/providers/audio/unified_playlist_manager.dart';
+import 'package:demo/presentation/providers/audio/playback_queue_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
 import 'package:demo/presentation/providers/audio/state_transaction.dart';
-import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
-import 'package:demo/presentation/providers/audio/audio_playlist_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 
@@ -32,7 +30,7 @@ import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 ///
 /// 架构：
 /// - PlaybackController: 核心播放控制
-/// - UnifiedPlaylistManager: 播放列表管理
+/// - PlaybackQueueManager: 播放队列管理
 /// - PlaybackStateManager: 状态持久化
 /// - AudioMetadataLoader: 元数据加载
 ///
@@ -43,15 +41,13 @@ class AudioProvider extends ChangeNotifier {
   /// 播放控制器
   final PlaybackController _playbackController;
 
-  /// 统一播放列表管理器
-  final UnifiedPlaylistManager _playlistManager;
+  /// 播放队列管理器
+  final PlaybackQueueManager _queueManager;
 
   /// 播放状态管理器
   final PlaybackStateManager _stateManager;
 
-  /// 子 Provider 镜像
-  NowPlayingProvider? _nowPlayingProvider;
-  AudioPlaylistProvider? _audioPlaylistProvider;
+  /// 元数据 Provider
   AudioMetadataProvider? _audioMetadataProvider;
 
   // ==================== 向后兼容状态 ====================
@@ -118,7 +114,7 @@ class AudioProvider extends ChangeNotifier {
 
   AudioProvider()
       : _playbackController = PlaybackController(),
-        _playlistManager = UnifiedPlaylistManager(),
+        _queueManager = PlaybackQueueManager(),
         _stateManager = PlaybackStateManager() {
     _init();
   }
@@ -142,8 +138,8 @@ class AudioProvider extends ChangeNotifier {
     // 初始化监听器
     _initListeners();
 
-    // 加载播放列表
-    await _loadPlaylist();
+    // 加载播放队列
+    await _loadQueue();
 
     // 恢复播放状态
     await _restorePlaybackState();
@@ -183,18 +179,17 @@ class AudioProvider extends ChangeNotifier {
       },
     );
 
-    // 播放列表管理器回调
-    _playlistManager.setOnPlaylistChanged(() {
+    // 播放队列管理器回调
+    _queueManager.setOnQueueChanged(() {
       if (!_disposed) {
-        _syncPlaylistProviders();
         notifyListeners();
       }
     });
 
     // 状态管理器回调
     _stateManager.setStateCallbacks(
-      getCurrentIndex: () async => _playlistManager.currentIndex,
-      getCurrentPlayable: () async => _playlistManager.currentPlayable,
+      getCurrentIndex: () async => _queueManager.currentIndex,
+      getCurrentPlayable: () async => _queueManager.currentPlayable,
       getCurrentPosition: () async => _playbackController.position,
       getIsPlaying: () async => _playbackController.isPlaying,
     );
@@ -236,19 +231,18 @@ class AudioProvider extends ChangeNotifier {
     _playbackController.setSpeed(_stateManager.speed);
   }
 
-  /// 加载播放列表（从数据库同步到 UnifiedPlaylistManager）
-  Future<void> _loadPlaylist() async {
-    await _playlistManager.syncFromLocal();
-    _syncPlaylistProviders();
+  /// 加载播放队列（从数据库同步到 PlaybackQueueManager）
+  Future<void> _loadQueue() async {
+    await _queueManager.syncFromLocal();
     notifyListeners();
   }
 
   /// 恢复播放状态
   Future<void> _restorePlaybackState() async {
-    final savedPosition = await _playlistManager.restore();
-    final wasOnline = await _playlistManager.getSavedOnlineState();
+    final savedPosition = await _queueManager.restore();
+    final wasOnline = await _queueManager.getSavedOnlineState();
 
-    final currentPlayable = _playlistManager.currentPlayable;
+    final currentPlayable = _queueManager.currentPlayable;
     if (currentPlayable != null) {
       // 更新元数据
       _title = currentPlayable.title;
@@ -259,7 +253,7 @@ class AudioProvider extends ChangeNotifier {
       _isCurrentOnline = wasOnline;
       if (currentPlayable.isOnline && currentPlayable is OnlinePlayable) {
         _currentOnlineAudio = currentPlayable.original;
-        // ⭐ 修复：在线音频支持 seek（HTTP Range 请求）
+        // 在线音频支持 seek（HTTP Range 请求）
         _isSeekable = true;
       }
 
@@ -274,7 +268,6 @@ class AudioProvider extends ChangeNotifier {
 
     notifyListeners();
     _syncMetadataProvider();
-    _syncPlaylistProviders();
     AppLogger.debug('AudioProvider', '播放状态已恢复');
   }
 
@@ -286,18 +279,19 @@ class AudioProvider extends ChangeNotifier {
   String get title => _title;
   String get artist => _artist;
   Uint8List? get albumArt => _albumArt;
-  /// 本地播放列表（从 UnifiedPlaylistManager 获取）
-  List<LocalAudio> get localPlaylist => _playlistManager.localPlaylist;
-  List<PlayableAudio> get unifiedPlaylist => _playlistManager.playlist;
-  int get currentIndex => _playlistManager.currentIndex;
+  /// 本地音频列表（从 PlaybackQueueManager 获取）
+  List<LocalAudio> get localPlaylist => _queueManager.localAudios;
+  /// 统一播放队列
+  List<PlayableAudio> get unifiedPlaylist => _queueManager.queue;
+  int get currentIndex => _queueManager.currentIndex;
   /// 当前本地音频（向后兼容）
   /// LocalPlayable 是包装类，需要通过 .original 获取原始 LocalAudio
   LocalAudio? get currentAudio {
     if (_isCurrentOnline) return null;
-    final playable = _playlistManager.currentPlayable;
+    final playable = _queueManager.currentPlayable;
     return playable is LocalPlayable ? playable.original : null;
   }
-  PlayableAudio? get currentPlayable => _playlistManager.currentPlayable;
+  PlayableAudio? get currentPlayable => _queueManager.currentPlayable;
   bool get isCurrentOnline => _isCurrentOnline;
   Audio? get currentOnlineAudio => _currentOnlineAudio;
   bool get isSeekable => _isSeekable;
@@ -345,18 +339,17 @@ class AudioProvider extends ChangeNotifier {
         await _stateManager.saveNow();
       } else {
         // 检查播放器是否需要加载音频源
-        if (_playbackController.isIdle && _playlistManager.currentPlayable != null) {
+        if (_playbackController.isIdle && _queueManager.currentPlayable != null) {
           _playerStatusMessage = '正在加载...';
           notifyListeners();
 
           try {
-            await _playPlayable(_playlistManager.currentPlayable!);
+            await _playPlayable(_queueManager.currentPlayable!);
             _playerStatusMessage = '';
           } catch (e) {
             _playerStatusMessage = '播放失败: $e';
             _hasPlaybackError = true;
             notifyListeners();
-            _nowPlayingProvider?.setError(_playerStatusMessage);
             rethrow;
           }
         } else if (_playbackController.isCompleted && !_isCurrentOnline) {
@@ -373,7 +366,6 @@ class AudioProvider extends ChangeNotifier {
       AppLogger.error('AudioProvider', 'togglePlayPause 错误: $e');
       _playerStatusMessage = '播放失败';
       _hasPlaybackError = true;
-      _nowPlayingProvider?.setError(_playerStatusMessage);
       notifyListeners();
       rethrow;
     }
@@ -424,9 +416,9 @@ class AudioProvider extends ChangeNotifier {
       return;
     }
 
-    // 检查播放列表中是否有下一首
-    if (_playlistManager.hasNext) {
-      AppLogger.info('AudioProvider', '播放列表中有下一首，自动播放');
+    // 检查播放队列中是否有下一首
+    if (_queueManager.hasNext) {
+      AppLogger.info('AudioProvider', '播放队列中有下一首，自动播放');
       await playNext();
     } else {
       AppLogger.info('AudioProvider', '没有下一首，重置到开始位置');
@@ -439,25 +431,25 @@ class AudioProvider extends ChangeNotifier {
   /// 下一首
   Future<void> playNext() async {
     if (_disposed) return;
-    if (_playlistManager.isEmpty) return;
+    if (_queueManager.isEmpty) return;
 
-    final nextIndex = _playlistManager.nextIndex;
+    final nextIndex = _queueManager.nextIndex;
     await playUnifiedAt(nextIndex);
   }
 
   /// 上一首
   Future<void> playPrevious() async {
     if (_disposed) return;
-    if (_playlistManager.isEmpty) return;
+    if (_queueManager.isEmpty) return;
 
-    final previousIndex = _playlistManager.previousIndex;
+    final previousIndex = _queueManager.previousIndex;
     await playUnifiedAt(previousIndex);
   }
 
   /// 播放指定索引的本地音频
   Future<void> playAudio(int index) async {
     if (_disposed) return;
-    final localPlaylist = _playlistManager.localPlaylist;
+    final localPlaylist = _queueManager.localPlaylist;
     if (index < 0 || index >= localPlaylist.length) return;
 
     final audio = localPlaylist[index];
@@ -484,7 +476,6 @@ class AudioProvider extends ChangeNotifier {
     // ✅ 修复：清除之前的状态消息
     _playerStatusMessage = '在线音频准备中...';
     _hasPlaybackError = false;
-    _nowPlayingProvider?.clearError();
     notifyListeners();
 
     try {
@@ -502,25 +493,26 @@ class AudioProvider extends ChangeNotifier {
       // ⭐ 修复：在线音频也支持 seek
       _isSeekable = true;
 
-      // 添加到播放列表并立即播放（会自动设置索引）
-      await _playlistManager.add(playable, playImmediately: true);
+      // 添加到播放队列并立即播放（会自动设置索引）
+      await _queueManager.add(playable, playImmediately: true);
 
       // 播放
       await _playPlayable(playable);
 
-      // ⭐ 保存播放列表和索引
-      await _playlistManager.save();
+      // ⭐ 保存播放队列和索引
+      await _queueManager.save();
 
-      // ✅ 修复：播放成功后清除状态消息
+      // 修复：播放成功后清除状态消息
       _playerStatusMessage = '';
 
       AppLogger.info('AudioProvider', '在线播放开始: ${audio.title}');
-      _syncPlaylistProviders();
       _syncMetadataProvider();
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '在线播放失败: $e');
-      _nowPlayingProvider?.setError('在线播放失败: $e');
+      _hasPlaybackError = true;
+      _playerStatusMessage = '在线播放失败: $e';
+      notifyListeners();
       rethrow;
     }
   }
@@ -547,7 +539,6 @@ class AudioProvider extends ChangeNotifier {
 
     // 播放开始后立即清除加载提示并刷新UI
     _playerStatusMessage = '';
-    _syncPlaylistProviders();
     _syncMetadataProvider();
     notifyListeners();
 
@@ -560,12 +551,12 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 播放统一播放列表中指定索引的音频 - P0修复：原子状态更新
+  /// 播放统一播放队列中指定索引的音频 - P0修复：原子状态更新
   Future<void> _playUnifiedAtIndex(int index) async {
     if (_disposed) return;
-    if (index < 0 || index >= _playlistManager.length) return;
+    if (index < 0 || index >= _queueManager.length) return;
 
-    final playable = _playlistManager[index];
+    final playable = _queueManager[index];
     if (playable == null) return;
 
     // ✅ 修复：清除之前的状态消息，避免显示旧的状态
@@ -578,15 +569,15 @@ class AudioProvider extends ChangeNotifier {
     _pendingOperationVersion = transaction.version;
 
     // 保存旧状态用于回滚
-    final oldIndex = _playlistManager.currentIndex;
+    final oldIndex = _queueManager.currentIndex;
     final oldIsOnline = _isCurrentOnline;
     final oldOnlineAudio = _currentOnlineAudio;
 
     try {
       // P0修复：原子更新 - 先更新索引
-      _playlistManager.setCurrentIndex(index, validate: false);
+      _queueManager.setCurrentIndex(index, validate: false);
       transaction.setChange('index', oldIndex, index, () {
-        _playlistManager.setCurrentIndex(oldIndex, validate: false);
+        _queueManager.setCurrentIndex(oldIndex, validate: false);
       });
 
       // 设置在线状态（在线音频也支持 seek，使用流媒体）
@@ -622,23 +613,24 @@ class AudioProvider extends ChangeNotifier {
         return;
       }
 
-      await _playlistManager.save();
+      await _queueManager.save();
 
-      // ✅ 修复：播放成功后清除状态消息
+      // 修复：播放成功后清除状态消息
       _playerStatusMessage = '';
 
       // 提交事务
       transaction.commit();
       _versionController.commitTransaction();
 
-      _syncPlaylistProviders();
       _syncMetadataProvider();
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '播放失败，回滚状态: $e');
-      _nowPlayingProvider?.setError('播放失败: $e');
       transaction.rollback();
       _versionController.rollbackTransaction();
+      _hasPlaybackError = true;
+      _playerStatusMessage = '播放失败: $e';
+      notifyListeners();
       rethrow;
     } finally {
       if (_pendingOperationVersion == transaction.version) {
@@ -647,13 +639,13 @@ class AudioProvider extends ChangeNotifier {
     }
   }
 
-  /// 播放统一播放列表中指定索引的音频（公开方法）- P0修复：添加防抖和版本控制
+  /// 播放统一播放队列中指定索引的音频（公开方法）- P0修复：添加防抖和版本控制
   Future<void> playUnifiedAt(int index) async {
     if (_disposed) return;
-    if (index < 0 || index >= _playlistManager.length) return;
+    if (index < 0 || index >= _queueManager.length) return;
 
     // 如果点击的是当前曲目，切换播放/暂停
-    if (_playlistManager.currentIndex == index) {
+    if (_queueManager.currentIndex == index) {
       await togglePlayPause();
       return;
     }
@@ -702,7 +694,6 @@ class AudioProvider extends ChangeNotifier {
       // 先设置加载状态，避免显示旧的播放信息
       _playerStatusMessage = '正在加载...';
       _hasPlaybackError = false;
-      _nowPlayingProvider?.clearError();
       notifyListeners();
 
       // ✅ 修复：直接从文件读取元数据（不依赖数据库缓存）
@@ -745,8 +736,8 @@ class AudioProvider extends ChangeNotifier {
         }
       });
 
-      // P0修复：如果音频不在播放列表中，添加到播放列表并同步
-      final localPlaylist = _playlistManager.localPlaylist;
+      // P0修复：如果音频不在播放队列中，添加到播放队列并同步
+      final localPlaylist = _queueManager.localPlaylist;
       final dbIndex = localPlaylist.indexWhere((a) => a.filePath == filePath);
 
       if (dbIndex == -1) {
@@ -758,23 +749,23 @@ class AudioProvider extends ChangeNotifier {
           albumArt: _albumArt,
           url: '',  // 本地音频没有URL
         );
-        // 添加到播放列表并同步到数据库
-        await _playlistManager.add(LocalPlayable(audio), syncLocal: true);
-        // 立即刷新播放列表UI（避免覆盖当前索引）
-        await _playlistManager.syncFromLocal();
-        AppLogger.info('AudioProvider', '新音频已添加到播放列表: $_title');
+        // 添加到播放队列并同步到数据库
+        await _queueManager.add(LocalPlayable(audio), syncLocal: true);
+        // 立即刷新播放队列UI（避免覆盖当前索引）
+        await _queueManager.syncFromLocal();
+        AppLogger.info('AudioProvider', '新音频已添加到播放队列: $_title');
       }
 
-      // 更新统一播放列表索引到当前音频
+      // 更新统一播放队列索引到当前音频
       // P0修复：使用文件路径查找，因为数据库同步后ID会改变（local_hashCode -> local_64）
-      final newIndex = _playlistManager.playlist.indexWhere((p) =>
+      final newIndex = _queueManager.playlist.indexWhere((p) =>
         p is LocalPlayable && p.original.filePath == filePath);
       if (newIndex != -1) {
-        _playlistManager.setCurrentIndex(newIndex, validate: false);
+        _queueManager.setCurrentIndex(newIndex, validate: false);
         AppLogger.debug('AudioProvider', '设置当前索引: $newIndex (文件: $filePath)');
       } else {
         // P0修复：如果找不到，说明是新音频，等待 add() 完成后再次查找
-        AppLogger.warn('AudioProvider', '未在播放列表中找到音频: $filePath');
+        AppLogger.warn('AudioProvider', '未在播放队列中找到音频: $filePath');
       }
 
       // 启动定时保存
@@ -785,29 +776,30 @@ class AudioProvider extends ChangeNotifier {
         await _recordPlaybackStart(LocalPlayable(localPlaylist[dbIndex]));
       } else {
         // P0修复：新音频，使用更新后的 LocalPlayable 记录播放历史
-        final updatedIndex = _playlistManager.playlist.indexWhere((p) =>
+        final updatedIndex = _queueManager.playlist.indexWhere((p) =>
           p is LocalPlayable && p.original.filePath == filePath);
         if (updatedIndex != -1) {
-          final playable = _playlistManager.playlist[updatedIndex];
+          final playable = _queueManager.playlist[updatedIndex];
           if (playable is LocalPlayable) {
             await _recordPlaybackStart(playable);
           }
         }
       }
 
-      // P0修复：确保UI更新（包括播放列表和当前播放信息）
+      // 修复：确保UI更新（包括播放队列和当前播放信息）
       // 必须在 setCurrentIndex 之后调用，以更新 AudioMetadataProvider.currentPlayable
-      _syncPlaylistProviders();
       _syncMetadataProvider();  // 更新 currentPlayable.id
       notifyListeners();
     } catch (e) {
       AppLogger.error('AudioProvider', '加载失败: $e');
-      _nowPlayingProvider?.setError('加载失败: $e');
+      _hasPlaybackError = true;
+      _playerStatusMessage = '加载失败: $e';
+      notifyListeners();
       rethrow;
     }
   }
 
-  // ==================== 播放列表管理 ====================
+  // ==================== 播放队列管理 ====================
 
   /// 添加到播放队列
   ///
@@ -856,12 +848,11 @@ class AudioProvider extends ChangeNotifier {
     // 创建在线可播放对象
     final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
 
-    // 添加到播放列表（不立即播放）
-    await _playlistManager.add(playable, playImmediately: false);
+    // 添加到播放队列（不立即播放）
+    await _queueManager.add(playable, playImmediately: false);
 
     // 同步状态
-    await _playlistManager.save();
-    _syncPlaylistProviders();
+    await _queueManager.save();
     notifyListeners();
   }
 
@@ -960,64 +951,59 @@ class AudioProvider extends ChangeNotifier {
     }
   }
 
-  // ==================== 播放列表管理（原有）====================
+  // ==================== 播放队列管理（原有）====================
 
-  /// 添加到播放列表
+  /// 添加到播放队列
   Future<void> addToPlaylist(LocalAudio audio) async {
-    await _playlistManager.add(
+    await _queueManager.add(
       LocalPlayable(audio),
       syncLocal: true,
     );
-    await _loadPlaylist();
-    _syncPlaylistProviders();
+    await _loadQueue();
     notifyListeners();
   }
 
-  /// 从播放列表移除
+  /// 从播放队列移除
   Future<void> removeFromPlaylist(int id) async {
-    await _playlistManager.removeById(id.toString(), syncLocal: true);
-    await _loadPlaylist();
-    _syncPlaylistProviders();
+    await _queueManager.removeById(id.toString(), syncLocal: true);
+    await _loadQueue();
     notifyListeners();
   }
 
-  /// 从统一播放列表移除
+  /// 从统一播放队列移除
   Future<void> removeFromUnifiedPlaylist(int index) async {
-    await _playlistManager.removeAt(index, syncLocal: true);
+    await _queueManager.removeAt(index, syncLocal: true);
 
     // 如果删除的是当前播放项，重置状态
-    if (_playlistManager.currentIndex == -1) {
+    if (_queueManager.currentIndex == -1) {
       await _playbackController.stop();
       _resetMetadata();
     }
 
-    _syncPlaylistProviders();
     _syncMetadataProvider();
     notifyListeners();
   }
 
-  /// 清空统一播放列表
+  /// 清空统一播放队列
   Future<void> clearUnifiedPlaylist() async {
-    await _playlistManager.clear(syncLocal: true);
+    await _queueManager.clear(syncLocal: true);
     await _playbackController.stop();
     _resetMetadata();
-    // 重新同步本地播放列表（因为 _playlist 指向的是不可修改的列表）
-    await _loadPlaylist();
-    _syncPlaylistProviders();
+    // 重新同步本地播放队列
+    await _loadQueue();
     _syncMetadataProvider();
     notifyListeners();
   }
 
-  /// 重新加载播放列表
+  /// 重新加载播放队列
   Future<void> loadPlaylist() async {
-    await _loadPlaylist();
+    await _loadQueue();
 
-    if (_playlistManager.localPlaylist.isEmpty) {
+    if (_queueManager.localPlaylist.isEmpty) {
       await _playbackController.stop();
       _resetMetadata();
     }
 
-    _syncPlaylistProviders();
     _syncMetadataProvider();
     notifyListeners();
   }
@@ -1052,29 +1038,16 @@ class AudioProvider extends ChangeNotifier {
   void clearPlaybackError() {
     _hasPlaybackError = false;
     _playerStatusMessage = '';
-    _nowPlayingProvider?.clearError();
     notifyListeners();
   }
 
-  // ==================== 子 Provider 注入 ====================
+  // ==================== 元数据 Provider 注入 ====================
 
-  void attachProviders({
-    NowPlayingProvider? nowPlayingProvider,
-    AudioPlaylistProvider? audioPlaylistProvider,
+  void attachMetadataProvider({
     AudioMetadataProvider? audioMetadataProvider,
   }) {
-    _nowPlayingProvider = nowPlayingProvider;
-    _audioPlaylistProvider = audioPlaylistProvider;
     _audioMetadataProvider = audioMetadataProvider;
-    _syncPlaylistProviders();
     _syncMetadataProvider();
-  }
-
-  void _syncPlaylistProviders() {
-    final playlist = _playlistManager.playlist;
-    final currentIndex = _playlistManager.currentIndex;
-    _nowPlayingProvider?.updateQueue(playlist, currentIndex: currentIndex);
-    _audioPlaylistProvider?.updatePlaylist(playlist, currentIndex: currentIndex);
   }
 
   void _syncMetadataProvider() {
@@ -1082,7 +1055,7 @@ class AudioProvider extends ChangeNotifier {
       title: _title,
       artist: _artist,
       albumArt: _albumArt,
-      playable: _playlistManager.currentPlayable,
+      playable: _queueManager.currentPlayable,
     );
   }
 

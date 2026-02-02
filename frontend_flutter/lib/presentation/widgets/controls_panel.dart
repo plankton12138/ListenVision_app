@@ -1,5 +1,4 @@
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/audio/now_playing_provider.dart';
 import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:demo/core/utils/app_logger.dart';
@@ -16,16 +15,15 @@ class ControlsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AudioProvider>();
-    final nowPlayingProvider = context.watch<NowPlayingProvider>();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 时间显示（当前位置/总时长）
-        _buildTimeDisplay(context, provider, nowPlayingProvider),
+        _buildTimeDisplay(context, provider),
         // 进度条
-        _buildProgressBar(context, provider, nowPlayingProvider),
+        _buildProgressBar(context, provider),
         // 控制按钮
         _buildControlButtons(context, provider),
       ],
@@ -34,12 +32,11 @@ class ControlsPanel extends StatelessWidget {
 
   /// 构建时间显示
   /// Phase 5: 使用 audioplayers 状态检测
-  /// ✅ UX改进：优先显示用户友好的状态消息和错误提示
-  /// ✅ 修复：当有有效时长和位置时优先显示时间，而不是状态
+  /// UX改进：优先显示用户友好的状态消息和错误提示
+  /// 修复：当有有效时长和位置时优先显示时间，而不是状态
   Widget _buildTimeDisplay(
     BuildContext context,
     AudioProvider controller,
-    NowPlayingProvider nowPlayingProvider,
   ) {
     final duration = controller.duration;
     final position = controller.position;
@@ -47,8 +44,8 @@ class ControlsPanel extends StatelessWidget {
     final hasValidPosition = position >= Duration.zero;
     final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || controller.isPlaying);
 
-    // ✅ UX改进：优先显示错误状态（最优先）
-    if (controller.hasPlaybackError || nowPlayingProvider.errorMessage != null) {
+    // UX改进：优先显示错误状态（最优先）
+    if (controller.hasPlaybackError) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -57,14 +54,14 @@ class ControlsPanel extends StatelessWidget {
           Text(
             controller.playerStatusMessage.isNotEmpty
                 ? controller.playerStatusMessage
-                : (nowPlayingProvider.errorMessage ?? '播放失败'),
+                : '播放失败',
             style: const TextStyle(color: Colors.red),
           ),
         ],
       );
     }
 
-    // ✅ 修复：如果有有效的时间信息，优先显示时间（而不是状态消息）
+    // 修复：如果有有效的时间信息，优先显示时间（而不是状态消息）
     // 这样可以避免自动切歌后显示"播放完成"或"加载中"而不显示时间
     if (hasValidDuration && hasPlaybackProgress) {
       return Text(
@@ -79,7 +76,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ UX改进：显示状态消息（正在播放、正在加载等）
+    // UX改进：显示状态消息（正在播放、正在加载等）
     if (controller.playerStatusMessage.isNotEmpty) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -98,7 +95,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 加载状态（来自 PlaybackController）
+    // 加载状态（来自 PlaybackController）
     if (controller.isLoading) {
       return const Text(
         '加载中...',
@@ -106,7 +103,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 缓冲状态（audioplayers 不直接提供，通过加载状态推断）
+    // 缓冲状态（audioplayers 不直接提供，通过加载状态推断）
     if (controller.isBuffering) {
       return const Text(
         '缓冲中...',
@@ -139,12 +136,11 @@ class ControlsPanel extends StatelessWidget {
 
   /// 构建进度条
   /// Phase 5: 使用 audioplayers 状态检测
-  /// ✅ UX改进：在有状态消息或错误时显示友好提示
-  /// ✅ 修复：只要有有效时长就显示进度条，而不是加载指示器
+  /// UX改进：在有状态消息或错误时显示友好提示
+  /// 修复：只要有有效时长就显示进度条，而不是加载指示器
   Widget _buildProgressBar(
     BuildContext context,
     AudioProvider controller,
-    NowPlayingProvider nowPlayingProvider,
   ) {
     final durationSec = controller.duration.inSeconds;
     final positionSec = controller.position.inSeconds;
@@ -154,12 +150,12 @@ class ControlsPanel extends StatelessWidget {
         ? positionSec.toDouble()
         : 0.0;
 
-    // ✅ 修复：只要有有效时长，就显示进度条（即使正在加载）
+    // 修复：只要有有效时长，就显示进度条（即使正在加载）
     // 这样可以避免音频已经开始播放但进度条仍显示加载中的问题
     final hasValidDuration = durationSec > 0;
 
-    // ✅ UX改进：有错误时显示重试提示
-    if (controller.hasPlaybackError || nowPlayingProvider.errorMessage != null) {
+    // UX改进：有错误时显示重试提示
+    if (controller.hasPlaybackError) {
       return SizedBox(
         height: 48,
         child: Center(
@@ -179,7 +175,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 修复：如果有有效时长，显示进度条（优先于状态消息和加载状态）
+    // 修复：如果有有效时长，显示进度条（优先于状态消息和加载状态）
     if (hasValidDuration) {
       return Slider(
         value: safeValue,
@@ -195,7 +191,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ UX改进：有状态消息时显示提示（没有有效时长时）
+    // UX改进：有状态消息时显示提示（没有有效时长时）
     if (controller.playerStatusMessage.isNotEmpty) {
       return const SizedBox(
         height: 24,
@@ -209,7 +205,7 @@ class ControlsPanel extends StatelessWidget {
       );
     }
 
-    // ✅ 加载或缓冲时显示进度指示器（没有有效时长时）
+    // 加载或缓冲时显示进度指示器（没有有效时长时）
     if (controller.isLoading || controller.isBuffering) {
       return const SizedBox(
         height: 24,

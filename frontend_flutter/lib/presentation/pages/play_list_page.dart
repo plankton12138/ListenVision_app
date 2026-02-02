@@ -5,7 +5,6 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/audio/audio_playlist_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -31,8 +30,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AudioProvider>();
-    final playlistProvider = context.watch<AudioPlaylistProvider>();
-    final playlist = playlistProvider.playlist;
+    final playlist = provider.unifiedPlaylist;
 
     return Scaffold(
       appBar: AppBar(
@@ -58,13 +56,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: _buildNormalList(provider, playlistProvider),
+      body: _buildNormalList(provider),
     );
   }
 
   /// 构建普通列表视图
-  Widget _buildNormalList(AudioProvider provider, AudioPlaylistProvider playlistProvider) {
-    final playlist = playlistProvider.playlist;
+  Widget _buildNormalList(AudioProvider provider) {
+    final playlist = provider.unifiedPlaylist;
 
     // 空列表提示
     if (playlist.isEmpty) {
@@ -93,7 +91,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       itemCount: playlist.length,
       itemBuilder: (context, index) {
         final playable = playlist[index];
-        final isCurrentlyPlaying = playlistProvider.currentIndex == index;
+        final isCurrentlyPlaying = provider.currentIndex == index;
         return _buildPlayableItem(playable, index, isCurrentlyPlaying, provider);
       },
     );

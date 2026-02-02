@@ -8,6 +8,7 @@ import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_queue.dart';
 import 'package:demo/presentation/providers/audio/playback_state.dart';
 import 'package:demo/core/constants/playback_status.dart';
+import 'package:demo/core/constants/playback_config.dart';
 
 /// 播放控制器（audioplayers 版本）
 ///
@@ -35,18 +36,13 @@ class PlaybackController {
 
   // 自适应保护窗口（优化切换延迟）
   final AdaptiveProtection _adaptiveProtection = AdaptiveProtection(
-    baseDuration: const Duration(milliseconds: 500),
-    maxDuration: const Duration(seconds: 1),
+    baseDuration: PlaybackConfig.protectionBaseDuration,
+    maxDuration: PlaybackConfig.protectionMaxDuration,
   );
 
   // 音频源切换锁（防止重叠播放）
   bool _isSwitchingSource = false;
   final OperationLock _sourceSwitchLock = OperationLock();
-
-  // 超时常量
-  static const Duration _localSourceTimeout = Duration(seconds: 5);
-  static const Duration _onlineSourceTimeout = Duration(seconds: 10);
-  static const Duration _durationWaitTimeout = Duration(seconds: 5);
 
   // 状态订阅
   StreamSubscription? _playerStateSub;
@@ -188,7 +184,6 @@ class PlaybackController {
 
   // 状态更新间隔限制（优化UI响应及时性）
   DateTime _lastStateUpdateTime = DateTime.now();
-  static const Duration _minStateUpdateInterval = Duration(milliseconds: 50);
 
   void _initListeners() {
     // 播放状态监听
@@ -198,7 +193,7 @@ class PlaybackController {
 
         // 限制状态更新频率，避免平台通道过载
         final now = DateTime.now();
-        if (now.difference(_lastStateUpdateTime) < _minStateUpdateInterval) {
+        if (now.difference(_lastStateUpdateTime) < PlaybackConfig.minStateUpdateInterval) {
           return;
         }
         _lastStateUpdateTime = now;
@@ -487,7 +482,7 @@ class PlaybackController {
     try {
       await _player
           .setSource(DeviceFileSource(filePath))
-          .timeout(_localSourceTimeout);
+          .timeout(PlaybackConfig.localSourceTimeout);
       _currentSourceUrl = filePath;
     } finally {
       _isLoadingSource = false;
@@ -506,7 +501,7 @@ class PlaybackController {
     _isLoadingSource = true;
     _onPlayerStateChanged?.call(_lastPlayerState);
     try {
-      await _player.setSource(UrlSource(url)).timeout(_onlineSourceTimeout);
+      await _player.setSource(UrlSource(url)).timeout(PlaybackConfig.onlineSourceTimeout);
       _currentSourceUrl = url;
     } finally {
       _isLoadingSource = false;
@@ -656,7 +651,7 @@ class PlaybackController {
         AppLogger.info('PlaybackController', '音频源已设置，等待就绪...');
 
         // 等待就绪
-        await _waitForDuration(_durationWaitTimeout);
+        await _waitForDuration(PlaybackConfig.durationWaitTimeout);
 
         // 确保时长已加载后才标记为播放开始
         if (_currentDuration > Duration.zero) {

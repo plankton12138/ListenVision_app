@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:demo/core/constants/storage_constants.dart';
+import 'package:demo/core/constants/playback_config.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
 import 'package:demo/domain/entities/local_playable.dart';
 import 'package:demo/data/managers/playlist_manager.dart';
@@ -14,14 +15,6 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 3. 播放位置记录（本地音频数据库）
 /// 4. 通用键值对持久化
 class PlaybackStateManager {
-  // ==================== 定时器配置 ====================
-
-  /// 播放位置保存间隔
-  static const Duration _saveInterval = Duration(seconds: 5);
-
-  /// 保存防抖延迟
-  static const Duration _saveDebounceDelay = Duration(milliseconds: 500);
-
   // ==================== 状态变量 ====================
 
   /// 播放位置定时器
@@ -135,12 +128,11 @@ class PlaybackStateManager {
   
   /// 防抖保存定时器
   Timer? _settingsDebounceTimer;
-  static const Duration _settingsDebounceDelay = Duration(seconds: 2);
-  
+
   /// 防抖保存播放设置
   void _debounceSaveSettings() {
     _settingsDebounceTimer?.cancel();
-    _settingsDebounceTimer = Timer(_settingsDebounceDelay, () async {
+    _settingsDebounceTimer = Timer(PlaybackConfig.settingsDebounceDelay, () async {
       if (_disposed) return;
       await _savePlaybackSettings();
     });
@@ -177,7 +169,7 @@ class PlaybackStateManager {
   /// 启动播放位置定时保存
   void startPositionSaveTimer() {
     _savePositionTimer?.cancel();
-    _savePositionTimer = Timer.periodic(_saveInterval, (_) async {
+    _savePositionTimer = Timer.periodic(PlaybackConfig.positionSaveInterval, (_) async {
       if (_disposed) return;
 
       final isPlaying = await _getIsPlaying?.call() ?? false;
@@ -248,7 +240,7 @@ class PlaybackStateManager {
     _saveDebounceTimer?.cancel();
 
     // 延迟执行保存
-    _saveDebounceTimer = Timer(_saveDebounceDelay, () async {
+    _saveDebounceTimer = Timer(PlaybackConfig.saveDebounceDelay, () async {
       if (_disposed || _isSaving) return;
 
       _isSaving = true;

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:demo/core/utils/permission_helper.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/audio_metadata_helper.dart';
+import 'package:demo/core/constants/playback_config.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 
 /// 音频元数据加载器
@@ -26,9 +27,6 @@ class AudioMetadataLoader {
 
   /// 封面缓存（URL -> Uint8List）
   final Map<String, Uint8List> _coverCache = {};
-
-  /// 缓存大小限制
-  static const int _maxCacheSize = 50;
 
   // ==================== Dio 实例 ====================
 
@@ -306,7 +304,7 @@ class AudioMetadataLoader {
   /// 添加到缓存
   void _addToCache(String url, Uint8List data) {
     // 如果缓存已满，移除最旧的项
-    if (_coverCache.length >= _maxCacheSize) {
+    if (_coverCache.length >= PlaybackConfig.maxCoverCacheSize) {
       final firstKey = _coverCache.keys.first;
       _coverCache.remove(firstKey);
       AppLogger.debug('AudioMetadataLoader', '缓存已满，移除: $firstKey');

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/core/constants/playback_config.dart';
 
 /// 播放命令类型
 enum PlaybackCommandType {
@@ -93,9 +94,7 @@ class PlaybackQueue {
   /// 队列状态变化回调
   void Function(PlaybackQueueState)? _onStateChanged;
 
-  PlaybackQueue({
-    this.maxQueueLength = 10,
-  });
+  PlaybackQueue() : maxQueueLength = PlaybackConfig.maxQueueLength;
 
   /// 当前队列状态
   PlaybackQueueState get state {

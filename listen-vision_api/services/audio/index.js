@@ -2,11 +2,14 @@
  * 音频服务统一入口
  *
  * 将音频相关功能拆分为多个子模块：
- * - conversionService: 音频格式转换
- * - metadataService: 元数据缓存管理
- * - searchHistoryService: 搜索历史
+ * - conversionService: 音频格式转换，支持并发控制
+ * - metadataService: 元数据缓存管理，支持 Bilibili API
+ * - searchHistoryService: 搜索历史管理
  *
- * 保持向后兼容，原有导入方式仍然有效
+ * 使用方式：
+ *   const audioService = require('./services/audio');
+ *   // 或按需导入
+ *   const { conversionService } = require('./services/audio');
  */
 
 const conversionService = require('./conversionService');

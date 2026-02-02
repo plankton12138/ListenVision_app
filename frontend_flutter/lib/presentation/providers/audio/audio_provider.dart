@@ -935,8 +935,8 @@ class AudioProvider extends ChangeNotifier {
   /// - 不会抛出异常，调用方应检查返回值
   String? _extractBvidFromProxyUrl(String url) {
     try {
-      // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
-      final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
+      // URL 格式: /api/v1/bilibili/proxy/audio/{bvid}?format=xxx
+      final bvidPattern = RegExp(r'/api/v1/bilibili/proxy/audio/([^/?]+)');
       final match = bvidPattern.firstMatch(url);
       final bvid = match?.group(1);
 

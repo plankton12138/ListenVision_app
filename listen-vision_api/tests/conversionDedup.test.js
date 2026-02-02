@@ -30,8 +30,8 @@ const mockOptionalAuth = (req, res, next) => {
   next();
 };
 
-// 注册路由
-app.get('/api/bilibili/proxy/audio/:bvid', mockOptionalAuth, bilibiliController.proxyAudioStreamByBvid);
+// 注册路由 (v1 API)
+app.get('/api/v1/bilibili/proxy/audio/:bvid', mockOptionalAuth, bilibiliController.proxyAudioStreamByBvid);
 
 describe('Conversion Deduplication Tests', () => {
   beforeEach(() => {

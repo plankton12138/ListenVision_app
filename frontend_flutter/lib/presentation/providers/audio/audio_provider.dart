@@ -43,6 +43,9 @@ class AudioProvider extends ChangeNotifier {
   /// 播放状态管理器
   final PlaybackStateManager _stateManager;
 
+  /// 元数据加载器
+  final AudioMetadataLoader _metadataLoader = AudioMetadataLoader();
+
   // ==================== 向后兼容状态 ====================
 
   /// 当前元数据
@@ -816,6 +819,25 @@ class AudioProvider extends ChangeNotifier {
     _hasPlaybackError = false;
     _playerStatusMessage = '';
     notifyListeners();
+  }
+
+  // ==================== 元数据操作 ====================
+
+  /// 设置专辑封面
+  ///
+  /// 用于外部更新专辑封面（如从其他来源加载）
+  void setAlbumArt(Uint8List? albumArt) {
+    _albumArt = albumArt;
+    notifyListeners();
+    AppLogger.debug('AudioProvider', '设置专辑封面');
+  }
+
+  /// 加载在线封面
+  ///
+  /// [coverUrl] 封面图片 URL
+  /// 返回封面图片数据（Uint8List），失败返回 null
+  Future<Uint8List?> loadOnlineCover(String coverUrl) async {
+    return _metadataLoader.loadOnlineCover(coverUrl);
   }
 
   // ==================== 释放资源 ====================

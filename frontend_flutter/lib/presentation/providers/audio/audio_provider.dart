@@ -20,7 +20,6 @@ import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_controller.dart';
 import 'package:demo/presentation/providers/audio/playback_queue_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_state_manager.dart';
-import 'package:demo/presentation/providers/audio/state_transaction.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 
@@ -86,10 +85,7 @@ class AudioProvider extends ChangeNotifier {
   // ==================== 播放队列 ====================
   // 注意：播放队列已统一由 PlaybackQueueManager 管理
 
-  // ==================== P0修复：防抖与版本控制 ====================
-
-  /// 状态版本控制器
-  final StateVersionController _versionController = StateVersionController();
+  // ==================== 防抖与节流控制 ====================
 
   /// 播放操作防抖器（300ms）
   final Debouncer _playDebouncer = Debouncer(delay: const Duration(milliseconds: 300));
@@ -99,9 +95,6 @@ class AudioProvider extends ChangeNotifier {
 
   /// 操作锁（防止并发）
   final OperationLock _operationLock = OperationLock();
-
-  /// 当前进行中的操作版本号
-  int? _pendingOperationVersion;
 
   // ==================== 构造函数 ====================
 
@@ -543,7 +536,7 @@ class AudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 播放统一播放队列中指定索引的音频 - P0修复：原子状态更新
+  /// 播放统一播放队列中指定索引的音频
   Future<void> _playUnifiedAtIndex(int index) async {
     if (_disposed) return;
     if (index < 0 || index >= _queueManager.length) return;
@@ -551,71 +544,36 @@ class AudioProvider extends ChangeNotifier {
     final playable = _queueManager[index];
     if (playable == null) return;
 
-    // ✅ 修复：清除之前的状态消息，避免显示旧的状态
+    // 清除之前的状态消息，避免显示旧的状态
     _playerStatusMessage = '正在加载...';
     _hasPlaybackError = false;
     notifyListeners();
 
-    // P0修复：开始新事务
-    final transaction = _versionController.beginTransaction();
-    _pendingOperationVersion = transaction.version;
-
-    // 保存旧状态用于回滚
-    final oldIndex = _queueManager.currentIndex;
-
     try {
-      // P0修复：原子更新 - 先更新索引
+      // 直接更新索引
       _queueManager.setCurrentIndex(index, validate: false);
-      transaction.setChange('index', oldIndex, index, () {
-        _queueManager.setCurrentIndex(oldIndex, validate: false);
-      });
 
       // 设置 seek 状态
       _isSeekable = true;
 
-      // P0修复：验证版本号仍然有效（防止操作过期）
-      if (!_versionController.isVersionValid(transaction.version)) {
-        AppLogger.warn('AudioProvider', '操作版本已过期，取消播放');
-        transaction.rollback();
-        return;
-      }
-
       await _playPlayable(playable);
-
-      // P0修复：再次验证版本号
-      if (!_versionController.isVersionValid(transaction.version)) {
-        AppLogger.warn('AudioProvider', '播放完成后版本已过期');
-        transaction.rollback();
-        return;
-      }
-
       await _queueManager.save();
 
-      // 修复：播放成功后清除状态消息
+      // 播放成功后清除状态消息
       _playerStatusMessage = '';
-
-      // 提交事务
-      transaction.commit();
-      _versionController.commitTransaction();
 
       _syncMetadataProvider();
       notifyListeners();
     } catch (e) {
-      AppLogger.error('AudioProvider', '播放失败，回滚状态: $e');
-      transaction.rollback();
-      _versionController.rollbackTransaction();
+      AppLogger.error('AudioProvider', '播放失败: $e');
       _hasPlaybackError = true;
       _playerStatusMessage = '播放失败: $e';
       notifyListeners();
       rethrow;
-    } finally {
-      if (_pendingOperationVersion == transaction.version) {
-        _pendingOperationVersion = null;
-      }
     }
   }
 
-  /// 播放统一播放队列中指定索引的音频（公开方法）- P0修复：添加防抖和版本控制
+  /// 播放统一播放队列中指定索引的音频（公开方法）
   Future<void> playUnifiedAt(int index) async {
     if (_disposed) return;
     if (index < 0 || index >= _queueManager.length) return;
@@ -626,13 +584,13 @@ class AudioProvider extends ChangeNotifier {
       return;
     }
 
-    // P0修复：使用防抖防止快速点击
+    // 使用防抖防止快速点击
     if (_playDebouncer.isActive) {
       AppLogger.debug('AudioProvider', '播放操作被防抖忽略');
       return;
     }
 
-    // P0修复：使用节流器限制切歌频率
+    // 使用节流器限制切歌频率
     bool shouldProceed = false;
     _skipThrottler(() {
       shouldProceed = true;
@@ -643,7 +601,7 @@ class AudioProvider extends ChangeNotifier {
       return;
     }
 
-    // P0修复：使用操作锁防止并发
+    // 使用操作锁防止并发
     await _operationLock.synchronized(() async {
       await _playUnifiedAtIndex(index);
     });

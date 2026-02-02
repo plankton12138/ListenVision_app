@@ -517,10 +517,10 @@ class AudioProvider extends ChangeNotifier {
     }
   }
 
-  /// 构建后端代理URL
+ /// 构建后端代理URL
   String _buildProxyUrl(String bvid, [String format = 'auto']) {
     final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    return '$baseUrl/api/bilibili/proxy/audio/$bvid?format=$format';
+    return '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=$format';
   }
 
   // ==================== 内部播放方法 ====================
@@ -935,8 +935,8 @@ class AudioProvider extends ChangeNotifier {
   /// - 不会抛出异常，调用方应检查返回值
   String? _extractBvidFromProxyUrl(String url) {
     try {
-      // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
-      final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
+      // URL 格式: /api/v1/bilibili/proxy/audio/{bvid}?format=xxx
+      final bvidPattern = RegExp(r'/api/v\d+/bilibili/proxy/audio/([^/?]+)');
       final match = bvidPattern.firstMatch(url);
       final bvid = match?.group(1);
 

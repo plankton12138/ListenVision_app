@@ -81,8 +81,8 @@ class AppConfig {
   /// API 基础 URL
   String get apiBaseUrl => _apiBaseUrl;
 
-  /// API 版本前缀
-  String get apiVersion => '/api';
+  /// API 版本前缀（v1 为当前唯一版本）
+  String get apiVersion => '/api/v1';
 
   /// 完整的 API 基础 URL
   String get fullApiBaseUrl => '$_apiBaseUrl$apiVersion';

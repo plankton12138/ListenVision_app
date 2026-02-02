@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/core/utils/app_logger.dart';
@@ -13,9 +13,9 @@ class PlayerActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metadataProvider = context.watch<AudioMetadataProvider>();
+    final audioProvider = context.watch<AudioProvider>();
     final playlistProvider = context.watch<PlaylistProvider>();
-    final currentId = metadataProvider.currentPlayable?.id ?? '';
+    final currentId = audioProvider.currentPlayable?.id ?? '';
 
     if (currentId.isEmpty) {
       return const Text(
@@ -35,7 +35,7 @@ class PlayerActionBar extends StatelessWidget {
           iconColor: playlistProvider.isFavorited(currentId)
               ? Theme.of(context).colorScheme.error
               : null,
-          onTap: () => _handleFavorite(context, playlistProvider, metadataProvider),
+          onTap: () => _handleFavorite(context, playlistProvider, audioProvider),
         ),
         _ActionButton(
           icon: Icons.playlist_add,
@@ -57,11 +57,11 @@ class PlayerActionBar extends StatelessWidget {
   ///
   /// 参数:
   /// - [playlistProvider] 歌单提供者，用于管理收藏
-  /// - [metadataProvider] 元数据提供者，用于获取当前播放信息
+  /// - [audioProvider] 音频提供者，用于获取当前播放信息
   Future<void> _handleFavorite(
     BuildContext context,
     PlaylistProvider playlistProvider,
-    AudioMetadataProvider metadataProvider,
+    AudioProvider audioProvider,
   ) async {
     final authProvider = context.read<AuthProvider>();
     if (!authProvider.isLoggedIn || authProvider.user?.token == null) {
@@ -71,7 +71,7 @@ class PlayerActionBar extends StatelessWidget {
       return;
     }
 
-    final currentPlayable = metadataProvider.currentPlayable;
+    final currentPlayable = audioProvider.currentPlayable;
     if (currentPlayable == null) return;
 
     final bvid = currentPlayable.id;

@@ -1,5 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
+import 'package:demo/presentation/providers/audio/audio_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +16,7 @@ class AudioInfo extends StatelessWidget {
     /// 构建音频信息显示组件
     ///
     /// 显示专辑封面、歌曲标题和艺术家信息。
-    final provider = context.watch<AudioMetadataProvider>();
+    final provider = context.watch<AudioProvider>();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -34,7 +34,7 @@ class AudioInfo extends StatelessWidget {
   ///
   /// 参数:
   /// - [controller] 元数据控制器
-  Widget _buildAlbumArt(BuildContext context, AudioMetadataProvider controller) {
+  Widget _buildAlbumArt(BuildContext context, AudioProvider controller) {
     return Container(
       width: MediaQuery.of(context).size.width,
       height: 300,
@@ -51,7 +51,7 @@ class AudioInfo extends StatelessWidget {
   ///
   /// 参数:
   /// - [controller] 元数据控制器
-  Widget _buildAlbumArtContent(BuildContext context, AudioMetadataProvider controller) {
+  Widget _buildAlbumArtContent(BuildContext context, AudioProvider controller) {
     // 优先级1: 本地音频封面 (Uint8List)
     if (controller.albumArt != null) {
       return Container(
@@ -96,7 +96,7 @@ class AudioInfo extends StatelessWidget {
   ///
   /// 参数:
   /// - [controller] 元数据控制器
-  Widget _buildAudioInfo(BuildContext context, AudioMetadataProvider controller) {
+  Widget _buildAudioInfo(BuildContext context, AudioProvider controller) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       mainAxisSize: MainAxisSize.min,

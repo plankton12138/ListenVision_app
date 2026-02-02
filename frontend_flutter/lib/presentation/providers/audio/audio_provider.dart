@@ -705,58 +705,40 @@ class AudioProvider extends ChangeNotifier {
       _nowPlayingProvider?.clearError();
       notifyListeners();
 
-      // ✅ 优化：先用文件路径提取默认元数据（快速，不阻塞）
+      // ✅ 修复：直接从文件读取元数据（不依赖数据库缓存）
       final metadataLoader = AudioMetadataLoader();
+
+      // 先用路径提取默认元数据（快速显示）
       final defaultMetadata = metadataLoader.extractMetadataFromPath(filePath);
 
-      // 从本地播放列表查找数据库元数据
-      final localPlaylist = _playlistManager.localPlaylist;
-      final dbIndex = localPlaylist.indexWhere((a) => a.filePath == filePath);
-      final dbMetadata = dbIndex != -1 ? {
-        'title': localPlaylist[dbIndex].title,
-        'artist': localPlaylist[dbIndex].artist,
-        'albumArt': localPlaylist[dbIndex].albumArt,
-      } : null;
+      _title = defaultMetadata['title'] as String;
+      _artist = defaultMetadata['artist'] as String;
+      _albumArt = defaultMetadata['cover'] as Uint8List?;
 
-      // 合并默认元数据
-      final finalMetadata = metadataLoader.mergeMetadata(
-        fileMetadata: defaultMetadata,
-        dbMetadata: dbMetadata,
-      );
-
-      _title = finalMetadata['title'] as String;
-      _artist = finalMetadata['artist'] as String;
-      _albumArt = finalMetadata['cover'] as Uint8List?;
-
-      // 确保当前播放信息立即更新
+      // 立即更新UI
       _syncMetadataProvider();
       notifyListeners();
 
-      // ✅ 优化：立即启动播放（不等待完整元数据）
+      // 立即启动播放
       await _playbackController.setFileSource(filePath);
       await _playbackController.play();
       _playerStatusMessage = '';  // 清除加载状态
       notifyListeners();
 
-      // ✅ 优化：后台异步加载完整元数据
+      // 后台异步加载完整元数据（从文件，包含封面）
       metadataLoader.extractFromFile(filePath).then((fullMetadata) {
         if (_disposed || _currentFilePath != currentFilePath) return;  // 确保还是同一首歌
 
-        // 合并完整元数据
-        final mergedMetadata = metadataLoader.mergeMetadata(
-          fileMetadata: fullMetadata,
-          dbMetadata: dbMetadata,
-        );
-
         final oldTitle = _title;
         final oldArtist = _artist;
+        final oldAlbumArt = _albumArt;
 
-        _title = mergedMetadata['title'] as String;
-        _artist = mergedMetadata['artist'] as String;
-        _albumArt = mergedMetadata['cover'] as Uint8List?;
+        _title = fullMetadata['title'] as String;
+        _artist = fullMetadata['artist'] as String;
+        _albumArt = fullMetadata['cover'] as Uint8List?;
 
         // 只有元数据真正变化时才通知
-        if (_title != oldTitle || _artist != oldArtist) {
+        if (_title != oldTitle || _artist != oldArtist || _albumArt != oldAlbumArt) {
           AppLogger.debug('AudioProvider', '元数据已更新: $_title - $_artist');
           _syncMetadataProvider();
           notifyListeners();
@@ -764,6 +746,9 @@ class AudioProvider extends ChangeNotifier {
       });
 
       // P0修复：如果音频不在播放列表中，添加到播放列表并同步
+      final localPlaylist = _playlistManager.localPlaylist;
+      final dbIndex = localPlaylist.indexWhere((a) => a.filePath == filePath);
+
       if (dbIndex == -1) {
         final audio = LocalAudio(
           filePath: filePath,
@@ -771,7 +756,7 @@ class AudioProvider extends ChangeNotifier {
           artist: _artist,
           duration: 0,
           albumArt: _albumArt,
-          url: finalMetadata['album'] as String? ?? '',
+          url: '',  // 本地音频没有URL
         );
         // 添加到播放列表并同步到数据库
         await _playlistManager.add(LocalPlayable(audio), syncLocal: true);

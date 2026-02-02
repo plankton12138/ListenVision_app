@@ -10,10 +10,15 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 /// 音频元数据加载器
 ///
 /// 职责：
-/// 1. 从本地文件提取元数据（标题、艺术家、专辑封面）
+/// 1. 从本地文件提取元数据（标题、艺术家、专辑封面）- 优先从文件直接读取
 /// 2. 从网络加载在线音频封面
 /// 3. 从文件路径提取元数据（后备方案）
 /// 4. 元数据缓存管理
+///
+/// 设计原则：
+/// - 本地音频元数据优先从文件直接读取（确保封面是最新的嵌入封面）
+/// - 不依赖数据库缓存元数据（避免显示过期的封面）
+/// - 数据库仅用于存储用户自定义元数据（未来功能）
 ///
 /// 使用 AudioMetadataHelper 封装层（基于 audio_metadata_reader）
 class AudioMetadataLoader {

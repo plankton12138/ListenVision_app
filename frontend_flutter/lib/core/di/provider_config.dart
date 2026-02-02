@@ -25,7 +25,6 @@ import 'package:demo/domain/usecases/record_playback_usecase.dart';
 import 'package:demo/domain/usecases/update_playback_progress_usecase.dart';
 import 'package:demo/domain/usecases/get_play_history_usecase.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/audio/audio_metadata_provider.dart';
 import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:demo/presentation/providers/bilibili/cache_provider.dart';
@@ -160,18 +159,6 @@ class ProviderConfig {
     // 依赖链深度：4 层 → 2 层
     return ChangeNotifierProvider<AudioProvider>(
       create: (_) => AudioProvider(),
-    );
-  }
-
-  static Object _audioMetadataProvider() {
-    return ChangeNotifierProxyProvider<AudioProvider, AudioMetadataProvider>(
-      create: (context) => AudioMetadataProvider(),
-      update: (context, audioProvider, metadataProvider) {
-        audioProvider.attachMetadataProvider(
-          audioMetadataProvider: metadataProvider,
-        );
-        return metadataProvider!;
-      },
     );
   }
 

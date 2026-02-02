@@ -41,7 +41,7 @@ jest.mock('../../services/bilibiliService', () => ({
   getAudioStream: jest.fn()
 }));
 
-const audioService = require('../../services/audio');
+const audioService = require('../../services/audioService');
 const bilibiliService = require('../../services/bilibiliService');
 
 // 获取 mock 的数据库实例

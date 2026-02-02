@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/download_task.dart';
 import 'package:demo/presentation/providers/download/download_manager.dart';

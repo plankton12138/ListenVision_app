@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/models_export.dart';
@@ -14,7 +13,7 @@ import 'package:provider/provider.dart';
 /// 歌单库页面
 ///
 /// 展示用户的所有歌单（系统歌单 + 用户歌单）
-/// Phase 2: 完整的歌单管理功能
+/// 完整的歌单管理功能
 /// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class PlaylistLibraryPage extends StatefulWidget {
   const PlaylistLibraryPage({super.key});

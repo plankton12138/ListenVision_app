@@ -148,23 +148,23 @@ const getSearchHistory = (userId = null) => {
   }
 };
 
-// 导入搜索历史服务
-const { saveSearchHistory: _saveSearchHistory, deleteSearchKeyword: _deleteSearchKeyword } = require('./audio/searchHistoryService');
+// 导入 audioService 中的搜索历史管理方法
+const audioService = require('./audioService');
 
 /**
  * 保存用户搜索历史
- * 直接委托给 searchHistoryService 实现
+ * 直接委托给 audioService 实现
  */
 const saveSearchHistory = (userId, keyword, resultCount = 0) => {
-  return _saveSearchHistory(userId, keyword, resultCount);
+  return audioService.saveSearchHistory(userId, keyword, resultCount);
 };
 
 /**
  * 删除用户搜索关键词
- * 直接委托给 searchHistoryService 实现
+ * 直接委托给 audioService 实现
  */
 const deleteSearchKeyword = (userId, keyword) => {
-  return _deleteSearchKeyword(userId, keyword);
+  return audioService.deleteSearchKeyword(userId, keyword);
 };
 
 /**

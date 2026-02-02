@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 /// 404 页面
 ///
-/// P1: 新增 404 错误处理页面
+/// 显示在用户访问不存在的路由时
 class NotFoundPage extends StatelessWidget {
   const NotFoundPage({super.key});
 

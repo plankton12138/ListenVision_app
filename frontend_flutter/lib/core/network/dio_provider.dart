@@ -33,13 +33,13 @@ class DioProvider {
     return _dio!;
   }
 
-  /// 创建 Dio 实例 - P0修复：使用自适应网络配置
+  /// 创建 Dio 实例
   Dio _createDio() {
     final networkManager = AdaptiveNetworkManager();
 
     final dio = Dio(BaseOptions(
       baseUrl: ApiConstants.fullBaseUrl,
-      // P0修复：使用自适应超时配置
+      // 使用自适应超时配置
       connectTimeout: networkManager.getConnectTimeout(),
       receiveTimeout: networkManager.getReceiveTimeout(),
       sendTimeout: networkManager.getConnectTimeout(),
@@ -48,7 +48,7 @@ class DioProvider {
       },
     ));
 
-    // P0修复：监听网络质量变化，动态调整超时
+    // 监听网络质量变化，动态调整超时
     networkManager.addQualityListener((quality) {
       dio.options.connectTimeout = networkManager.getConnectTimeout();
       dio.options.receiveTimeout = networkManager.getReceiveTimeout();
@@ -69,7 +69,7 @@ class DioProvider {
       onError: (error, handler) async {
         AppLogger.error('Dio', '错误: ${error.message} ${error.requestOptions.uri}');
 
-        // P0修复：网络错误时刷新网络质量
+        // 网络错误时刷新网络质量
         if (error.type == DioExceptionType.connectionTimeout ||
             error.type == DioExceptionType.receiveTimeout) {
           await networkManager.refreshQuality();

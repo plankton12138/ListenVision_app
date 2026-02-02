@@ -114,7 +114,8 @@ class PlayHistoryProvider with ChangeNotifier {
   }
 
   /// 记录播放
-  /// Phase 2 遗留问题: 扩展支持本地音频（localPath）
+  ///
+  /// 支持在线音频（bvid）和本地音频（localPath）
   Future<void> recordPlay({
     String? token,
     String? bvid,
@@ -170,7 +171,7 @@ class PlayHistoryProvider with ChangeNotifier {
 
     // 异步同步到服务器（非阻塞，15秒超时）
     if (token != null && token.isNotEmpty) {
-      // P0 修复: 不使用 await，避免阻塞播放流程
+      // 不使用 await，避免阻塞播放流程
       // 增加超时时间到15秒，避免频繁超时失败
       // 注意：直接使用 dio 实例以设置自定义超时
       final dio = Dio(BaseOptions(

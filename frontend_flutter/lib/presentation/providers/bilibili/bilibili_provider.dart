@@ -413,7 +413,7 @@ class BilibiliProvider with ChangeNotifier {
   Map<String, dynamic> _musicCategories = {};
   List<Map<String, dynamic>> _categoryRecommendations = [];
 
-  // Phase 2B: 音乐区爬虫推荐
+  // 音乐区爬虫推荐
   List<Map<String, dynamic>> _musicZoneRecommendations = [];
   bool _musicZoneFallback = false;
 
@@ -423,7 +423,7 @@ class BilibiliProvider with ChangeNotifier {
   Map<String, dynamic> get personalizedResponseData => _personalizedResponse;
   Map<String, dynamic> get musicCategories => _musicCategories;
   List<Map<String, dynamic>> get categoryRecommendations => _categoryRecommendations;
-  // Phase 2B: 音乐区爬虫推荐Getters
+  // 音乐区爬虫推荐 Getters
   List<Map<String, dynamic>> get musicZoneRecommendations => _musicZoneRecommendations;
   bool get musicZoneFallback => _musicZoneFallback;
 

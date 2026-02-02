@@ -12,10 +12,10 @@ const express = require('express');
 
 // Mock 依赖
 jest.mock('../services/bilibiliService');
-jest.mock('../services/audio');
+jest.mock('../services/audioService');
 
 const bilibiliService = require('../services/bilibiliService');
-const audioService = require('../services/audio');
+const audioService = require('../services/audioService');
 
 // 重新加载控制器（确保 mocks 生效）
 const bilibiliController = require('../controllers/bilibiliController');
@@ -30,8 +30,8 @@ const mockOptionalAuth = (req, res, next) => {
   next();
 };
 
-// 注册路由 (v1 API)
-app.get('/api/v1/bilibili/proxy/audio/:bvid', mockOptionalAuth, bilibiliController.proxyAudioStreamByBvid);
+// 注册路由
+app.get('/api/bilibili/proxy/audio/:bvid', mockOptionalAuth, bilibiliController.proxyAudioStreamByBvid);
 
 describe('Conversion Deduplication Tests', () => {
   beforeEach(() => {

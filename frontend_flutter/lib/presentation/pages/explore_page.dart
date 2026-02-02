@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/domain_types.dart';
 import 'package:demo/domain/entities/models_export.dart';
@@ -18,8 +17,7 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 发现页面
 ///
 /// 展示推荐内容和榜单功能
-/// Phase 2: 实现推荐/榜单Tab切换
-/// Phase 2B: 推荐Tab使用音乐区爬虫内容
+/// 实现推荐/榜单Tab切换
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
@@ -118,7 +116,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
 
     try {
       switch (index) {
-        case 0: // Phase 2B: 推荐 - 使用音乐区爬虫数据
+        case 0: // 推荐 - 使用音乐区爬虫数据
           await _loadMusicZone();
           break;
         case 1: // 榜单
@@ -170,7 +168,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     }
   }
 
-  /// Phase 2B: 加载音乐区数据（爬虫方式）
+  /// 加载音乐区数据（爬虫方式）
   Future<void> _loadMusicZone() async {
     final provider = _bilibiliProvider!;
 
@@ -351,7 +349,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     );
   }
 
-  /// Phase 2B: 音乐区视频卡片
+  /// 音乐区视频卡片
   Widget _buildMusicZoneCard(Map<String, dynamic> item) {
     final bvid = item['bvid'] ?? '';
     final title = item['title'] ?? '';
@@ -591,7 +589,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
     );
   }
 
-  /// Phase 2: 播放在线音频
+  /// 播放在线音频
   Future<void> _playOnlineAudio(
     BuildContext context,
     String bvid,
@@ -612,7 +610,7 @@ class _ExplorePageState extends State<ExplorePage> with SingleTickerProviderStat
         'cover': item['cover'] ?? item['pic'],
       });
 
-      // P0 修复: 不再使用已废弃的 streamUrl 参数
+      // 不再使用已废弃的 streamUrl 参数
       // audioProvider 会自动构建代理 URL
       await audioProvider.playOnlineAudio(
         audio: audio,

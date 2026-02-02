@@ -109,7 +109,7 @@ class MyDrawer extends StatelessWidget {
             icon: Icons.playlist_play,
             route: '/playlists',
           ),
-          // Phase 3: 下载任务管理（游客可用）
+          // 下载任务管理（游客可用）
           _buildListTile(
             context: context,
             title: '下载任务',

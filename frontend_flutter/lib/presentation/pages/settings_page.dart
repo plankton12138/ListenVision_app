@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'dart:async';
 
 import 'package:demo/core/base/base_page.dart';

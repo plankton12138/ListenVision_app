@@ -4,7 +4,6 @@ import 'package:demo/presentation/providers/audio/audio_provider.dart';
 
 /// 音量滑块组件
 ///
-/// Phase 3B: 播放控制增强
 /// 允许用户调节播放音量（0.0 - 1.0，即 0% - 100%）
 class VolumeSlider extends StatelessWidget {
   const VolumeSlider({super.key});

@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/domain/entities/domain_types.dart';
@@ -18,7 +17,7 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 播放历史页面
 ///
 /// 展示用户的播放历史记录
-/// Phase 2: 完整的播放历史管理功能
+/// 完整的播放历史管理功能
 class PlayHistoryPage extends StatefulWidget {
   const PlayHistoryPage({super.key});
 

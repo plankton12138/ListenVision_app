@@ -67,7 +67,7 @@ class ProviderConfig {
       // ========== 独立 Providers ==========
       ..._independentProviders(),
 
-      // ========== Audio Providers (P1: 无依赖，直接使用 HTTP 记录历史) ==========
+      // ========== Audio Providers ==========
       _audioProvider(),
       _audioMetadataProvider(),
 
@@ -154,9 +154,9 @@ class ProviderConfig {
     );
   }
 
-  // ========== Audio Provider (P1: 无依赖) ==========
+  // ========== Audio Provider ==========
   static Object _audioProvider() {
-    // P1 优化：AudioProvider 不再依赖 PlayHistoryProvider
+    // AudioProvider 不再依赖 PlayHistoryProvider
     // 依赖链深度：4 层 → 2 层
     return ChangeNotifierProvider<AudioProvider>(
       create: (_) => AudioProvider(),

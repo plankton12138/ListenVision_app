@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'dart:async';
 
 import 'package:demo/core/base/base_page.dart';
@@ -41,7 +40,7 @@ class _SearchPageState extends State<SearchPage>
   bool _isLoading = false;
   String? _searchError;
 
-  // Phase 2B: 跟踪正在添加到歌单的项目，防止重复点击
+  // 跟踪正在添加到歌单的项目，防止重复点击
   final Set<String> _addingToPlaylistBvids = {};
 
   @override
@@ -142,7 +141,7 @@ class _SearchPageState extends State<SearchPage>
 
   /// 搜索B站视频
   ///
-  /// Phase 1 改进：通过后端API搜索，不再直接调用B站
+  /// 通过后端API搜索，不再直接调用B站
   Future<void> _searchBilibili(BuildContext context, String keyword, {int page = 1}) async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -270,12 +269,7 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
-  // 移除旧的按钮构建方法，因为现在使用 PopupMenuButton
-  // _buildFavoriteButton 已废弃
-  // _buildAddToPlaylistButton 已废弃
-  // _buildDownloadButton 已废弃
-
-  /// Phase 2: 构建播放按钮
+  /// 构建播放按钮
   Widget _buildPlayButton(BuildContext context, dynamic item) {
     final bvid = item['bvid'] ?? '';
     if (bvid.isEmpty) {
@@ -289,7 +283,7 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
-  /// Phase 2: 播放在线音频
+  /// 播放在线音频
   /// 使用 AsyncUIHandlerMixin 的 runAsync 方法统一处理错误
   Future<void> _playOnlineAudio(
     BuildContext context,
@@ -313,8 +307,6 @@ class _SearchPageState extends State<SearchPage>
           'duration': _parseDuration(item['duration']),
         });
 
-        // P0 修复: 不再使用已废弃的 streamUrl 参数
-        // audioProvider 会自动构建代理 URL
         await audioProvider.playOnlineAudio(
           audio: audio,
         );
@@ -404,7 +396,7 @@ class _SearchPageState extends State<SearchPage>
             ),
             margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
             child: ListTile(
-              // Phase 1 改进：使用代理URL加载图片，解决防盗链问题
+              // 使用代理URL加载图片，解决防盗链问题
               leading: Image.network(
                 context.read<BilibiliProvider>().getProxyImageUrl(picUrl.startsWith('http') ? picUrl : 'https:$picUrl'),
                 width: 100,
@@ -435,7 +427,7 @@ class _SearchPageState extends State<SearchPage>
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Phase 2: 播放按钮
+                  // 播放按钮
                   _buildPlayButton(context, item),
                   // 更多操作菜单
                   PopupMenuButton<String>(

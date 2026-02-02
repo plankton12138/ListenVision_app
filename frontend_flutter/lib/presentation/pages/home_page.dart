@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers/audio/audio_provider.dart';

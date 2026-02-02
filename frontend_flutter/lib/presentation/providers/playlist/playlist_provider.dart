@@ -79,7 +79,7 @@ class PlaylistProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        // P0 修复: 使用 fromDto 而不是 fromJson，正确处理后端 snake_case 字段名
+        // 使用 fromDto 而不是 fromJson，正确处理后端 snake_case 字段名
         _playlists = data.map((json) => Playlist.fromDto(json as Map<String, dynamic>)).toList();
 
         // 分离系统歌单
@@ -131,7 +131,6 @@ class PlaylistProvider with ChangeNotifier {
       );
 
       if (response['success'] == true && response['data'] != null) {
-        // P0 修复: 使用 fromDto 而不是 fromJson
         final detail = PlaylistDetail.fromDto(response['data'] as Map<String, dynamic>);
         _favoritesItems = detail.items;
         _updateFavoritedCache();
@@ -155,7 +154,6 @@ class PlaylistProvider with ChangeNotifier {
 
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'] as List;
-        // P0 修复: 使用 fromDto 而不是 fromJson
         _nowPlayingItems = data.map((json) => PlaylistItem.fromDto(json as Map<String, dynamic>)).toList();
       }
     } catch (e) {
@@ -176,7 +174,6 @@ class PlaylistProvider with ChangeNotifier {
       );
 
       if (response['success'] == true && response['data'] != null) {
-        // P0 修复: 使用 fromDto 而不是 fromJson
         final newPlaylist = Playlist.fromDto(response['data'] as Map<String, dynamic>);
         _playlists.add(newPlaylist);
         notifyListeners();
@@ -208,7 +205,6 @@ class PlaylistProvider with ChangeNotifier {
       );
 
       if (response['success'] == true && response['data'] != null) {
-        // P0 修复: 使用 fromDto 而不是 fromJson
         final updated = Playlist.fromDto(response['data'] as Map<String, dynamic>);
         final index = _playlists.indexWhere((p) => p.id == id);
         if (index >= 0) {
@@ -262,7 +258,6 @@ class PlaylistProvider with ChangeNotifier {
       );
 
       if (response['success'] == true && response['data'] != null) {
-        // P0 修复: 使用 fromDto 而不是 fromJson
         final item = PlaylistItem.fromDto(response['data'] as Map<String, dynamic>);
 
         // 如果是收藏歌单，更新缓存

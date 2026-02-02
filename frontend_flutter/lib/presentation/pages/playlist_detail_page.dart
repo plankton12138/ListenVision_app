@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/core/base/base_page.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/network/dio_provider.dart';
@@ -18,7 +17,7 @@ import 'package:demo/core/utils/app_logger.dart';
 /// 歌单详情页面
 ///
 /// 展示歌单信息和歌单项列表
-/// Phase 2: 完整的歌单项管理功能
+/// 完整的歌单项管理功能
 /// 使用 AsyncUIHandlerMixin 统一处理异步操作和错误
 class PlaylistDetailPage extends StatefulWidget {
   final String playlistId;
@@ -249,14 +248,14 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
               onPressed: () => _showSearchBar(),
               tooltip: '搜索歌曲',
             ),
-          // Phase 5: 添加歌曲按钮
+          // 添加歌曲按钮
           if (_detail != null)
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: _showAddSongDialog,
               tooltip: '添加歌曲',
             ),
-          // Phase 5: 排序选项按钮
+          // 排序选项按钮
           if (_detail != null && _detail!.items.isNotEmpty && _searchQuery.isEmpty)
             IconButton(
               icon: const Icon(Icons.sort),
@@ -558,7 +557,6 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
                 onPressed: () => _removeItem(item),
               ),
         onTap: () {
-          // Phase 2: 播放这首歌
           _playPlaylistItem(context, item);
         },
       ),

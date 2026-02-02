@@ -7,7 +7,6 @@ import 'package:demo/presentation/providers/auth/auth_provider.dart';
 
 /// 添加歌曲对话框
 ///
-/// Phase 5: 歌单管理功能扩展
 /// 提供三种添加歌曲的方式：
 /// 1. 从搜索结果添加（游客可用）
 /// 2. 输入BV号添加（游客可用）

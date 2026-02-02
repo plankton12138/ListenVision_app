@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/network/dio_provider.dart';
 
-/// Phase 3.1: 搜索状态管理 Provider
+/// 搜索状态管理 Provider
 ///
 /// 职责：
 /// 1. 本地音频元数据全文搜索（基于后端 FTS5）

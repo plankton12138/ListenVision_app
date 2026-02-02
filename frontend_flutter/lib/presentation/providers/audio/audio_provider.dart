@@ -26,7 +26,7 @@ import 'package:demo/presentation/providers/audio/audio_metadata_loader.dart';
 
 /// 音频播放状态管理（重构版）
 ///
-/// Phase 2.1 重构：使用委托模式，将职责分离到专门组件
+/// 使用委托模式，将职责分离到专门组件
 ///
 /// 架构：
 /// - PlaybackController: 核心播放控制
@@ -520,7 +520,7 @@ class AudioProvider extends ChangeNotifier {
   /// 构建后端代理URL
   String _buildProxyUrl(String bvid, [String format = 'auto']) {
     final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    return '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=$format';
+    return '$baseUrl/api/bilibili/proxy/audio/$bvid?format=$format';
   }
 
   // ==================== 内部播放方法 ====================
@@ -935,8 +935,8 @@ class AudioProvider extends ChangeNotifier {
   /// - 不会抛出异常，调用方应检查返回值
   String? _extractBvidFromProxyUrl(String url) {
     try {
-      // URL 格式: /api/v1/bilibili/proxy/audio/{bvid}?format=xxx
-      final bvidPattern = RegExp(r'/api/v1/bilibili/proxy/audio/([^/?]+)');
+      // URL 格式: /api/bilibili/proxy/audio/{bvid}?format=xxx
+      final bvidPattern = RegExp(r'/api/bilibili/proxy/audio/([^/?]+)');
       final match = bvidPattern.firstMatch(url);
       final bvid = match?.group(1);
 
@@ -1112,7 +1112,7 @@ class AudioProvider extends ChangeNotifier {
 
   /// 发送播放历史记录到服务器
   ///
-  /// P1 优化：直接使用 Dio 发送请求，不依赖 PlayHistoryProvider
+  /// 直接使用 Dio 发送请求，不依赖 PlayHistoryProvider
   /// 降低依赖链深度：4 层 → 2 层
   Future<void> _sendHistoryRecord({
     required String? token,

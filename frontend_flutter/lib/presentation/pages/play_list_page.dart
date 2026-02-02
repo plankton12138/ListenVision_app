@@ -1,5 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
-// Phase 2: 支持在线和本地音频混合播放列表
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/domain/entities/playable_audio.dart';
@@ -11,12 +9,12 @@ import 'package:provider/provider.dart';
 
 /// 播放列表页面（当前播放队列）
 ///
-/// Phase 2A: UI/交互优化
+/// UI/交互优化：
 /// - 当前播放项高亮显示
 /// - 删除确认对话框
 /// - 空列表友好提示
 ///
-/// Phase 2: 混合播放列表
+/// 混合播放列表：
 /// - 支持在线和本地音频统一显示
 /// - 根据 isOnline 属性差异化显示
 class PlaylistPage extends StatefulWidget {

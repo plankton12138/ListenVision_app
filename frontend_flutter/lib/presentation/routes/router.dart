@@ -1,4 +1,3 @@
-// P2: 页面已迁移到 presentation/pages/
 import 'package:demo/presentation/pages/backend_download_page.dart';
 import 'package:demo/presentation/pages/explore_page.dart';
 import 'package:demo/presentation/pages/home_page.dart';
@@ -18,7 +17,7 @@ import 'package:provider/provider.dart';
 
 /// 路由名称常量
 ///
-/// P1: 统一路由管理，避免硬编码字符串
+/// 统一路由管理，避免硬编码字符串
 class AppRoutes {
   AppRoutes._(); // 私有构造，防止实例化
 
@@ -59,7 +58,6 @@ class AppRoutes {
 
 /// 应用路由配置
 ///
-/// P1 优化:
 /// - 添加登录守卫（redirect）
 /// - 添加路由参数支持
 /// - 添加 404 错误处理

@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 /// 播放控制面板组件
 ///
-/// Phase 5: 更新为使用 audioplayers 状态检测
 /// 显示播放进度、时间显示和控制按钮（上一曲、播放/暂停、下一曲）
 class ControlsPanel extends StatelessWidget {
   const ControlsPanel({super.key});
@@ -31,9 +30,9 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建时间显示
-  /// Phase 5: 使用 audioplayers 状态检测
-  /// UX改进：优先显示用户友好的状态消息和错误提示
-  /// 修复：当有有效时长和位置时优先显示时间，而不是状态
+  ///
+  /// 优先显示用户友好的状态消息和错误提示
+  /// 当有有效时长和位置时优先显示时间，而不是状态
   Widget _buildTimeDisplay(
     BuildContext context,
     AudioProvider controller,
@@ -135,9 +134,9 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建进度条
-  /// Phase 5: 使用 audioplayers 状态检测
-  /// UX改进：在有状态消息或错误时显示友好提示
-  /// 修复：只要有有效时长就显示进度条，而不是加载指示器
+  ///
+  /// 在有状态消息或错误时显示友好提示
+  /// 只要有有效时长就显示进度条，而不是加载指示器
   Widget _buildProgressBar(
     BuildContext context,
     AudioProvider controller,

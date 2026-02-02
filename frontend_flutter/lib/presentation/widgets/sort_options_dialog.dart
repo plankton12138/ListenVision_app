@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 /// 歌单排序选项对话框
 ///
-/// Phase 5: 歌单管理功能扩展
 /// 提供多种排序方式：
 /// 1. 按添加时间（最新/最早）
 /// 2. 按标题字母序（A-Z / Z-A）

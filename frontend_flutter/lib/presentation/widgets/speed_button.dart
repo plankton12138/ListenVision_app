@@ -5,7 +5,6 @@ import 'package:demo/core/utils/app_logger.dart';
 
 /// 倍速按钮组件
 ///
-/// Phase 3B: 播放控制增强
 /// 允许用户选择播放倍速（0.5x - 2.0x）
 class SpeedButton extends StatelessWidget {
   const SpeedButton({super.key});

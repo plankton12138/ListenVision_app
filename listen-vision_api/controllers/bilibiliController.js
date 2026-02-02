@@ -446,12 +446,12 @@ const proxyAudioStream = async (req, res) => {
 
     // 如果需要转换格式（不支持 seek）
     if (targetFormat !== 'm4s') {
-      const { convertStream } = require('../services/audio');
+      const audioService = require('../services/audioService');
       const inputBuffer = await response.arrayBuffer();
 
       logger.info('Audio converting', { from: 'm4s', to: targetFormat });
 
-      const { buffer, contentType } = await convertStream(
+      const { buffer, contentType } = await audioService.convertStream(
         Buffer.from(inputBuffer),
         targetFormat,
         { bitrate: '192k', sampleRate: '44100', channels: 2 }
@@ -656,8 +656,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
 
           // 下载并转换
           const inputBuffer = Buffer.from(await response.arrayBuffer());
-          const { convertStream } = require('../services/audio');
-          const { buffer, contentType } = await convertStream(
+          const { buffer, contentType } = await require('../services/audioService').convertStream(
             inputBuffer,
             'mp3',
             { bitrate: '192k', sampleRate: '44100', channels: 2 }
@@ -725,7 +724,7 @@ const downloadAudioWithMetadata = async (req, res) => {
   }
 
   const userId = req.user?.id;
-  const { convertWithMetadata } = require('../services/audio');
+  const audioService = require('../services/audioService');
 
   logger.info('BiliDownload start', { bvid, format, userId: userId || 'none' });
 
@@ -773,7 +772,7 @@ const downloadAudioWithMetadata = async (req, res) => {
 
     // 步骤3: 转换并写入元数据（带实时进度）
     sendProgress(20, 'converting', '开始转换...');
-    const result = await convertWithMetadata(
+    const result = await audioService.convertWithMetadata(
       audioStream.baseUrl,
       metadata,
       format,

@@ -44,8 +44,8 @@ const stmt = {
   maxPosition: db.prepare('SELECT COALESCE(MAX(position), -1) as max_pos FROM playlist_items WHERE playlist_id = ?'),
   // 歌单项 CRUD
   insertItem: db.prepare(`
-    INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, local_path, position)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
   updateItemPosition: db.prepare(`
     UPDATE playlist_items SET position = ? WHERE id = ?
@@ -201,6 +201,7 @@ const deletePlaylist = (playlistId, userId) => {
  * @param {number} playlistId - 歌单ID
  * @param {string} bvid - 视频BVID
  * @param {Object} metadata - 音频元数据
+ * @param {string} metadata.localPath - 本地音频路径（可选）
  * @returns {Object} 添加的歌单项
  */
 const addItem = (playlistId, bvid, metadata = {}) => {
@@ -219,10 +220,10 @@ const addItem = (playlistId, bvid, metadata = {}) => {
   const { max_pos } = stmt.maxPosition.get(playlistId);
   const nextPosition = max_pos + 1;
 
-  const { title, artist, duration, coverUrl } = metadata;
+  const { title, artist, duration, coverUrl, localPath } = metadata;
   const result = stmt.insertItem.run(
     playlistId, bvid, title || null, artist || null,
-    duration || null, coverUrl || null, nextPosition
+    duration || null, coverUrl || null, localPath || null, nextPosition
   );
 
   return stmt.getItemById.get(result.lastInsertRowid);

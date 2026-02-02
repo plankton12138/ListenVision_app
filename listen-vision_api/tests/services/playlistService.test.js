@@ -44,6 +44,7 @@ jest.mock('../../config/database', () => {
       artist TEXT,
       duration INTEGER,
       cover_url TEXT,
+      local_path TEXT,
       position INTEGER NOT NULL DEFAULT 0,
       added_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,

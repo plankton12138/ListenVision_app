@@ -64,6 +64,7 @@ _$PlaylistItemImpl _$$PlaylistItemImplFromJson(Map<String, dynamic> json) =>
       artist: json['artist'] as String?,
       duration: (json['duration'] as num?)?.toInt(),
       coverUrl: json['coverUrl'] as String?,
+      localPath: json['localPath'] as String?,
       position: (json['position'] as num).toInt(),
       addedAt: json['addedAt'] == null
           ? null
@@ -79,6 +80,7 @@ Map<String, dynamic> _$$PlaylistItemImplToJson(_$PlaylistItemImpl instance) =>
       'artist': instance.artist,
       'duration': instance.duration,
       'coverUrl': instance.coverUrl,
+      'localPath': instance.localPath,
       'position': instance.position,
       'addedAt': instance.addedAt?.toIso8601String(),
     };

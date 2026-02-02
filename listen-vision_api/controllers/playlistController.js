@@ -82,13 +82,13 @@ const deletePlaylist = catchAsync(async (req, res) => {
  */
 const addItem = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { bvid, title, artist, duration, coverUrl } = req.body;
+  const { bvid, title, artist, duration, coverUrl, localPath } = req.body;
 
   if (!bvid) {
     throw new AppError('BVID不能为空', 400);
   }
 
-  const metadata = { title, artist, duration, coverUrl };
+  const metadata = { title, artist, duration, coverUrl, localPath };
   const item = playlistService.addItem(parseInt(id), bvid, metadata);
 
   return successResponse(res, item, '添加到歌单成功', 201);
@@ -153,13 +153,13 @@ const sortItems = catchAsync(async (req, res) => {
  */
 const toggleFavorite = catchAsync(async (req, res) => {
   const userId = req.user.id;
-  const { bvid, title, artist, duration, coverUrl } = req.body;
+  const { bvid, title, artist, duration, coverUrl, localPath } = req.body;
 
   if (!bvid) {
     throw new AppError('BVID不能为空', 400);
   }
 
-  const metadata = { title, artist, duration, coverUrl };
+  const metadata = { title, artist, duration, coverUrl, localPath };
   const result = playlistService.toggleFavorite(userId, bvid, metadata);
 
   return successResponse(res, result, result.added ? '已添加到我喜欢' : '已从我喜欢移除');

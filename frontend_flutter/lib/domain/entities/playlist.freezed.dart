@@ -435,6 +435,7 @@ mixin _$PlaylistItem {
   String? get artist => throw _privateConstructorUsedError;
   int? get duration => throw _privateConstructorUsedError;
   String? get coverUrl => throw _privateConstructorUsedError;
+  String? get localPath => throw _privateConstructorUsedError;
   int get position => throw _privateConstructorUsedError;
   DateTime? get addedAt => throw _privateConstructorUsedError;
 
@@ -463,6 +464,7 @@ abstract class $PlaylistItemCopyWith<$Res> {
     String? artist,
     int? duration,
     String? coverUrl,
+    String? localPath,
     int position,
     DateTime? addedAt,
   });
@@ -490,6 +492,7 @@ class _$PlaylistItemCopyWithImpl<$Res, $Val extends PlaylistItem>
     Object? artist = freezed,
     Object? duration = freezed,
     Object? coverUrl = freezed,
+    Object? localPath = freezed,
     Object? position = null,
     Object? addedAt = freezed,
   }) {
@@ -523,6 +526,10 @@ class _$PlaylistItemCopyWithImpl<$Res, $Val extends PlaylistItem>
                 ? _value.coverUrl
                 : coverUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
+            localPath: freezed == localPath
+                ? _value.localPath
+                : localPath // ignore: cast_nullable_to_non_nullable
+                      as String?,
             position: null == position
                 ? _value.position
                 : position // ignore: cast_nullable_to_non_nullable
@@ -554,6 +561,7 @@ abstract class _$$PlaylistItemImplCopyWith<$Res>
     String? artist,
     int? duration,
     String? coverUrl,
+    String? localPath,
     int position,
     DateTime? addedAt,
   });
@@ -580,6 +588,7 @@ class __$$PlaylistItemImplCopyWithImpl<$Res>
     Object? artist = freezed,
     Object? duration = freezed,
     Object? coverUrl = freezed,
+    Object? localPath = freezed,
     Object? position = null,
     Object? addedAt = freezed,
   }) {
@@ -613,6 +622,10 @@ class __$$PlaylistItemImplCopyWithImpl<$Res>
             ? _value.coverUrl
             : coverUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
+        localPath: freezed == localPath
+            ? _value.localPath
+            : localPath // ignore: cast_nullable_to_non_nullable
+                  as String?,
         position: null == position
             ? _value.position
             : position // ignore: cast_nullable_to_non_nullable
@@ -637,6 +650,7 @@ class _$PlaylistItemImpl extends _PlaylistItem {
     this.artist,
     this.duration,
     this.coverUrl,
+    this.localPath,
     required this.position,
     this.addedAt,
   }) : super._();
@@ -659,13 +673,15 @@ class _$PlaylistItemImpl extends _PlaylistItem {
   @override
   final String? coverUrl;
   @override
+  final String? localPath;
+  @override
   final int position;
   @override
   final DateTime? addedAt;
 
   @override
   String toString() {
-    return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, title: $title, artist: $artist, duration: $duration, coverUrl: $coverUrl, position: $position, addedAt: $addedAt)';
+    return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, title: $title, artist: $artist, duration: $duration, coverUrl: $coverUrl, localPath: $localPath, position: $position, addedAt: $addedAt)';
   }
 
   @override
@@ -683,6 +699,8 @@ class _$PlaylistItemImpl extends _PlaylistItem {
                 other.duration == duration) &&
             (identical(other.coverUrl, coverUrl) ||
                 other.coverUrl == coverUrl) &&
+            (identical(other.localPath, localPath) ||
+                other.localPath == localPath) &&
             (identical(other.position, position) ||
                 other.position == position) &&
             (identical(other.addedAt, addedAt) || other.addedAt == addedAt));
@@ -699,6 +717,7 @@ class _$PlaylistItemImpl extends _PlaylistItem {
     artist,
     duration,
     coverUrl,
+    localPath,
     position,
     addedAt,
   );
@@ -726,6 +745,7 @@ abstract class _PlaylistItem extends PlaylistItem {
     final String? artist,
     final int? duration,
     final String? coverUrl,
+    final String? localPath,
     required final int position,
     final DateTime? addedAt,
   }) = _$PlaylistItemImpl;
@@ -748,6 +768,8 @@ abstract class _PlaylistItem extends PlaylistItem {
   int? get duration;
   @override
   String? get coverUrl;
+  @override
+  String? get localPath;
   @override
   int get position;
   @override

@@ -47,7 +47,16 @@
       "Bash(find:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm test:coverage:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(flutter test:*)",
+      "Skill(superpowers:writing-plans)",
+      "Bash(npm test:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git show:*)",
+      "Bash(cat:*)",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:requesting-code-review)"
     ]
   }
 }

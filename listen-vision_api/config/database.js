@@ -247,6 +247,31 @@ const createTables = () => {
   logger.info('Database tables initialized successfully');
 };
 
+// 迁移：为 playlist_items 表添加 local_path 字段
+// 支持本地音频的文件路径存储
+const migratePlaylistItems = () => {
+  try {
+    const tableInfo = db.pragma('table_info(playlist_items)');
+    const localPathColumn = tableInfo.find(col => col.name === 'local_path');
+
+    if (!localPathColumn) {
+      logger.info('Adding local_path column to playlist_items table...');
+
+      try {
+        db.exec(`ALTER TABLE playlist_items ADD COLUMN local_path TEXT`);
+        logger.info('playlist_items.local_path column added successfully');
+      } catch (e) {
+        // 字段已存在，忽略错误
+        logger.debug('playlist_items.local_path column already exists or error:', e.message);
+      }
+    } else {
+      logger.info('playlist_items table already has local_path column');
+    }
+  } catch (e) {
+    logger.error('playlist_items table migration failed:', e.message);
+  }
+};
+
 // 迁移：修复 play_history 表的 bvid 字段约束
 // 使其支持本地音频（bvid 可为 NULL）
 const migratePlayHistory = () => {
@@ -327,6 +352,7 @@ const migratePlayHistory = () => {
 
 // 先创建表，再执行迁移
 createTables();
+migratePlaylistItems();
 migratePlayHistory();
 
 // 优雅退出处理（由 index.js 统一管理）

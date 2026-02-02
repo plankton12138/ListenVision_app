@@ -6,6 +6,7 @@ import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/core/utils/debounce_utils.dart';
 import 'package:demo/core/network/adaptive_network_manager.dart';
 import 'package:demo/presentation/providers/audio/playback_queue.dart';
+import 'package:demo/presentation/providers/audio/playback_state.dart';
 import 'package:demo/core/constants/playback_status.dart';
 
 /// 播放控制器（audioplayers 版本）
@@ -135,6 +136,20 @@ class PlaybackController {
 
   /// 是否正在加载或缓冲
   bool get isLoadingOrBuffering => isLoading || isBuffering;
+
+  /// 获取统一的播放状态
+  ///
+  /// 返回一个不可变的 PlaybackState 对象，聚合了当前的核心播放状态信息。
+  /// 提供统一的状态访问接口，减少状态分散在多个类中的问题。
+  PlaybackState get state => PlaybackState(
+    isPlaying: _isPlaying,
+    isPaused: _lastPlayerState == PlayerState.paused,
+    isCompleted: _lastPlayerState == PlayerState.completed,
+    isLoading: _isLoadingSource || isLoading,
+    position: _currentPosition,
+    duration: _currentDuration,
+    errorMessage: null, // 错误由外部管理
+  );
 
   /// 获取统一的播放状态
   ///

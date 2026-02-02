@@ -149,7 +149,7 @@ const getSearchHistory = (userId = null) => {
 };
 
 // 导入 audioService 中的搜索历史管理方法
-const audioService = require('./audioService');
+const audioService = require('./audio');
 
 /**
  * 保存用户搜索历史

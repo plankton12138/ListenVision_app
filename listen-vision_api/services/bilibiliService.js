@@ -115,23 +115,40 @@ const stmt = {
 // ==================== HTTP请求工具 ====================
 
 /**
- * 通用HTTP请求函数
+ * 通用HTTP请求函数（带超时）
+ * @param {string} url - 请求URL
+ * @param {Object} headers - 请求头
+ * @param {number} timeout - 超时时间（毫秒），默认10000ms
  */
-const httpGet = async (url, headers = {}) => {
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://www.bilibili.com/',
-      ...headers
+const httpGet = async (url, headers = {}, timeout = 10000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+        ...headers
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`请求超时（${timeout}ms）`);
+    }
+    throw error;
   }
-
-  return response.json();
 };
 
 /**

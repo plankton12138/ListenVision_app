@@ -224,18 +224,20 @@ class AdaptiveNetworkManager {
   }
 
   /// 获取接收超时时间
+  ///
+  /// B站搜索等第三方 API 可能需要较长时间响应
   Duration getReceiveTimeout() {
     switch (_currentQuality) {
       case NetworkQuality.excellent:
-        return const Duration(seconds: 10);
+        return const Duration(seconds: 20);
       case NetworkQuality.good:
-        return const Duration(seconds: 15);
+        return const Duration(seconds: 30);
       case NetworkQuality.fair:
-        return const Duration(seconds: 25);
+        return const Duration(seconds: 45);
       case NetworkQuality.poor:
-        return const Duration(seconds: 40);
-      case NetworkQuality.bad:
         return const Duration(seconds: 60);
+      case NetworkQuality.bad:
+        return const Duration(seconds: 90);
     }
   }
 

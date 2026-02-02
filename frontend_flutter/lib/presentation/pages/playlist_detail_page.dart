@@ -636,39 +636,23 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage>
     await runAsync(
       operation: () async {
         // 判断是否为本地歌曲
-        // 本地音频的 bvid 格式: 'local_{id}' 或为空，或以 'file://' 开头
+        // 本地音频特征: bvid为空、有localPath字段、以'local_'开头、以'file://'开头
         final isLocal = item.bvid.isEmpty ||
+                       item.localPath != null && item.localPath!.isNotEmpty ||
                        item.bvid.startsWith('local_') ||
                        item.bvid.startsWith('file://');
 
         if (isLocal) {
           // 本地歌曲播放逻辑
-          String? localPath;
+          // 修复: 优先使用服务器返回的 localPath 字段（已包含实际文件路径）
+          String? localPath = item.localPath;
 
-          if (item.localPath != null && item.localPath!.isNotEmpty) {
-            // 优先使用服务器返回的 localPath
-            localPath = item.localPath!;
-          } else if (item.bvid.startsWith('file://')) {
-            // 直接使用 file:// 路径
+          // 只有当 localPath 为空时，才尝试从 bvid 解析 file:// 协议
+          if ((localPath == null || localPath.isEmpty) && item.bvid.startsWith('file://')) {
             localPath = item.bvid.replaceFirst('file://', '');
-          } else if (item.bvid.startsWith('local_')) {
-            // 从 bvid 提取 ID，尝试从本地数据库查询
-            final idString = item.bvid.replaceFirst('local_', '');
-            final id = int.tryParse(idString);
-            if (id != null) {
-              final playlistManager = PlaylistManager();
-              final localAudio = await playlistManager.getAudioById(id);
-              if (localAudio != null) {
-                localPath = localAudio.filePath;
-              }
-            }
-            // 如果找不到，记录警告并跳过
-            if (localPath == null) {
-              AppLogger.warn('PlaylistDetailPage', '本地音频文件不存在，已跳过: ${item.title ?? item.bvid}');
-              return; // 跳过此歌曲，继续播放其他歌曲
-            }
           }
 
+          // 如果仍然为空，记录警告并跳过
           if (localPath == null || localPath.isEmpty) {
             AppLogger.warn('PlaylistDetailPage', '本地歌曲路径为空，已跳过: ${item.title ?? item.bvid}');
             return; // 跳过此歌曲

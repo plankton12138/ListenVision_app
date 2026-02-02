@@ -12,16 +12,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 2. 更新播放进度
 /// 3. 与后端同步历史记录
 class PlayHistoryProvider extends ChangeNotifier {
-  final Dio _dio = Dio(BaseOptions(
+  late final Dio _dio;
+  bool _dioInitialized = false;
+
+  String? _token;
+
+  PlayHistoryProvider() : _dio = Dio(BaseOptions(
     baseUrl: ApiConstants.fullBaseUrl,
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 15),
     sendTimeout: const Duration(seconds: 15),
-  ));
-
-  String? _token;
-
-  PlayHistoryProvider() {
+  )) {
+    _dioInitialized = true;
     _loadToken();
   }
 
@@ -116,7 +118,10 @@ class PlayHistoryProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _dio.close();
+    if (_dioInitialized) {
+      _dio.close();
+      _dioInitialized = false;
+    }
     super.dispose();
   }
 }

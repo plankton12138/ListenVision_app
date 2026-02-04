@@ -58,11 +58,18 @@ Projects_ListenVison/
 ## 项目状态
 
 ```
-Phase 1:  ████████████████████ 100% ✅ B站API集成
-Phase 2:  ████████████████████ 100% ✅ 在线播放
-Phase 3:  ████████████████████ 100% ✅ 歌单收藏
-Phase 4:  ███████████████░░░░░  70% 🟡 搜索推荐
-Phase 5:  ████████████░░░░░░░░  65% 🟡 质量优化
+MVVM 重构:  ████████████████████░░░░  60% (Phase 6/10)
+
+Phase 0:  ✅ 骨架搭建
+Phase 1:  ✅ Models 层迁移
+Phase 2:  ✅ Services 层构建
+Phase 3:  ✅ 数据层构建
+Phase 4:  ✅ 核心 ViewModels (Auth)
+Phase 5:  ✅ 播放器 ViewModels
+Phase 6:  ⏳ 其他 ViewModels
+Phase 7:  ⏳ Views 迁移与解耦
+Phase 8:  ⏳ Widgets 更新
+Phase 9:  ⏳ 清理与收尾
 ```
 
 ---
@@ -142,6 +149,20 @@ Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.lo
 - 登录: `references/bilibili-API-collect/docs/login/login_action/QR.md`
 - 视频: `references/bilibili-API-collect/docs/video/video_info.md`
 - 音频: `references/bilibili-API-collect/docs/audio/audio_stream.md`
+
+---
+
+## Riverpod 状态管理
+
+**文档**: [RIVERPOD_GUIDE.md](./docs/RIVERPOD_GUIDE.md)
+
+**本地参考文档**: `references/riverpod/` (官方仓库克隆)
+
+核心概念：
+- `@riverpod` 注解 + `build_runner` 代码生成
+- `StateNotifier` 模式管理可变状态
+- `ref.watch` 监听状态，`ref.read` 读取一次
+- `freezed` 定义不可变状态类
 
 ---
 

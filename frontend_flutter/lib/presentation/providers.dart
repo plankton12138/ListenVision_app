@@ -12,11 +12,12 @@ export 'viewmodels/auth/platform_auth_viewmodel.dart' show platformAuthViewModel
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundPlatformAccount;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
 
-// TODO: 分阶段添加其他 ViewModels 的 providers
 // ==================== 播放器相关 ====================
-// export 'viewmodels/player/player_viewmodel.dart';
-// export 'viewmodels/player/queue_viewmodel.dart';
-// export 'viewmodels/player/metadata_viewmodel.dart';
+export 'viewmodels/player/player_viewmodel.dart' show playerViewModelProvider;
+export 'viewmodels/player/player_viewmodel.dart' show audioPlayerServiceProvider;
+export 'viewmodels/player/queue_viewmodel.dart' show queueViewModelProvider;
+export 'viewmodels/player/metadata_viewmodel.dart' show metadataViewModelProvider;
+export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 
 // ==================== 资源库相关 ====================
 // export 'viewmodels/library/playlist_viewmodel.dart';

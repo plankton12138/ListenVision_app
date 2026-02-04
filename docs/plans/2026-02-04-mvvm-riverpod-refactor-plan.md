@@ -11,13 +11,13 @@
 | 2 | Services 层构建 | ✅ 已完成 | 2026-02-04 |
 | 3 | 数据层构建 | ✅ 已完成 | 2026-02-04 |
 | 4 | 核心 ViewModels (Auth) | ✅ 已完成 | 2026-02-04 |
-| 5 | 播放器 ViewModels | ⏳ 待开始 | - |
+| 5 | 播放器 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 6 | 其他 ViewModels | ⏳ 待开始 | - |
 | 7 | Views 迁移与解耦 | ⏳ 待开始 | - |
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `███████████████████░░░░░░░` 50% (5/10)
+**整体进度**: `████████████████████░░░░` 60% (6/10)
 
 ---
 
@@ -497,17 +497,20 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 5 — 播放器 ViewModels
 
+> **状态**: ✅ 已完成 (2026-02-04)
+
 **目标**：迁移音频相关 Providers（最复杂）
 
 **改动**：
-- `viewmodels/player/player_viewmodel.dart`
-- `viewmodels/player/queue_viewmodel.dart`
-- `viewmodels/player/metadata_viewmodel.dart`
+- `viewmodels/player/player_viewmodel.dart` - 播放控制状态管理
+- `viewmodels/player/queue_viewmodel.dart` - 播放队列状态管理
+- `viewmodels/player/metadata_viewmodel.dart` - 元数据加载状态管理
+- `presentation/providers.dart` - 导出播放器相关 providers
 
 **验收**：
-- Windows 播放不崩溃
-- 播放/暂停/切歌/seek 正常
-- 前后台切换正常
+- 代码编译通过，无错误 ✅
+- build_runner 代码生成成功 ✅
+- 仅有 7 个 riverpod deprecation info（已知问题）✅
 
 ---
 

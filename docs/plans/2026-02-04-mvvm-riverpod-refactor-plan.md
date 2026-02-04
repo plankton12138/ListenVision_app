@@ -7,7 +7,7 @@
 | Phase | 名称 | 状态 | 完成日期 |
 |-------|------|------|----------|
 | 0 | 骨架搭建 | ✅ 已完成 | 2026-02-04 |
-| 1 | Models 层迁移 | ⏳ 待开始 | - |
+| 1 | Models 层迁移 | ✅ 已完成 | 2026-02-04 |
 | 2 | Services 层构建 | ⏳ 待开始 | - |
 | 3 | 数据层构建 | ⏳ 待开始 | - |
 | 4 | 核心 ViewModels (Auth) | ⏳ 待开始 | - |
@@ -17,7 +17,7 @@
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `██████████░░░░░░░░░░░░░░░░░░` 10% (1/10)
+**整体进度**: `█████████████░░░░░░░░░░░░░░░` 20% (2/10)
 
 ---
 
@@ -414,6 +414,8 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 1 — Models 层迁移
 
+> **状态**: ✅ 已完成 (2026-02-04)
+
 **目标**：将 `domain/entities/` 迁移到 `models/`
 
 **改动**：
@@ -421,7 +423,23 @@ Dio dioClient(DioClientRef ref) {
 - 移除 `BaseEntity` 接口依赖
 - 更新 import 路径
 
-**验收**：所有 freezed 代码生成成功
+**验收**：所有 freezed 代码生成成功 ✅
+
+**完成文件**：
+- `lib/models/audio.dart` (移除 BaseEntity)
+- `lib/models/playlist.dart` (移除 BaseEntity)
+- `lib/models/user.dart` (移除 BaseEntity)
+- `lib/models/play_history.dart` (移除 BaseEntity)
+- `lib/models/recommendation.dart`
+- `lib/models/download_task.dart`
+- `lib/models/local_audio.dart`
+- `lib/models/local_playable.dart`
+- `lib/models/online_playable.dart` (更新 import 路径)
+- `lib/models/platform_account.dart`
+- `lib/models/platform_types.dart`
+- `lib/models/playable_audio.dart`
+- `lib/models/domain_types.dart`
+- `lib/models/models_export.dart`
 
 ---
 

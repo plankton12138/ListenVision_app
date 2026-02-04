@@ -3,4 +3,27 @@
 /// 本文件导出所有数据模型实体
 library;
 
-// TODO: Phase 1 - 从 domain/entities/ 迁移实体后在此导出
+// 音频相关
+export 'audio.dart';
+export 'playable_audio.dart';
+export 'local_audio.dart';
+export 'local_playable.dart';
+export 'online_playable.dart';
+
+// 用户与认证
+export 'user.dart';
+export 'platform_account.dart';
+export 'platform_types.dart';
+
+// 播放列表与历史
+export 'playlist.dart';
+export 'play_history.dart';
+
+// 推荐与搜索
+export 'recommendation.dart';
+
+// 下载
+export 'download_task.dart';
+
+// 类型别名
+export 'domain_types.dart';

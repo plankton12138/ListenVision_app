@@ -1,15 +1,12 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../core/base/base_entity.dart';
+import 'playlist.dart' hide PlaylistDetail;
 
 part 'audio.freezed.dart';
 part 'audio.g.dart';
 
 /// 音频实体
-///
-/// Clean Architecture 中的音频领域对象
-/// 表示一首音频/歌曲的完整信息
 @freezed
-class Audio with _$Audio implements BaseEntity {
+class Audio with _$Audio {
   const Audio._();
 
   const factory Audio({
@@ -206,30 +203,4 @@ class Audio with _$Audio implements BaseEntity {
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
     return null;
   }
-}
-
-// PlaylistItem 在 playlist.dart 中定义
-// 使用前向声明避免循环引用
-class PlaylistItem {
-  final String? id;
-  final String? playlistId;
-  final String bvid;
-  final String? title;
-  final String? artist;
-  final int? duration;
-  final String? coverUrl;
-  final int position;
-  final DateTime? addedAt;
-
-  const PlaylistItem({
-    this.id,
-    this.playlistId,
-    required this.bvid,
-    this.title,
-    this.artist,
-    this.duration,
-    this.coverUrl,
-    required this.position,
-    this.addedAt,
-  });
 }

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'playable_audio.dart';
 import 'audio.dart';
-import '../../core/constants/api_constants.dart';
+import '../core/constants/api_constants.dart';
 
 /// 在线音频的 Playable 实现
 ///

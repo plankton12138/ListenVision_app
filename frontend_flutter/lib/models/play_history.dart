@@ -1,15 +1,12 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../core/base/base_entity.dart';
 import 'audio.dart';
 
 part 'play_history.freezed.dart';
 part 'play_history.g.dart';
 
 /// 播放历史实体
-///
-/// Clean Architecture 中的播放历史领域对象
 @freezed
-class PlayHistory with _$PlayHistory implements BaseEntity {
+class PlayHistory with _$PlayHistory {
   const PlayHistory._();
 
   const factory PlayHistory({

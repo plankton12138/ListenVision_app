@@ -1,10 +1,9 @@
-/// Domain Types Export - Clean Architecture 类型导出
+/// Models 类型导出
 ///
-/// 此文件包含领域实体的类型别名和兼容类型定义
-/// 遵循 Clean Architecture 原则
+/// 此文件包含类型别名和兼容类型定义
 
-import 'package:demo/domain/entities/recommendation.dart';
-import 'package:demo/domain/entities/play_history.dart';
+import 'recommendation.dart';
+import 'play_history.dart';
 
 // ========== 类型别名 ==========
 

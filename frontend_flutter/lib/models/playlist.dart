@@ -1,5 +1,4 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../core/base/base_entity.dart';
 
 part 'playlist.freezed.dart';
 part 'playlist.g.dart';
@@ -21,10 +20,8 @@ enum SystemPlaylistType {
 }
 
 /// 歌单实体
-///
-/// Clean Architecture 中的歌单领域对象
 @freezed
-class Playlist with _$Playlist implements BaseEntity {
+class Playlist with _$Playlist {
   const Playlist._();
 
   const factory Playlist({

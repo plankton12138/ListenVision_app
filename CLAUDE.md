@@ -17,7 +17,8 @@
 
 ```
 Projects_ListenVison/
-├── bilibili-API-collect/     # B站API文档（本地克隆）
+├── references/                # 参考文档
+│   └── bilibili-API-collect/ # B站API文档（本地克隆）
 ├── frontend_flutter/          # Flutter应用
 │   └── lib/
 │       ├── core/              # 基础设施（常量、错误、网络）
@@ -44,7 +45,7 @@ Projects_ListenVison/
 
 ### 外部工具限制
 **使用前必须询问**: WebSearch, WebFetch, MCP工具
-**优先使用**: 本地文档、本地代码、bilibili-API-collect
+**优先使用**: 本地文档、本地代码、references/bilibili-API-collect
 
 ### 回答风格
 - 优先展示设计思路，而非完整代码
@@ -135,12 +136,12 @@ Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.lo
 
 ## B站API文档
 
-**优先使用本地文档** `bilibili-API-collect/docs/`，而非网页搜索。
+**优先使用本地文档** `references/bilibili-API-collect/docs/`，而非网页搜索。
 
 核心文档：
-- 登录: `docs/login/login_action/QR.md`
-- 视频: `docs/video/video_info.md`
-- 音频: `docs/audio/audio_stream.md`
+- 登录: `references/bilibili-API-collect/docs/login/login_action/QR.md`
+- 视频: `references/bilibili-API-collect/docs/video/video_info.md`
+- 音频: `references/bilibili-API-collect/docs/audio/audio_stream.md`
 
 ---
 

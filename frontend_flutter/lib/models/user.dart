@@ -1,15 +1,11 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../core/base/base_entity.dart';
 
 part 'user.freezed.dart';
 part 'user.g.dart';
 
 /// 用户实体
-///
-/// Clean Architecture 中的用户领域对象
-/// 与数据源格式无关，由 DTO 转换而来
 @freezed
-class User with _$User implements BaseEntity {
+class User with _$User {
   const User._();
 
   const factory User({

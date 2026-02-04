@@ -93,12 +93,15 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   # P2: Clean Architecture 代码生成
-  build_runner: ^2.4.6
-  freezed: ^2.4.5
-  json_serializable: ^6.7.1
+  build_runner: ^2.4.13
+  freezed: ^2.5.8
+  json_serializable: ^6.9.5
   # P0: MVVM + Riverpod 重构
   riverpod_generator: ^2.6.1
   riverpod_lint: ^2.6.1
+
+dependency_overrides:
+  analyzer_plugin: ^0.13.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

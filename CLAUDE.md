@@ -18,13 +18,19 @@
 ```
 Projects_ListenVison/
 ├── references/                # 参考文档
-│   └── bilibili-API-collect/ # B站API文档（本地克隆）
+│   ├── bilibili-API-collect/ # B站API文档（本地克隆）
+│   └── riverpod/             # Riverpod官方文档（本地克隆）
 ├── frontend_flutter/          # Flutter应用
 │   └── lib/
 │       ├── core/              # 基础设施（常量、错误、网络）
-│       ├── domain/           # 实体 + 仓储接口
-│       ├── data/             # 数据源 + 仓储实现
-│       └── presentation/     # 页面 + Provider + 路由
+│       ├── models/            # 轻量实体（原 domain/entities）
+│       ├── data/              # 数据层（API客户端、Repository）
+│       ├── services/          # 有状态服务（音频播放、元数据）
+│       └── presentation/      # UI层
+│           ├── viewmodels/    # StateNotifier 状态管理
+│           ├── views/         # 页面
+│           ├── widgets/       # 组件
+│           └── providers.dart # Riverpod providers 统一定义
 └── listen-vision_api/        # Node.js后端
     ├── middleware/           # 认证、限流、错误处理
     ├── routes/               # API路由
@@ -174,13 +180,15 @@ Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.lo
 
 ---
 
-## Clean Architecture (已100%完成)
+## 架构设计 (轻量 MVVM + Riverpod)
 
 ```
-domain/      # 业务规则（实体、仓储接口）
-data/        # 数据操作（数据源、仓储实现）
-presentation/ # UI（页面、Provider、路由）
-core/        # 基础设施（常量、错误、网络）
+models/        # 轻量实体（Audio, Playlist, User 等）
+data/          # 数据层（API客户端、Repository实现）
+services/      # 有状态服务（AudioPlayerService, MetadataService）
+viewmodels/    # StateNotifier 状态管理
+views/         # 纯 UI 渲染（ConsumerWidget）
+core/          # 基础设施（常量、网络、存储）
 ```
 
 ---
@@ -208,5 +216,7 @@ core/        # 基础设施（常量、错误、网络）
 
 ## 相关文档
 
-- 📄 [渐进式架构迁移计划](./docs/INCREMENTAL_MIGRATION_PLAN.md)
-- 📄 [Phase实施细节](./docs/PHASE_*.md)
+- 📄 [MVVM 重构计划](./docs/plans/2026-02-04-mvvm-riverpod-refactor-plan.md)
+- 📄 [Riverpod 使用指南](./docs/RIVERPOD_GUIDE.md)
+- 📄 [日志记录规范](./docs/LOGGING_STANDARDS.md)
+- 📄 [代码注释规范](./docs/CODE_COMMENT_STANDARDS.md)

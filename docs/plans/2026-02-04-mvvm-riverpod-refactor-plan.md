@@ -13,11 +13,11 @@
 | 4 | 核心 ViewModels (Auth) | ✅ 已完成 | 2026-02-04 |
 | 5 | 播放器 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 6 | 其他 ViewModels | ✅ 已完成 | 2026-02-04 |
-| 7 | Views 迁移与解耦 | ⏳ 待开始 | - |
+| 7 | Views 迁移与解耦 | ✅ 已完成 | 2026-02-04 |
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `███████████████████░░░░` 70% (7/10)
+**整体进度**: `████████████████████░░░` 80% (8/10)
 
 ---
 
@@ -537,14 +537,19 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 7 — Views 迁移与解耦
 
+> **状态**: ✅ 已完成 (2026-02-04)
+
 **目标**：迁移页面到新结构，移除 BilibiliProvider 直接依赖
 
 **改动**：
-- 重命名并移动页面到 `views/*`
+- 创建 `views/` 目录结构（account, discovery, library, player, system）
+- 迁移所有页面到 `views/*`
 - 更新所有 `context.watch/read` 为 `ref.watch/read`
 - 移除 `BilibiliProvider` 直接调用
+- 更新路由配置使用新的 views/
+- 添加 ViewModel 的 state 公开 getter（authState, platformAuthState, queueState）
 
-**验收**：所有页面渲染正常
+**验收**：所有页面编译通过 ✅
 
 ---
 

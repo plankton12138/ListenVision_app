@@ -70,6 +70,9 @@ class QueueViewModel extends StateNotifier<QueueState> {
 
   // ==================== Getters ====================
 
+  /// 获取当前状态（公开 getter）
+  QueueState get queueState => state;
+
   /// 当前可播放音频
   PlayableAudio? get currentPlayable {
     final index = state.currentIndex;

@@ -5,12 +5,15 @@ library;
 
 // ==================== 认证相关 ====================
 export 'viewmodels/auth/auth_viewmodel.dart' show authViewModelProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show currentUser;
-export 'viewmodels/auth/auth_viewmodel.dart' show authToken;
-export 'viewmodels/auth/auth_viewmodel.dart' show isLoggedIn;
+export 'viewmodels/auth/auth_viewmodel.dart' show currentUserProvider;
+export 'viewmodels/auth/auth_viewmodel.dart' show authTokenProvider;
+export 'viewmodels/auth/auth_viewmodel.dart' show isLoggedInProvider;
+export 'viewmodels/auth/auth_viewmodel.dart' show AuthState;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show platformAuthViewModelProvider;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundPlatformAccount;
+export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundBilibiliAccount;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
+export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
+export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
 
 // ==================== 播放器相关 ====================
 export 'viewmodels/player/player_viewmodel.dart' show playerViewModelProvider;
@@ -28,4 +31,5 @@ export 'viewmodels/discovery/search_viewmodel.dart' show searchViewModelProvider
 
 // ==================== 系统相关 ====================
 export 'viewmodels/system/theme_viewmodel.dart' show themeViewModelProvider;
+export 'viewmodels/system/theme_viewmodel.dart' show ThemeViewModel;
 export 'viewmodels/system/download_viewmodel.dart' show downloadViewModelProvider;

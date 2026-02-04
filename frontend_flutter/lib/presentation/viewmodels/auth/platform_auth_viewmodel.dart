@@ -282,6 +282,9 @@ class PlatformAuthViewModel extends StateNotifier<PlatformAuthState> {
     }
   }
 
+  /// 获取当前状态（公开 getter）
+  PlatformAuthState get platformAuthState => state;
+
   /// 获取当前绑定的账号
   BilibiliUserInfo? getBoundAccount() {
     return state.maybeWhen(

@@ -1,19 +1,19 @@
-import 'package:demo/presentation/pages/backend_download_page.dart';
-import 'package:demo/presentation/pages/explore_page.dart';
-import 'package:demo/presentation/pages/home_page.dart';
-import 'package:demo/presentation/pages/login_page.dart';
-import 'package:demo/presentation/pages/not_found_page.dart';
-import 'package:demo/presentation/pages/play_history_page.dart';
-import 'package:demo/presentation/pages/play_list_page.dart';
-import 'package:demo/presentation/pages/playlist_detail_page.dart';
-import 'package:demo/presentation/pages/playlist_library_page.dart';
-import 'package:demo/presentation/pages/register_page.dart';
-import 'package:demo/presentation/pages/reset_password_page.dart';
-import 'package:demo/presentation/pages/search_page.dart';
-import 'package:demo/presentation/pages/settings_page.dart';
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
+import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/views/account/login_page.dart';
+import 'package:demo/presentation/views/account/register_page.dart';
+import 'package:demo/presentation/views/account/reset_password_page.dart';
+import 'package:demo/presentation/views/discovery/explore_page.dart';
+import 'package:demo/presentation/views/discovery/search_page.dart';
+import 'package:demo/presentation/views/library/playlist_library_page.dart';
+import 'package:demo/presentation/views/library/playlist_detail_page.dart';
+import 'package:demo/presentation/views/library/play_history_page.dart';
+import 'package:demo/presentation/views/player/home_page.dart';
+import 'package:demo/presentation/views/player/play_list_page.dart';
+import 'package:demo/presentation/views/system/backend_download_page.dart';
+import 'package:demo/presentation/views/system/not_found_page.dart';
+import 'package:demo/presentation/views/system/settings_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 /// 路由名称常量
 ///
@@ -63,11 +63,12 @@ class AppRoutes {
 /// - 添加 404 错误处理
 /// - 路由名称常量化
 ///
-/// Clean Architecture:
+/// MVVM + Riverpod:
 /// - 路由配置属于 Presentation 层
 /// - 定义页面间的导航关系
-/// - 页面组件位于 presentation/pages/
-final GoRouter router = GoRouter(
+/// - 页面组件位于 presentation/views/
+/// - 使用 ProviderScope 包裹应用
+final GoRouter routerConfig = GoRouter(
   // 错误页面（404）
   errorBuilder: (context, state) => const NotFoundPage(),
 
@@ -77,8 +78,8 @@ final GoRouter router = GoRouter(
   // - 游客可以访问：搜索、下载、本地播放列表
   // - 游客不能访问：探索页面、设置、播放历史
   redirect: (context, state) {
-    final authProvider = context.read<AuthProvider>();
-    final isLoggedIn = authProvider.isLoggedIn;
+    final container = ProviderScope.containerOf(context);
+    final isLoggedIn = container.read(isLoggedInProvider);
     final loginLocation = state.namedLocation(AppRoutes.loginName);
 
     // 需要登录的路由列表（游客模式不可访问）
@@ -163,14 +164,14 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const PlaylistPage(),
     ),
 
-    // 下载任务管理页 (Phase 3)
+    // 下载任务管理页
     GoRoute(
       name: AppRoutes.downloadsName,
       path: AppRoutes.downloads,
       builder: (context, state) => const BackendDownloadPage(),
     ),
 
-    // 歌单库页面 (Phase 2)
+    // 歌单库页面
     GoRoute(
       name: AppRoutes.playlistsName,
       path: AppRoutes.playlists,
@@ -197,7 +198,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const SettingsPage(),
     ),
 
-    // 播放历史页面 (Phase 2)
+    // 播放历史页面
     GoRoute(
       name: AppRoutes.historyName,
       path: AppRoutes.history,
@@ -205,3 +206,7 @@ final GoRouter router = GoRouter(
     ),
   ],
 );
+
+/// 兼容旧代码的 router 变量
+@Deprecated('Use routerConfig instead. Will be removed in future.')
+GoRouter get router => routerConfig;

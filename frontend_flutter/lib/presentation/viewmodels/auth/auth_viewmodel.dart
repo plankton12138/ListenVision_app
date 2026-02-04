@@ -184,6 +184,9 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
+  /// 获取当前状态（公开 getter）
+  AuthState get authState => state;
+
   /// 获取当前用户
   User? get currentUser {
     return whenOrNull(authenticated: (user, token) => user);

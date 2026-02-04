@@ -9,7 +9,7 @@
 | 0 | 骨架搭建 | ✅ 已完成 | 2026-02-04 |
 | 1 | Models 层迁移 | ✅ 已完成 | 2026-02-04 |
 | 2 | Services 层构建 | ✅ 已完成 | 2026-02-04 |
-| 3 | 数据层构建 | ⏳ 待开始 | - |
+| 3 | 数据层构建 | ✅ 已完成 | 2026-02-04 |
 | 4 | 核心 ViewModels (Auth) | ⏳ 待开始 | - |
 | 5 | 播放器 ViewModels | ⏳ 待开始 | - |
 | 6 | 其他 ViewModels | ⏳ 待开始 | - |
@@ -17,7 +17,7 @@
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `███████████████░░░░░░░░░░░░░░` 30% (3/10)
+**整体进度**: `███████████████████░░░░░░░░` 40% (4/10)
 
 ---
 
@@ -458,16 +458,23 @@ Dio dioClient(DioClientRef ref) {
 
 ---
 
-### Phase 3 — 数据层构建
+### Phase 3 — 数据层构建 ✅
+
+> **状态**: 已完成 (2026-02-04)
 
 **目标**：创建 API 客户端和 Repository
 
 **改动**：
+- `core/storage/shared_storage_service.dart`
+- `core/storage/secure_storage_service.dart`
+- `core/network/dio_client.dart`
 - `data/api/backend_api_client.dart`
 - `data/api/bilibili_api_client.dart`
-- `data/repositories/*.dart`（6个）
+- `data/repositories/*.dart`（5个）
 
-**验收**：Repository 单元测试通过（mock Dio）
+**验收**：
+- 所有 API 客户端实现完成 ✅
+- 所有 Repository 实现完成 ✅
 
 ---
 

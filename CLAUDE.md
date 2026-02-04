@@ -216,7 +216,7 @@ core/          # 基础设施（常量、网络、存储）
 
 ## 相关文档
 
-- 📄 [MVVM 重构计划](./docs/plans/2026-02-04-mvvm-riverpod-refactor-plan.md)
+
 - 📄 [Riverpod 使用指南](./docs/RIVERPOD_GUIDE.md)
 - 📄 [日志记录规范](./docs/LOGGING_STANDARDS.md)
 - 📄 [代码注释规范](./docs/CODE_COMMENT_STANDARDS.md)

@@ -20,12 +20,12 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataViewModelProvide
 export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 
 // ==================== 资源库相关 ====================
-// export 'viewmodels/library/playlist_viewmodel.dart';
-// export 'viewmodels/library/history_viewmodel.dart';
+export 'viewmodels/library/playlist_viewmodel.dart' show playlistViewModelProvider;
+export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;
 
 // ==================== 发现相关 ====================
-// export 'viewmodels/discovery/search_viewmodel.dart';
+export 'viewmodels/discovery/search_viewmodel.dart' show searchViewModelProvider;
 
 // ==================== 系统相关 ====================
-// export 'viewmodels/system/theme_viewmodel.dart';
-// export 'viewmodels/system/download_viewmodel.dart';
+export 'viewmodels/system/theme_viewmodel.dart' show themeViewModelProvider;
+export 'viewmodels/system/download_viewmodel.dart' show downloadViewModelProvider;

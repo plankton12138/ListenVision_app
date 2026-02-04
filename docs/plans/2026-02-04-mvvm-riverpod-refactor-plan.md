@@ -12,12 +12,12 @@
 | 3 | 数据层构建 | ✅ 已完成 | 2026-02-04 |
 | 4 | 核心 ViewModels (Auth) | ✅ 已完成 | 2026-02-04 |
 | 5 | 播放器 ViewModels | ✅ 已完成 | 2026-02-04 |
-| 6 | 其他 ViewModels | ⏳ 待开始 | - |
+| 6 | 其他 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 7 | Views 迁移与解耦 | ⏳ 待开始 | - |
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `████████████████████░░░░` 60% (6/10)
+**整体进度**: `███████████████████░░░░` 70% (7/10)
 
 ---
 
@@ -516,16 +516,22 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 6 — 其他 ViewModels
 
+> **状态**: ✅ 已完成 (2026-02-04)
+
 **目标**：迁移剩余 Providers
 
 **改动**：
-- `viewmodels/library/playlist_viewmodel.dart`
-- `viewmodels/library/history_viewmodel.dart`
-- `viewmodels/discovery/search_viewmodel.dart`
-- `viewmodels/system/theme_viewmodel.dart`
-- `viewmodels/system/download_viewmodel.dart`
+- `viewmodels/library/playlist_viewmodel.dart` - 歌单管理状态管理
+- `viewmodels/library/history_viewmodel.dart` - 播放历史状态管理
+- `viewmodels/discovery/search_viewmodel.dart` - 搜索状态管理
+- `viewmodels/system/theme_viewmodel.dart` - 主题切换状态管理
+- `viewmodels/system/download_viewmodel.dart` - 下载管理状态管理
 
-**验收**：所有功能可用
+**验收**：
+- 代码编译通过 ✅
+- build_runner 代码生成成功 ✅
+- 所有 ViewModel 继承 StateNotifier ✅
+- providers.dart 导出完整 ✅
 
 ---
 

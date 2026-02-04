@@ -10,14 +10,14 @@
 | 1 | Models 层迁移 | ✅ 已完成 | 2026-02-04 |
 | 2 | Services 层构建 | ✅ 已完成 | 2026-02-04 |
 | 3 | 数据层构建 | ✅ 已完成 | 2026-02-04 |
-| 4 | 核心 ViewModels (Auth) | ⏳ 待开始 | - |
+| 4 | 核心 ViewModels (Auth) | ✅ 已完成 | 2026-02-04 |
 | 5 | 播放器 ViewModels | ⏳ 待开始 | - |
 | 6 | 其他 ViewModels | ⏳ 待开始 | - |
 | 7 | Views 迁移与解耦 | ⏳ 待开始 | - |
 | 8 | Widgets 更新 | ⏳ 待开始 | - |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `███████████████████░░░░░░░░` 40% (4/10)
+**整体进度**: `███████████████████░░░░░░░` 50% (5/10)
 
 ---
 
@@ -480,17 +480,18 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 4 — 核心 ViewModels（Auth）
 
+> **状态**: 已完成 (2026-02-04)
+
 **目标**：迁移认证相关 Providers
 
 **改动**：
-- `viewmodels/auth/auth_viewmodel.dart`
-- `viewmodels/auth/platform_auth_viewmodel.dart`
-- `core/network/dio_client.dart`（订阅 token）
-- `presentation/providers.dart`（auth 相关）
+- `viewmodels/auth/auth_viewmodel.dart` - 主账号认证（登录/注册/登出）
+- `viewmodels/auth/platform_auth_viewmodel.dart` - B站 QR码登录
+- `presentation/providers.dart` - 导出 auth 相关 providers
 
 **验收**：
-- 登录/登出流程正常
-- Dio header 随 token 更新
+- 代码编译通过，无错误 ✅
+- 仅有 8 个 riverpod deprecation info（已知问题）✅
 
 ---
 

@@ -101,8 +101,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: searchState.when(
               initial: () => _buildInitialState(),
               loading: () => const Center(child: CircularProgressIndicator()),
-              resultsLoaded: (results, query, platform) =>
-                  _buildResultsList(results),
+              resultsLoaded: (results, query, platform, currentPage, pageSize, totalCount, hasMore) =>
+                  _buildResultsList(results, currentPage, pageSize, totalCount, hasMore),
               idle: (history, suggestions, platform) =>
                   _buildIdleState(history, suggestions),
               error: (message) => Center(child: Text('错误: $message')),
@@ -172,50 +172,126 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   /// 搜索结果列表
-  Widget _buildResultsList(List<SearchResultItem> results) {
+  Widget _buildResultsList(
+    List<SearchResultItem> results,
+    int currentPage,
+    int pageSize,
+    int totalCount,
+    bool hasMore,
+  ) {
     if (results.isEmpty) {
       return const Center(child: Text('未找到结果'));
     }
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final item = results[index];
-        return ListTile(
-          leading: item.coverUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.network(
-                    item.coverUrl!,
-                    width: 80,
-                    height: 60,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 80,
-                      height: 60,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.music_note),
-                    ),
-                  ),
-                )
-              : Container(
-                  width: 80,
-                  height: 60,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.music_note),
+
+    // 计算总页数
+    final totalPages = totalCount > 0
+        ? (totalCount / pageSize).ceil()
+        : (hasMore ? currentPage + 1 : currentPage);
+
+    return Column(
+      children: [
+        // 结果列表
+        Expanded(
+          child: ListView.builder(
+            itemCount: results.length,
+            itemBuilder: (context, index) {
+              final item = results[index];
+              return ListTile(
+                leading: item.coverUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          item.coverUrl!,
+                          width: 80,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 80,
+                            height: 60,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.music_note),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 80,
+                        height: 60,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.music_note),
+                      ),
+                title: Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-          title: Text(
-            item.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+                subtitle: Text(
+                  '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
+                ),
+                onTap: () => _onResultTap(item),
+              );
+            },
           ),
-          subtitle: Text(
-            '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
-          ),
-          onTap: () => _onResultTap(item),
-        );
-      },
+        ),
+        // 分页控制栏
+        _buildPaginationBar(currentPage, totalPages, hasMore),
+      ],
     );
   }
+
+  /// 分页控制栏
+  Widget _buildPaginationBar(int currentPage, int totalPages, bool hasMore) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 上一页按钮
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: currentPage > 1
+                ? () => _loadPage(currentPage - 1)
+                : null,
+            tooltip: '上一页',
+          ),
+          // 页码信息
+          Text(
+            '$currentPage/$totalPages',
+            style: const TextStyle(fontSize: 16),
+          ),
+          // 下一页按钮
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: hasMore
+                ? () => _loadPage(currentPage + 1)
+                : null,
+            tooltip: '下一页',
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 加载指定页
+  void _loadPage(int page) {
+    final currentState = ref.read(searchViewModelProvider);
+    final query = currentState.maybeMap(
+      resultsLoaded: (state) => state.query,
+      orElse: () => '',
+    );
+    if (query.isNotEmpty) {
+      ref.read(searchViewModelProvider.notifier).search(query, page: page);
+    }
+  }
+
 
   /// 空闲状态（搜索历史和搜索建议）
   Widget _buildIdleState(List<String> history, List<String> suggestions) {

@@ -522,11 +522,24 @@ class BackendApiClient {
   // ==================== B站搜索 API ====================
 
   /// B站搜索
-  Future<Map<String, dynamic>> searchBilibili(String keyword) async {
+  ///
+  /// @param keyword 搜索关键词
+  /// @param page 页码（从1开始）
+  /// @param pageSize 每页数量
+  Future<Map<String, dynamic>> searchBilibili(
+    String keyword, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     try {
+      AppLogger.debug('BackendApiClient', 'B站搜索: $keyword, page=$page, pageSize=$pageSize');
       final response = await _dioClient.get(
         BilibiliEndpoints.search,
-        queryParameters: {'keyword': keyword},
+        queryParameters: {
+          'keyword': keyword,
+          'page': page,
+          'pageSize': pageSize,
+        },
       );
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {

@@ -28,6 +28,10 @@ class SearchState with _$SearchState {
     required List<SearchResultItem> results,
     required String query,
     required SearchPlatform platform,
+    @Default(1) int currentPage,
+    @Default(20) int pageSize,
+    @Default(0) int totalCount,
+    @Default(false) bool hasMore,
   }) = SearchStateResultsLoaded;
 
   /// 空闲状态
@@ -102,24 +106,33 @@ class SearchViewModel extends _$SearchViewModel {
   /// 执行B站搜索
   ///
   /// @param keyword 搜索关键词
+  /// @param page 页码（从1开始，默认1）
   /// @returns 是否成功
-  Future<bool> search(String keyword) async {
+  Future<bool> search(String keyword, {int page = 1}) async {
     if (keyword.trim().isEmpty) {
       state = SearchState.resultsLoaded(
         results: const [],
         query: keyword,
         platform: SearchPlatform.bilibili,
+        currentPage: 1,
+        pageSize: 20,
+        totalCount: 0,
+        hasMore: false,
       );
       return false;
     }
 
     try {
-      AppLogger.info('SearchViewModel', 'B站搜索: $keyword');
+      AppLogger.info('SearchViewModel', 'B站搜索: $keyword, page=$page');
 
       state = const SearchState.loading();
 
-      final data = await _apiClient.searchBilibili(keyword);
+      final data = await _apiClient.searchBilibili(keyword, page: page);
       final videos = data['videos'] as List? ?? [];
+      // 优先使用后端返回的 total，如果没有则根据结果数量判断
+      final totalCount = data['total'] as int? ?? 0;
+      final pageSize = data['pageSize'] as int? ?? 20;
+      final backendPage = data['page'] as int? ?? page;
 
       final results = videos
           .map((v) => SearchResultItem(
@@ -132,20 +145,97 @@ class SearchViewModel extends _$SearchViewModel {
               ))
           .toList();
 
+      // 判断是否有更多结果：
+      // 1. 如果后端返回了 total，使用 total 判断
+      // 2. 否则，如果返回结果数等于 pageSize，假设还有更多（B站API行为）
+      // 判断是否有更多结果：
+      // 1. 如果后端返回了 total > 0，使用 total 判断
+      // 2. 否则，首次搜索(page=1)有结果就显示按钮（让用户尝试）
+      // 3. 后续页面根据返回结果数判断
+      final hasMore = totalCount > 0
+          ? (backendPage * pageSize < totalCount)
+          : (page == 1 ? results.isNotEmpty : (results.length >= pageSize));
+
       state = SearchState.resultsLoaded(
         results: results,
         query: keyword,
         platform: SearchPlatform.bilibili,
+        currentPage: page,
+        pageSize: pageSize,
+        totalCount: totalCount,
+        hasMore: hasMore,
       );
 
-      // 添加到搜索历史
-      await _addToSearchHistory(keyword);
+      // 仅首次搜索添加到历史
+      if (page == 1) {
+        await _addToSearchHistory(keyword);
+      }
 
-      AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果');
+      AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果, total=$totalCount, hasMore=$hasMore');
       return true;
     } catch (e) {
       AppLogger.error('SearchViewModel', '搜索失败: $e');
       state = SearchState.error(message: e.toString());
+      return false;
+    }
+  }
+
+  /// 加载下一页搜索结果
+  ///
+  /// @returns 是否成功
+  Future<bool> loadNextPage() async {
+    final currentState = state;
+    if (currentState is! SearchStateResultsLoaded) {
+      AppLogger.warn('SearchViewModel', '当前非搜索结果状态，无法加载下一页');
+      return false;
+    }
+
+    if (!currentState.hasMore) {
+      AppLogger.debug('SearchViewModel', '没有更多结果');
+      return false;
+    }
+
+    final nextPage = currentState.currentPage + 1;
+    AppLogger.info('SearchViewModel', '加载下一页: $nextPage');
+
+    try {
+      final data = await _apiClient.searchBilibili(
+        currentState.query,
+        page: nextPage,
+      );
+      final videos = data['videos'] as List? ?? [];
+      final totalCount = data['total'] as int? ?? currentState.totalCount;
+      final pageSize = data['pageSize'] as int? ?? currentState.pageSize;
+
+      final newResults = videos
+          .map((v) => SearchResultItem(
+                bvid: v['bvid'] as String,
+                title: v['title'] as String,
+                author: v['author'] as String?,
+                coverUrl: v['cover'] as String?,
+                duration: _parseDuration(v['duration']),
+                platform: SearchPlatform.bilibili,
+              ))
+          .toList();
+
+      // 合并结果
+      final mergedResults = [...currentState.results, ...newResults];
+      // 判断是否还有更多：如果返回空结果，则没有更多了
+      final hasMore = totalCount > 0
+          ? (nextPage * pageSize < totalCount)
+          : (newResults.length >= pageSize);
+
+      state = currentState.copyWith(
+        results: mergedResults,
+        currentPage: nextPage,
+        totalCount: totalCount,
+        hasMore: hasMore,
+      );
+
+      AppLogger.info('SearchViewModel', '加载下一页成功: ${newResults.length}条新结果, 总计${mergedResults.length}条');
+      return true;
+    } catch (e) {
+      AppLogger.error('SearchViewModel', '加载下一页失败: $e');
       return false;
     }
   }

@@ -28,7 +28,7 @@ final localMusicRepositoryProvider =
 // ignore: unused_element
 typedef LocalMusicRepositoryRef = AutoDisposeProviderRef<LocalMusicRepository>;
 String _$localMusicViewModelHash() =>
-    r'e5f15fa9e2df19b29494039b3b02a248f49b7320';
+    r'090a18caffa94efd1a7816ae0e0e3d3a19c5fd19';
 
 /// 本地音乐 ViewModel
 ///

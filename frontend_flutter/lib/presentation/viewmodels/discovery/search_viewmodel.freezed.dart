@@ -25,6 +25,10 @@ mixin _$SearchState {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -43,6 +47,10 @@ mixin _$SearchState {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -61,6 +69,10 @@ mixin _$SearchState {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(
@@ -170,6 +182,10 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -192,6 +208,10 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -214,6 +234,10 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(
@@ -325,6 +349,10 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -347,6 +375,10 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -369,6 +401,10 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(
@@ -442,6 +478,10 @@ abstract class _$$SearchStateResultsLoadedImplCopyWith<$Res> {
     List<SearchResultItem> results,
     String query,
     SearchPlatform platform,
+    int currentPage,
+    int pageSize,
+    int totalCount,
+    bool hasMore,
   });
 }
 
@@ -462,6 +502,10 @@ class __$$SearchStateResultsLoadedImplCopyWithImpl<$Res>
     Object? results = null,
     Object? query = null,
     Object? platform = null,
+    Object? currentPage = null,
+    Object? pageSize = null,
+    Object? totalCount = null,
+    Object? hasMore = null,
   }) {
     return _then(
       _$SearchStateResultsLoadedImpl(
@@ -477,6 +521,22 @@ class __$$SearchStateResultsLoadedImplCopyWithImpl<$Res>
             ? _value.platform
             : platform // ignore: cast_nullable_to_non_nullable
                   as SearchPlatform,
+        currentPage: null == currentPage
+            ? _value.currentPage
+            : currentPage // ignore: cast_nullable_to_non_nullable
+                  as int,
+        pageSize: null == pageSize
+            ? _value.pageSize
+            : pageSize // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalCount: null == totalCount
+            ? _value.totalCount
+            : totalCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        hasMore: null == hasMore
+            ? _value.hasMore
+            : hasMore // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -489,6 +549,10 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     required final List<SearchResultItem> results,
     required this.query,
     required this.platform,
+    this.currentPage = 1,
+    this.pageSize = 20,
+    this.totalCount = 0,
+    this.hasMore = false,
   }) : _results = results;
 
   final List<SearchResultItem> _results;
@@ -503,10 +567,22 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
   final String query;
   @override
   final SearchPlatform platform;
+  @override
+  @JsonKey()
+  final int currentPage;
+  @override
+  @JsonKey()
+  final int pageSize;
+  @override
+  @JsonKey()
+  final int totalCount;
+  @override
+  @JsonKey()
+  final bool hasMore;
 
   @override
   String toString() {
-    return 'SearchState.resultsLoaded(results: $results, query: $query, platform: $platform)';
+    return 'SearchState.resultsLoaded(results: $results, query: $query, platform: $platform, currentPage: $currentPage, pageSize: $pageSize, totalCount: $totalCount, hasMore: $hasMore)';
   }
 
   @override
@@ -517,7 +593,14 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
             const DeepCollectionEquality().equals(other._results, _results) &&
             (identical(other.query, query) || other.query == query) &&
             (identical(other.platform, platform) ||
-                other.platform == platform));
+                other.platform == platform) &&
+            (identical(other.currentPage, currentPage) ||
+                other.currentPage == currentPage) &&
+            (identical(other.pageSize, pageSize) ||
+                other.pageSize == pageSize) &&
+            (identical(other.totalCount, totalCount) ||
+                other.totalCount == totalCount) &&
+            (identical(other.hasMore, hasMore) || other.hasMore == hasMore));
   }
 
   @override
@@ -526,6 +609,10 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     const DeepCollectionEquality().hash(_results),
     query,
     platform,
+    currentPage,
+    pageSize,
+    totalCount,
+    hasMore,
   );
 
   /// Create a copy of SearchState
@@ -548,6 +635,10 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -558,7 +649,15 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     idle,
     required TResult Function(String message) error,
   }) {
-    return resultsLoaded(results, query, platform);
+    return resultsLoaded(
+      results,
+      query,
+      platform,
+      currentPage,
+      pageSize,
+      totalCount,
+      hasMore,
+    );
   }
 
   @override
@@ -570,6 +669,10 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -580,7 +683,15 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     idle,
     TResult? Function(String message)? error,
   }) {
-    return resultsLoaded?.call(results, query, platform);
+    return resultsLoaded?.call(
+      results,
+      query,
+      platform,
+      currentPage,
+      pageSize,
+      totalCount,
+      hasMore,
+    );
   }
 
   @override
@@ -592,6 +703,10 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(
@@ -604,7 +719,15 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     required TResult orElse(),
   }) {
     if (resultsLoaded != null) {
-      return resultsLoaded(results, query, platform);
+      return resultsLoaded(
+        results,
+        query,
+        platform,
+        currentPage,
+        pageSize,
+        totalCount,
+        hasMore,
+      );
     }
     return orElse();
   }
@@ -655,11 +778,19 @@ abstract class SearchStateResultsLoaded implements SearchState {
     required final List<SearchResultItem> results,
     required final String query,
     required final SearchPlatform platform,
+    final int currentPage,
+    final int pageSize,
+    final int totalCount,
+    final bool hasMore,
   }) = _$SearchStateResultsLoadedImpl;
 
   List<SearchResultItem> get results;
   String get query;
   SearchPlatform get platform;
+  int get currentPage;
+  int get pageSize;
+  int get totalCount;
+  bool get hasMore;
 
   /// Create a copy of SearchState
   /// with the given fields replaced by the non-null parameter values.
@@ -801,6 +932,10 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -823,6 +958,10 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -845,6 +984,10 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(
@@ -1000,6 +1143,10 @@ class _$SearchStateErrorImpl implements SearchStateError {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )
     resultsLoaded,
     required TResult Function(
@@ -1022,6 +1169,10 @@ class _$SearchStateErrorImpl implements SearchStateError {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult? Function(
@@ -1044,6 +1195,10 @@ class _$SearchStateErrorImpl implements SearchStateError {
       List<SearchResultItem> results,
       String query,
       SearchPlatform platform,
+      int currentPage,
+      int pageSize,
+      int totalCount,
+      bool hasMore,
     )?
     resultsLoaded,
     TResult Function(

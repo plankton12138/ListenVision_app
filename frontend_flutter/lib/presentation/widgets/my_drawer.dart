@@ -1,37 +1,34 @@
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 应用侧边栏抽屉
 ///
 /// 显示用户信息、主菜单导航和登录/登出按钮
-class MyDrawer extends StatelessWidget {
+class MyDrawer extends ConsumerWidget {
   const MyDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // 使用 Selector 只监听 isLoggedIn 属性
-    return Selector<AuthProvider, bool>(
-      selector: (context, auth) => auth.isLoggedIn,
-      builder: (context, isLoggedIn, child) {
-        final authProvider = context.read<AuthProvider>();
-        return Drawer(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          child: Column(
-            children: [
-              _buildDrawerHeader(context, authProvider, isLoggedIn),
-              _buildMainMenu(context, isLoggedIn),
-              _buildAuthSection(context, authProvider, isLoggedIn),
-            ],
-          ),
-        );
-      },
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authViewModelProvider);
+    final isLoggedIn = authState.isLoggedIn;
+    final user = authState.currentUser;
+
+    return Drawer(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      child: Column(
+        children: [
+          _buildDrawerHeader(context, user, isLoggedIn),
+          _buildMainMenu(context, isLoggedIn),
+          _buildAuthSection(context, ref, isLoggedIn),
+        ],
+      ),
     );
   }
 
   /// 构建抽屉头部（用户信息）
-  Widget _buildDrawerHeader(BuildContext context, AuthProvider auth, bool isLoggedIn) {
+  Widget _buildDrawerHeader(BuildContext context, user, bool isLoggedIn) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -41,14 +38,14 @@ class MyDrawer extends StatelessWidget {
               color: colorScheme.surfaceContainerHighest,
             ),
             accountName: Text(
-              auth.user?.username ?? '未登录用户',
+              user?.username ?? '未登录用户',
               style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
               ),
             ),
             accountEmail: Text(
-              auth.user?.email ?? '',
+              user?.email ?? '',
               style: textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -143,17 +140,19 @@ class MyDrawer extends StatelessWidget {
   }
 
   /// 构建认证区域（登录/登出）
-  Widget _buildAuthSection(BuildContext context, AuthProvider auth, bool isLoggedIn) {
+  Widget _buildAuthSection(BuildContext context, WidgetRef ref, bool isLoggedIn) {
+    final authViewModel = ref.read(authViewModelProvider);
+
     return Column(
       children: [
         const Divider(height: 1),
-        if (auth.isLoggedIn)
+        if (isLoggedIn)
           _buildListTile(
             context: context,
             title: '退出登录',
             icon: Icons.exit_to_app,
             onTap: () {
-              auth.logout();
+              authViewModel.logout();
               Navigator.pop(context);
               context.go('/');
             },

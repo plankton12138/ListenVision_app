@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 添加歌曲对话框
 ///
@@ -11,13 +11,13 @@ import 'package:demo/presentation/providers/auth/auth_provider.dart';
 /// 1. 从搜索结果添加（游客可用）
 /// 2. 输入BV号添加（游客可用）
 /// 3. 从播放历史添加（需要登录）
-class AddSongDialog extends StatelessWidget {
+class AddSongDialog extends ConsumerWidget {
   const AddSongDialog({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authProvider = context.read<AuthProvider>();
-    final isLoggedIn = authProvider.isLoggedIn;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authViewModelProvider);
+    final isLoggedIn = authState.isLoggedIn;
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,

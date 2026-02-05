@@ -675,6 +675,11 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     }
   }
 
+  // ==================== 公开状态访问 ====================
+
+  /// 获取当前播放器状态（公开 getter）
+  PlayerState get playerState => state;
+
   // ==================== 资源释放 ====================
 
   @override

@@ -1,44 +1,38 @@
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/bilibili/bilibili_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:demo/core/constants/api_constants.dart';
+import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 音频信息显示组件
 ///
 /// 显示当前播放音频的封面图、标题和艺术家信息
-class AudioInfo extends StatelessWidget {
+class AudioInfo extends ConsumerWidget {
   const AudioInfo({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    /// 构建音频信息显示组件
-    ///
-    /// 显示专辑封面、歌曲标题和艺术家信息。
-    final provider = context.watch<AudioProvider>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playerState = ref.watch(playerViewModelProvider);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       mainAxisSize: MainAxisSize.min,
       children: [
         // 专辑封面
-        _buildAlbumArt(context, provider),
+        _buildAlbumArt(context, playerState),
         // 音频信息（标题、艺术家）
-        _buildAudioInfo(context, provider),
+        _buildAudioInfo(context, playerState),
       ],
     );
   }
 
   /// 构建专辑封面
-  ///
-  /// 参数:
-  /// - [controller] 元数据控制器
-  Widget _buildAlbumArt(BuildContext context, AudioProvider controller) {
+  Widget _buildAlbumArt(BuildContext context, playerState) {
     return Container(
       width: MediaQuery.of(context).size.width,
       height: 300,
-      child: _buildAlbumArtContent(context, controller),
+      child: _buildAlbumArtContent(context, playerState),
     );
   }
 
@@ -48,16 +42,13 @@ class AudioInfo extends StatelessWidget {
   /// 1. 本地音频封面 (Uint8List)
   /// 2. 在线音频封面（通过代理URL）
   /// 3. 默认封面图片
-  ///
-  /// 参数:
-  /// - [controller] 元数据控制器
-  Widget _buildAlbumArtContent(BuildContext context, AudioProvider controller) {
+  Widget _buildAlbumArtContent(BuildContext context, playerState) {
     // 优先级1: 本地音频封面 (Uint8List)
-    if (controller.albumArt != null) {
+    if (playerState.albumArt != null) {
       return Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: MemoryImage(controller.albumArt!),
+            image: MemoryImage(playerState.albumArt!),
             fit: BoxFit.contain,
             alignment: Alignment.center,
           ),
@@ -66,10 +57,9 @@ class AudioInfo extends StatelessWidget {
     }
 
     // 优先级2: 在线音频封面 (使用代理解决防盗链)
-    final coverUrl = controller.currentPlayable?.coverUrl;
+    final coverUrl = playerState.coverUrl;
     if (coverUrl != null && coverUrl.isNotEmpty) {
-      final bilibiliProvider = context.read<BilibiliProvider>();
-      final proxyUrl = bilibiliProvider.getProxyImageUrl(coverUrl);
+      final proxyUrl = _buildProxyImageUrl(coverUrl);
 
       return Image.network(
         proxyUrl,
@@ -92,11 +82,14 @@ class AudioInfo extends StatelessWidget {
     );
   }
 
+  /// 构建图片代理URL
+  String _buildProxyImageUrl(String originalUrl) {
+    if (originalUrl.contains('/proxy/image')) return originalUrl;
+    return '${ApiConstants.fullBaseUrl}${BilibiliEndpoints.proxyImage}?url=${Uri.encodeComponent(originalUrl)}';
+  }
+
   /// 构建音频信息（标题和艺术家）
-  ///
-  /// 参数:
-  /// - [controller] 元数据控制器
-  Widget _buildAudioInfo(BuildContext context, AudioProvider controller) {
+  Widget _buildAudioInfo(BuildContext context, playerState) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       mainAxisSize: MainAxisSize.min,
@@ -105,7 +98,7 @@ class AudioInfo extends StatelessWidget {
 
         // 标题
         Text(
-          controller.title,
+          playerState.title,
           style: const TextStyle(
             fontSize: UIConstants.fontSizeMedium,
             fontWeight: FontWeight.bold,
@@ -119,7 +112,7 @@ class AudioInfo extends StatelessWidget {
 
         // 艺术家
         Text(
-          controller.artist,
+          playerState.artist,
           style: const TextStyle(
             fontSize: UIConstants.fontSizeSmall,
             color: Colors.grey,

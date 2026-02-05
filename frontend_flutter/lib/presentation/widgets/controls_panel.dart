@@ -1,30 +1,31 @@
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:demo/core/utils/app_logger.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 播放控制面板组件
 ///
 /// 显示播放进度、时间显示和控制按钮（上一曲、播放/暂停、下一曲）
-class ControlsPanel extends StatelessWidget {
+class ControlsPanel extends ConsumerWidget {
   const ControlsPanel({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<AudioProvider>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playerViewModel = ref.watch(playerViewModelProvider);
+    final playerState = playerViewModel.playerState;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 时间显示（当前位置/总时长）
-        _buildTimeDisplay(context, provider),
+        _buildTimeDisplay(context, playerState),
         // 进度条
-        _buildProgressBar(context, provider),
+        _buildProgressBar(context, playerState, playerViewModel),
         // 控制按钮
-        _buildControlButtons(context, provider),
+        _buildControlButtons(context, playerState, playerViewModel),
       ],
     );
   }
@@ -35,24 +36,24 @@ class ControlsPanel extends StatelessWidget {
   /// 当有有效时长和位置时优先显示时间，而不是状态
   Widget _buildTimeDisplay(
     BuildContext context,
-    AudioProvider controller,
+    playerState,
   ) {
-    final duration = controller.duration;
-    final position = controller.position;
+    final duration = playerState.duration ?? Duration.zero;
+    final position = playerState.position;
     final hasValidDuration = duration > Duration.zero;
     final hasValidPosition = position >= Duration.zero;
-    final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || controller.isPlaying);
+    final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || playerState.isPlaying);
 
     // UX改进：优先显示错误状态（最优先）
-    if (controller.hasPlaybackError) {
+    if (playerState.hasError) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 16),
           const SizedBox(width: 4),
           Text(
-            controller.playerStatusMessage.isNotEmpty
-                ? controller.playerStatusMessage
+            playerState.statusMessage.isNotEmpty
+                ? playerState.statusMessage
                 : '播放失败',
             style: const TextStyle(color: Colors.red),
           ),
@@ -76,7 +77,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // UX改进：显示状态消息（正在播放、正在加载等）
-    if (controller.playerStatusMessage.isNotEmpty) {
+    if (playerState.statusMessage.isNotEmpty) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -87,7 +88,7 @@ class ControlsPanel extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            controller.playerStatusMessage,
+            playerState.statusMessage,
             style: const TextStyle(color: Colors.blue),
           ),
         ],
@@ -95,7 +96,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // 加载状态（来自 PlaybackController）
-    if (controller.isLoading) {
+    if (playerState.isLoading) {
       return const Text(
         '加载中...',
         style: TextStyle(color: Colors.blue),
@@ -103,7 +104,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // 缓冲状态（audioplayers 不直接提供，通过加载状态推断）
-    if (controller.isBuffering) {
+    if (playerState.isBuffering) {
       return const Text(
         '缓冲中...',
         style: TextStyle(color: Colors.orange),
@@ -111,7 +112,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // 已完成状态 - 只有在没有有效时长时才显示
-    if (controller.isCompleted && !hasValidDuration) {
+    if (playerState.isCompleted && !hasValidDuration) {
       return const Text(
         '播放完成',
         style: TextStyle(color: Colors.green),
@@ -119,7 +120,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // 空闲状态
-    if (controller.isIdle) {
+    if (playerState.isIdle) {
       return const Text(
         '就绪',
         style: TextStyle(color: Colors.grey),
@@ -139,10 +140,12 @@ class ControlsPanel extends StatelessWidget {
   /// 只要有有效时长就显示进度条，而不是加载指示器
   Widget _buildProgressBar(
     BuildContext context,
-    AudioProvider controller,
+    playerState,
+    playerViewModel,
   ) {
-    final durationSec = controller.duration.inSeconds;
-    final positionSec = controller.position.inSeconds;
+    final duration = playerState.duration ?? Duration.zero;
+    final durationSec = duration.inSeconds;
+    final positionSec = playerState.position.inSeconds;
 
     // 确保值在有效范围内
     final safeValue = (durationSec > 0 && positionSec <= durationSec)
@@ -154,15 +157,15 @@ class ControlsPanel extends StatelessWidget {
     final hasValidDuration = durationSec > 0;
 
     // UX改进：有错误时显示重试提示
-    if (controller.hasPlaybackError) {
+    if (playerState.hasError) {
       return SizedBox(
         height: 48,
         child: Center(
           child: TextButton.icon(
             onPressed: () {
               AppLogger.logButtonClick('重试', 'ControlsPanel');
-              controller.clearPlaybackError();
-              controller.togglePlayPause();
+              playerViewModel.clearError();
+              playerViewModel.togglePlayPause();
             },
             icon: const Icon(Icons.refresh, color: Colors.blue),
             label: const Text(
@@ -185,13 +188,13 @@ class ControlsPanel extends StatelessWidget {
         onChanged: (value) {
           AppLogger.logButtonClick('进度条', 'ControlsPanel',
             parameters: {'position': value.toInt()});
-          controller.seek(Duration(seconds: value.toInt()));
+          playerViewModel.seek(Duration(seconds: value.toInt()));
         },
       );
     }
 
     // UX改进：有状态消息时显示提示（没有有效时长时）
-    if (controller.playerStatusMessage.isNotEmpty) {
+    if (playerState.statusMessage.isNotEmpty) {
       return const SizedBox(
         height: 24,
         child: Center(
@@ -205,7 +208,7 @@ class ControlsPanel extends StatelessWidget {
     }
 
     // 加载或缓冲时显示进度指示器（没有有效时长时）
-    if (controller.isLoading || controller.isBuffering) {
+    if (playerState.isLoading || playerState.isBuffering) {
       return const SizedBox(
         height: 24,
         child: Center(
@@ -232,7 +235,7 @@ class ControlsPanel extends StatelessWidget {
   }
 
   /// 构建控制按钮
-  Widget _buildControlButtons(BuildContext context, AudioProvider provider) {
+  Widget _buildControlButtons(BuildContext context, playerState, playerViewModel) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -246,18 +249,18 @@ class ControlsPanel extends StatelessWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('上一首', 'ControlsPanel');
-                provider.playPrevious();
+                playerViewModel.playPrevious?.call();
               },
             ),
             IconButton(
-              icon: Icon(provider.isPlaying ? Icons.pause : Icons.play_arrow),
+              icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow),
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick(
-                  provider.isPlaying ? '暂停' : '播放',
+                  playerState.isPlaying ? '暂停' : '播放',
                   'ControlsPanel',
                 );
-                provider.togglePlayPause();
+                playerViewModel.togglePlayPause();
               },
             ),
             IconButton(
@@ -265,7 +268,7 @@ class ControlsPanel extends StatelessWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('下一首', 'ControlsPanel');
-                provider.playNext();
+                playerViewModel.playNext?.call();
               },
             ),
           ],

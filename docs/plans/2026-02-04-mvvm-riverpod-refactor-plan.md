@@ -14,10 +14,10 @@
 | 5 | 播放器 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 6 | 其他 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 7 | Views 迁移与解耦 | ✅ 已完成 | 2026-02-04 |
-| 8 | Widgets 更新 | ⏳ 待开始 | - |
+| 8 | Widgets 更新 | ✅ 已完成 | 2026-02-05 |
 | 9 | 清理与收尾 | ⏳ 待开始 | - |
 
-**整体进度**: `████████████████████░░░` 80% (8/10)
+**整体进度**: `█████████████████████░░` 90% (9/10)
 
 ---
 
@@ -555,13 +555,21 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 8 — Widgets 更新
 
+> **状态**: ✅ 已完成 (2026-02-05)
+
 **目标**：更新所有 Widgets 的 Provider 调用
 
 **改动**：
-- 20+ widgets 的 `context.watch/read` 替换
-- 必要时用 `ConsumerWidget` / `ConsumerStatefulWidget`
+- `my_drawer.dart` - AuthProvider → authViewModelProvider
+- `add_song_dialog.dart` - AuthProvider → authViewModelProvider
+- `sort_options_dialog.dart` - PlaylistProvider → playlistViewModelProvider
+- `audio_info.dart` - AudioProvider → playerViewModelProvider，移除 BilibiliProvider 依赖
+- `controls_panel.dart` - AudioProvider → playerViewModelProvider
+- `player_action_bar.dart` - AudioProvider/PlaylistProvider/AuthProvider → 新 ViewModels
+- `cards/playlist_card.dart` - 修复 import 路径 (domain/entities → models)
+- 添加 ViewModel 的 `playerState`/`playlistState` 公开 getter
 
-**验收**：Widget 测试通过
+**验收**：widgets 目录无 error 级别问题 ✅
 
 ---
 

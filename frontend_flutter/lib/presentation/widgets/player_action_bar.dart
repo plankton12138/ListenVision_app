@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
-import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:demo/presentation/providers/auth/auth_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 播放器底部操作栏
 ///
 /// 包含收藏、添加到歌单、更多等操作按钮
-class PlayerActionBar extends StatelessWidget {
+class PlayerActionBar extends ConsumerWidget {
   const PlayerActionBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
-    final playlistProvider = context.watch<PlaylistProvider>();
-    final currentId = audioProvider.currentPlayable?.id ?? '';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playerViewModel = ref.watch(playerViewModelProvider);
+    final playlistViewModel = ref.watch(playlistViewModelProvider);
+
+    final playerState = playerViewModel.playerState;
+    final currentId = playerState.currentPlayable?.id ?? '';
 
     if (currentId.isEmpty) {
       return const Text(
@@ -24,18 +24,22 @@ class PlayerActionBar extends StatelessWidget {
       );
     }
 
+    final playlistState = playlistViewModel.playlistState;
+    final isFavorited = playlistState.maybeWhen(
+      loaded: (_, __, ___, ____, _____, favoritesItems, ______) {
+        return favoritesItems.any((item) => item.bvid == currentId);
+      },
+      orElse: () => false,
+    );
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _ActionButton(
-          icon: playlistProvider.isFavorited(currentId)
-              ? Icons.favorite
-              : Icons.favorite_border,
+          icon: isFavorited ? Icons.favorite : Icons.favorite_border,
           label: '收藏',
-          iconColor: playlistProvider.isFavorited(currentId)
-              ? Theme.of(context).colorScheme.error
-              : null,
-          onTap: () => _handleFavorite(context, playlistProvider, audioProvider),
+          iconColor: isFavorited ? Theme.of(context).colorScheme.error : null,
+          onTap: () => _handleFavorite(context, ref),
         ),
         _ActionButton(
           icon: Icons.playlist_add,
@@ -54,38 +58,43 @@ class PlayerActionBar extends StatelessWidget {
   /// 处理收藏按钮点击
   ///
   /// 切换当前播放歌曲的收藏状态。
-  ///
-  /// 参数:
-  /// - [playlistProvider] 歌单提供者，用于管理收藏
-  /// - [audioProvider] 音频提供者，用于获取当前播放信息
   Future<void> _handleFavorite(
     BuildContext context,
-    PlaylistProvider playlistProvider,
-    AudioProvider audioProvider,
+    WidgetRef ref,
   ) async {
-    final authProvider = context.read<AuthProvider>();
-    if (!authProvider.isLoggedIn || authProvider.user?.token == null) {
+    final authViewModel = ref.read(authViewModelProvider);
+    final playlistViewModel = ref.read(playlistViewModelProvider);
+    final playerViewModel = ref.read(playerViewModelProvider);
+
+    if (!authViewModel.isLoggedIn) {
       if (context.mounted) {
         _showSnackBar(context, '请先登录后收藏', Colors.orange);
       }
       return;
     }
 
-    final currentPlayable = audioProvider.currentPlayable;
+    final currentPlayable = playerViewModel.playerState.currentPlayable;
     if (currentPlayable == null) return;
 
+    final token = authViewModel.currentToken;
+    if (token == null) {
+      if (context.mounted) {
+        _showSnackBar(context, '请先登录后收藏', Colors.orange);
+      }
+      return;
+    }
+
     final bvid = currentPlayable.id;
-    final wasFavorited = playlistProvider.isFavorited(bvid);
 
     AppLogger.logButtonClick(
-      wasFavorited ? '取消收藏' : '收藏',
+      '收藏',
       'PlayerActionBar',
       parameters: {'bvid': bvid, 'title': currentPlayable.title},
     );
 
     try {
-      await playlistProvider.toggleFavorite(
-        authProvider.user!.token!,
+      await playlistViewModel.toggleFavorite(
+        token,
         bvid,
         title: currentPlayable.title,
         artist: currentPlayable.artist,
@@ -93,13 +102,15 @@ class PlayerActionBar extends StatelessWidget {
         coverUrl: currentPlayable.coverUrl,
       );
 
-      if (context.mounted) {
-        _showSnackBar(
-          context,
-          wasFavorited ? '已取消收藏' : '已添加到我喜欢',
-          wasFavorited ? Colors.grey : Colors.green,
-        );
-      }
+      if (!context.mounted) return;
+
+      // 刷新收藏列表
+      await playlistViewModel.loadFavorites(token);
+      _showSnackBar(
+        context,
+        '已添加到我喜欢',
+        Colors.green,
+      );
     } catch (e) {
       AppLogger.error('PlayerActionBar', '收藏操作失败: $e');
       if (context.mounted) {

@@ -571,6 +571,9 @@ class PlaylistViewModel extends StateNotifier<PlaylistState> {
     AppLogger.info('PlaylistViewModel', '已清空数据');
   }
 
+  /// 获取当前歌单状态（公开 getter）
+  PlaylistState get playlistState => state;
+
   // ==================== 私有方法 ====================
 
   void _revertToLoadedState() {

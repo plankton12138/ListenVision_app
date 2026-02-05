@@ -1,5 +1,4 @@
-// 使用 Clean Architecture entities
-import 'package:demo/domain/entities/models_export.dart';
+import 'package:demo/models/models_export.dart';
 import 'package:flutter/material.dart';
 
 /// 歌单卡片变体类型

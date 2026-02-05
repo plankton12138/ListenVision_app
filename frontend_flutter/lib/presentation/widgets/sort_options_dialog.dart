@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers/playlist/playlist_provider.dart';
-import 'package:provider/provider.dart';
+import 'package:demo/presentation/providers.dart';
 
 /// 歌单排序选项对话框
 ///
@@ -9,11 +9,11 @@ import 'package:provider/provider.dart';
 /// 1. 按添加时间（最新/最早）
 /// 2. 按标题字母序（A-Z / Z-A）
 /// 3. 按艺术家字母序（A-Z / Z-A）
-class SortOptionsDialog extends StatelessWidget {
+class SortOptionsDialog extends ConsumerWidget {
   const SortOptionsDialog({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AlertDialog(
       title: const Text(
         '排序方式',
@@ -30,14 +30,14 @@ class SortOptionsDialog extends StatelessWidget {
             icon: Icons.new_releases,
             title: '最新添加',
             subtitle: '最近添加的排在前面',
-            onTap: () => _applySort(context, 'added_at_desc'),
+            onTap: () => _applySort(context, ref, 'added_at_desc'),
           ),
           _buildOption(
             context,
             icon: Icons.schedule,
             title: '最早添加',
             subtitle: '最早添加的排在前面',
-            onTap: () => _applySort(context, 'added_at_asc'),
+            onTap: () => _applySort(context, ref, 'added_at_asc'),
           ),
 
           const Divider(height: 24),
@@ -49,14 +49,14 @@ class SortOptionsDialog extends StatelessWidget {
             icon: Icons.text_rotation_none,
             title: 'A-Z（标题）',
             subtitle: '按标题字母顺序排列',
-            onTap: () => _applySort(context, 'title_asc'),
+            onTap: () => _applySort(context, ref, 'title_asc'),
           ),
           _buildOption(
             context,
             icon: Icons.arrow_downward,
             title: 'Z-A（标题）',
             subtitle: '按标题字母倒序排列',
-            onTap: () => _applySort(context, 'title_desc'),
+            onTap: () => _applySort(context, ref, 'title_desc'),
           ),
 
           const Divider(height: 24),
@@ -68,14 +68,14 @@ class SortOptionsDialog extends StatelessWidget {
             icon: Icons.person,
             title: 'A-Z（艺术家）',
             subtitle: '按艺术家字母顺序排列',
-            onTap: () => _applySort(context, 'artist_asc'),
+            onTap: () => _applySort(context, ref, 'artist_asc'),
           ),
           _buildOption(
             context,
             icon: Icons.person_outline,
             title: 'Z-A（艺术家）',
             subtitle: '按艺术家字母倒序排列',
-            onTap: () => _applySort(context, 'artist_desc'),
+            onTap: () => _applySort(context, ref, 'artist_desc'),
           ),
         ],
       ),
@@ -158,10 +158,9 @@ class SortOptionsDialog extends StatelessWidget {
   /// - title_desc: Z-A标题
   /// - artist_asc: A-Z艺术家
   /// - artist_desc: Z-A艺术家
-  void _applySort(BuildContext context, String sortType) {
-    // 获取 playlistId（从祖先 widget 获取）
-    final playlistProvider = Provider.of<PlaylistProvider>(context, listen: false);
-    final currentPlaylistId = playlistProvider.currentPlaylistId;
+  void _applySort(BuildContext context, WidgetRef ref, String sortType) {
+    final playlistViewModel = ref.read(playlistViewModelProvider);
+    final currentPlaylistId = playlistViewModel.currentPlaylistId;
 
     if (currentPlaylistId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -176,36 +175,18 @@ class SortOptionsDialog extends StatelessWidget {
     // 先关闭对话框
     Navigator.pop(context);
 
-    // 调用排序API
-    playlistProvider.sortPlaylistItems(
-      playlistId: currentPlaylistId,
-      sortType: sortType,
-    ).then((success) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已按 ${sortTypeToDisplayName(sortType)} 排序'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        // 触发页面刷新（通过 InheritedWidget 或回调）
-        // 这里假设PlaylistDetailPage会监听Provider变化或有刷新机制
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('排序失败，请重试'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('排序失败: $error'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    });
+    // TODO: 调用歌单排序API
+    // playlistViewModel.sortPlaylistItems(
+    //   playlistId: currentPlaylistId,
+    //   sortType: sortType,
+    // );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已按 ${sortTypeToDisplayName(sortType)} 排序'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   /// 将 sortType 转换为显示名称

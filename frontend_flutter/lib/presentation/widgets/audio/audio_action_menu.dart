@@ -1,0 +1,646 @@
+import 'dart:io';
+
+import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/audio.dart';
+import 'package:demo/models/playlist.dart';
+import 'package:demo/models/online_playable.dart';
+import 'package:demo/presentation/providers.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// 音频操作菜单组件
+///
+/// 提供播放、下载、加入歌单、收藏、跳转原网页等操作
+class AudioActionMenu extends ConsumerWidget {
+  /// BVID
+  final String bvid;
+
+  /// 标题
+  final String title;
+
+  /// 艺术家
+  final String? artist;
+
+  /// 封面 URL
+  final String? coverUrl;
+
+  /// 时长（秒）
+  final int? duration;
+
+  /// 是否显示收藏按钮
+  final bool showFavorite;
+
+  /// 是否显示下载按钮
+  final bool showDownload;
+
+  /// 是否显示添加到歌单按钮
+  final bool showAddToPlaylist;
+
+  /// 是否显示跳转原网页按钮
+  final bool showOpenInBrowser;
+
+  const AudioActionMenu({
+    super.key,
+    required this.bvid,
+    required this.title,
+    this.artist,
+    this.coverUrl,
+    this.duration,
+    this.showFavorite = true,
+    this.showDownload = true,
+    this.showAddToPlaylist = true,
+    this.showOpenInBrowser = true,
+  });
+
+  /// 显示底部操作菜单
+  static Future<void> show(
+    BuildContext context, {
+    required String bvid,
+    required String title,
+    String? artist,
+    String? coverUrl,
+    int? duration,
+    bool showFavorite = true,
+    bool showDownload = true,
+    bool showAddToPlaylist = true,
+    bool showOpenInBrowser = true,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => AudioActionMenu(
+        bvid: bvid,
+        title: title,
+        artist: artist,
+        coverUrl: coverUrl,
+        duration: duration,
+        showFavorite: showFavorite,
+        showDownload: showDownload,
+        showAddToPlaylist: showAddToPlaylist,
+        showOpenInBrowser: showOpenInBrowser,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlistViewModel = ref.watch(playlistViewModelProvider);
+    final playlistState = playlistViewModel.playlistState;
+    final isFavorited = playlistState.maybeWhen(
+      loaded: (_, __, ___, ____, _____, favoritesItems, ______) =>
+          favoritesItems.any((item) => item.bvid == bvid),
+      orElse: () => false,
+    );
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 顶部指示条
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context).dividerColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // 音频信息
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                if (coverUrl != null && coverUrl!.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      coverUrl!,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 56,
+                        height: 56,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.music_note),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (artist != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          artist!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // 操作列表
+          if (showFavorite)
+            ListTile(
+              leading: Icon(
+                isFavorited ? Icons.favorite : Icons.favorite_border,
+                color: isFavorited ? Colors.red : null,
+              ),
+              title: Text(isFavorited ? '取消收藏' : '收藏'),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleFavorite(ref, context);
+              },
+            ),
+
+          if (showAddToPlaylist)
+            ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('加入歌单'),
+              onTap: () {
+                Navigator.pop(context);
+                _showPlaylistSelector(context, ref);
+              },
+            ),
+
+          if (showDownload)
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('下载'),
+              onTap: () {
+                Navigator.pop(context);
+                _downloadAudio(ref, context);
+              },
+            ),
+
+          if (showOpenInBrowser)
+            ListTile(
+              leading: const Icon(Icons.open_in_browser),
+              title: const Text('在浏览器中打开'),
+              onTap: () {
+                Navigator.pop(context);
+                _openInBrowser(context);
+              },
+            ),
+
+          // 分享
+          ListTile(
+            leading: const Icon(Icons.share),
+            title: const Text('分享'),
+            onTap: () {
+              Navigator.pop(context);
+              _share(context);
+            },
+          ),
+
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 切换收藏状态
+  void _toggleFavorite(WidgetRef ref, BuildContext context) async {
+    try {
+      AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
+
+      final authViewModel = ref.read(authViewModelProvider);
+      if (!authViewModel.isLoggedIn) {
+        if (context.mounted) {
+          _showSnackBar(context, '请先登录', Colors.orange);
+        }
+        return;
+      }
+
+      final token = authViewModel.currentToken;
+      if (token == null) {
+        if (context.mounted) {
+          _showSnackBar(context, '请先登录', Colors.orange);
+        }
+        return;
+      }
+
+      final playlistViewModel = ref.read(playlistViewModelProvider);
+
+      final added = await playlistViewModel.toggleFavorite(
+            token,
+            bvid,
+            title: title,
+            artist: artist,
+            duration: duration,
+            coverUrl: coverUrl,
+          );
+
+      // 刷新收藏列表
+      await playlistViewModel.loadFavorites(token);
+
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          added ? '已添加到收藏' : '已取消收藏',
+          added ? Colors.green : Colors.grey,
+        );
+      }
+    } catch (e) {
+      AppLogger.error('AudioActionMenu', '收藏操作失败: $e');
+      if (context.mounted) {
+        _showSnackBar(context, '操作失败: $e', Colors.red);
+      }
+    }
+  }
+
+  /// 显示歌单选择器
+  void _showPlaylistSelector(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _PlaylistSelectorContent(
+        bvid: bvid,
+        title: title,
+        artist: artist,
+        coverUrl: coverUrl,
+        duration: duration,
+      ),
+    );
+  }
+
+  /// 下载音频
+  void _downloadAudio(WidgetRef ref, BuildContext context) async {
+    try {
+      AppLogger.info('AudioActionMenu', '下载音频: $bvid');
+
+      final downloadViewModel = ref.read(downloadViewModelProvider);
+
+      // 获取下载目录
+      final downloadDir = await _getDownloadDirectory();
+
+      final sanitizedTitle = _sanitizeTitle(title);
+      final savePath = '$downloadDir$sanitizedTitle.mp3';
+
+      await downloadViewModel.addDownload(
+            bvid: bvid,
+            savePath: savePath,
+            title: title,
+            artist: artist,
+            coverUrl: coverUrl,
+          );
+
+      if (context.mounted) {
+        _showSnackBar(context, '已添加到下载队列', Colors.green);
+      }
+    } catch (e) {
+      AppLogger.error('AudioActionMenu', '下载失败: $e');
+      if (context.mounted) {
+        _showSnackBar(context, '下载失败: $e', Colors.red);
+      }
+    }
+  }
+
+  /// 在浏览器中打开
+  void _openInBrowser(BuildContext context) async {
+    final url = 'https://www.bilibili.com/video/$bvid';
+    AppLogger.info('AudioActionMenu', '在浏览器中打开: $url');
+
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        _showSnackBar(context, '无法打开浏览器', Colors.red);
+      }
+    }
+  }
+
+  /// 分享
+  void _share(BuildContext context) {
+    final url = 'https://www.bilibili.com/video/$bvid';
+    AppLogger.info('AudioActionMenu', '分享: $url');
+    if (context.mounted) {
+      _showSnackBar(context, '分享功能开发中\n$url', Colors.orange);
+    }
+  }
+
+  /// 获取下载目录
+  Future<String> _getDownloadDirectory() async {
+    try {
+      // 获取系统下载目录
+      final downloadDir = await getDownloadsDirectory();
+      if (downloadDir == null) {
+        throw Exception('系统下载目录不可用');
+      }
+
+      // 创建应用子目录
+      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      if (!await appDownloadDir.exists()) {
+        await appDownloadDir.create(recursive: true);
+      }
+
+      return '${appDownloadDir.path}${path.separator}';
+    } catch (e) {
+      AppLogger.error('AudioActionMenu', '获取下载目录失败: $e');
+      // 降级到应用文档目录
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        if (!await fallbackDir.exists()) {
+          await fallbackDir.create(recursive: true);
+        }
+        return '${fallbackDir.path}${path.separator}';
+      } catch (e) {
+        AppLogger.error('AudioActionMenu', '获取备用目录失败: $e');
+        return '';
+      }
+    }
+  }
+
+  /// 清理标题字符串
+  String _sanitizeTitle(String input) {
+    const pattern =
+        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+    final sanitized = input.replaceAll(RegExp(pattern), '');
+    return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// 显示提示消息
+  void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+/// 歌单选择器内容组件
+class _PlaylistSelectorContent extends ConsumerStatefulWidget {
+  final String bvid;
+  final String title;
+  final String? artist;
+  final String? coverUrl;
+  final int? duration;
+
+  const _PlaylistSelectorContent({
+    required this.bvid,
+    required this.title,
+    this.artist,
+    this.coverUrl,
+    this.duration,
+  });
+
+  @override
+  ConsumerState<_PlaylistSelectorContent> createState() => _PlaylistSelectorContentState();
+}
+
+class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorContent> {
+  final TextEditingController _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playlistViewModel = ref.watch(playlistViewModelProvider);
+    final playlistState = playlistViewModel.playlistState;
+    final userPlaylists = playlistState.maybeWhen(
+      loaded: (_, userPlaylists, __, ___, ____, _____, ______) => userPlaylists,
+      orElse: () => <Playlist>[],
+    );
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            children: [
+              // 顶部指示条
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // 标题
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      '选择歌单',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: _showCreatePlaylistDialog,
+                      tooltip: '创建新歌单',
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // 歌单列表
+              Expanded(
+                child: userPlaylists.isEmpty
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.playlist_add, size: 48, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('暂无歌单，点击 + 创建'),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: userPlaylists.length,
+                        itemBuilder: (context, index) {
+                          final playlist = userPlaylists[index];
+                          return ListTile(
+                            leading: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: playlist.hasCover
+                                    ? null
+                                    : Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: playlist.hasCover
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        playlist.coverUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.playlist_play),
+                                      ),
+                                    )
+                                  : const Icon(Icons.playlist_play),
+                            ),
+                            title: Text(playlist.name),
+                            subtitle: Text('${playlist.itemCount} 首歌曲'),
+                            onTap: () => _addToPlaylist(playlist.id),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 显示创建歌单对话框
+  void _showCreatePlaylistDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('创建新歌单'),
+        content: TextField(
+          controller: _nameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '歌单名称',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = _nameController.text.trim();
+              if (name.isEmpty) {
+                _showSnackBar('请输入歌单名称', Colors.orange);
+                return;
+              }
+
+              Navigator.pop(context);
+
+              final authViewModel = ref.read(authViewModelProvider);
+              final token = authViewModel.currentToken;
+
+              if (token != null) {
+                final playlistViewModel = ref.read(playlistViewModelProvider);
+                final newPlaylist = await playlistViewModel.createPlaylist(
+                      token,
+                      name: name,
+                    );
+
+                if (newPlaylist != null && mounted) {
+                  // 自动添加到新创建的歌单
+                  _addToPlaylist(newPlaylist.id);
+                }
+              } else {
+                if (mounted) {
+                  _showSnackBar('请先登录', Colors.orange);
+                }
+              }
+            },
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 添加到歌单
+  void _addToPlaylist(String playlistId) async {
+    try {
+      AppLogger.info('AudioActionMenu', '添加到歌单: ${widget.bvid} -> $playlistId');
+
+      Navigator.pop(context);
+
+      final authViewModel = ref.read(authViewModelProvider);
+      final token = authViewModel.currentToken;
+
+      if (token == null) {
+        if (mounted) {
+          _showSnackBar('请先登录', Colors.orange);
+        }
+        return;
+      }
+
+      final playlistViewModel = ref.read(playlistViewModelProvider);
+
+      final success = await playlistViewModel.addItem(
+            token,
+            playlistId,
+            widget.bvid,
+            title: widget.title,
+            artist: widget.artist,
+            duration: widget.duration,
+            coverUrl: widget.coverUrl,
+          );
+
+      if (mounted) {
+        if (success) {
+          _showSnackBar('已添加到歌单', Colors.green);
+        } else {
+          _showSnackBar('添加失败', Colors.red);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('AudioActionMenu', '添加到歌单失败: $e');
+      if (mounted) {
+        _showSnackBar('操作失败: $e', Colors.red);
+      }
+    }
+  }
+
+  /// 显示提示消息
+  void _showSnackBar(String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}

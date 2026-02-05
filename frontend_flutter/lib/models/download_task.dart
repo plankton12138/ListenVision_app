@@ -45,6 +45,7 @@ extension DownloadStatusExtension on DownloadStatus {
 /// 下载任务实体
 class DownloadTask {
   final int? id;
+  final int? trackId;
   final String url;
   final String savePath;
   final int downloadedBytes;
@@ -61,6 +62,7 @@ class DownloadTask {
 
   const DownloadTask({
     this.id,
+    this.trackId,
     required this.url,
     required this.savePath,
     this.downloadedBytes = 0,
@@ -96,6 +98,7 @@ class DownloadTask {
   factory DownloadTask.fromMap(Map<String, dynamic> map) {
     return DownloadTask(
       id: map['id'] as int?,
+      trackId: map['track_id'] as int?,
       url: map['url'] as String? ?? '',
       savePath: map['save_path'] as String? ?? '',
       downloadedBytes: map['downloaded_bytes'] as int? ?? 0,
@@ -120,6 +123,7 @@ class DownloadTask {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
+      if (trackId != null) 'track_id': trackId,
       'url': url,
       'save_path': savePath,
       'downloaded_bytes': downloadedBytes,
@@ -139,6 +143,7 @@ class DownloadTask {
   /// 创建副本，允许修改部分字段
   DownloadTask copyWith({
     int? id,
+    int? trackId,
     String? url,
     String? savePath,
     int? downloadedBytes,
@@ -155,6 +160,7 @@ class DownloadTask {
   }) {
     return DownloadTask(
       id: id ?? this.id,
+      trackId: trackId ?? this.trackId,
       url: url ?? this.url,
       savePath: savePath ?? this.savePath,
       downloadedBytes: downloadedBytes ?? this.downloadedBytes,

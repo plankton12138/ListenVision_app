@@ -59,6 +59,34 @@ Projects_ListenVison/
 - 先讲"为什么"，再讲"如何实现"
 - 完成工作后对话形式总结，不要自动创建文档
 
+### 计划制定规范
+
+**所有实施计划必须遵循以下规范**：
+
+| 规范 | 说明 |
+|------|------|
+| **文件路径必须具体** | 所有修改/新建的文件必须标注完整路径（如 `frontend_flutter/lib/presentation/viewmodels/system/download_viewmodel.dart`） |
+| **新建目录需提醒** | 涉及新建目录时必须明确提醒用户确认 |
+| **优先扩展现有文件** | 功能扩展优先在现有文件中添加，而非新建 |
+| **遵循现有架构** | ViewModel 使用 `@riverpod` 注解，在各自文件中定义 provider |
+| **providers.js 不存实现** | `presentation/providers.dart` 仅用于导出，不存放 provider 实现 |
+
+**当前项目架构**：
+```
+presentation/
+├── viewmodels/         # StateNotifier 状态管理
+│   ├── auth/           # 认证相关
+│   ├── player/         # 播放器相关
+│   ├── library/        # 资源库相关
+│   ├── discovery/      # 发现相关
+│   └── system/         # 系统相关（下载、主题等）
+├── views/              # 页面
+├── widgets/            # 组件
+└── providers.dart      # 统一导出（不存放实现）
+```
+
+**原则**：不要新建目录，优先扩展现有文件。
+
 ---
 
 ## 项目状态

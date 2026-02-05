@@ -1,7 +1,7 @@
 # 发现页面与搜索功能改进计划
 
 **创建日期**: 2026-02-05
-**状态**: 进行中 (Phase 1 已完成 / 5)
+**状态**: 进行中 (Phase 2 已完成 / 5)
 **优先级**: P0（核心功能改进）
 
 ---
@@ -138,7 +138,9 @@ Widget _buildResultsList(List<SearchResultItem> results, bool hasMore) {
 
 ---
 
-### Phase 2: 搜索结果操作菜单 (优先级: P0)
+### Phase 2: 搜索结果操作菜单 (优先级: P0) ✅ 已完成
+
+**完成日期**: 2026-02-05
 
 **目标**: 为每个搜索结果添加操作菜单
 
@@ -238,12 +240,23 @@ class PlaylistSelector extends ConsumerWidget {
 
 #### 2.5 验收标准
 
-- [ ] 每个搜索结果显示更多操作按钮
-- [ ] 点击后弹出操作菜单
-- [ ] 立即播放功能正常
-- [ ] 下载功能正常（需要检查下载页面）
-- [ ] 加入歌单功能正常
-- [ ] 跳转原网页正常
+- [x] 每个搜索结果显示更多操作按钮
+- [x] 点击后弹出操作菜单
+- [x] 立即播放功能正常（点击列表项）
+- [x] 下载功能正常（调用 DownloadViewModel）
+- [x] 加入歌单功能正常（歌单选择器 + 创建新歌单）
+- [x] 跳转原网页正常（url_launcher）
+
+**实施记录**:
+- 创建 `widgets/audio/audio_action_menu.dart`: 通用音频操作菜单组件
+  - 收藏/取消收藏功能
+  - 加入歌单功能（含歌单选择器和创建新歌单）
+  - 下载功能
+  - 在浏览器中打开
+  - 分享功能（占位）
+- 修改 `views/discovery/search_page.dart`: 添加更多操作按钮
+- 修改 `widgets/widgets.dart`: 导出 AudioActionMenu
+- 运行 `build_runner` 生成代码
 
 ---
 

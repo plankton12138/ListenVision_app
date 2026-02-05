@@ -13,6 +13,7 @@ export 'common/loading_overlay.dart';
 export 'common/error_view.dart';
 export 'common/empty_state_view.dart';
 export 'cards/music_zone_card.dart';
+export 'audio/audio_action_menu.dart';
 export 'audio_info.dart';
 export 'controls_panel.dart';
 export 'my_drawer.dart';

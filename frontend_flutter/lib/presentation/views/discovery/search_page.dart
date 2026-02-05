@@ -1,5 +1,9 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/models/audio.dart';
+import 'package:demo/models/online_playable.dart';
+import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/search_viewmodel.dart';
+import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -35,9 +39,41 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ref.read(searchViewModelProvider.notifier).search(query);
   }
 
-  void _onResultTap(SearchResultItem item) {
-    // 导航到播放器页面，播放B站音频
-    context.push('/player?bvid=${item.bvid}');
+  void _onResultTap(SearchResultItem item) async {
+    // 创建 Audio 对象
+    final audio = Audio(
+      id: item.bvid,
+      title: item.title,
+      artist: item.author,
+      coverUrl: item.coverUrl,
+      duration: item.duration,
+    );
+
+    // 创建 OnlinePlayable 对象
+    final playable = OnlinePlayable(audio);
+
+    // 添加到播放队列并立即播放
+    await ref.read(queueViewModelProvider).add(playable, playImmediately: true);
+
+    // 开始播放
+    await ref.read(playerViewModelProvider).playOnlineAudio(audio: audio);
+
+    // 导航回主页（播放器在主页上）
+    if (mounted) {
+      context.go('/');
+    }
+  }
+
+  /// 显示操作菜单
+  void _showActionMenu(SearchResultItem item) {
+    AudioActionMenu.show(
+      context,
+      bvid: item.bvid,
+      title: item.title,
+      artist: item.author,
+      coverUrl: item.coverUrl,
+      duration: item.duration,
+    );
   }
 
   @override
@@ -228,6 +264,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
                 ),
                 onTap: () => _onResultTap(item),
+                trailing: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => _showActionMenu(item),
+                  tooltip: '更多操作',
+                ),
               );
             },
           ),

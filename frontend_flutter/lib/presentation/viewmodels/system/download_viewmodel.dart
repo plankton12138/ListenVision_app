@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/download_repository.dart';
+import '../../../data/repositories/track_repository.dart';
 import '../../../models/download_task.dart';
 
 part 'download_viewmodel.freezed.dart';
@@ -32,23 +35,119 @@ class DownloadModelState with _$DownloadModelState {
   }) = DownloadModelStateError;
 }
 
-/// 下载管理 ViewModel
+/// 下载管理 ViewModel（重构版 - 本地优先架构）
 ///
-/// 负责音频下载的状态管理
+/// 新特性：
+/// 1. 任务持久化到数据库（重启后仍可恢复）
+/// 2. 监听 Repository 的进度流
+/// 3. 真正的暂停/恢复（通过 CancelToken）
+/// 4. 自动恢复未完成的任务
 class DownloadViewModel extends StateNotifier<DownloadModelState> {
   final DownloadRepository _repository;
+  StreamSubscription<DownloadProgressEvent>? _progressSubscription;
 
-  DownloadViewModel(this._repository) : super(const DownloadModelState.initial()) {
+  DownloadViewModel(this._repository)
+      : super(const DownloadModelState.initial()) {
     _initialize();
   }
 
-  /// 初始化
+  /// 初始化 - 从数据库加载任务并监听进度
   Future<void> _initialize() async {
-    state = const DownloadModelState.loaded(
-      downloads: [],
-      downloadStage: '',
-      downloadProgress: 0,
+    state = const DownloadModelState.loading();
+
+    // 监听 Repository 的进度流
+    _progressSubscription = _repository.progressStream.listen(
+      _onProgressUpdate,
+      onError: (error) {
+        AppLogger.error('DownloadViewModel', '进度流错误: $error');
+      },
     );
+
+    // 从数据库加载任务
+    await _loadTasks();
+
+    // 自动恢复未完成的下载
+    await _resumeIncompleteTasks();
+  }
+
+  /// 从数据库加载任务
+  Future<void> _loadTasks() async {
+    try {
+      final tasks = await _repository.getAllTasks();
+      state = DownloadModelState.loaded(
+        downloads: tasks,
+        downloadStage: '',
+        downloadProgress: 0,
+      );
+      AppLogger.info('DownloadViewModel', '从数据库加载 ${tasks.length} 个任务');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '加载任务失败: $e');
+      state = DownloadModelState.error(message: e.toString());
+    }
+  }
+
+  /// 恢复未完成的任务（pending 和 paused）
+  Future<void> _resumeIncompleteTasks() async {
+    try {
+      final pendingTasks = await _repository.getPendingTasks();
+      for (final task in pendingTasks) {
+        if (task.id != null) {
+          AppLogger.info('DownloadViewModel', '自动恢复任务: ${task.bvid}');
+          await _repository.startDownload(task.id!);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
+    }
+  }
+
+  /// 处理进度更新
+  void _onProgressUpdate(DownloadProgressEvent event) {
+    state.maybeWhen(
+      loaded: (tasks, _, __, ___) {
+        // 更新任务列表中的进度
+        final updatedTasks = tasks.map((task) {
+          if (task.id == event.taskId) {
+            return task.copyWith(
+              downloadedBytes: (event.progress / 100 * 100).toInt(),
+              totalBytes: 100,
+              status: _getStatusFromStage(event.stage),
+            );
+          }
+          return task;
+        }).toList();
+
+        // 找到当前活跃任务
+        final activeTask = updatedTasks.firstWhere(
+          (t) => t.id == event.taskId,
+          orElse: () => updatedTasks.isNotEmpty ? updatedTasks.first : null as DownloadTask,
+        );
+
+        state = DownloadModelState.loaded(
+          downloads: updatedTasks,
+          downloadStage: event.message,
+          downloadProgress: event.progress,
+          activeTask: activeTask?.id == event.taskId ? activeTask : null,
+        );
+      },
+      orElse: () {},
+    );
+  }
+
+  /// 从 stage 字符串获取 DownloadStatus
+  DownloadStatus _getStatusFromStage(String stage) {
+    switch (stage) {
+      case 'completed':
+        return DownloadStatus.completed;
+      case 'failed':
+        return DownloadStatus.failed;
+      case 'paused':
+        return DownloadStatus.paused;
+      case 'downloading':
+        return DownloadStatus.downloading;
+      default:
+        return DownloadStatus.downloading;
+    }
   }
 
   /// 获取所有下载任务
@@ -90,7 +189,10 @@ class DownloadViewModel extends StateNotifier<DownloadModelState> {
   /// 失败的任务数
   int get failedCount => getCountByStatus(DownloadStatus.failed);
 
-  /// 添加下载任务
+  /// 获取当前下载状态（公开 getter）
+  DownloadModelState get downloadState => state;
+
+  /// 添加下载任务（新架构 - 持久化到数据库）
   Future<DownloadTask?> addDownload({
     required String bvid,
     required String savePath,
@@ -101,33 +203,24 @@ class DownloadViewModel extends StateNotifier<DownloadModelState> {
     try {
       AppLogger.info('DownloadViewModel', '添加下载任务: $bvid');
 
-      // 创建下载任务
-      final task = DownloadTask(
+      // 创建下载任务（保存到数据库）
+      final taskId = await _repository.addDownloadTask(
+        bvid: bvid,
         url: _repository.getDownloadUrl(bvid),
         savePath: savePath,
-        bvid: bvid,
         title: title,
         artist: artist,
         coverUrl: coverUrl,
-        status: DownloadStatus.pending,
-        createdAt: DateTime.now(),
       );
 
-      state.maybeWhen(
-        loaded: (tasks, _, __, ___) {
-          state = DownloadModelState.loaded(
-            downloads: [...tasks, task],
-            downloadStage: '准备中...',
-            downloadProgress: 0,
-          );
-        },
-        orElse: () {},
-      );
+      // 重新加载任务列表
+      await _loadTasks();
 
       // 开始下载
-      _startDownload(task);
+      await _repository.startDownload(taskId);
 
-      return task;
+      // 返回创建的任务
+      return await _repository.getTaskByBvid(bvid);
     } catch (e) {
       AppLogger.error('DownloadViewModel', '添加下载任务失败: $e');
       state = DownloadModelState.error(message: e.toString());
@@ -135,196 +228,80 @@ class DownloadViewModel extends StateNotifier<DownloadModelState> {
     }
   }
 
-  /// 启动下载
-  void _startDownload(DownloadTask task) {
-    _updateTaskStatus(task, DownloadStatus.downloading);
-
-    // 设置下载阶段
-    state.maybeWhen(
-      loaded: (tasks, _, __, ___) {
-        state = DownloadModelState.loaded(
-          downloads: tasks,
-          downloadStage: '准备中...',
-          downloadProgress: 0,
-          activeTask: task,
-        );
-      },
-      orElse: () {},
-    );
-
-    // 使用后端 API 下载
-    _repository.downloadAudio(
-      bvid: task.bvid ?? '',
-      savePath: task.savePath,
-      onProgress: (percent, stage, message) {
-        AppLogger.info('DownloadViewModel', '进度: $percent%, 阶段: $stage');
-        state.maybeWhen(
-          loaded: (tasks, _, __, active) {
-            state = DownloadModelState.loaded(
-              downloads: tasks,
-              downloadStage: message,
-              downloadProgress: percent,
-              activeTask: active,
-            );
-          },
-          orElse: () {},
-        );
-      },
-    ).then((_) {
-      // 下载成功
-      AppLogger.info('DownloadViewModel', '下载完成: ${task.savePath}');
-
-      state.maybeWhen(
-        loaded: (tasks, _, __, active) {
-          state = DownloadModelState.loaded(
-            downloads: tasks,
-            downloadStage: '完成',
-            downloadProgress: 100,
-            activeTask: active,
-          );
-        },
-        orElse: () {},
-      );
-
-      _updateTaskStatus(task, DownloadStatus.completed);
-
-      // 清空进度状态
-      Future.delayed(const Duration(seconds: 2), () {
-        state.maybeWhen(
-          loaded: (tasks, _, __, active) {
-            state = DownloadModelState.loaded(
-              downloads: tasks,
-              downloadStage: '',
-              downloadProgress: 0,
-              activeTask: active,
-            );
-          },
-          orElse: () {},
-        );
-      });
-    }).catchError((error) {
-      // 下载失败
-      AppLogger.error('DownloadViewModel', '下载失败: $error');
-
-      final failedTask = task.copyWith(
-        status: DownloadStatus.failed,
-        errorMessage: error.toString(),
-      );
-
-      _replaceTask(failedTask);
-
-      state.maybeWhen(
-        loaded: (tasks, _, __, active) {
-          state = DownloadModelState.loaded(
-            downloads: tasks,
-            downloadStage: '失败',
-            downloadProgress: 0,
-            activeTask: active,
-          );
-        },
-        orElse: () {},
-      );
-
-      Future.delayed(const Duration(seconds: 2), () {
-        state.maybeWhen(
-          loaded: (tasks, _, __, active) {
-            state = DownloadModelState.loaded(
-              downloads: tasks,
-              downloadStage: '',
-              downloadProgress: 0,
-              activeTask: active,
-            );
-          },
-          orElse: () {},
-        );
-      });
-    });
-  }
-
-  /// 暂停下载
+  /// 暂停下载（真正的暂停 - 取消网络请求）
   Future<void> pauseDownload(int taskId) async {
-    final task = downloads.firstWhere(
-      (d) => d.id == taskId,
-      orElse: () => downloads.first,
-    );
-    _updateTaskStatus(task, DownloadStatus.paused);
-    AppLogger.info('DownloadViewModel', '已暂停任务: $taskId');
+    try {
+      await _repository.pauseDownload(taskId);
+      await _loadTasks(); // 刷新列表
+      AppLogger.info('DownloadViewModel', '已暂停任务: $taskId');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '暂停任务失败: $e');
+    }
   }
 
   /// 恢复下载
   Future<void> resumeDownload(int taskId) async {
-    final task = downloads.firstWhere(
-      (d) => d.id == taskId,
-      orElse: () => downloads.first,
-    );
-
-    if (task.bvid == null || task.bvid!.isEmpty) {
-      AppLogger.error('DownloadViewModel', '任务缺少 BVID，无法恢复');
-      return;
+    try {
+      await _repository.resumeDownload(taskId);
+      await _loadTasks(); // 刷新列表
+      AppLogger.info('DownloadViewModel', '已恢复任务: $taskId');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
     }
-
-    _updateTaskStatus(task, DownloadStatus.pending);
-    _startDownload(task);
-    AppLogger.info('DownloadViewModel', '已恢复任务: $taskId');
   }
 
-  /// 删除下载
-  Future<void> deleteDownload(int taskId) async {
-    state.maybeWhen(
-      loaded: (tasks, _, __, active) {
-        final updatedTasks = tasks.where((d) => d.id != taskId).toList();
-        state = DownloadModelState.loaded(
-          downloads: updatedTasks,
-          downloadStage: downloadStage,
-          downloadProgress: downloadProgress,
-          activeTask: active?.id == taskId ? null : active,
-        );
-      },
-      orElse: () {},
-    );
-    AppLogger.info('DownloadViewModel', '已删除任务: $taskId');
+  /// 删除下载任务
+  Future<void> deleteDownload(int taskId, {bool deleteFile = false}) async {
+    try {
+      await _repository.deleteDownloadTask(taskId, deleteFile: deleteFile);
+      await _loadTasks(); // 刷新列表
+      AppLogger.info('DownloadViewModel', '已删除任务: $taskId');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '删除任务失败: $e');
+    }
+  }
+
+  /// 取消下载（保留任务记录，但停止下载）
+  Future<void> cancelDownload(int taskId) async {
+    try {
+      await _repository.cancelDownload(taskId);
+      await _loadTasks(); // 刷新列表
+      AppLogger.info('DownloadViewModel', '已取消任务: $taskId');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '取消任务失败: $e');
+    }
   }
 
   /// 清空已完成任务
   Future<void> clearCompleted() async {
-    state.maybeWhen(
-      loaded: (tasks, _, __, active) {
-        final updatedTasks = tasks.where((d) => !d.isCompleted).toList();
-        state = DownloadModelState.loaded(
-          downloads: updatedTasks,
-          downloadStage: downloadStage,
-          downloadProgress: downloadProgress,
-          activeTask: active,
-        );
-      },
-      orElse: () {},
-    );
+    try {
+      await _repository.clearCompleted();
+      await _loadTasks(); // 刷新列表
+      AppLogger.info('DownloadViewModel', '清空已完成任务');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '清空任务失败: $e');
+    }
   }
 
-  /// 更新任务状态
-  void _updateTaskStatus(DownloadTask task, DownloadStatus status) {
-    final updatedTask = task.copyWith(status: status);
-    _replaceTask(updatedTask);
+  /// 重试失败的任务
+  Future<void> retryFailed() async {
+    try {
+      await _repository.retryFailed();
+      AppLogger.info('DownloadViewModel', '重试失败任务');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '重试失败: $e');
+    }
   }
 
-  /// 替换任务
-  void _replaceTask(DownloadTask updatedTask) {
-    state.maybeWhen(
-      loaded: (tasks, stage, progress, active) {
-        final index = tasks.indexWhere((d) => d.bvid == updatedTask.bvid);
-        if (index != -1) {
-          final updatedTasks = List<DownloadTask>.from(tasks);
-          updatedTasks[index] = updatedTask;
-          state = DownloadModelState.loaded(
-            downloads: updatedTasks,
-            downloadStage: stage,
-            downloadProgress: progress,
-            activeTask: active,
-          );
-        }
-      },
-      orElse: () {},
-    );
+  /// 暂停所有下载
+  Future<void> pauseAll() async {
+    try {
+      await _repository.pauseAll();
+      await _loadTasks();
+      AppLogger.info('DownloadViewModel', '暂停所有任务');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '暂停所有任务失败: $e');
+    }
   }
 
   /// 从 URL 提取 BVID
@@ -346,15 +323,21 @@ class DownloadViewModel extends StateNotifier<DownloadModelState> {
   void clear() {
     state = const DownloadModelState.initial();
   }
+
+  @override
+  void dispose() {
+    _progressSubscription?.cancel();
+    super.dispose();
+  }
 }
 
 /// Provider 定义
-@riverpod
+@Riverpod(keepAlive: true)
 DownloadRepository downloadRepository(DownloadRepositoryRef ref) {
   return DownloadRepository();
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 DownloadViewModel downloadViewModel(DownloadViewModelRef ref) {
   final repository = ref.watch(downloadRepositoryProvider);
   return DownloadViewModel(repository);

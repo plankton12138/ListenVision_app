@@ -27,7 +27,7 @@ final searchBackendApiClientProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SearchBackendApiClientRef = AutoDisposeProviderRef<BackendApiClient>;
-String _$searchViewModelHash() => r'648bd640c2eb8407eb6588c9c8397962c727e6e1';
+String _$searchViewModelHash() => r'fd46b28a0ede30bf572ef010eb31a2eefd0d4039';
 
 /// 搜索 ViewModel
 ///

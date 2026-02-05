@@ -3,6 +3,9 @@
 /// 本文件集中定义所有 Riverpod providers
 library;
 
+// ==================== Repository 层（本地优先架构）====================
+export '../data/repositories/repository_providers.dart';
+
 // ==================== 认证相关 ====================
 export 'viewmodels/auth/auth_viewmodel.dart' show authViewModelProvider;
 export 'viewmodels/auth/auth_viewmodel.dart' show currentUserProvider;

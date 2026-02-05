@@ -5,6 +5,7 @@ library;
 
 // 音频相关
 export 'audio.dart';
+export 'cached_track.dart';
 export 'playable_audio.dart';
 export 'local_audio.dart';
 export 'local_playable.dart';

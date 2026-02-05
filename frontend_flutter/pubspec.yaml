@@ -34,7 +34,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  provider: ^6.1.4
+  # 已移除 provider 包，完全迁移至 Riverpod
   go_router: ^14.8.1
   # P0: 音频播放 - 从 just_audio 迁移到 audioplayers（2026-01-28）
   # 原因：just_audio_windows 存在平台通道线程错误，导致切换歌曲时闪退

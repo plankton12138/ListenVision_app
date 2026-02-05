@@ -4,6 +4,7 @@ import 'package:demo/presentation/views/account/register_page.dart';
 import 'package:demo/presentation/views/account/reset_password_page.dart';
 import 'package:demo/presentation/views/discovery/explore_page.dart';
 import 'package:demo/presentation/views/discovery/search_page.dart';
+import 'package:demo/presentation/views/library/local_music_playlist_page.dart';
 import 'package:demo/presentation/views/library/playlist_library_page.dart';
 import 'package:demo/presentation/views/library/playlist_detail_page.dart';
 import 'package:demo/presentation/views/library/play_history_page.dart';
@@ -177,6 +178,11 @@ final GoRouter routerConfig = GoRouter(
       path: AppRoutes.playlists,
       builder: (context, state) => const PlaylistLibraryPage(),
       routes: [
+        // 本地音乐歌单页（嵌套路由）
+        GoRoute(
+          path: 'local',
+          builder: (context, state) => const LocalMusicPlaylistPage(),
+        ),
         // 歌单详情页（嵌套路由，带参数）
         GoRoute(
           name: AppRoutes.playlistDetailName,

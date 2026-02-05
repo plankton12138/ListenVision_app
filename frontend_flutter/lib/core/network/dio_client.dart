@@ -74,7 +74,9 @@ class DioClient {
         return handler.next(response);
       },
       onError: (error, handler) async {
-        AppLogger.error('DioClient', '错误: ${error.message} ${error.requestOptions.uri}');
+        // 简化错误信息（避免冗长的 Dio 堆栈）
+        final errorSummary = _getErrorSummary(error);
+        AppLogger.error('DioClient', '请求失败: ${error.requestOptions.method} ${error.requestOptions.uri} - $errorSummary');
 
         // 网络错误时刷新网络质量
         if (error.type == DioExceptionType.connectionTimeout ||
@@ -214,19 +216,46 @@ class DioClient {
       final statusCode = e.response!.statusCode;
       final responseData = e.response!.data;
 
-      final message = (() {
-        if (responseData is Map<String, dynamic>) {
-          return responseData['message']?.toString() ??
-              responseData['error']?.toString() ??
-              e.message ??
-              '未知错误';
-        }
-        return e.message ?? '未知错误';
-      })();
+      // 优先使用服务器返回的错误消息
+      String? message;
+      if (responseData is Map<String, dynamic>) {
+        message = responseData['message']?.toString() ??
+            responseData['error']?.toString();
+      }
 
-      return ApiException(_parseValidationError(message), statusCode ?? 500);
+      // 使用简化的错误消息（服务器消息或摘要）
+      final errorSummary = message ?? _getErrorSummary(e);
+      return ApiException(_parseValidationError(errorSummary), statusCode ?? 500);
     }
-    return ApiException('网络错误: ${e.message}', 500);
+    // 无响应的情况（网络错误）
+    final errorSummary = _getErrorSummary(e);
+    return ApiException('网络错误: $errorSummary', 500);
+  }
+
+  /// 获取简化的错误摘要
+  String _getErrorSummary(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+        return '连接超时';
+      case DioExceptionType.sendTimeout:
+        return '发送超时';
+      case DioExceptionType.receiveTimeout:
+        return '接收超时';
+      case DioExceptionType.badResponse:
+        final statusCode = error.response?.statusCode ?? 0;
+        return 'HTTP $statusCode';
+      case DioExceptionType.cancel:
+        return '请求已取消';
+      case DioExceptionType.connectionError:
+        return '连接错误';
+      case DioExceptionType.badCertificate:
+        return '证书错误';
+      case DioExceptionType.unknown:
+        // 只取错误消息的第一行，避免冗长堆栈
+        final msg = error.message ?? '未知错误';
+        final lines = msg.split('\n');
+        return lines.first.trim();
+    }
   }
 
   /// 解析验证错误信息

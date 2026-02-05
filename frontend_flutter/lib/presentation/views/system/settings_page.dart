@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../viewmodels/system/theme_viewmodel.dart';
+
 /// 设置页面
 ///
 /// 提供主题切换、B站账号绑定等应用设置选项
@@ -21,7 +23,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final themeViewModel = ref.watch(themeViewModelProvider);
+    final themeMode = ref.watch(themeViewModelProvider);
     final isLoggedIn = ref.watch(isLoggedInProvider);
 
     return Scaffold(
@@ -47,7 +49,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         padding: const EdgeInsets.all(16),
         children: [
           // 深色模式开关
-          _buildDarkModeCard(context, themeViewModel),
+          _buildDarkModeCard(context, themeMode: themeMode),
           const SizedBox(height: 16),
           // B站账号绑定
           _buildBilibiliBindCard(context, isLoggedIn),
@@ -57,7 +59,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// 深色模式开关卡片
-  Widget _buildDarkModeCard(BuildContext context, ThemeViewModel themeViewModel) {
+  Widget _buildDarkModeCard(BuildContext context, {required AppThemeMode themeMode}) {
+    final isDarkMode = themeMode == AppThemeMode.dark;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.secondary,
@@ -72,8 +75,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           Switch(
-            value: themeViewModel.isDarkMode,
-            onChanged: (_) => themeViewModel.toggleTheme(),
+            value: isDarkMode,
+            onChanged: (_) => ref.read(themeViewModelProvider.notifier).toggleTheme(),
           ),
         ],
       ),

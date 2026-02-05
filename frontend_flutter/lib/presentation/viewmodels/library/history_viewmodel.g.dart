@@ -67,5 +67,24 @@ final historyViewModelProvider = AutoDisposeProvider<HistoryViewModel>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HistoryViewModelRef = AutoDisposeProviderRef<HistoryViewModel>;
+String _$historyStateHash() => r'092965509b4046c8dda471b178a40a996142f876';
+
+/// 历史状态 Provider - 用于 UI 层监听状态
+///
+/// Copied from [historyState].
+@ProviderFor(historyState)
+final historyStateProvider = AutoDisposeProvider<HistoryState>.internal(
+  historyState,
+  name: r'historyStateProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$historyStateHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef HistoryStateRef = AutoDisposeProviderRef<HistoryState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

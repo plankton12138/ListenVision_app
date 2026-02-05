@@ -32,17 +32,6 @@ mixin _$PlaylistState {
     )
     loaded,
     required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
@@ -59,17 +48,6 @@ mixin _$PlaylistState {
     )?
     loaded,
     TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
@@ -86,17 +64,6 @@ mixin _$PlaylistState {
     )?
     loaded,
     TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -105,7 +72,6 @@ mixin _$PlaylistState {
     required TResult Function(PlaylistStateLoading value) loading,
     required TResult Function(PlaylistStateLoaded value) loaded,
     required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
@@ -113,7 +79,6 @@ mixin _$PlaylistState {
     TResult? Function(PlaylistStateLoading value)? loading,
     TResult? Function(PlaylistStateLoaded value)? loaded,
     TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
@@ -121,7 +86,6 @@ mixin _$PlaylistState {
     TResult Function(PlaylistStateLoading value)? loading,
     TResult Function(PlaylistStateLoaded value)? loaded,
     TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
 }
@@ -205,17 +169,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     )
     loaded,
     required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
   }) {
     return initial();
   }
@@ -236,17 +189,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     )?
     loaded,
     TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
   }) {
     return initial?.call();
   }
@@ -267,17 +209,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     )?
     loaded,
     TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -293,7 +224,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     required TResult Function(PlaylistStateLoading value) loading,
     required TResult Function(PlaylistStateLoaded value) loaded,
     required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
   }) {
     return initial(this);
   }
@@ -305,7 +235,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     TResult? Function(PlaylistStateLoading value)? loading,
     TResult? Function(PlaylistStateLoaded value)? loaded,
     TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
   }) {
     return initial?.call(this);
   }
@@ -317,7 +246,6 @@ class _$PlaylistStateInitialImpl implements PlaylistStateInitial {
     TResult Function(PlaylistStateLoading value)? loading,
     TResult Function(PlaylistStateLoaded value)? loaded,
     TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -388,17 +316,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     )
     loaded,
     required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
   }) {
     return loading();
   }
@@ -419,17 +336,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     )?
     loaded,
     TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
   }) {
     return loading?.call();
   }
@@ -450,17 +356,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     )?
     loaded,
     TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -476,7 +371,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     required TResult Function(PlaylistStateLoading value) loading,
     required TResult Function(PlaylistStateLoaded value) loaded,
     required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
   }) {
     return loading(this);
   }
@@ -488,7 +382,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     TResult? Function(PlaylistStateLoading value)? loading,
     TResult? Function(PlaylistStateLoaded value)? loaded,
     TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
   }) {
     return loading?.call(this);
   }
@@ -500,7 +393,6 @@ class _$PlaylistStateLoadingImpl implements PlaylistStateLoading {
     TResult Function(PlaylistStateLoading value)? loading,
     TResult Function(PlaylistStateLoaded value)? loaded,
     TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -758,17 +650,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     )
     loaded,
     required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
   }) {
     return loaded(
       playlists,
@@ -797,17 +678,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     )?
     loaded,
     TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
   }) {
     return loaded?.call(
       playlists,
@@ -836,17 +706,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     )?
     loaded,
     TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
     required TResult orElse(),
   }) {
     if (loaded != null) {
@@ -870,7 +729,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     required TResult Function(PlaylistStateLoading value) loading,
     required TResult Function(PlaylistStateLoaded value) loaded,
     required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
   }) {
     return loaded(this);
   }
@@ -882,7 +740,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     TResult? Function(PlaylistStateLoading value)? loading,
     TResult? Function(PlaylistStateLoaded value)? loaded,
     TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
   }) {
     return loaded?.call(this);
   }
@@ -894,7 +751,6 @@ class _$PlaylistStateLoadedImpl implements PlaylistStateLoaded {
     TResult Function(PlaylistStateLoading value)? loading,
     TResult Function(PlaylistStateLoaded value)? loaded,
     TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
     required TResult orElse(),
   }) {
     if (loaded != null) {
@@ -1016,17 +872,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     )
     loaded,
     required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
   }) {
     return error(message);
   }
@@ -1047,17 +892,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     )?
     loaded,
     TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
   }) {
     return error?.call(message);
   }
@@ -1078,17 +912,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     )?
     loaded,
     TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -1104,7 +927,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     required TResult Function(PlaylistStateLoading value) loading,
     required TResult Function(PlaylistStateLoaded value) loaded,
     required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
   }) {
     return error(this);
   }
@@ -1116,7 +938,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     TResult? Function(PlaylistStateLoading value)? loading,
     TResult? Function(PlaylistStateLoaded value)? loaded,
     TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
   }) {
     return error?.call(this);
   }
@@ -1128,7 +949,6 @@ class _$PlaylistStateErrorImpl implements PlaylistStateError {
     TResult Function(PlaylistStateLoading value)? loading,
     TResult Function(PlaylistStateLoaded value)? loaded,
     TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -1149,439 +969,4 @@ abstract class PlaylistStateError implements PlaylistState {
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$PlaylistStateErrorImplCopyWith<_$PlaylistStateErrorImpl> get copyWith =>
       throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class _$$PlaylistStateOperatingImplCopyWith<$Res> {
-  factory _$$PlaylistStateOperatingImplCopyWith(
-    _$PlaylistStateOperatingImpl value,
-    $Res Function(_$PlaylistStateOperatingImpl) then,
-  ) = __$$PlaylistStateOperatingImplCopyWithImpl<$Res>;
-  @useResult
-  $Res call({
-    List<Playlist> playlists,
-    List<Playlist> userPlaylists,
-    List<Playlist> systemPlaylists,
-    Playlist? favoritesPlaylist,
-    Playlist? nowPlayingPlaylist,
-    List<PlaylistItem> favoritesItems,
-    List<PlaylistItem> nowPlayingItems,
-    String? operationMessage,
-  });
-
-  $PlaylistCopyWith<$Res>? get favoritesPlaylist;
-  $PlaylistCopyWith<$Res>? get nowPlayingPlaylist;
-}
-
-/// @nodoc
-class __$$PlaylistStateOperatingImplCopyWithImpl<$Res>
-    extends _$PlaylistStateCopyWithImpl<$Res, _$PlaylistStateOperatingImpl>
-    implements _$$PlaylistStateOperatingImplCopyWith<$Res> {
-  __$$PlaylistStateOperatingImplCopyWithImpl(
-    _$PlaylistStateOperatingImpl _value,
-    $Res Function(_$PlaylistStateOperatingImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of PlaylistState
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? playlists = null,
-    Object? userPlaylists = null,
-    Object? systemPlaylists = null,
-    Object? favoritesPlaylist = freezed,
-    Object? nowPlayingPlaylist = freezed,
-    Object? favoritesItems = null,
-    Object? nowPlayingItems = null,
-    Object? operationMessage = freezed,
-  }) {
-    return _then(
-      _$PlaylistStateOperatingImpl(
-        playlists: null == playlists
-            ? _value._playlists
-            : playlists // ignore: cast_nullable_to_non_nullable
-                  as List<Playlist>,
-        userPlaylists: null == userPlaylists
-            ? _value._userPlaylists
-            : userPlaylists // ignore: cast_nullable_to_non_nullable
-                  as List<Playlist>,
-        systemPlaylists: null == systemPlaylists
-            ? _value._systemPlaylists
-            : systemPlaylists // ignore: cast_nullable_to_non_nullable
-                  as List<Playlist>,
-        favoritesPlaylist: freezed == favoritesPlaylist
-            ? _value.favoritesPlaylist
-            : favoritesPlaylist // ignore: cast_nullable_to_non_nullable
-                  as Playlist?,
-        nowPlayingPlaylist: freezed == nowPlayingPlaylist
-            ? _value.nowPlayingPlaylist
-            : nowPlayingPlaylist // ignore: cast_nullable_to_non_nullable
-                  as Playlist?,
-        favoritesItems: null == favoritesItems
-            ? _value._favoritesItems
-            : favoritesItems // ignore: cast_nullable_to_non_nullable
-                  as List<PlaylistItem>,
-        nowPlayingItems: null == nowPlayingItems
-            ? _value._nowPlayingItems
-            : nowPlayingItems // ignore: cast_nullable_to_non_nullable
-                  as List<PlaylistItem>,
-        operationMessage: freezed == operationMessage
-            ? _value.operationMessage
-            : operationMessage // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
-  }
-
-  /// Create a copy of PlaylistState
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $PlaylistCopyWith<$Res>? get favoritesPlaylist {
-    if (_value.favoritesPlaylist == null) {
-      return null;
-    }
-
-    return $PlaylistCopyWith<$Res>(_value.favoritesPlaylist!, (value) {
-      return _then(_value.copyWith(favoritesPlaylist: value));
-    });
-  }
-
-  /// Create a copy of PlaylistState
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $PlaylistCopyWith<$Res>? get nowPlayingPlaylist {
-    if (_value.nowPlayingPlaylist == null) {
-      return null;
-    }
-
-    return $PlaylistCopyWith<$Res>(_value.nowPlayingPlaylist!, (value) {
-      return _then(_value.copyWith(nowPlayingPlaylist: value));
-    });
-  }
-}
-
-/// @nodoc
-
-class _$PlaylistStateOperatingImpl implements PlaylistStateOperating {
-  const _$PlaylistStateOperatingImpl({
-    required final List<Playlist> playlists,
-    required final List<Playlist> userPlaylists,
-    required final List<Playlist> systemPlaylists,
-    this.favoritesPlaylist,
-    this.nowPlayingPlaylist,
-    final List<PlaylistItem> favoritesItems = const [],
-    final List<PlaylistItem> nowPlayingItems = const [],
-    this.operationMessage,
-  }) : _playlists = playlists,
-       _userPlaylists = userPlaylists,
-       _systemPlaylists = systemPlaylists,
-       _favoritesItems = favoritesItems,
-       _nowPlayingItems = nowPlayingItems;
-
-  final List<Playlist> _playlists;
-  @override
-  List<Playlist> get playlists {
-    if (_playlists is EqualUnmodifiableListView) return _playlists;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_playlists);
-  }
-
-  final List<Playlist> _userPlaylists;
-  @override
-  List<Playlist> get userPlaylists {
-    if (_userPlaylists is EqualUnmodifiableListView) return _userPlaylists;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_userPlaylists);
-  }
-
-  final List<Playlist> _systemPlaylists;
-  @override
-  List<Playlist> get systemPlaylists {
-    if (_systemPlaylists is EqualUnmodifiableListView) return _systemPlaylists;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_systemPlaylists);
-  }
-
-  @override
-  final Playlist? favoritesPlaylist;
-  @override
-  final Playlist? nowPlayingPlaylist;
-  final List<PlaylistItem> _favoritesItems;
-  @override
-  @JsonKey()
-  List<PlaylistItem> get favoritesItems {
-    if (_favoritesItems is EqualUnmodifiableListView) return _favoritesItems;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_favoritesItems);
-  }
-
-  final List<PlaylistItem> _nowPlayingItems;
-  @override
-  @JsonKey()
-  List<PlaylistItem> get nowPlayingItems {
-    if (_nowPlayingItems is EqualUnmodifiableListView) return _nowPlayingItems;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_nowPlayingItems);
-  }
-
-  @override
-  final String? operationMessage;
-
-  @override
-  String toString() {
-    return 'PlaylistState.operating(playlists: $playlists, userPlaylists: $userPlaylists, systemPlaylists: $systemPlaylists, favoritesPlaylist: $favoritesPlaylist, nowPlayingPlaylist: $nowPlayingPlaylist, favoritesItems: $favoritesItems, nowPlayingItems: $nowPlayingItems, operationMessage: $operationMessage)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$PlaylistStateOperatingImpl &&
-            const DeepCollectionEquality().equals(
-              other._playlists,
-              _playlists,
-            ) &&
-            const DeepCollectionEquality().equals(
-              other._userPlaylists,
-              _userPlaylists,
-            ) &&
-            const DeepCollectionEquality().equals(
-              other._systemPlaylists,
-              _systemPlaylists,
-            ) &&
-            (identical(other.favoritesPlaylist, favoritesPlaylist) ||
-                other.favoritesPlaylist == favoritesPlaylist) &&
-            (identical(other.nowPlayingPlaylist, nowPlayingPlaylist) ||
-                other.nowPlayingPlaylist == nowPlayingPlaylist) &&
-            const DeepCollectionEquality().equals(
-              other._favoritesItems,
-              _favoritesItems,
-            ) &&
-            const DeepCollectionEquality().equals(
-              other._nowPlayingItems,
-              _nowPlayingItems,
-            ) &&
-            (identical(other.operationMessage, operationMessage) ||
-                other.operationMessage == operationMessage));
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    const DeepCollectionEquality().hash(_playlists),
-    const DeepCollectionEquality().hash(_userPlaylists),
-    const DeepCollectionEquality().hash(_systemPlaylists),
-    favoritesPlaylist,
-    nowPlayingPlaylist,
-    const DeepCollectionEquality().hash(_favoritesItems),
-    const DeepCollectionEquality().hash(_nowPlayingItems),
-    operationMessage,
-  );
-
-  /// Create a copy of PlaylistState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$PlaylistStateOperatingImplCopyWith<_$PlaylistStateOperatingImpl>
-  get copyWith =>
-      __$$PlaylistStateOperatingImplCopyWithImpl<_$PlaylistStateOperatingImpl>(
-        this,
-        _$identity,
-      );
-
-  @override
-  @optionalTypeArgs
-  TResult when<TResult extends Object?>({
-    required TResult Function() initial,
-    required TResult Function() loading,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-    )
-    loaded,
-    required TResult Function(String message) error,
-    required TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )
-    operating,
-  }) {
-    return operating(
-      playlists,
-      userPlaylists,
-      systemPlaylists,
-      favoritesPlaylist,
-      nowPlayingPlaylist,
-      favoritesItems,
-      nowPlayingItems,
-      operationMessage,
-    );
-  }
-
-  @override
-  @optionalTypeArgs
-  TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function()? initial,
-    TResult? Function()? loading,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-    )?
-    loaded,
-    TResult? Function(String message)? error,
-    TResult? Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
-  }) {
-    return operating?.call(
-      playlists,
-      userPlaylists,
-      systemPlaylists,
-      favoritesPlaylist,
-      nowPlayingPlaylist,
-      favoritesItems,
-      nowPlayingItems,
-      operationMessage,
-    );
-  }
-
-  @override
-  @optionalTypeArgs
-  TResult maybeWhen<TResult extends Object?>({
-    TResult Function()? initial,
-    TResult Function()? loading,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-    )?
-    loaded,
-    TResult Function(String message)? error,
-    TResult Function(
-      List<Playlist> playlists,
-      List<Playlist> userPlaylists,
-      List<Playlist> systemPlaylists,
-      Playlist? favoritesPlaylist,
-      Playlist? nowPlayingPlaylist,
-      List<PlaylistItem> favoritesItems,
-      List<PlaylistItem> nowPlayingItems,
-      String? operationMessage,
-    )?
-    operating,
-    required TResult orElse(),
-  }) {
-    if (operating != null) {
-      return operating(
-        playlists,
-        userPlaylists,
-        systemPlaylists,
-        favoritesPlaylist,
-        nowPlayingPlaylist,
-        favoritesItems,
-        nowPlayingItems,
-        operationMessage,
-      );
-    }
-    return orElse();
-  }
-
-  @override
-  @optionalTypeArgs
-  TResult map<TResult extends Object?>({
-    required TResult Function(PlaylistStateInitial value) initial,
-    required TResult Function(PlaylistStateLoading value) loading,
-    required TResult Function(PlaylistStateLoaded value) loaded,
-    required TResult Function(PlaylistStateError value) error,
-    required TResult Function(PlaylistStateOperating value) operating,
-  }) {
-    return operating(this);
-  }
-
-  @override
-  @optionalTypeArgs
-  TResult? mapOrNull<TResult extends Object?>({
-    TResult? Function(PlaylistStateInitial value)? initial,
-    TResult? Function(PlaylistStateLoading value)? loading,
-    TResult? Function(PlaylistStateLoaded value)? loaded,
-    TResult? Function(PlaylistStateError value)? error,
-    TResult? Function(PlaylistStateOperating value)? operating,
-  }) {
-    return operating?.call(this);
-  }
-
-  @override
-  @optionalTypeArgs
-  TResult maybeMap<TResult extends Object?>({
-    TResult Function(PlaylistStateInitial value)? initial,
-    TResult Function(PlaylistStateLoading value)? loading,
-    TResult Function(PlaylistStateLoaded value)? loaded,
-    TResult Function(PlaylistStateError value)? error,
-    TResult Function(PlaylistStateOperating value)? operating,
-    required TResult orElse(),
-  }) {
-    if (operating != null) {
-      return operating(this);
-    }
-    return orElse();
-  }
-}
-
-abstract class PlaylistStateOperating implements PlaylistState {
-  const factory PlaylistStateOperating({
-    required final List<Playlist> playlists,
-    required final List<Playlist> userPlaylists,
-    required final List<Playlist> systemPlaylists,
-    final Playlist? favoritesPlaylist,
-    final Playlist? nowPlayingPlaylist,
-    final List<PlaylistItem> favoritesItems,
-    final List<PlaylistItem> nowPlayingItems,
-    final String? operationMessage,
-  }) = _$PlaylistStateOperatingImpl;
-
-  List<Playlist> get playlists;
-  List<Playlist> get userPlaylists;
-  List<Playlist> get systemPlaylists;
-  Playlist? get favoritesPlaylist;
-  Playlist? get nowPlayingPlaylist;
-  List<PlaylistItem> get favoritesItems;
-  List<PlaylistItem> get nowPlayingItems;
-  String? get operationMessage;
-
-  /// Create a copy of PlaylistState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$PlaylistStateOperatingImplCopyWith<_$PlaylistStateOperatingImpl>
-  get copyWith => throw _privateConstructorUsedError;
 }

@@ -55,9 +55,19 @@ const registerUser = async (username, password, email) => {
   };
 };
 
-// 用户登录
-const loginUser = async (username, password) => {
-  const user = stmt.userByNameForAuth.get(username);
+// 用户登录 - 支持 username 或 email
+const loginUser = async (usernameOrEmail, password) => {
+  // 先尝试用 username 查找
+  let user = stmt.userByNameForAuth.get(usernameOrEmail);
+
+  // 如果没找到，尝试用 email 查找
+  if (!user) {
+    const result = stmt.userByEmail.get(usernameOrEmail);
+    if (result) {
+      user = stmt.userByNameForAuth.get(result.username);
+    }
+  }
+
   if (!user) {
     throw new AppError('用户名或密码错误', 401);
   }

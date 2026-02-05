@@ -53,16 +53,35 @@ const authValidators = {
     validate
   ],
 
-  // 登录验证
+  // 登录验证 - 支持 email 或 username
   login: [
     body('username')
       .trim()
       .notEmpty()
-      .withMessage('用户名不能为空'),
+      .withMessage('用户名或邮箱不能为空')
+      .optional({ checkFalsy: true }), // 允许为空，因为会检查 email
+    body('email')
+      .trim()
+      .notEmpty()
+      .withMessage('用户名或邮箱不能为空')
+      .optional({ checkFalsy: true }), // 允许为空，因为会检查 username
     body('password')
       .notEmpty()
       .withMessage('密码不能为空'),
-    validate
+    // 自定义验证：至少提供 username 或 email
+    (req, res, next) => {
+      const username = req.body.username || req.body.email;
+      if (!username || username.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: '用户名或邮箱不能为空',
+          errors: [{ field: 'username', message: '用户名或邮箱不能为空' }]
+        });
+      }
+      // 标准化：将 email 或 username 统一放到 username 字段供 controller 使用
+      req.body.usernameOrEmail = username;
+      next();
+    }
   ],
 
   // 发送重置验证码

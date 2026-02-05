@@ -25,6 +25,10 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 // ==================== 资源库相关 ====================
 export 'viewmodels/library/playlist_viewmodel.dart' show playlistViewModelProvider;
 export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;
+export 'viewmodels/library/history_viewmodel.dart' show historyStateProvider;
+export 'viewmodels/library/history_viewmodel.dart' show HistoryState;
+export 'viewmodels/library/history_viewmodel.dart' show PlayHistoryStats;
+export '../../../models/play_history.dart' show PlayHistory;
 
 // ==================== 发现相关 ====================
 export 'viewmodels/discovery/search_viewmodel.dart' show searchViewModelProvider;

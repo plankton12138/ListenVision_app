@@ -518,6 +518,72 @@ class BackendApiClient {
       rethrow;
     }
   }
+
+  // ==================== B站搜索 API ====================
+
+  /// B站搜索
+  Future<Map<String, dynamic>> searchBilibili(String keyword) async {
+    try {
+      final response = await _dioClient.get(
+        BilibiliEndpoints.search,
+        queryParameters: {'keyword': keyword},
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', 'B站搜索失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取B站搜索建议
+  Future<List<String>> getBilibiliSearchSuggestions(String keyword) async {
+    try {
+      final response = await _dioClient.get(
+        BilibiliEndpoints.searchRecent,
+        queryParameters: {'keyword': keyword},
+      );
+      final data = _handleResponse(response);
+      final suggestions = data['suggestions'] as List?;
+      return suggestions?.map((e) => e.toString()).toList() ?? [];
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取B站搜索建议失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取B站搜索历史
+  Future<List<String>> getBilibiliSearchHistory() async {
+    try {
+      final response = await _dioClient.get(BilibiliEndpoints.searchRecent);
+      final data = _handleResponse(response);
+      final history = data['history'] as List?;
+      return history?.map((e) => e.toString()).toList() ?? [];
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取B站搜索历史失败: $e');
+      return [];
+    }
+  }
+
+  /// 添加B站搜索历史
+  Future<void> addBilibiliSearchHistory(String keyword) async {
+    try {
+      await _dioClient.post(
+        BilibiliEndpoints.searchRecent,
+        data: {'keyword': keyword},
+      );
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '添加B站搜索历史失败: $e');
+    }
+  }
+
+  /// 清空B站搜索历史
+  Future<void> clearBilibiliSearchHistory() async {
+    try {
+      await _dioClient.delete(BilibiliEndpoints.searchRecent);
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '清空B站搜索历史失败: $e');
+    }
+  }
 }
 
 /// API 异常

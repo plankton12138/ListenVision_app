@@ -40,17 +40,21 @@ const searchService = require('../services/searchService');
  *         description: 搜索关键词不能为空
  */
 const localSearch = catchAsync(async (req, res) => {
-  const { q: keyword, limit } = req.query;
+  // 兼容前端参数名：keyword 或 q
+  const { keyword, q, limit, pageSize } = req.query;
+  const searchKeyword = keyword || q;
 
-  if (!keyword || keyword.trim().length === 0) {
+  if (!searchKeyword || searchKeyword.trim().length === 0) {
     throw new AppError('搜索关键词不能为空', 400);
   }
 
-  const limitValue = Math.min(parseInt(limit) || 20, 100);
+  // 兼容前端参数名：pageSize 或 limit
+  const limitValue = Math.min(parseInt(pageSize || limit) || 20, 100);
 
-  const results = searchService.searchAudioMetadata(keyword.trim(), limitValue);
+  const results = searchService.searchAudioMetadata(searchKeyword.trim(), limitValue);
 
-  return successResponse(res, results, '搜索成功');
+  // 包装成对象格式，前端期望 data['results']
+  return successResponse(res, { results }, '搜索成功');
 });
 
 /**
@@ -71,7 +75,9 @@ const localSearch = catchAsync(async (req, res) => {
  *         description: 获取成功
  */
 const searchSuggestions = catchAsync(async (req, res) => {
-  const { q: prefix } = req.query;
+  // 兼容前端参数名：keyword 或 q
+  const { keyword, q } = req.query;
+  const prefix = keyword || q;
 
   if (!prefix || prefix.length < 1) {
     throw new AppError('搜索前缀不能为空', 400);
@@ -79,7 +85,8 @@ const searchSuggestions = catchAsync(async (req, res) => {
 
   const suggestions = searchService.getSearchSuggestions(prefix);
 
-  return successResponse(res, suggestions, '获取搜索建议成功');
+  // 包装成对象格式，前端期望 data['suggestions']
+  return successResponse(res, { suggestions }, '获取搜索建议成功');
 });
 
 /**
@@ -144,7 +151,8 @@ const getSearchHistory = catchAsync(async (req, res) => {
 
   const history = searchService.getSearchHistory(userId);
 
-  return successResponse(res, history, '获取搜索历史成功');
+  // 包装成对象格式，前端期望 data['history']
+  return successResponse(res, { history }, '获取搜索历史成功');
 });
 
 /**

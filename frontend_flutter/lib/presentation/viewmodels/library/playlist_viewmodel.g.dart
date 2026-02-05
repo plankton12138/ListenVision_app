@@ -9,7 +9,7 @@ part of 'playlist_viewmodel.dart';
 String _$playlistRepositoryHash() =>
     r'73f7d3d33b57fa8946c22cd347502a642320a237';
 
-/// Provider 定义
+/// Provider定义
 ///
 /// Copied from [playlistRepository].
 @ProviderFor(playlistRepository)

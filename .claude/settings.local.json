@@ -56,7 +56,9 @@
       "Bash(git show:*)",
       "Bash(cat:*)",
       "Skill(superpowers:systematic-debugging)",
-      "Skill(superpowers:requesting-code-review)"
+      "Skill(superpowers:requesting-code-review)",
+      "Bash(flutter pub run build_runner build:*)",
+      "Bash(Sort-Object LastWriteTime -Descending)"
     ]
   }
 }

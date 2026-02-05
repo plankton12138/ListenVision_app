@@ -26,18 +26,20 @@ const register = catchAsync(async (req, res) => {
 });
 
 /**
- * 用户登录
+ * 用户登录 - 支持 email 或 username
  */
 const login = catchAsync(async (req, res) => {
-  const { username, password } = req.body;
+  // 使用验证中间件设置的 usernameOrEmail（兼容 email 或 username）
+  const usernameOrEmail = req.body.usernameOrEmail || req.body.username || req.body.email;
+  const { password } = req.body;
 
   // 参数验证
-  if (!username || !password) {
-    throw new AppError('用户名和密码不能为空', 400);
+  if (!usernameOrEmail || !password) {
+    throw new AppError('用户名/邮箱和密码不能为空', 400);
   }
 
   // 调用服务层
-  const result = await userService.loginUser(username, password);
+  const result = await userService.loginUser(usernameOrEmail, password);
 
   return successResponse(res, result, '登录成功');
 });

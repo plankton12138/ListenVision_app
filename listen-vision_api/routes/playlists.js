@@ -93,6 +93,26 @@ router.get('/:id', authMiddleware, playlistController.getPlaylistDetail);
 
 /**
  * @swagger
+ * /api/playlists/{id}/items:
+ *   get:
+ *     tags: [歌单]
+ *     summary: 获取歌单项列表
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ */
+router.get('/:id/items', authMiddleware, playlistController.getPlaylistItems);
+
+/**
+ * @swagger
  * /api/playlists/{id}:
  *   put:
  *     tags: [歌单]

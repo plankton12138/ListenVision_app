@@ -20,7 +20,7 @@ const { catchAsync } = require('../middleware/errorHandler');
  */
 const getUserPlaylists = catchAsync(async (req, res) => {
   const playlists = await playlistService.getUserPlaylists(req.user.id);
-  return successResponse(res, playlists, '获取歌单列表成功');
+  return successResponse(res, { playlists }, '获取歌单列表成功');
 });
 
 /**
@@ -156,7 +156,11 @@ const checkFavorite = catchAsync(async (req, res) => {
 
   const favorited = await playlistService.isFavorited(req.user.id, bvid);
 
-  return successResponse(res, { favorited }, '检查收藏状态成功');
+  // 兼容双字段，前端可使用任一字段
+  return successResponse(res, {
+    favorited,
+    isFavorite: favorited  // 新增兼容字段
+  }, '检查收藏状态成功');
 });
 
 /**
@@ -165,7 +169,7 @@ const checkFavorite = catchAsync(async (req, res) => {
 const getFavorites = catchAsync(async (req, res) => {
   const favorites = await playlistService.getFavorites(req.user.id);
 
-  return successResponse(res, favorites, '获取收藏列表成功');
+  return successResponse(res, { items: favorites }, '获取收藏列表成功');
 });
 
 // ==================== 播放队列 ====================
@@ -201,6 +205,22 @@ const incrementPlayCount = catchAsync(async (req, res) => {
   return successResponse(res, { success: true }, '记录播放成功');
 });
 
+/**
+ * 获取歌单项列表
+ */
+const getPlaylistItems = catchAsync(async (req, res) => {
+  const { id } = req.params;
+
+  // 复用现有的 getPlaylistDetail 服务方法
+  const detail = await playlistService.getPlaylistDetail(
+    parseInt(id),
+    req.user.id,
+    'position_asc'
+  );
+
+  return successResponse(res, { items: detail.items }, '获取歌单项成功');
+});
+
 module.exports = {
   // 歌单管理
   getUserPlaylists,
@@ -213,6 +233,7 @@ module.exports = {
   removeItem,
   reorderItems,
   sortItems,
+  getPlaylistItems,  // 新增
   // 收藏快捷方法
   toggleFavorite,
   checkFavorite,

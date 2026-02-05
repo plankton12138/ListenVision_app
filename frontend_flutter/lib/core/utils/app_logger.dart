@@ -90,6 +90,12 @@ class AppLogger {
   /// 是否已初始化
   bool _isInitialized = false;
 
+  /// 日志写入队列（避免并发写入导致乱码）
+  final List<String> _writeQueue = [];
+
+  /// 是否正在写入
+  bool _isWriting = false;
+
   // ==================== 公开方法 ====================
 
   /// 初始化日志系统
@@ -410,13 +416,35 @@ class AppLogger {
     }
   }
 
-  /// 写入文件
+  /// 写入文件（带队列机制，避免并发写入乱码）
   Future<void> _writeToFile(String logEntry) async {
     // 如果未初始化，跳过文件写入
     if (!_isInitialized || _currentLogFile == null) {
       return;
     }
 
+    // 加入队列
+    _writeQueue.add(logEntry);
+
+    // 如果正在写入，直接返回（等待当前写入完成）
+    if (_isWriting) {
+      return;
+    }
+
+    // 开始处理队列
+    _isWriting = true;
+    try {
+      while (_writeQueue.isNotEmpty) {
+        final entry = _writeQueue.removeAt(0);
+        await _writeEntryToFile(entry);
+      }
+    } finally {
+      _isWriting = false;
+    }
+  }
+
+  /// 实际写入单条日志
+  Future<void> _writeEntryToFile(String logEntry) async {
     try {
       // 检查文件大小，超过限制则轮转
       if (_currentLogFile != null && await _currentLogFile!.exists()) {

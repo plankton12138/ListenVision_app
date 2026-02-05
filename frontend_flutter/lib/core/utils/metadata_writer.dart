@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:demo/core/utils/audio_metadata_helper.dart';
-import 'package:demo/data/datasources/remote/bilibili_api_datasource.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
 /// 元数据写入器
@@ -13,20 +12,12 @@ import 'package:demo/core/utils/app_logger.dart';
 ///
 /// 使用 AudioMetadataHelper 封装层（基于 audio_metadata_reader）
 class MetadataWriter {
-  BilibiliApiService? _bilibiliService;
-
   /// 是否使用后端代理获取封面
   final bool useProxy;
 
   MetadataWriter({
-    BilibiliApiService? bilibiliService,
     this.useProxy = true,
-  }) : _bilibiliService = bilibiliService;
-
-  /// 设置 BilibiliApiService
-  void setBilibiliApiService(BilibiliApiService service) {
-    _bilibiliService = service;
-  }
+  });
 
   /// 写入元数据到音频文件
   ///
@@ -79,18 +70,11 @@ class MetadataWriter {
   /// 下载封面图片
   Future<Uint8List?> _downloadCover(String url) async {
     try {
-      String finalUrl = url;
-
-      // 如果使用代理且后端服务可用
-      if (useProxy && _bilibiliService != null) {
-        finalUrl = _bilibiliService!.getProxyImageUrl(url);
-      }
-
-      AppLogger.debug('MetadataWriter', '下载封面: $finalUrl');
+      AppLogger.debug('MetadataWriter', '下载封面: $url');
 
       final dio = Dio();
       final response = await dio.get(
-        finalUrl,
+        url,
         options: Options(
           responseType: ResponseType.bytes,
           headers: {
@@ -108,42 +92,6 @@ class MetadataWriter {
     } catch (e) {
       AppLogger.error('MetadataWriter', '封面下载失败: $e');
       return null;
-    }
-  }
-
-  /// 从 BVID 获取信息并写入元数据
-  ///
-  /// 当下载时没有完整信息时，可以通过 BVID 重新获取
-  Future<bool> writeMetadataByBvid({
-    required String filePath,
-    required String bvid,
-  }) async {
-    if (_bilibiliService == null) {
-      AppLogger.debug('MetadataWriter', 'BilibiliApiService 未设置，无法获取信息');
-      return false;
-    }
-
-    try {
-      AppLogger.debug('MetadataWriter', '通过 BVID 获取信息: $bvid');
-
-      // 获取视频信息
-      final videoInfo = await _bilibiliService!.getVideoInfo(bvid);
-
-      final title = videoInfo['title'] ?? '未知标题';
-      final artist = videoInfo['owner']?['name'] ?? '未知艺术家';
-      final coverUrl = videoInfo['pic'];
-      final bvidUrl = 'https://www.bilibili.com/video/$bvid';
-
-      return await writeMetadata(
-        filePath: filePath,
-        title: title,
-        artist: artist,
-        coverUrl: coverUrl,
-        album: bvidUrl,
-      );
-    } catch (e) {
-      AppLogger.error('MetadataWriter', '通过 BVID 写入元数据失败: $e');
-      return false;
     }
   }
 

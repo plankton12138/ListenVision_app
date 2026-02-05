@@ -1,5 +1,6 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -57,9 +58,53 @@ class PlaylistLibraryPage extends ConsumerWidget {
                 ],
               ),
             )
-          : const Center(
-              child: Text('歌单列表待实现'),
+          : Column(
+              children: [
+                // 本地音乐歌单（系统预设）
+                _buildLocalMusicPlaylistTile(context, ref),
+                const Divider(),
+                // 在线歌单列表（待实现）
+                const Expanded(
+                  child: Center(
+                    child: Text('在线歌单列表待实现'),
+                  ),
+                ),
+              ],
             ),
+    );
+  }
+
+  /// 本地音乐歌单项
+  Widget _buildLocalMusicPlaylistTile(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(
+          Icons.folder_special,
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
+      ),
+      title: const Text('本地音乐'),
+      subtitle: Consumer(
+        builder: (context, ref, child) {
+          final localMusicState = ref.watch(localMusicViewModelProvider);
+          return localMusicState.when(
+            loaded: (audios) => Text('${audios.length}首歌曲'),
+            loading: () => const Text('加载中...'),
+            error: (_) => const Text('导入的本地音频'),
+            importing: (_, __, ___) => const Text('导入中...'),
+            initial: () => const Text('导入的本地音频'),
+          );
+        },
+      ),
+      onTap: () {
+        context.push('/playlist/local');
+      },
     );
   }
 }

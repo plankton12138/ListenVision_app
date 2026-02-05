@@ -21,11 +21,16 @@ mixin _$SearchState {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
@@ -34,9 +39,17 @@ mixin _$SearchState {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) => throw _privateConstructorUsedError;
@@ -44,9 +57,17 @@ mixin _$SearchState {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),
@@ -145,11 +166,16 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
@@ -162,9 +188,17 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) {
@@ -176,9 +210,17 @@ class _$SearchStateInitialImpl implements SearchStateInitial {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),
@@ -279,11 +321,16 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
@@ -296,9 +343,17 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) {
@@ -310,9 +365,17 @@ class _$SearchStateLoadingImpl implements SearchStateLoading {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),
@@ -375,7 +438,11 @@ abstract class _$$SearchStateResultsLoadedImplCopyWith<$Res> {
     $Res Function(_$SearchStateResultsLoadedImpl) then,
   ) = __$$SearchStateResultsLoadedImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({List<Map<String, dynamic>> results, String query});
+  $Res call({
+    List<SearchResultItem> results,
+    String query,
+    SearchPlatform platform,
+  });
 }
 
 /// @nodoc
@@ -391,17 +458,25 @@ class __$$SearchStateResultsLoadedImplCopyWithImpl<$Res>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({Object? results = null, Object? query = null}) {
+  $Res call({
+    Object? results = null,
+    Object? query = null,
+    Object? platform = null,
+  }) {
     return _then(
       _$SearchStateResultsLoadedImpl(
         results: null == results
             ? _value._results
             : results // ignore: cast_nullable_to_non_nullable
-                  as List<Map<String, dynamic>>,
+                  as List<SearchResultItem>,
         query: null == query
             ? _value.query
             : query // ignore: cast_nullable_to_non_nullable
                   as String,
+        platform: null == platform
+            ? _value.platform
+            : platform // ignore: cast_nullable_to_non_nullable
+                  as SearchPlatform,
       ),
     );
   }
@@ -411,13 +486,14 @@ class __$$SearchStateResultsLoadedImplCopyWithImpl<$Res>
 
 class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
   const _$SearchStateResultsLoadedImpl({
-    required final List<Map<String, dynamic>> results,
+    required final List<SearchResultItem> results,
     required this.query,
+    required this.platform,
   }) : _results = results;
 
-  final List<Map<String, dynamic>> _results;
+  final List<SearchResultItem> _results;
   @override
-  List<Map<String, dynamic>> get results {
+  List<SearchResultItem> get results {
     if (_results is EqualUnmodifiableListView) return _results;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_results);
@@ -425,10 +501,12 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
 
   @override
   final String query;
+  @override
+  final SearchPlatform platform;
 
   @override
   String toString() {
-    return 'SearchState.resultsLoaded(results: $results, query: $query)';
+    return 'SearchState.resultsLoaded(results: $results, query: $query, platform: $platform)';
   }
 
   @override
@@ -437,7 +515,9 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
         (other.runtimeType == runtimeType &&
             other is _$SearchStateResultsLoadedImpl &&
             const DeepCollectionEquality().equals(other._results, _results) &&
-            (identical(other.query, query) || other.query == query));
+            (identical(other.query, query) || other.query == query) &&
+            (identical(other.platform, platform) ||
+                other.platform == platform));
   }
 
   @override
@@ -445,6 +525,7 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
     runtimeType,
     const DeepCollectionEquality().hash(_results),
     query,
+    platform,
   );
 
   /// Create a copy of SearchState
@@ -463,16 +544,21 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
   }) {
-    return resultsLoaded(results, query);
+    return resultsLoaded(results, query, platform);
   }
 
   @override
@@ -480,13 +566,21 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) {
-    return resultsLoaded?.call(results, query);
+    return resultsLoaded?.call(results, query, platform);
   }
 
   @override
@@ -494,15 +588,23 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),
   }) {
     if (resultsLoaded != null) {
-      return resultsLoaded(results, query);
+      return resultsLoaded(results, query, platform);
     }
     return orElse();
   }
@@ -550,12 +652,14 @@ class _$SearchStateResultsLoadedImpl implements SearchStateResultsLoaded {
 
 abstract class SearchStateResultsLoaded implements SearchState {
   const factory SearchStateResultsLoaded({
-    required final List<Map<String, dynamic>> results,
+    required final List<SearchResultItem> results,
     required final String query,
+    required final SearchPlatform platform,
   }) = _$SearchStateResultsLoadedImpl;
 
-  List<Map<String, dynamic>> get results;
+  List<SearchResultItem> get results;
   String get query;
+  SearchPlatform get platform;
 
   /// Create a copy of SearchState
   /// with the given fields replaced by the non-null parameter values.
@@ -571,7 +675,11 @@ abstract class _$$SearchStateIdleImplCopyWith<$Res> {
     $Res Function(_$SearchStateIdleImpl) then,
   ) = __$$SearchStateIdleImplCopyWithImpl<$Res>;
   @useResult
-  $Res call({List<String> searchHistory, List<String> suggestions});
+  $Res call({
+    List<String> searchHistory,
+    List<String> suggestions,
+    SearchPlatform platform,
+  });
 }
 
 /// @nodoc
@@ -587,7 +695,11 @@ class __$$SearchStateIdleImplCopyWithImpl<$Res>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({Object? searchHistory = null, Object? suggestions = null}) {
+  $Res call({
+    Object? searchHistory = null,
+    Object? suggestions = null,
+    Object? platform = null,
+  }) {
     return _then(
       _$SearchStateIdleImpl(
         searchHistory: null == searchHistory
@@ -598,6 +710,10 @@ class __$$SearchStateIdleImplCopyWithImpl<$Res>
             ? _value._suggestions
             : suggestions // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        platform: null == platform
+            ? _value.platform
+            : platform // ignore: cast_nullable_to_non_nullable
+                  as SearchPlatform,
       ),
     );
   }
@@ -609,6 +725,7 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
   const _$SearchStateIdleImpl({
     final List<String> searchHistory = const [],
     final List<String> suggestions = const [],
+    this.platform = SearchPlatform.bilibili,
   }) : _searchHistory = searchHistory,
        _suggestions = suggestions;
 
@@ -631,8 +748,12 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
   }
 
   @override
+  @JsonKey()
+  final SearchPlatform platform;
+
+  @override
   String toString() {
-    return 'SearchState.idle(searchHistory: $searchHistory, suggestions: $suggestions)';
+    return 'SearchState.idle(searchHistory: $searchHistory, suggestions: $suggestions, platform: $platform)';
   }
 
   @override
@@ -647,7 +768,9 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
             const DeepCollectionEquality().equals(
               other._suggestions,
               _suggestions,
-            ));
+            ) &&
+            (identical(other.platform, platform) ||
+                other.platform == platform));
   }
 
   @override
@@ -655,6 +778,7 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
     runtimeType,
     const DeepCollectionEquality().hash(_searchHistory),
     const DeepCollectionEquality().hash(_suggestions),
+    platform,
   );
 
   /// Create a copy of SearchState
@@ -673,16 +797,21 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
   }) {
-    return idle(searchHistory, suggestions);
+    return idle(searchHistory, suggestions, platform);
   }
 
   @override
@@ -690,13 +819,21 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) {
-    return idle?.call(searchHistory, suggestions);
+    return idle?.call(searchHistory, suggestions, platform);
   }
 
   @override
@@ -704,15 +841,23 @@ class _$SearchStateIdleImpl implements SearchStateIdle {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),
   }) {
     if (idle != null) {
-      return idle(searchHistory, suggestions);
+      return idle(searchHistory, suggestions, platform);
     }
     return orElse();
   }
@@ -762,10 +907,12 @@ abstract class SearchStateIdle implements SearchState {
   const factory SearchStateIdle({
     final List<String> searchHistory,
     final List<String> suggestions,
+    final SearchPlatform platform,
   }) = _$SearchStateIdleImpl;
 
   List<String> get searchHistory;
   List<String> get suggestions;
+  SearchPlatform get platform;
 
   /// Create a copy of SearchState
   /// with the given fields replaced by the non-null parameter values.
@@ -849,11 +996,16 @@ class _$SearchStateErrorImpl implements SearchStateError {
   TResult when<TResult extends Object?>({
     required TResult Function() initial,
     required TResult Function() loading,
-    required TResult Function(List<Map<String, dynamic>> results, String query)
+    required TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )
     resultsLoaded,
     required TResult Function(
       List<String> searchHistory,
       List<String> suggestions,
+      SearchPlatform platform,
     )
     idle,
     required TResult Function(String message) error,
@@ -866,9 +1018,17 @@ class _$SearchStateErrorImpl implements SearchStateError {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function()? initial,
     TResult? Function()? loading,
-    TResult? Function(List<Map<String, dynamic>> results, String query)?
+    TResult? Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult? Function(List<String> searchHistory, List<String> suggestions)?
+    TResult? Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult? Function(String message)? error,
   }) {
@@ -880,9 +1040,17 @@ class _$SearchStateErrorImpl implements SearchStateError {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function()? initial,
     TResult Function()? loading,
-    TResult Function(List<Map<String, dynamic>> results, String query)?
+    TResult Function(
+      List<SearchResultItem> results,
+      String query,
+      SearchPlatform platform,
+    )?
     resultsLoaded,
-    TResult Function(List<String> searchHistory, List<String> suggestions)?
+    TResult Function(
+      List<String> searchHistory,
+      List<String> suggestions,
+      SearchPlatform platform,
+    )?
     idle,
     TResult Function(String message)? error,
     required TResult orElse(),

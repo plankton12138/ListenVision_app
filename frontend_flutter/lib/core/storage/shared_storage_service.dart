@@ -35,10 +35,14 @@ class SharedStorageService {
   /// 获取 SharedPreferences 实例
   SharedPreferences get prefs {
     if (_prefs == null) {
+      AppLogger.warn('SharedStorageService', '未初始化，请先调用 init()');
       throw StateError('SharedStorageService 未初始化，请先调用 init()');
     }
     return _prefs!;
   }
+
+  /// 检查是否已初始化
+  bool get isInitialized => _prefs != null;
 
   // ==================== 基础方法 ====================
 
@@ -57,6 +61,10 @@ class SharedStorageService {
   /// 读取字符串
   String? getString(String key) {
     try {
+      if (!isInitialized) {
+        AppLogger.warn('SharedStorageService', '未初始化，无法读取: $key');
+        return null;
+      }
       return prefs.getString(key);
     } catch (e) {
       AppLogger.error('SharedStorageService', '读取字符串失败: $key, $e');
@@ -79,6 +87,10 @@ class SharedStorageService {
   /// 读取整数
   int? getInt(String key) {
     try {
+      if (!isInitialized) {
+        AppLogger.warn('SharedStorageService', '未初始化，无法读取: $key');
+        return null;
+      }
       return prefs.getInt(key);
     } catch (e) {
       AppLogger.error('SharedStorageService', '读取整数失败: $key, $e');
@@ -101,6 +113,10 @@ class SharedStorageService {
   /// 读取布尔值
   bool? getBool(String key) {
     try {
+      if (!isInitialized) {
+        AppLogger.warn('SharedStorageService', '未初始化，无法读取: $key');
+        return null;
+      }
       return prefs.getBool(key);
     } catch (e) {
       AppLogger.error('SharedStorageService', '读取布尔失败: $key, $e');
@@ -123,6 +139,10 @@ class SharedStorageService {
   /// 读取双精度浮点数
   double? getDouble(String key) {
     try {
+      if (!isInitialized) {
+        AppLogger.warn('SharedStorageService', '未初始化，无法读取: $key');
+        return null;
+      }
       return prefs.getDouble(key);
     } catch (e) {
       AppLogger.error('SharedStorageService', '读取双精度失败: $key, $e');
@@ -188,6 +208,7 @@ class SharedStorageService {
 
   /// 检查键是否存在
   bool containsKey(String key) {
+    if (!isInitialized) return false;
     return prefs.containsKey(key);
   }
 

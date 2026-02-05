@@ -159,9 +159,16 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       await session.configure(AudioSessionConfiguration.music());
       AppLogger.debug('PlayerViewModel', '音频会话已配置');
 
-      // 加载播放设置
-      final volume = _storage.getDouble(StorageKeys.playbackVolume) ?? 1.0;
-      final speed = _storage.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
+      // 加载播放设置（安全处理未初始化情况）
+      double volume = 1.0;
+      double speed = 1.0;
+
+      try {
+        volume = _storage.getDouble(StorageKeys.playbackVolume) ?? 1.0;
+        speed = _storage.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
+      } catch (e) {
+        AppLogger.warn('PlayerViewModel', '加载播放设置失败，使用默认值: $e');
+      }
 
       state = state.copyWith(
         volume: volume,

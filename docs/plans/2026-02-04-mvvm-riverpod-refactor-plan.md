@@ -15,9 +15,9 @@
 | 6 | 其他 ViewModels | ✅ 已完成 | 2026-02-04 |
 | 7 | Views 迁移与解耦 | ✅ 已完成 | 2026-02-04 |
 | 8 | Widgets 更新 | ✅ 已完成 | 2026-02-05 |
-| 9 | 清理与收尾 | ⏳ 待开始 | - |
+| 9 | 清理与收尾 | ✅ 已完成 | 2026-02-05 |
 
-**整体进度**: `█████████████████████░░` 90% (9/10)
+**整体进度**: `███████████████████████` 100% (10/10)
 
 ---
 
@@ -575,19 +575,33 @@ Dio dioClient(DioClientRef ref) {
 
 ### Phase 9 — 清理与收尾
 
+> **状态**: ✅ 已完成 (2026-02-05)
+
 **目标**：删除旧代码
 
 **改动**：
 - 删除 `domain/` 目录
-- 删除 `presentation/providers/` 目录
-- 删除 `core/di/provider_config.dart`, `service_factory.dart`
-- 删除 `base_provider.dart`, `base_page.dart`
+- 删除 `presentation/providers/` 目录（旧 providers）
+- 删除 `core/di/` 目录（provider_config.dart, service_factory.dart）
+- 删除 `core/base/` 目录（base_provider.dart, base_page.dart, base_entity.dart）
+- 删除 `presentation/pages/` 目录（已迁移到 views/）
+- 删除 `data/datasources/` 目录
 - 从 `pubspec.yaml` 移除 `provider` 依赖
+- 更新 `main.dart` 使用新架构（ProviderScope）
+- 更新 `app.dart` 添加主题支持
+- 修复残留旧引用（metadata_writer.dart, speed_button.dart, volume_slider.dart）
+- **修复 Freezed 联合类型问题**：
+  - `playlist_viewmodel.dart`: 移除 `copyWith` 调用（联合类型不支持）
+  - 修复扩展方法参数数量（7个字段对应7个参数）
+  - `search_viewmodel.dart`: 修复类型推断问题（`const <String>[]`）
+- 清理未使用的字段（`_isOperating`, `_operationMessage`）
 
 **验收**：
-- 无 `provider` 包依赖
-- 项目编译运行正常
-- 所有测试通过
+- 无 `provider` 包依赖 ✅
+- 所有旧目录已删除 ✅
+- 新架构入口正常工作 ✅
+- 无残留旧引用 ✅
+- `flutter analyze` 无 error 级别问题 ✅
 
 ---
 

@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../core/storage/shared_storage_service.dart';
-import '../../../presentation/theme/light_mode.dart';
-import '../../../presentation/theme/dark_mode.dart';
 
 part 'theme_viewmodel.g.dart';
 
@@ -18,71 +16,62 @@ enum AppThemeMode {
 
 /// 主题 ViewModel
 ///
-/// 负责应用的主题切换（浅色/深色模式）
-class ThemeViewModel extends StateNotifier<ThemeData> {
-  final SharedStorageService _storage;
+/// 负责应用的主题切换（浅色/深色/跟随系统）
+@riverpod
+class ThemeViewModel extends _$ThemeViewModel {
+  static const _themeKey = 'app_theme_mode';
+  late final SharedStorageService _storage;
 
-  static const _themeKey = 'is_dark_mode';
-
-  ThemeViewModel(this._storage) : super(lightMode) {
+  @override
+  AppThemeMode build() {
+    _storage = ref.watch(themeStorageServiceProvider);
     _loadThemePreference();
+    return AppThemeMode.light;
   }
 
-  /// 获取当前主题
-  ThemeData get themeData => state;
+  /// 切换主题（light <-> dark）
+  void toggleTheme() {
+    state = state == AppThemeMode.light ? AppThemeMode.dark : AppThemeMode.light;
+    _saveThemePreference();
+    AppLogger.info('ThemeViewModel', '主题切换为: ${state.name}');
+  }
 
-  /// 是否为深色模式
-  bool get isDarkMode => state == darkMode;
+  /// 设置为浅色模式
+  void setLightMode() {
+    state = AppThemeMode.light;
+    _saveThemePreference();
+  }
+
+  /// 设置为深色模式
+  void setDarkMode() {
+    state = AppThemeMode.dark;
+    _saveThemePreference();
+  }
+
+  /// 设置为跟随系统
+  void setSystemMode() {
+    state = AppThemeMode.system;
+    _saveThemePreference();
+  }
 
   /// 从本地存储加载主题偏好
   Future<void> _loadThemePreference() async {
     try {
-      final isDark = await _storage.getBool(_themeKey);
-      if (isDark == true) {
-        state = darkMode;
-      } else {
-        state = lightMode;
+      final savedMode = await _storage.getString(_themeKey);
+      if (savedMode != null) {
+        state = AppThemeMode.values.byName(savedMode);
+        AppLogger.info('ThemeViewModel', '主题加载: $savedMode');
       }
-      AppLogger.info('ThemeViewModel', '主题加载: ${isDark == true ? "dark" : "light"}');
     } catch (e) {
       AppLogger.error('ThemeViewModel', '加载主题失败: $e');
-      state = lightMode;
     }
-  }
-
-  /// 设置主题
-  void setThemeData(ThemeData themeData) {
-    state = themeData;
-    _saveThemePreference();
-  }
-
-  /// 切换主题
-  void toggleTheme() {
-    if (state == lightMode) {
-      state = darkMode;
-    } else {
-      state = lightMode;
-    }
-    _saveThemePreference();
-  }
-
-  /// 设置深色模式
-  void setDarkMode() {
-    state = darkMode;
-    _saveThemePreference();
-  }
-
-  /// 设置浅色模式
-  void setLightMode() {
-    state = lightMode;
-    _saveThemePreference();
   }
 
   /// 保存主题偏好到本地存储
   Future<void> _saveThemePreference() async {
     try {
-      await _storage.setBool(_themeKey, isDarkMode);
-      AppLogger.debug('ThemeViewModel', '主题保存: ${isDarkMode ? "dark" : "light"}');
+      await _storage.setString(_themeKey, state.name);
+      AppLogger.debug('ThemeViewModel', '主题保存: ${state.name}');
     } catch (e) {
       AppLogger.error('ThemeViewModel', '保存主题失败: $e');
     }
@@ -95,8 +84,16 @@ SharedStorageService themeStorageService(ThemeStorageServiceRef ref) {
   return SharedStorageService.instance;
 }
 
-@riverpod
-ThemeViewModel themeViewModel(ThemeViewModelRef ref) {
-  final storage = ref.watch(themeStorageServiceProvider);
-  return ThemeViewModel(storage);
+/// 将 AppThemeMode 转换为 Flutter 的 ThemeMode
+extension AppThemeModeExtension on AppThemeMode {
+  ThemeMode get flutterThemeMode {
+    switch (this) {
+      case AppThemeMode.light:
+        return ThemeMode.light;
+      case AppThemeMode.dark:
+        return ThemeMode.dark;
+      case AppThemeMode.system:
+        return ThemeMode.system;
+    }
+  }
 }

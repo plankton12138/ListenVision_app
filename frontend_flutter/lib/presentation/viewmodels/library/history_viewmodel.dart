@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../core/storage/shared_storage_service.dart';
@@ -435,3 +434,11 @@ HistoryViewModel historyViewModel(HistoryViewModelRef ref) {
   final storage = SharedStorageService.instance;
   return HistoryViewModel(repository, storage);
 }
+
+/// 历史状态 Provider - 用于 UI 层监听状态
+@riverpod
+HistoryState historyState(HistoryStateRef ref) {
+  final viewModel = ref.watch(historyViewModelProvider);
+  return viewModel.state;
+}
+

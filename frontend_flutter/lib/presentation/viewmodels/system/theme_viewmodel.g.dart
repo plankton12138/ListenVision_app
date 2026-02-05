@@ -27,22 +27,25 @@ final themeStorageServiceProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ThemeStorageServiceRef = AutoDisposeProviderRef<SharedStorageService>;
-String _$themeViewModelHash() => r'e65cf4b26f1d66e9cb4f2a98ca59d3fae056d961';
+String _$themeViewModelHash() => r'37784180967b8fa6dc212272cbc34a754274918e';
 
-/// See also [themeViewModel].
-@ProviderFor(themeViewModel)
-final themeViewModelProvider = AutoDisposeProvider<ThemeViewModel>.internal(
-  themeViewModel,
-  name: r'themeViewModelProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$themeViewModelHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+/// 主题 ViewModel
+///
+/// 负责应用的主题切换（浅色/深色/跟随系统）
+///
+/// Copied from [ThemeViewModel].
+@ProviderFor(ThemeViewModel)
+final themeViewModelProvider =
+    AutoDisposeNotifierProvider<ThemeViewModel, AppThemeMode>.internal(
+      ThemeViewModel.new,
+      name: r'themeViewModelProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$themeViewModelHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef ThemeViewModelRef = AutoDisposeProviderRef<ThemeViewModel>;
+typedef _$ThemeViewModel = AutoDisposeNotifier<AppThemeMode>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

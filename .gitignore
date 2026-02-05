@@ -105,12 +105,13 @@ cache/
 .cache/
 
 # ---------- 其他 ----------
-
+references/
 .sisyphus/
 nul
 node_modules/
 bs3.tar.gz
 better-sqlite3.tar.gz
+.claude/
 
 # 备份文件
 *.bak

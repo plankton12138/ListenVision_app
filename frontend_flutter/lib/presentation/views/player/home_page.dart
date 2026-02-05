@@ -1,5 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio_info.dart';
 import 'package:demo/presentation/widgets/controls_panel.dart';
 import 'package:demo/presentation/widgets/player_action_bar.dart';
@@ -18,14 +18,20 @@ class HomePage extends ConsumerWidget {
   /// 处理文件选择器
   Future<void> _handleFilePicker(BuildContext context, WidgetRef ref) async {
     try {
-      // TODO: 实现文件选择器
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('文件选择器待实现')),
-      );
+      // 调用 LocalMusicViewModel 导入音频到本地音乐歌单
+      await ref.read(localMusicViewModelProvider.notifier).importAudioFiles();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已导入到"本地音乐"歌单')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('错误: ${e.toString()}')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: ${e.toString()}')),
+        );
+      }
     }
   }
 

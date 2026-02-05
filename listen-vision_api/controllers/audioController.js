@@ -81,12 +81,13 @@ const getMultipleMetadata = async (req, res) => {
 
     const metadataMap = await audioService.getMultipleMetadata(limitedBvids);
 
-    successResponse(res, {
-      metadata: Array.from(metadataMap.entries()).map(([bvid, data]) => ({
-        bvid,
-        ...data
-      }))
-    });
+    // 改为对象格式，key 为 bvid
+    const metadataObj = {};
+    for (const [bvid, data] of metadataMap.entries()) {
+      metadataObj[bvid] = data;
+    }
+
+    successResponse(res, { metadata: metadataObj });
   } catch (error) {
     res.status(500).json({
       success: false,

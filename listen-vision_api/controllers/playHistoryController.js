@@ -51,7 +51,7 @@ const getHistory = catchAsync(async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const history = playHistoryService.getHistory(userId, parseInt(limit), offset);
 
-  return successResponse(res, history, '获取播放历史成功');
+  return successResponse(res, { history }, '获取播放历史成功');
 });
 
 /**
@@ -62,7 +62,7 @@ const getAllHistory = catchAsync(async (req, res) => {
 
   const history = playHistoryService.getAllHistory(userId);
 
-  return successResponse(res, history, '获取播放历史成功');
+  return successResponse(res, { history }, '获取播放历史成功');
 });
 
 /**

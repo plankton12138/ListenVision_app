@@ -13,7 +13,8 @@ class AudioInfo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerViewModelProvider);
+    final playerViewModel = ref.watch(playerViewModelProvider);
+    final playerState = playerViewModel.playerState;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,

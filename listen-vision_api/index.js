@@ -2,6 +2,19 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// ========== 环境变量校验 ==========
+const requiredEnvVars = ['JWT_SECRET', 'DATABASE_PATH'];
+const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ 缺少必需的环境变量:');
+  missingEnvVars.forEach(key => console.error(`   - ${key}`));
+  console.error('\n请在 .env 文件中配置上述变量，参考 .env.example');
+  process.exit(1);
+}
+
+console.log('✅ 环境变量校验通过');
+
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');

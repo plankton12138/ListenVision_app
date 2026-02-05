@@ -1,5 +1,4 @@
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

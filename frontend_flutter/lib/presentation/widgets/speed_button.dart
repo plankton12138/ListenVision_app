@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:demo/presentation/providers/audio/audio_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:demo/presentation/providers.dart';
 import 'package:demo/core/utils/app_logger.dart';
 
 /// 倍速按钮组件
 ///
 /// 允许用户选择播放倍速（0.5x - 2.0x）
-class SpeedButton extends StatelessWidget {
+class SpeedButton extends ConsumerWidget {
   const SpeedButton({super.key});
 
   /// 倍速档位选项
@@ -23,36 +23,35 @@ class SpeedButton extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<AudioProvider>(
-      builder: (context, provider, child) {
-        final currentSpeed = provider.speed;
-        final isDefaultSpeed = currentSpeed == 1.0;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final viewModel = ref.watch(playerViewModelProvider);
+    final playerState = viewModel.playerState;
 
-        return IconButton(
-          icon: Text(
-            kSpeedLabels[currentSpeed] ?? '1.0x',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isDefaultSpeed
-                  ? null
-                  : Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          onPressed: () {
-            AppLogger.logButtonClick('倍速按钮', 'SpeedButton',
-              parameters: {'currentSpeed': currentSpeed});
-            _showSpeedMenu(context, provider);
-          },
-          tooltip: '播放倍速',
-        );
+    final currentSpeed = playerState.speed;
+    final isDefaultSpeed = currentSpeed == 1.0;
+
+    return IconButton(
+      icon: Text(
+        kSpeedLabels[currentSpeed] ?? '1.0x',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: isDefaultSpeed
+              ? null
+              : Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      onPressed: () {
+        AppLogger.logButtonClick('倍速按钮', 'SpeedButton',
+          parameters: {'currentSpeed': currentSpeed});
+        _showSpeedMenu(context, ref, currentSpeed);
       },
+      tooltip: '播放倍速',
     );
   }
 
   /// 显示倍速选择菜单
-  void _showSpeedMenu(BuildContext context, AudioProvider provider) {
+  void _showSpeedMenu(BuildContext context, WidgetRef ref, double currentSpeed) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset offset = button.localToGlobal(Offset.zero);
     final Size buttonSize = button.size;
@@ -73,7 +72,7 @@ class SpeedButton extends StatelessWidget {
               Text(kSpeedLabels[speed] ?? '$speed'),
               const Spacer(),
               // 当前选中的倍速显示勾选图标
-              if (provider.speed == speed)
+              if (currentSpeed == speed)
                 Icon(
                   Icons.check,
                   size: 18,
@@ -87,7 +86,7 @@ class SpeedButton extends StatelessWidget {
       if (selectedSpeed != null) {
         AppLogger.logButtonClick('倍速选择-${kSpeedLabels[selectedSpeed]}', 'SpeedButton',
           parameters: {'speed': selectedSpeed});
-        provider.setSpeed(selectedSpeed);
+        ref.read(playerViewModelProvider).setSpeed(selectedSpeed);
       }
     });
   }

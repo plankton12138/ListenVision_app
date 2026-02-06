@@ -1,5 +1,9 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/audio.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/discovery/explore_viewmodel.dart';
+import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 发现页面
 ///
-/// 显示推荐内容和热门音频
+/// 显示B站音乐区热门、推荐、最新音频
 class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
 
@@ -15,52 +19,178 @@ class ExplorePage extends ConsumerStatefulWidget {
   ConsumerState<ExplorePage> createState() => _ExplorePageState();
 }
 
-class _ExplorePageState extends ConsumerState<ExplorePage> {
+class _ExplorePageState extends ConsumerState<ExplorePage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  static const List<String> _tabs = ['热门', '推荐', '最新'];
+  static const List<ExploreType> _types = [
+    ExploreType.hot,
+    ExploreType.recommended,
+    ExploreType.latest,
+  ];
+
   @override
   void initState() {
     super.initState();
-    // 页面加载时获取推荐内容
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(_onTabChange);
+
+    // 初始加载热门榜单
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRecommendations();
+      _checkBindingAndLoad();
     });
   }
 
-  Future<void> _loadRecommendations() async {
-    // TODO: 加载推荐内容
-    // await ref.read(recommendationViewModelProvider.notifier).loadHotPlaylists();
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// 检查绑定状态并加载内容
+  void _checkBindingAndLoad() {
+    final bound = ref.read(isBilibiliBoundProvider);
+    if (bound) {
+      ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+    }
+  }
+
+  /// Tab 切换监听
+  void _onTabChange() {
+    if (_tabController.indexIsChanging) return;
+
+    final index = _tabController.index;
+    final bound = ref.read(isBilibiliBoundProvider);
+
+    if (!bound) return;
+
+    switch (_types[index]) {
+      case ExploreType.hot:
+        ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+        break;
+      case ExploreType.recommended:
+        ref.read(exploreViewModelProvider.notifier).loadRecommended();
+        break;
+      case ExploreType.latest:
+        ref.read(exploreViewModelProvider.notifier).loadLatest();
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
+    final bound = ref.watch(isBilibiliBoundProvider);
 
     if (!isLoggedIn) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            '发现',
-            style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-          ),
-        ),
-        drawer: const MyDrawer(),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.login, size: 64, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-              const SizedBox(height: 16),
-              const Text('请先登录以查看推荐内容'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go('/login'),
-                child: const Text('去登录'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildNotLoggedInPrompt();
     }
 
+    if (!bound) {
+      return _buildNotBoundPrompt();
+    }
+
+    final exploreState = ref.watch(exploreViewModelProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          '发现',
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            iconSize: UIConstants.iconMedium,
+            onPressed: () => context.go('/'),
+            tooltip: '首页',
+          ),
+          IconButton(
+            icon: const Icon(Icons.search),
+            iconSize: UIConstants.iconMedium,
+            onPressed: () => context.go('/search'),
+            tooltip: '搜索',
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: _tabs.map((t) => Tab(text: t)).toList(),
+          indicatorSize: TabBarIndicatorSize.label,
+        ),
+      ),
+      drawer: const MyDrawer(),
+      body: exploreState.when(
+        data: (state) {
+          return state.when(
+            initial: () => _buildInitialView(),
+            loading: () => _buildLoadingView(),
+            notBound: () => _buildNotBoundPrompt(),
+            loaded: (items, hasMore, _, type) =>
+                _buildAudioList(items, hasMore, type),
+            error: (message) => _buildErrorView(message),
+          );
+        },
+        loading: () => _buildLoadingView(),
+        error: (e, _) => _buildErrorView(e.toString()),
+      ),
+    );
+  }
+
+  /// 构建初始视图
+  Widget _buildInitialView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.explore, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            '探索B站音乐区',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建加载视图
+  Widget _buildLoadingView() {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  /// 构建未登录提示
+  Widget _buildNotLoggedInPrompt() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          '发现',
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+        ),
+      ),
+      drawer: const MyDrawer(),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.login, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text('请先登录以查看推荐内容'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => context.go('/login'),
+              child: const Text('去登录'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建未绑定提示
+  Widget _buildNotBoundPrompt() {
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -81,55 +211,28 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 搜索入口
-            _buildSearchEntry(context),
-            const SizedBox(height: 24),
-
-            // 热门推荐
-            _buildSectionTitle('热门推荐', context),
-            _buildHotRecommendations(context),
-            const SizedBox(height: 24),
-
-            // 热门榜单
-            _buildSectionTitle('热门榜单', context),
-            _buildHotRanking(context),
-            const SizedBox(height: 24),
-
-            // 分类浏览
-            _buildSectionTitle('分类浏览', context),
-            _buildCategories(context),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 构建搜索入口
-  Widget _buildSearchEntry(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: InkWell(
-        onTap: () => context.go('/search'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Row(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.search, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-              const SizedBox(width: 12),
+              Icon(Icons.lock_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
               Text(
-                '搜索音频、歌单、艺术家...',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
+                '需要绑定B站账号',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '绑定后可查看B站音乐区推荐内容',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/settings'),
+                icon: const Icon(Icons.link),
+                label: const Text('前往绑定'),
               ),
             ],
           ),
@@ -138,119 +241,120 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     );
   }
 
-  /// 构建区块标题
-  Widget _buildSectionTitle(String title, BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  /// 构建热门推荐
-  Widget _buildHotRecommendations(BuildContext context) {
-    return SizedBox(
-      height: 180,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+  /// 构建错误视图
+  Widget _buildErrorView(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildRecommendationCard(Icons.whatshot, '每日推荐', '根据你的口味精心挑选', context),
-          _buildRecommendationCard(Icons.trending_up, '飙升榜', '今日最热门音频', context),
-          _buildRecommendationCard(Icons.new_releases, '新歌速递', '最新发布内容', context),
-          _buildRecommendationCard(Icons.favorite, '收藏精选', '最受欢迎内容', context),
+          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text('加载失败', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: TextStyle(color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+            child: const Text('重试'),
+          ),
         ],
       ),
     );
   }
 
-  /// 构建推荐卡片
-  Widget _buildRecommendationCard(
-    IconData icon,
-    String title,
-    String subtitle,
-    BuildContext context,
-  ) {
-    return Container(
-      width: 140,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: Card(
-        child: InkWell(
-          onTap: () {
-            // TODO: 导航到对应页面
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
+  /// 构建音频列表
+  Widget _buildAudioList(List<ExploreItem> items, bool hasMore, ExploreType type) {
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.music_note, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('暂无内容', style: TextStyle(color: Colors.grey[600])),
+          ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  /// 构建热门榜单
-  Widget _buildHotRanking(BuildContext context) {
-    final rankings = List.generate(5, (index) {
-      return {
-        'rank': index + 1,
-        'title': '热门音频 ${index + 1}',
-        'artist': '艺术家 ${index + 1}',
-        'plays': '${(index + 1) * 10000}',
-      };
-    });
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return RefreshIndicator(
+      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
       child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: rankings.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: items.length + (hasMore ? 1 : 0),
+        separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
-          final item = rankings[index];
-          return ListTile(
-            leading: _buildRankBadge(item['rank'] as int, context),
-            title: Text(item['title'] as String),
-            subtitle: Text(item['artist'] as String),
-            trailing: Text('${item['plays']} 播放'),
-            onTap: () {
-              // TODO: 播放该音频
-            },
-          );
+          // 加载更多按钮
+          if (index == items.length) {
+            return ListTile(
+              title: Center(
+                child: Text(
+                  '加载更多',
+                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                ),
+              ),
+              onTap: () => ref.read(exploreViewModelProvider.notifier).loadNext(),
+            );
+          }
+
+          final item = items[index];
+          return _buildAudioItemTile(item, type);
         },
       ),
     );
   }
 
+  /// 构建音频项 Tile
+  Widget _buildAudioItemTile(ExploreItem item, ExploreType type) {
+    // 热门榜单显示排名
+    Widget? leading;
+    if (type == ExploreType.hot && item.rank != null) {
+      leading = _buildRankBadge(item.rank!);
+    } else {
+      leading = const Icon(Icons.music_note, color: Colors.grey);
+    }
+
+    return ListTile(
+      leading: leading,
+      title: Text(
+        item.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        _buildSubtitle(item),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () => _showActionMenu(item),
+      ),
+      onTap: () => _playAudio(item),
+    );
+  }
+
+  /// 构建副标题
+  String _buildSubtitle(ExploreItem item) {
+    final parts = <String>[item.author];
+
+    if (item.duration != null) {
+      parts.add(_formatDuration(item.duration!));
+    }
+
+    if (item.playCount != null) {
+      parts.add(_formatPlayCount(item.playCount!));
+    }
+
+    return parts.join(' • ');
+  }
+
   /// 构建排名徽章
-  Widget _buildRankBadge(int rank, BuildContext context) {
+  Widget _buildRankBadge(int rank) {
     Color color;
     if (rank == 1) {
       color = Colors.amber;
@@ -259,79 +363,77 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     } else if (rank == 3) {
       color = Colors.brown[300]!;
     } else {
-      color = Theme.of(context).colorScheme.surface;
+      color = Colors.grey[300]!;
     }
 
     return Container(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Center(
         child: Text(
           '$rank',
           style: TextStyle(
-            color: rank <= 3 ? Colors.white : Theme.of(context).colorScheme.onSurface,
+            color: rank <= 3 ? Colors.white : Colors.grey[700],
             fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
       ),
     );
   }
 
-  /// 构建分类浏览
-  Widget _buildCategories(BuildContext context) {
-    final categories = [
-      {'icon': Icons.music_note, 'name': '全部', 'color': Colors.blue},
-      {'icon': Icons.person, 'name': '歌手', 'color': Colors.purple},
-      {'icon': Icons.album, 'name': '专辑', 'color': Colors.orange},
-      {'icon': Icons.list, 'name': '歌单', 'color': Colors.green},
-      {'icon': Icons.mic, 'name': '有声书', 'color': Colors.teal},
-      {'icon': Icons.radio, 'name': '电台', 'color': Colors.red},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1.5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        return InkWell(
-          onTap: () {
-            // TODO: 导航到分类页面
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: (category['color'] as Color).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  category['icon'] as IconData,
-                  color: category['color'] as Color,
-                  size: 28,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  category['name'] as String,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  /// 播放音频
+  void _playAudio(ExploreItem item) {
+    AppLogger.logUserAction(
+      'ExplorePage',
+      '播放音频',
+      parameters: {'bvid': item.bvid, 'title': item.title},
     );
+
+    // 创建 Audio 对象并播放
+    final audio = Audio(
+      id: item.bvid,
+      title: item.title,
+      artist: item.author,
+      duration: item.duration,
+      coverUrl: item.coverUrl,
+    );
+
+    ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
+
+    context.go('/player');
+  }
+
+  /// 显示操作菜单
+  void _showActionMenu(ExploreItem item) {
+    AudioActionMenu.show(
+      context,
+      bvid: item.bvid,
+      title: item.title,
+      artist: item.author,
+      coverUrl: item.coverUrl,
+      duration: item.duration,
+    );
+  }
+
+  /// 格式化时长
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  /// 格式化播放量
+  String _formatPlayCount(int count) {
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万播放';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k播放';
+    }
+    return '$count播放';
   }
 }

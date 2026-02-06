@@ -15,6 +15,7 @@ export 'viewmodels/auth/auth_viewmodel.dart' show AuthState;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show platformAuthViewModelProvider;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundBilibiliAccount;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
+export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBoundProvider;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
 
@@ -36,6 +37,10 @@ export '../../../models/play_history.dart' show PlayHistory;
 
 // ==================== 发现相关 ====================
 export 'viewmodels/discovery/search_viewmodel.dart' show searchViewModelProvider;
+export 'viewmodels/discovery/explore_viewmodel.dart' show exploreViewModelProvider;
+export 'viewmodels/discovery/explore_viewmodel.dart' show ExploreState;
+export 'viewmodels/discovery/explore_viewmodel.dart' show ExploreType;
+export 'viewmodels/discovery/explore_viewmodel.dart' show ExploreItem;
 
 // ==================== 系统相关 ====================
 export 'viewmodels/system/theme_viewmodel.dart' show themeViewModelProvider;

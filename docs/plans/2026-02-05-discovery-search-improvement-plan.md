@@ -58,7 +58,7 @@
 |-------|------|------|
 | Phase 1 | ✅ 已完成 | 搜索分页功能 |
 | Phase 2 | ✅ 已完成 | 搜索结果操作菜单 |
-| Phase 3 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 4 完成 |
+| Phase 3 | ✅ 已完成 | 发现页面重构 |
 | Phase 4 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 2 完成 |
 | Phase 5 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 4 完成 |
 
@@ -332,7 +332,9 @@ class PlaylistSelector extends ConsumerWidget {
 
 ---
 
-### Phase 3: 发现页面重构 (优先级: P0)
+### Phase 3: 发现页面重构 (优先级: P0) ✅ 已完成
+
+**完成日期**: 2026-02-06
 
 **目标**: 简化发现页面为纯音频推荐列表
 
@@ -677,13 +679,27 @@ const getMusicRecommended = async (req, res) => {
 
 #### 3.5 验收标准
 
-- [ ] 未绑定 B 站账号时显示绑定引导
-- [ ] 绑定后显示三个 Tab：热门、推荐、最新
-- [ ] 热门榜单显示排名序号
-- [ ] 列表项显示标题、UP主、时长、播放量
-- [ ] 点击列表项播放音频
-- [ ] 点击更多按钮显示操作菜单
-- [ ] 加载更多功能正常
+- [x] 未绑定 B 站账号时显示绑定引导
+- [x] 绑定后显示三个 Tab：热门、推荐、最新
+- [x] 热门榜单显示排名序号
+- [x] 列表项显示标题、UP主、时长、播放量
+- [x] 点击列表项播放音频
+- [x] 点击更多按钮显示操作菜单
+- [x] 加载更多功能正常
+
+**实施记录**:
+- 创建 `viewmodels/discovery/explore_viewmodel.dart`: ExploreViewModel
+  - ExploreState (initial/loading/notBound/loaded/error)
+  - ExploreItem (bvid, title, author, duration, playCount, coverUrl, rank)
+  - loadHotRanking() - 加载热门榜单
+  - loadRecommended() - 加载个性化推荐
+  - loadLatest() - 加载最新发布
+  - loadNext() - 加载下一页
+- 更新 `views/discovery/explore_page.dart`: Tab + 列表布局
+  - 未登录提示 → 绑定提示 → Tab内容
+  - 热门榜单显示排名徽章（金银铜色）
+  - 集成 AudioActionMenu 操作菜单
+  - 下拉刷新 + 加载更多
 
 ---
 

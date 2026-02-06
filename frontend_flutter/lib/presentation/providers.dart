@@ -24,6 +24,7 @@ export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBoundProvider;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
+export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthStateBound;
 
 // ==================== 播放器相关 ====================
 export 'viewmodels/player/player_viewmodel.dart' show playerViewModelProvider;

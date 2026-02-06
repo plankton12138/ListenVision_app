@@ -27,6 +27,13 @@ class PlaylistLibraryPage extends ConsumerWidget {
           style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
         actions: <Widget>[
+          // 创建歌单按钮
+          IconButton(
+            icon: const Icon(Icons.add),
+            iconSize: UIConstants.iconMedium,
+            onPressed: () => _showCreatePlaylistDialog(context, ref),
+            tooltip: '创建歌单',
+          ),
           // 刷新按钮
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -73,6 +80,57 @@ class PlaylistLibraryPage extends ConsumerWidget {
     );
   }
 
+  /// 显示创建歌单对话框
+  void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('创建新歌单'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '请输入歌单名称',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('歌单名称不能为空')),
+                );
+                return;
+              }
+              Navigator.pop(context);
+              final storage = ref.read(sharedStorageServiceProvider);
+              final token = storage.getString('auth_token');
+              if (token != null) {
+                await ref.read(playlistViewModelProvider.notifier).createPlaylist(
+                      token,
+                      name: name,
+                    );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('歌单 "$name" 创建成功')),
+                  );
+                }
+              }
+            },
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildContent(BuildContext context, WidgetRef ref, PlaylistState state) {
     return Column(
       children: [
@@ -114,12 +172,82 @@ class PlaylistLibraryPage extends ConsumerWidget {
                       onTap: () {
                         context.push('/playlist/${playlist.id}');
                       },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        onPressed: () => _showPlaylistOptions(context, ref, playlist),
+                      ),
                     );
                   },
                 ),
         ),
       ],
     );
+  }
+
+  /// 显示歌单选项
+  void _showPlaylistOptions(BuildContext context, WidgetRef ref, dynamic playlist) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('删除', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(context);
+                await _showDeleteConfirmDialog(context, ref, playlist);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示删除确认对话框
+  Future<void> _showDeleteConfirmDialog(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic playlist,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除歌单'),
+        content: Text('确定要删除歌单 "${playlist.name}" 吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final storage = ref.read(sharedStorageServiceProvider);
+      final token = storage.getString('auth_token');
+      if (token != null) {
+        await ref
+            .read(playlistViewModelProvider.notifier)
+            .deletePlaylist(token, playlist.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('歌单已删除')),
+          );
+        }
+      }
+    }
   }
 
   /// 本地音乐歌单项
@@ -150,7 +278,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
               error: (_) => const Text('导入的本地音频'),
             ),
             loading: () => const Text('加载中...'),
-            error: (_, __) => const Text('导入的本地音频'),
+            error: (_, _) => const Text('导入的本地音频'),
           );
         },
       ),

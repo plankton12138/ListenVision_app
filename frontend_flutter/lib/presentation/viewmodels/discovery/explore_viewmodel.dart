@@ -122,6 +122,9 @@ class ExploreViewModel extends _$ExploreViewModel {
   }
 
   /// 加载热门榜单
+  ///
+  /// 后端返回歌单列表，每个歌单包含预览音频
+  /// 将歌单的预览音频展开为音频列表
   Future<bool> loadHotRanking({int page = 1}) async {
     try {
       AppLogger.info('ExploreViewModel', '加载热门榜单: page=$page');
@@ -134,15 +137,32 @@ class ExploreViewModel extends _$ExploreViewModel {
         pageSize: _pageSize,
       );
 
-      final itemsData = data['items'] as List? ?? [];
+      // 后端返回的是歌单列表，key 为 'playlists'
+      final playlistsData = data['playlists'] as List? ?? [];
       final totalCount = data['total'] as int? ?? 0;
 
-      final items = itemsData.map((item) {
-        final json = item as Map<String, dynamic>;
-        // 热门榜单需要排名
-        final rank = (page - 1) * _pageSize + (itemsData.indexOf(item) + 1);
-        return ExploreItem.fromJson(json, rank: rank);
-      }).toList();
+      // 将歌单的预览音频展开为音频列表
+      final items = <ExploreItem>[];
+      int rank = (page - 1) * _pageSize + 1;
+
+      for (final playlist in playlistsData) {
+        final playlistJson = playlist as Map<String, dynamic>;
+        final previews = playlistJson['previews'] as List? ?? [];
+
+        // 将每个预览音频转换为 ExploreItem
+        for (final preview in previews) {
+          final previewJson = preview as Map<String, dynamic>;
+          items.add(ExploreItem(
+            bvid: previewJson['id']?.toString() ?? '',
+            title: previewJson['title']?.toString() ?? '',
+            author: playlistJson['uname']?.toString() ?? '',
+            duration: previewJson['duration'] as int?,
+            playCount: playlistJson['statistic']?['play'] as int?,
+            coverUrl: playlistJson['cover'] as String?,
+            rank: rank++,
+          ));
+        }
+      }
 
       final hasMore = (page * _pageSize) < totalCount;
 
@@ -176,11 +196,35 @@ class ExploreViewModel extends _$ExploreViewModel {
         limit: _pageSize,
       );
 
-      final itemsData = data['items'] as List? ?? [];
+      // 后端可能返回 'playlists' 或 'videos' 字段
+      final playlistsData = data['playlists'] as List? ?? [];
+      final videosData = data['videos'] as List? ?? [];
 
-      final items = itemsData.map((item) {
-        return ExploreItem.fromJson(item as Map<String, dynamic>);
-      }).toList();
+      final items = <ExploreItem>[];
+
+      // 处理歌单中的预览音频
+      for (final playlist in playlistsData) {
+        final playlistJson = playlist as Map<String, dynamic>;
+        final previews = playlistJson['previews'] as List? ?? [];
+
+        for (final preview in previews) {
+          final previewJson = preview as Map<String, dynamic>;
+          items.add(ExploreItem(
+            bvid: previewJson['id']?.toString() ?? '',
+            title: previewJson['title']?.toString() ?? '',
+            author: playlistJson['uname']?.toString() ?? '',
+            duration: previewJson['duration'] as int?,
+            playCount: playlistJson['statistic']?['play'] as int?,
+            coverUrl: playlistJson['cover'] as String?,
+          ));
+        }
+      }
+
+      // 处理直接的视频列表
+      for (final video in videosData) {
+        final videoJson = video as Map<String, dynamic>;
+        items.add(ExploreItem.fromJson(videoJson));
+      }
 
       // 个性化推荐通常不分页，没有更多
       final hasMore = false;

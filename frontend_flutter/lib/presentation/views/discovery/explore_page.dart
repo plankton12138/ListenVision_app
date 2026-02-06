@@ -3,7 +3,6 @@ import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/models/audio.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/explore_viewmodel.dart';
-import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 发现页面
 ///
-/// 显示B站音乐区热门、推荐、最新音频
+/// 显示B站音乐区热门内容
 class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
 
@@ -24,23 +23,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const List<String> _tabs = ['热门', '推荐', '最新'];
-  static const List<ExploreType> _types = [
-    ExploreType.hot,
-    ExploreType.recommended,
-    ExploreType.latest,
-  ];
+  static const List<String> _tabs = ['热门', '开发中'];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(_onTabChange);
-
-    // 初始加载热门榜单
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBindingAndLoad();
-    });
   }
 
   @override
@@ -49,50 +37,37 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     super.dispose();
   }
 
-  /// 检查绑定状态并加载内容
-  void _checkBindingAndLoad() {
-    final bound = ref.read(isBilibiliBoundProvider);
-    if (bound) {
-      ref.read(exploreViewModelProvider.notifier).loadHotRanking();
-    }
-  }
-
-  /// Tab 切换监听
-  void _onTabChange() {
-    if (_tabController.indexIsChanging) return;
-
-    final index = _tabController.index;
-    final bound = ref.read(isBilibiliBoundProvider);
-
-    if (!bound) return;
-
-    switch (_types[index]) {
-      case ExploreType.hot:
-        ref.read(exploreViewModelProvider.notifier).loadHotRanking();
-        break;
-      case ExploreType.recommended:
-        ref.read(exploreViewModelProvider.notifier).loadRecommended();
-        break;
-      case ExploreType.latest:
-        ref.read(exploreViewModelProvider.notifier).loadLatest();
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
-    final bound = ref.watch(isBilibiliBoundProvider);
+    final authState = ref.watch(platformAuthViewModelProvider);
+    final exploreState = ref.watch(exploreViewModelProvider);
+
+    // 检查认证状态是否正在加载
+    if (authState.isLoading) {
+      return _buildLoadingView();
+    }
+
+    // 从 authState 获取绑定状态 - 直接检查类型
+    final authData = authState.value;
+    final isBound = authData != null && authData is PlatformAuthStateBound;
 
     if (!isLoggedIn) {
       return _buildNotLoggedInPrompt();
     }
 
-    if (!bound) {
+    if (!isBound) {
       return _buildNotBoundPrompt();
     }
 
-    final exploreState = ref.watch(exploreViewModelProvider);
+    // 监听绑定状态变化，自动加载内容
+    exploreState.whenData((state) {
+      if (state is ExploreStateInitial) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+        });
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -121,36 +96,219 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         ),
       ),
       drawer: const MyDrawer(),
-      body: exploreState.when(
-        data: (state) {
-          return state.when(
-            initial: () => _buildInitialView(),
-            loading: () => _buildLoadingView(),
-            notBound: () => _buildNotBoundPrompt(),
-            loaded: (items, hasMore, _, type) =>
-                _buildAudioList(items, hasMore, type),
-            error: (message) => _buildErrorView(message),
-          );
-        },
-        loading: () => _buildLoadingView(),
-        error: (e, _) => _buildErrorView(e.toString()),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildHotTab(exploreState),
+          _buildComingSoonTab(),
+        ],
       ),
     );
   }
 
-  /// 构建初始视图
-  Widget _buildInitialView() {
+  /// 构建热门Tab
+  Widget _buildHotTab(AsyncValue<ExploreState> exploreState) {
+    return exploreState.when(
+      loading: () => _buildLoadingView(),
+      error: (e, _) => _buildErrorView(e.toString()),
+      data: (state) {
+        return state.when(
+          initial: () => _buildLoadingView(),
+          loading: () => _buildLoadingView(),
+          notBound: () => _buildNotBoundPrompt(),
+          loaded: (items, _, _, _) => _buildHotContentGrid(items),
+          error: (message) => _buildErrorView(message),
+        );
+      },
+    );
+  }
+
+  /// 构建热门内容网格
+  Widget _buildHotContentGrid(List<ExploreItem> items) {
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.music_note, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('暂无内容', style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _buildHotCard(item, index);
+        },
+      ),
+    );
+  }
+
+  /// 构建热门卡片
+  Widget _buildHotCard(ExploreItem item, int index) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _playAudio(item),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面区域
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 封面图片
+                  if (item.coverUrl != null && item.coverUrl!.isNotEmpty)
+                    Image.network(
+                      item.coverUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.music_note, size: 48),
+                        );
+                      },
+                    )
+                  else
+                    Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.music_note, size: 48),
+                    ),
+                  // 排名徽章
+                  if (item.rank != null)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: _buildRankBadge(item.rank!),
+                    ),
+                  // B站标识
+                  const Positioned(
+                    top: 4,
+                    right: 4,
+                    child: _BilibiliBadge(),
+                  ),
+                  // 下载状态
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: DownloadStatusIndicator(
+                      bvid: item.bvid,
+                      size: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 信息区域
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                      if (item.duration != null)
+                        Text(
+                          _formatDuration(item.duration!),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建排名徽章
+  Widget _buildRankBadge(int rank) {
+    Color color;
+    if (rank == 1) {
+      color = Colors.amber;
+    } else if (rank == 2) {
+      color = Colors.grey[400]!;
+    } else if (rank == 3) {
+      color = Colors.brown[300]!;
+    } else {
+      color = Colors.grey[300]!;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '#$rank',
+        style: TextStyle(
+          color: rank <= 3 ? Colors.white : Colors.grey[700],
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  /// 构建开发中Tab
+  Widget _buildComingSoonTab() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.explore, size: 64, color: Colors.grey[400]),
+          Icon(Icons.construction, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            '探索B站音乐区',
+            '功能开发中',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.grey[600],
                 ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '敬请期待更多内容',
+            style: TextStyle(color: Colors.grey[500]),
           ),
         ],
       ),
@@ -226,7 +384,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
               ),
               const SizedBox(height: 8),
               Text(
-                '绑定后可查看B站音乐区推荐内容',
+                '绑定后可查看B站音乐区热门内容',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
@@ -267,134 +425,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
   }
 
-  /// 构建音频列表
-  Widget _buildAudioList(List<ExploreItem> items, bool hasMore, ExploreType type) {
-    if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.music_note, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text('暂无内容', style: TextStyle(color: Colors.grey[600])),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: items.length + (hasMore ? 1 : 0),
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          // 加载更多按钮
-          if (index == items.length) {
-            return ListTile(
-              title: Center(
-                child: Text(
-                  '加载更多',
-                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                ),
-              ),
-              onTap: () => ref.read(exploreViewModelProvider.notifier).loadNext(),
-            );
-          }
-
-          final item = items[index];
-          return _buildAudioItemTile(item, type);
-        },
-      ),
-    );
-  }
-
-  /// 构建音频项 Tile
-  Widget _buildAudioItemTile(ExploreItem item, ExploreType type) {
-    // 热门榜单显示排名
-    Widget? leading;
-    if (type == ExploreType.hot && item.rank != null) {
-      leading = _buildRankBadge(item.rank!);
-    } else {
-      leading = const Icon(Icons.music_note, color: Colors.grey);
-    }
-
-    return ListTile(
-      leading: leading,
-      title: Text(
-        item.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _buildSubtitle(item),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // 下载状态指示器
-          DownloadStatusIndicator(bvid: item.bvid, size: 16),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.more_vert),
-        onPressed: () => _showActionMenu(item),
-      ),
-      onTap: () => _playAudio(item),
-    );
-  }
-
-  /// 构建副标题
-  String _buildSubtitle(ExploreItem item) {
-    final parts = <String>[item.author];
-
-    if (item.duration != null) {
-      parts.add(_formatDuration(item.duration!));
-    }
-
-    if (item.playCount != null) {
-      parts.add(_formatPlayCount(item.playCount!));
-    }
-
-    return parts.join(' • ');
-  }
-
-  /// 构建排名徽章
-  Widget _buildRankBadge(int rank) {
-    Color color;
-    if (rank == 1) {
-      color = Colors.amber;
-    } else if (rank == 2) {
-      color = Colors.grey[400]!;
-    } else if (rank == 3) {
-      color = Colors.brown[300]!;
-    } else {
-      color = Colors.grey[300]!;
-    }
-
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          '$rank',
-          style: TextStyle(
-            color: rank <= 3 ? Colors.white : Colors.grey[700],
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
   /// 播放音频
   void _playAudio(ExploreItem item) {
     AppLogger.logUserAction(
@@ -403,7 +433,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       parameters: {'bvid': item.bvid, 'title': item.title},
     );
 
-    // 创建 Audio 对象并播放
     final audio = Audio(
       id: item.bvid,
       title: item.title,
@@ -413,20 +442,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
 
     ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
-
-    context.go('/player');
-  }
-
-  /// 显示操作菜单
-  void _showActionMenu(ExploreItem item) {
-    AudioActionMenu.show(
-      context,
-      bvid: item.bvid,
-      title: item.title,
-      artist: item.author,
-      coverUrl: item.coverUrl,
-      duration: item.duration,
-    );
+    context.go('/');
   }
 
   /// 格式化时长
@@ -435,14 +451,33 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     final secs = seconds % 60;
     return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
+}
 
-  /// 格式化播放量
-  String _formatPlayCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万播放';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}k播放';
-    }
-    return '$count播放';
+/// B站标识组件
+class _BilibiliBadge extends StatelessWidget {
+  const _BilibiliBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.pink.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'B站',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -14,9 +14,9 @@ class PlaylistPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final queueViewModel = ref.watch(queueViewModelProvider);
-    final queue = queueViewModel.queueState.queue;
-    final currentIndex = queueViewModel.queueState.currentIndex;
+    final queueState = ref.watch(queueViewModelProvider);
+    final queue = queueState.localAudios;
+    final currentIndex = queueState.currentIndex;
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +37,7 @@ class PlaylistPage extends ConsumerWidget {
             iconSize: UIConstants.iconMedium,
             onPressed: queue.isEmpty
                 ? null
-                : () => ref.read(queueViewModelProvider).clear(),
+                : () => ref.read(queueViewModelProvider.notifier).clear(),
           ),
         ],
       ),
@@ -85,13 +85,13 @@ class PlaylistPage extends ConsumerWidget {
                       color: isCurrent ? Theme.of(context).colorScheme.primary : null,
                     ),
                   ),
-                  subtitle: Text(playable.artist ?? '未知艺术家'),
+                  subtitle: Text(playable.artist),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () => ref.read(queueViewModelProvider).removeAt(index),
+                    onPressed: () => ref.read(queueViewModelProvider.notifier).removeAt(index),
                   ),
                   onTap: () {
-                    ref.read(queueViewModelProvider).setCurrentIndex(index);
+                    ref.read(queueViewModelProvider.notifier).setCurrentIndex(index);
                     // TODO: 触发播放
                   },
                 );

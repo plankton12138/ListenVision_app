@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
 
 /// 播放器底部操作栏
 ///
@@ -11,10 +12,9 @@ class PlayerActionBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerViewModel = ref.watch(playerViewModelProvider);
-    final playlistViewModel = ref.watch(playlistViewModelProvider);
+    final playerState = ref.watch(playerViewModelProvider);
+    final playlistAsync = ref.watch(playlistViewModelProvider);
 
-    final playerState = playerViewModel.playerState;
     final currentId = playerState.currentPlayable?.id ?? '';
 
     if (currentId.isEmpty) {
@@ -24,12 +24,15 @@ class PlayerActionBar extends ConsumerWidget {
       );
     }
 
-    final playlistState = playlistViewModel.playlistState;
-    final isFavorited = playlistState.maybeWhen(
-      loaded: (_, __, ___, ____, _____, favoritesItems, ______) {
-        return favoritesItems.any((item) => item.bvid == currentId);
+    final isFavorited = playlistAsync.when(
+      data: (playlistState) {
+        if (playlistState is PlaylistStateLoaded) {
+          return playlistState.favoritesItems.any((item) => item.bvid == currentId);
+        }
+        return false;
       },
-      orElse: () => false,
+      loading: () => false,
+      error: (_, __) => false,
     );
 
     return Row(
@@ -62,21 +65,21 @@ class PlayerActionBar extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final authViewModel = ref.read(authViewModelProvider);
-    final playlistViewModel = ref.read(playlistViewModelProvider);
-    final playerViewModel = ref.read(playerViewModelProvider);
+    final isLoggedIn = ref.read(isLoggedInProvider);
+    final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+    final playerState = ref.read(playerViewModelProvider);
+    final token = ref.read(authTokenProvider);
 
-    if (!authViewModel.isLoggedIn) {
+    if (!isLoggedIn) {
       if (context.mounted) {
         _showSnackBar(context, '请先登录后收藏', Colors.orange);
       }
       return;
     }
 
-    final currentPlayable = playerViewModel.playerState.currentPlayable;
+    final currentPlayable = playerState.currentPlayable;
     if (currentPlayable == null) return;
 
-    final token = authViewModel.currentToken;
     if (token == null) {
       if (context.mounted) {
         _showSnackBar(context, '请先登录后收藏', Colors.orange);
@@ -93,7 +96,7 @@ class PlayerActionBar extends ConsumerWidget {
     );
 
     try {
-      await playlistViewModel.toggleFavorite(
+      await playlistNotifier.toggleFavorite(
         token,
         bvid,
         title: currentPlayable.title,
@@ -105,7 +108,7 @@ class PlayerActionBar extends ConsumerWidget {
       if (!context.mounted) return;
 
       // 刷新收藏列表
-      await playlistViewModel.loadFavorites(token);
+      await playlistNotifier.loadFavorites(token);
       _showSnackBar(
         context,
         '已添加到我喜欢',

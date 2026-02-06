@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../services/metadata_service.dart';
@@ -56,17 +55,14 @@ class AudioMetadata with _$AudioMetadata {
 /// 1. 从本地文件提取元数据（标题、艺术家、专辑封面）
 /// 2. 从网络加载在线音频封面
 /// 3. 元数据缓存管理
-class MetadataViewModel extends StateNotifier<MetadataState> {
-  final MetadataService _service;
+@Riverpod(keepAlive: true)
+class MetadataViewModel extends _$MetadataViewModel {
+  MetadataService? _service;
 
-  /// 是否已销毁
-  bool _disposed = false;
-
-  MetadataViewModel({
-    required MetadataService service,
-  })  : _service = service,
-        super(const MetadataState()) {
-    AppLogger.debug('MetadataViewModel', '初始化完成');
+  @override
+  MetadataState build() {
+    _service = ref.watch(metadataServiceProvider);
+    return const MetadataState();
   }
 
   // ==================== 本地元数据提取 ====================
@@ -79,7 +75,7 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
     try {
       AppLogger.debug('MetadataViewModel', '提取元数据: $filePath');
 
-      final result = await _service.extractFromFile(filePath, fetchCover: fetchCover);
+      final result = await _service!.extractFromFile(filePath, fetchCover: fetchCover);
 
       // 缓存元数据
       if (!result.isEmpty) {
@@ -92,13 +88,13 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
       return result;
     } catch (e) {
       AppLogger.error('MetadataViewModel', '提取元数据失败: $e');
-      return _service.extractMetadataFromPath(filePath);
+      return _service!.extractMetadataFromPath(filePath);
     }
   }
 
   /// 从文件路径快速提取元数据（公开方法）
   MetadataResult extractFromPath(String filePath) {
-    return _service.extractMetadataFromPath(filePath);
+    return _service!.extractMetadataFromPath(filePath);
   }
 
   // ==================== 在线封面加载 ====================
@@ -118,7 +114,7 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
 
     try {
       AppLogger.debug('MetadataViewModel', '加载在线封面: $coverUrl');
-      final coverData = await _service.loadOnlineCover(coverUrl, useCache: false);
+      final coverData = await _service!.loadOnlineCover(coverUrl, useCache: false);
 
       if (coverData != null) {
         // 添加到缓存
@@ -158,7 +154,7 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
   /// 清除所有封面缓存
   void clearCache() {
     state = state.copyWith(coverCache: {});
-    _service.clearCache();
+    _service!.clearCache();
     AppLogger.debug('MetadataViewModel', '封面缓存已清除');
   }
 
@@ -190,7 +186,7 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
     for (final url in coverUrls) {
       if (!newCache.containsKey(url)) {
         try {
-          final coverData = await _service.loadOnlineCover(url, useCache: false);
+          final coverData = await _service!.loadOnlineCover(url, useCache: false);
           if (coverData != null) {
             newCache[url] = coverData;
           }
@@ -208,28 +204,17 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
 
   /// 从文件名提取扩展名
   String getFileExtension(String filePath) {
-    return _service.getFileExtension(filePath);
+    return _service!.getFileExtension(filePath);
   }
 
   /// 判断是否为支持的音频格式
   bool isSupportedAudioFormat(String filePath) {
-    return _service.isSupportedAudioFormat(filePath);
+    return _service!.isSupportedAudioFormat(filePath);
   }
 
   /// 格式化时长（秒 -> MM:SS）
   String formatDuration(int seconds) {
-    return _service.formatDuration(seconds);
-  }
-
-  // ==================== 资源释放 ====================
-
-  @override
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    _service.dispose();
-    AppLogger.debug('MetadataViewModel', '已释放');
-    super.dispose();
+    return _service!.formatDuration(seconds);
   }
 }
 
@@ -237,13 +222,6 @@ class MetadataViewModel extends StateNotifier<MetadataState> {
 
 /// MetadataService Provider
 @riverpod
-MetadataService metadataService(MetadataServiceRef ref) {
+MetadataService metadataService(Ref ref) {
   return MetadataService();
-}
-
-/// MetadataViewModel Provider
-@riverpod
-MetadataViewModel metadataViewModel(MetadataViewModelRef ref) {
-  final service = ref.watch(metadataServiceProvider);
-  return MetadataViewModel(service: service);
 }

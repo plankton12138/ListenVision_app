@@ -13,8 +13,8 @@ class ControlsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerViewModel = ref.watch(playerViewModelProvider);
-    final playerState = playerViewModel.playerState;
+    final playerState = ref.watch(playerViewModelProvider);
+    final playerViewModel = ref.read(playerViewModelProvider.notifier);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -164,7 +164,7 @@ class ControlsPanel extends ConsumerWidget {
           child: TextButton.icon(
             onPressed: () {
               AppLogger.logButtonClick('重试', 'ControlsPanel');
-              playerViewModel.clearError();
+              playerState.clearError();
               playerViewModel.togglePlayPause();
             },
             icon: const Icon(Icons.refresh, color: Colors.blue),

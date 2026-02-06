@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/api/backend_api_client.dart' show LoginRequest, RegisterRequest;
@@ -39,40 +39,38 @@ class AuthState with _$AuthState {
 /// 主账号认证 ViewModel
 ///
 /// 负责主账号（Email/Password）的登录、注册、登出
-class AuthViewModel extends StateNotifier<AuthState> {
-  final AuthRepository _repository;
+@Riverpod(keepAlive: true)
+class AuthViewModel extends _$AuthViewModel {
+  AuthRepository? _repository;
 
-  AuthViewModel(this._repository) : super(const AuthState.initial()) {
-    _initialize();
-  }
+  @override
+  Future<AuthState> build() async {
+    _repository = ref.watch(authRepositoryProvider);
 
-  /// 初始化：检查登录状态
-  Future<void> _initialize() async {
     try {
       AppLogger.info('AuthViewModel', '初始化，检查登录状态');
-      final user = await _repository.checkLoginStatus();
+      final user = await _repository!.checkLoginStatus();
 
       if (user != null && !user.isGuest) {
-        final token = await _repository.getToken();
-        state = AuthState.authenticated(user: user, token: token);
+        final token = await _repository!.getToken();
         AppLogger.info('AuthViewModel', '用户已登录: ${user.username}');
-      } else {
-        state = const AuthState.unauthenticated();
-        AppLogger.debug('AuthViewModel', '用户未登录');
+        return AuthState.authenticated(user: user, token: token);
       }
+      AppLogger.debug('AuthViewModel', '用户未登录');
+      return const AuthState.unauthenticated();
     } catch (e) {
       AppLogger.error('AuthViewModel', '初始化失败: $e');
-      state = const AuthState.unauthenticated();
+      return const AuthState.unauthenticated();
     }
   }
 
   /// 用户登录
   Future<bool> login({required String email, required String password}) async {
+    state = const AsyncLoading();
     try {
-      state = const AuthState.loading();
       AppLogger.info('AuthViewModel', '开始登录: $email');
 
-      final user = await _repository.login(
+      final user = await _repository!.login(
         LoginRequest(email: email, password: password),
       );
 
@@ -83,11 +81,13 @@ class AuthViewModel extends StateNotifier<AuthState> {
         userId: user.id,
       );
 
-      state = AuthState.authenticated(user: user, token: user.token);
+      if (!ref.mounted) return false;
+      state = AsyncData(AuthState.authenticated(user: user, token: user.token));
       return true;
     } catch (e) {
       AppLogger.error('AuthViewModel', '登录失败: $e');
-      state = AuthState.error(message: e.toString());
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
       return false;
     }
   }
@@ -99,11 +99,11 @@ class AuthViewModel extends StateNotifier<AuthState> {
     required String password,
     String? captchaCode,
   }) async {
+    state = const AsyncLoading();
     try {
-      state = const AuthState.loading();
       AppLogger.info('AuthViewModel', '开始注册: $email');
 
-      final user = await _repository.register(
+      final user = await _repository!.register(
         RegisterRequest(
           username: username,
           email: email,
@@ -119,11 +119,13 @@ class AuthViewModel extends StateNotifier<AuthState> {
         userId: user.id,
       );
 
-      state = AuthState.authenticated(user: user, token: user.token);
+      if (!ref.mounted) return false;
+      state = AsyncData(AuthState.authenticated(user: user, token: user.token));
       return true;
     } catch (e) {
       AppLogger.error('AuthViewModel', '注册失败: $e');
-      state = AuthState.error(message: e.toString());
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
       return false;
     }
   }
@@ -132,11 +134,12 @@ class AuthViewModel extends StateNotifier<AuthState> {
   Future<bool> sendVerificationCode(String email) async {
     try {
       AppLogger.info('AuthViewModel', '发送验证码: $email');
-      await _repository.sendVerificationCode(email);
+      await _repository!.sendVerificationCode(email);
       return true;
     } catch (e) {
       AppLogger.error('AuthViewModel', '发送验证码失败: $e');
-      state = AuthState.error(message: e.toString());
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
       return false;
     }
   }
@@ -149,7 +152,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
   }) async {
     try {
       AppLogger.info('AuthViewModel', '重置密码: $email');
-      await _repository.resetPassword(
+      await _repository!.resetPassword(
         email: email,
         code: code,
         newPassword: newPassword,
@@ -157,7 +160,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
       return true;
     } catch (e) {
       AppLogger.error('AuthViewModel', '重置密码失败: $e');
-      state = AuthState.error(message: e.toString());
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
       return false;
     }
   }
@@ -165,7 +169,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
   /// 用户登出
   Future<void> logout() async {
     try {
-      final userId = whenOrNull(authenticated: (user, token) => user.id);
+      final userId = state.valueOrNull?.whenOrNull(authenticated: (user, token) => user.id);
       AppLogger.logUserAction(
         'Auth',
         '用户登出',
@@ -173,28 +177,35 @@ class AuthViewModel extends StateNotifier<AuthState> {
         userId: userId,
       );
 
-      await _repository.logout();
-      state = const AuthState.unauthenticated();
+      await _repository!.logout();
+      if (!ref.mounted) return;
+      state = const AsyncData(AuthState.unauthenticated());
 
       AppLogger.info('AuthViewModel', '登出完成');
     } catch (e) {
       AppLogger.error('AuthViewModel', '登出失败: $e');
       // 即使失败也切换到未登录状态
-      state = const AuthState.unauthenticated();
+      if (!ref.mounted) return;
+      state = const AsyncData(AuthState.unauthenticated());
     }
   }
 
-  /// 获取当前状态（公开 getter）
-  AuthState get authState => state;
+  /// 清除错误状态
+  void clearError() {
+    final current = state.valueOrNull;
+    if (current is AuthStateError) {
+      state = const AsyncData(AuthState.unauthenticated());
+    }
+  }
 
   /// 获取当前用户
   User? get currentUser {
-    return whenOrNull(authenticated: (user, token) => user);
+    return state.valueOrNull?.whenOrNull(authenticated: (user, token) => user);
   }
 
   /// 获取当前 token
   String? get currentToken {
-    return state.maybeWhen(
+    return state.valueOrNull?.maybeWhen(
       authenticated: (user, token) => token ?? user.token,
       orElse: () => null,
     );
@@ -202,57 +213,41 @@ class AuthViewModel extends StateNotifier<AuthState> {
 
   /// 是否已登录
   bool get isLoggedIn {
-    return state.maybeWhen(
+    return state.valueOrNull?.maybeWhen(
       authenticated: (_, __) => true,
       orElse: () => false,
-    );
-  }
-
-  /// 清除错误状态
-  void clearError() {
-    state.maybeWhen(
-      error: (_) => state = const AuthState.unauthenticated(),
-      orElse: () {},
-    );
-  }
-
-  /// 模式匹配辅助方法
-  T? whenOrNull<T>({
-    T Function(User user, String? token)? authenticated,
-  }) {
-    return state.maybeWhen(
-      authenticated: authenticated,
-      orElse: () => null,
-    );
+    ) ?? false;
   }
 }
 
 /// Provider 定义
 @riverpod
-AuthRepository authRepository(AuthRepositoryRef ref) {
+AuthRepository authRepository(Ref ref) {
   return AuthRepository();
-}
-
-@riverpod
-AuthViewModel authViewModel(AuthViewModelRef ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return AuthViewModel(repository);
 }
 
 /// 当前用户 Provider
 @riverpod
-User? currentUser(CurrentUserRef ref) {
-  return ref.watch(authViewModelProvider).currentUser;
+User? currentUser(Ref ref) {
+  return ref.watch(authViewModelProvider).valueOrNull?.whenOrNull(
+    authenticated: (user, token) => user,
+  );
 }
 
 /// 当前 token Provider（用于 Dio）
 @riverpod
-String? authToken(AuthTokenRef ref) {
-  return ref.watch(authViewModelProvider).currentToken;
+String? authToken(Ref ref) {
+  return ref.watch(authViewModelProvider).valueOrNull?.maybeWhen(
+    authenticated: (user, token) => token ?? user.token,
+    orElse: () => null,
+  );
 }
 
 /// 是否已登录 Provider
 @riverpod
-bool isLoggedIn(IsLoggedInRef ref) {
-  return ref.watch(authViewModelProvider).isLoggedIn;
+bool isLoggedIn(Ref ref) {
+  return ref.watch(authViewModelProvider).valueOrNull?.maybeWhen(
+    authenticated: (_, __) => true,
+    orElse: () => false,
+  ) ?? false;
 }

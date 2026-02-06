@@ -1,5 +1,6 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/library/history_viewmodel.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -22,14 +23,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     super.initState();
     // 页面加载时获取历史记录
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(historyViewModelProvider).loadHistory();
+      ref.read(historyViewModelProvider.notifier).loadHistory();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
-    final historyState = ref.watch(historyStateProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +57,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       drawer: const MyDrawer(),
       body: !isLoggedIn
           ? _buildLoginPrompt(context)
-          : _buildHistoryContent(historyState),
+          : _buildHistoryContent(),
     );
   }
 
@@ -81,41 +81,59 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   }
 
   /// 构建历史记录内容
-  Widget _buildHistoryContent(HistoryState state) {
-    return state.when(
-      initial: () => const Center(child: CircularProgressIndicator()),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      loaded: (history, stats) {
-        if (history.isEmpty) {
-          return _buildEmptyState(context);
-        }
-        return Column(
-          children: [
-            // 统计信息
-            if (stats != null) _buildStatsCard(stats, context),
-            // 历史列表
-            Expanded(
-              child: ListView.builder(
-                itemCount: history.length,
-                itemBuilder: (context, index) {
-                  final item = history[index];
-                  return _buildHistoryItem(item, index);
-                },
+  Widget _buildHistoryContent() {
+    return ref.watch(historyViewModelProvider).when(
+      data: (state) => state.when(
+        initial: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        loaded: (history, stats) {
+          if (history.isEmpty) {
+            return _buildEmptyState(context);
+          }
+          return Column(
+            children: [
+              // 统计信息
+              if (stats != null) _buildStatsCard(stats, context),
+              // 历史列表
+              Expanded(
+                child: ListView.builder(
+                  itemCount: history.length,
+                  itemBuilder: (context, index) {
+                    final item = history[index];
+                    return _buildHistoryItem(item, index);
+                  },
+                ),
               ),
-            ),
-          ],
-        );
-      },
-      error: (message) => Center(
+            ],
+          );
+        },
+        error: (message) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('加载失败: $message'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.read(historyViewModelProvider.notifier).loadHistory(),
+                child: const Text('重试'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('加载失败: $message'),
+            Text('加载失败: $err'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => ref.read(historyViewModelProvider).loadHistory(),
+              onPressed: () => ref.read(historyViewModelProvider.notifier).loadHistory(),
               child: const Text('重试'),
             ),
           ],
@@ -179,7 +197,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       key: Key(item.id.isNotEmpty ? item.id : 'history_$index'),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
-        ref.read(historyViewModelProvider).removeHistoryById(item.id);
+        ref.read(historyViewModelProvider.notifier).removeHistoryById(item.id);
       },
       background: Container(
         color: Colors.red,
@@ -264,7 +282,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     );
 
     if (confirmed == true) {
-      await ref.read(historyViewModelProvider).clearHistory();
+      await ref.read(historyViewModelProvider.notifier).clearHistory();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('播放历史已清空')),

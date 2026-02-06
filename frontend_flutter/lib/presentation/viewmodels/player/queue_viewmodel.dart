@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/storage_constants.dart';
 import '../../../core/storage/shared_storage_service.dart';
@@ -38,24 +37,25 @@ class QueueState with _$QueueState {
   }) = _QueueState;
 }
 
-/// 播放队列 ViewModel
+/// 播放队列 ViewModel（Riverpod 3.0 Notifier 模式）
 ///
 /// 职责：
 /// 1. 播放队列管理（添加、删除、清空）
 /// 2. 当前播放索引
 /// 3. 下一首/上一首
 /// 4. 持久化播放队列
-class QueueViewModel extends StateNotifier<QueueState> {
-  final SharedStorageService _storage;
+@Riverpod(keepAlive: true)
+class QueueViewModel extends _$QueueViewModel {
+  SharedStorageService? _storage;
 
-  /// 是否已销毁
-  bool _disposed = false;
+  @override
+  QueueState build() {
+    _storage = ref.watch(sharedStorageServiceProvider);
 
-  QueueViewModel({
-    required SharedStorageService storage,
-  })  : _storage = storage,
-        super(const QueueState()) {
-    _init();
+    // 延迟初始化
+    Future.microtask(_init);
+
+    return const QueueState();
   }
 
   /// 初始化
@@ -69,9 +69,6 @@ class QueueViewModel extends StateNotifier<QueueState> {
   }
 
   // ==================== Getters ====================
-
-  /// 获取当前状态（公开 getter）
-  QueueState get queueState => state;
 
   /// 当前可播放音频
   PlayableAudio? get currentPlayable {
@@ -312,14 +309,14 @@ class QueueViewModel extends StateNotifier<QueueState> {
   Future<void> _saveToStorage() async {
     try {
       // 保存当前索引
-      await _storage.setInt(
+      await _storage!.setInt(
         StorageKeys.currentPlaylistIndex,
         state.currentIndex,
       );
 
       // 保存队列（转为 JSON）
       final queueJson = state.queue.map((p) => p.toMap()).toList();
-      await _storage.setJsonList(StorageKeys.unifiedPlaylist, queueJson);
+      await _storage!.setJsonList(StorageKeys.unifiedPlaylist, queueJson);
 
       AppLogger.debug('QueueViewModel', '保存播放队列: 索引=${state.currentIndex}, 长度=${state.queue.length}');
     } catch (e) {
@@ -331,10 +328,10 @@ class QueueViewModel extends StateNotifier<QueueState> {
   Future<void> _loadFromStorage() async {
     try {
       // 加载索引
-      final savedIndex = _storage.getInt(StorageKeys.currentPlaylistIndex) ?? -1;
+      final savedIndex = _storage!.getInt(StorageKeys.currentPlaylistIndex) ?? -1;
 
       // 加载队列
-      final queueJson = _storage.getJsonList(StorageKeys.unifiedPlaylist);
+      final queueJson = _storage!.getJsonList(StorageKeys.unifiedPlaylist);
 
       if (queueJson != null && queueJson.isNotEmpty) {
         final queue = <PlayableAudio>[];
@@ -349,6 +346,7 @@ class QueueViewModel extends StateNotifier<QueueState> {
           }
         }
 
+        if (!ref.mounted) return;
         state = state.copyWith(
           queue: queue,
           currentIndex: savedIndex >= 0 && savedIndex < queue.length ? savedIndex : -1,
@@ -364,7 +362,7 @@ class QueueViewModel extends StateNotifier<QueueState> {
   /// 保存播放位置
   Future<void> savePosition(int position) async {
     try {
-      await _storage.setInt(StorageKeys.currentPlaybackPosition, position);
+      await _storage!.setInt(StorageKeys.currentPlaybackPosition, position);
       AppLogger.debug('QueueViewModel', '保存播放位置: $position秒');
     } catch (e) {
       AppLogger.error('QueueViewModel', '保存播放位置失败: $e');
@@ -374,7 +372,7 @@ class QueueViewModel extends StateNotifier<QueueState> {
   /// 恢复播放位置
   Future<int?> restorePosition() async {
     try {
-      final position = _storage.getInt(StorageKeys.currentPlaybackPosition);
+      final position = _storage!.getInt(StorageKeys.currentPlaybackPosition);
       AppLogger.debug('QueueViewModel', '恢复播放位置: $position秒');
       return position;
     } catch (e) {
@@ -382,23 +380,4 @@ class QueueViewModel extends StateNotifier<QueueState> {
       return null;
     }
   }
-
-  // ==================== 资源释放 ====================
-
-  @override
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    AppLogger.debug('QueueViewModel', '已释放');
-    super.dispose();
-  }
-}
-
-// ==================== Providers ====================
-
-/// QueueViewModel Provider
-@riverpod
-QueueViewModel queueViewModel(QueueViewModelRef ref) {
-  final storage = ref.watch(sharedStorageServiceProvider);
-  return QueueViewModel(storage: storage);
 }

@@ -6,7 +6,7 @@ part of 'audio.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$AudioImpl _$$AudioImplFromJson(Map<String, dynamic> json) => _$AudioImpl(
+_Audio _$AudioFromJson(Map<String, dynamic> json) => _Audio(
   id: json['id'] as String,
   title: json['title'] as String,
   artist: json['artist'] as String?,
@@ -29,20 +29,19 @@ _$AudioImpl _$$AudioImplFromJson(Map<String, dynamic> json) => _$AudioImpl(
       : DateTime.parse(json['updatedAt'] as String),
 );
 
-Map<String, dynamic> _$$AudioImplToJson(_$AudioImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'title': instance.title,
-      'artist': instance.artist,
-      'album': instance.album,
-      'coverUrl': instance.coverUrl,
-      'streamUrl': instance.streamUrl,
-      'duration': instance.duration,
-      'description': instance.description,
-      'playCount': instance.playCount,
-      'uploader': instance.uploader,
-      'uploaderMid': instance.uploaderMid,
-      'publishedAt': instance.publishedAt?.toIso8601String(),
-      'createdAt': instance.createdAt?.toIso8601String(),
-      'updatedAt': instance.updatedAt?.toIso8601String(),
-    };
+Map<String, dynamic> _$AudioToJson(_Audio instance) => <String, dynamic>{
+  'id': instance.id,
+  'title': instance.title,
+  'artist': instance.artist,
+  'album': instance.album,
+  'coverUrl': instance.coverUrl,
+  'streamUrl': instance.streamUrl,
+  'duration': instance.duration,
+  'description': instance.description,
+  'playCount': instance.playCount,
+  'uploader': instance.uploader,
+  'uploaderMid': instance.uploaderMid,
+  'publishedAt': instance.publishedAt?.toIso8601String(),
+  'createdAt': instance.createdAt?.toIso8601String(),
+  'updatedAt': instance.updatedAt?.toIso8601String(),
+};

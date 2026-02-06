@@ -6,66 +6,208 @@ part of 'player_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$audioPlayerServiceHash() =>
-    r'c51493b9c41fef92892730d480a312674c3652c7';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+/// 播放器 ViewModel
+///
+/// 职责：
+/// 1. 播放控制（play/pause/stop/seek）
+/// 2. 音频源管理
+/// 3. 播放状态管理
+/// 4. 播放设置（音量、倍速）
+///
+/// 依赖：
+/// - AudioPlayerService: 底层播放器封装
+/// - SharedStorageService: 持久化播放设置
+
+@ProviderFor(PlayerViewModel)
+final playerViewModelProvider = PlayerViewModelProvider._();
+
+/// 播放器 ViewModel
+///
+/// 职责：
+/// 1. 播放控制（play/pause/stop/seek）
+/// 2. 音频源管理
+/// 3. 播放状态管理
+/// 4. 播放设置（音量、倍速）
+///
+/// 依赖：
+/// - AudioPlayerService: 底层播放器封装
+/// - SharedStorageService: 持久化播放设置
+final class PlayerViewModelProvider
+    extends $NotifierProvider<PlayerViewModel, PlayerState> {
+  /// 播放器 ViewModel
+  ///
+  /// 职责：
+  /// 1. 播放控制（play/pause/stop/seek）
+  /// 2. 音频源管理
+  /// 3. 播放状态管理
+  /// 4. 播放设置（音量、倍速）
+  ///
+  /// 依赖：
+  /// - AudioPlayerService: 底层播放器封装
+  /// - SharedStorageService: 持久化播放设置
+  PlayerViewModelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playerViewModelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playerViewModelHash();
+
+  @$internal
+  @override
+  PlayerViewModel create() => PlayerViewModel();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlayerState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlayerState>(value),
+    );
+  }
+}
+
+String _$playerViewModelHash() => r'7fe98e965ebcd57dff03525ac04cdebc70e09f71';
+
+/// 播放器 ViewModel
+///
+/// 职责：
+/// 1. 播放控制（play/pause/stop/seek）
+/// 2. 音频源管理
+/// 3. 播放状态管理
+/// 4. 播放设置（音量、倍速）
+///
+/// 依赖：
+/// - AudioPlayerService: 底层播放器封装
+/// - SharedStorageService: 持久化播放设置
+
+abstract class _$PlayerViewModel extends $Notifier<PlayerState> {
+  PlayerState build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<PlayerState, PlayerState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<PlayerState, PlayerState>,
+              PlayerState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
 
 /// AudioPlayerService Provider
-///
-/// Copied from [audioPlayerService].
-@ProviderFor(audioPlayerService)
-final audioPlayerServiceProvider =
-    AutoDisposeProvider<AudioPlayerService>.internal(
-      audioPlayerService,
-      name: r'audioPlayerServiceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$audioPlayerServiceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef AudioPlayerServiceRef = AutoDisposeProviderRef<AudioPlayerService>;
-String _$sharedStorageServiceHash() =>
-    r'c847f3fa26c0afddfe000f6e2c2ea96ea14ba7f7';
+@ProviderFor(audioPlayerService)
+final audioPlayerServiceProvider = AudioPlayerServiceProvider._();
+
+/// AudioPlayerService Provider
+
+final class AudioPlayerServiceProvider
+    extends
+        $FunctionalProvider<
+          AudioPlayerService,
+          AudioPlayerService,
+          AudioPlayerService
+        >
+    with $Provider<AudioPlayerService> {
+  /// AudioPlayerService Provider
+  AudioPlayerServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'audioPlayerServiceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$audioPlayerServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<AudioPlayerService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AudioPlayerService create(Ref ref) {
+    return audioPlayerService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AudioPlayerService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AudioPlayerService>(value),
+    );
+  }
+}
+
+String _$audioPlayerServiceHash() =>
+    r'92102d1c8bbcc116200f5493d4e24bc7a5269b7f';
 
 /// SharedStorageService Provider
-///
-/// Copied from [sharedStorageService].
+
 @ProviderFor(sharedStorageService)
-final sharedStorageServiceProvider =
-    AutoDisposeProvider<SharedStorageService>.internal(
-      sharedStorageService,
-      name: r'sharedStorageServiceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$sharedStorageServiceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
+final sharedStorageServiceProvider = SharedStorageServiceProvider._();
+
+/// SharedStorageService Provider
+
+final class SharedStorageServiceProvider
+    extends
+        $FunctionalProvider<
+          SharedStorageService,
+          SharedStorageService,
+          SharedStorageService
+        >
+    with $Provider<SharedStorageService> {
+  /// SharedStorageService Provider
+  SharedStorageServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sharedStorageServiceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sharedStorageServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<SharedStorageService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  SharedStorageService create(Ref ref) {
+    return sharedStorageService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SharedStorageService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SharedStorageService>(value),
     );
+  }
+}
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef SharedStorageServiceRef = AutoDisposeProviderRef<SharedStorageService>;
-String _$playerViewModelHash() => r'4fdad2ac52f788f0aad76013451bb727902f67ae';
-
-/// PlayerViewModel Provider
-///
-/// Copied from [playerViewModel].
-@ProviderFor(playerViewModel)
-final playerViewModelProvider = AutoDisposeProvider<PlayerViewModel>.internal(
-  playerViewModel,
-  name: r'playerViewModelProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$playerViewModelHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef PlayerViewModelRef = AutoDisposeProviderRef<PlayerViewModel>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+String _$sharedStorageServiceHash() =>
+    r'df792e9db096eeedfe0f22cac72ea90a1712c709';

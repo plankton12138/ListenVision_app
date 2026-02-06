@@ -31,34 +31,35 @@ class LocalMusicState with _$LocalMusicState {
 /// 本地音乐 ViewModel
 ///
 /// 负责本地音乐歌单的管理和导入
-@riverpod
+@Riverpod(keepAlive: true)
 class LocalMusicViewModel extends _$LocalMusicViewModel {
-  late final LocalMusicRepository _repository;
-  late final MetadataService _metadataService;
+  LocalMusicRepository? _repository;
+  MetadataService? _metadataService;
 
   @override
-  LocalMusicState build() {
-    _repository = ref.read(localMusicRepositoryProvider);
+  Future<LocalMusicState> build() async {
+    _repository = ref.watch(localMusicRepositoryProvider);
     _metadataService = MetadataService();
-    _loadPlaylist();
-    return const LocalMusicState.initial();
+
+    return await _loadPlaylist();
   }
 
   /// 加载本地音乐歌单
-  Future<void> _loadPlaylist() async {
-    state = const LocalMusicState.loading();
+  Future<LocalMusicState> _loadPlaylist() async {
     try {
-      final audios = await _repository.getAllLocalMusic();
-      state = LocalMusicState.loaded(audios: audios);
+      final audios = await _repository!.getAllLocalMusic();
+      return LocalMusicState.loaded(audios: audios);
     } catch (e) {
       AppLogger.error('LocalMusicViewModel', '加载歌单失败: $e');
-      state = LocalMusicState.error(message: e.toString());
+      return LocalMusicState.error(message: e.toString());
     }
   }
 
   /// 刷新列表
   Future<void> refresh() async {
-    await _loadPlaylist();
+    if (!ref.mounted) return;
+    state = const AsyncLoading();
+    state = AsyncData(await _loadPlaylist());
   }
 
   /// 导入音频文件
@@ -71,28 +72,30 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
         label: 'audio',
         extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg'],
       );
-      
+
       final XFile? file = await openFile(acceptedTypeGroups: [audioType]);
       if (file == null) return;
 
       final filePath = file.path;
 
       // 检查文件是否已导入
-      final isImported = await _repository.isFileImported(filePath);
+      final isImported = await _repository!.isFileImported(filePath);
       if (isImported) {
         AppLogger.info('LocalMusicViewModel', '文件已导入: $filePath');
-        state = LocalMusicState.error(message: '该文件已存在于本地音乐中');
+        if (!ref.mounted) return;
+        state = AsyncData(LocalMusicState.error(message: '该文件已存在于本地音乐中'));
         return;
       }
 
-      state = const LocalMusicState.importing(
+      if (!ref.mounted) return;
+      state = AsyncData(const LocalMusicState.importing(
         current: 1,
         total: 1,
         currentFile: '',
-      );
+      ));
 
       // 提取元数据
-      final metadata = await _metadataService.extractFromFile(filePath);
+      final metadata = await _metadataService!.extractFromFile(filePath);
 
       // 创建本地音频对象
       final localAudio = LocalAudio(
@@ -104,15 +107,17 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
       );
 
       // 保存到数据库
-      await _repository.addLocalMusic(localAudio);
+      await _repository!.addLocalMusic(localAudio);
 
       // 刷新列表
-      await _loadPlaylist();
+      if (!ref.mounted) return;
+      state = AsyncData(await _loadPlaylist());
 
       AppLogger.info('LocalMusicViewModel', '导入成功: ${localAudio.title}');
     } catch (e) {
       AppLogger.error('LocalMusicViewModel', '导入失败: $e');
-      state = LocalMusicState.error(message: e.toString());
+      if (!ref.mounted) return;
+      state = AsyncData(LocalMusicState.error(message: e.toString()));
     }
   }
 
@@ -123,7 +128,7 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
         label: 'audio',
         extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg'],
       );
-      
+
       final List<XFile> files = await openFiles(acceptedTypeGroups: [audioType]);
       if (files.isEmpty) return;
 
@@ -135,22 +140,23 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
         final file = files[i];
         final filePath = file.path;
 
-        state = LocalMusicState.importing(
+        if (!ref.mounted) return;
+        state = AsyncData(LocalMusicState.importing(
           current: i + 1,
           total: files.length,
           currentFile: file.name,
-        );
+        ));
 
         try {
           // 检查是否已导入
-          final isImported = await _repository.isFileImported(filePath);
+          final isImported = await _repository!.isFileImported(filePath);
           if (isImported) {
             skipCount++;
             continue;
           }
 
           // 提取元数据
-          final metadata = await _metadataService.extractFromFile(filePath);
+          final metadata = await _metadataService!.extractFromFile(filePath);
 
           // 创建并保存
           final localAudio = LocalAudio(
@@ -161,7 +167,7 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
             albumArt: metadata.cover,
           );
 
-          await _repository.addLocalMusic(localAudio);
+          await _repository!.addLocalMusic(localAudio);
           successCount++;
         } catch (e) {
           AppLogger.error('LocalMusicViewModel', '导入文件失败: $filePath - $e');
@@ -169,22 +175,24 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
         }
       }
 
-      await _loadPlaylist();
+      if (!ref.mounted) return;
+      state = AsyncData(await _loadPlaylist());
 
-      AppLogger.info('LocalMusicViewModel', 
+      AppLogger.info('LocalMusicViewModel',
           '批量导入完成: 成功 $successCount, 跳过 $skipCount, 失败 $failCount');
     } catch (e) {
       AppLogger.error('LocalMusicViewModel', '批量导入失败: $e');
-      state = LocalMusicState.error(message: e.toString());
+      if (!ref.mounted) return;
+      state = AsyncData(LocalMusicState.error(message: e.toString()));
     }
   }
 
   /// 删除本地音乐（仅从歌单移除，不删除文件）
   Future<void> deleteLocalMusic(int id) async {
     try {
-      final success = await _repository.deleteLocalMusic(id);
-      if (success) {
-        await _loadPlaylist();
+      final success = await _repository!.deleteLocalMusic(id);
+      if (success && ref.mounted) {
+        state = AsyncData(await _loadPlaylist());
       }
     } catch (e) {
       AppLogger.error('LocalMusicViewModel', '删除失败: $e');
@@ -194,9 +202,9 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
   /// 切换收藏状态
   Future<void> toggleFavorite(int id, bool isFavorite) async {
     try {
-      final success = await _repository.toggleFavorite(id, isFavorite);
-      if (success) {
-        await _loadPlaylist();
+      final success = await _repository!.toggleFavorite(id, isFavorite);
+      if (success && ref.mounted) {
+        state = AsyncData(await _loadPlaylist());
       }
     } catch (e) {
       AppLogger.error('LocalMusicViewModel', '切换收藏状态失败: $e');
@@ -216,6 +224,6 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
 
 /// Provider 定义
 @riverpod
-LocalMusicRepository localMusicRepository(LocalMusicRepositoryRef ref) {
+LocalMusicRepository localMusicRepository(Ref ref) {
   return LocalMusicRepository();
 }

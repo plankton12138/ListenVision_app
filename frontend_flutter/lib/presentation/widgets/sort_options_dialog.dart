@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
 
 /// 歌单排序选项对话框
 ///
@@ -159,18 +158,8 @@ class SortOptionsDialog extends ConsumerWidget {
   /// - artist_asc: A-Z艺术家
   /// - artist_desc: Z-A艺术家
   void _applySort(BuildContext context, WidgetRef ref, String sortType) {
-    final playlistViewModel = ref.read(playlistViewModelProvider);
-    final currentPlaylistId = playlistViewModel.currentPlaylistId;
-
-    if (currentPlaylistId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('无法获取歌单信息'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
+    // TODO: 获取当前歌单ID并调用排序API
+    // final currentPlaylistId = ref.read(playlistViewModelProvider.notifier).currentPlaylistId;
 
     // 先关闭对话框
     Navigator.pop(context);

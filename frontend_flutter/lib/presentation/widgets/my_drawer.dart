@@ -11,9 +11,8 @@ class MyDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authViewModelProvider);
-    final isLoggedIn = authState.isLoggedIn;
-    final user = authState.currentUser;
+    final isLoggedIn = ref.watch(isLoggedInProvider);
+    final user = ref.watch(currentUserProvider);
 
     return Drawer(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -141,8 +140,6 @@ class MyDrawer extends ConsumerWidget {
 
   /// 构建认证区域（登录/登出）
   Widget _buildAuthSection(BuildContext context, WidgetRef ref, bool isLoggedIn) {
-    final authViewModel = ref.read(authViewModelProvider);
-
     return Column(
       children: [
         const Divider(height: 1),
@@ -152,7 +149,7 @@ class MyDrawer extends ConsumerWidget {
             title: '退出登录',
             icon: Icons.exit_to_app,
             onTap: () {
-              authViewModel.logout();
+              ref.read(authViewModelProvider.notifier).logout();
               Navigator.pop(context);
               context.go('/');
             },

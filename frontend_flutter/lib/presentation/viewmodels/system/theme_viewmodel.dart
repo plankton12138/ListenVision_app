@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../core/storage/shared_storage_service.dart';
@@ -17,7 +16,7 @@ enum AppThemeMode {
 /// 主题 ViewModel
 ///
 /// 负责应用的主题切换（浅色/深色/跟随系统）
-@riverpod
+@Riverpod(keepAlive: true)
 class ThemeViewModel extends _$ThemeViewModel {
   static const _themeKey = 'app_theme_mode';
   late final SharedStorageService _storage;
@@ -80,7 +79,7 @@ class ThemeViewModel extends _$ThemeViewModel {
 
 /// Provider 定义
 @riverpod
-SharedStorageService themeStorageService(ThemeStorageServiceRef ref) {
+SharedStorageService themeStorageService(Ref ref) {
   return SharedStorageService.instance;
 }
 

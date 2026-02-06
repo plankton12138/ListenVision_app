@@ -1,11 +1,9 @@
 import 'dart:io';
 
 import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/models/audio.dart';
 import 'package:demo/models/playlist.dart';
-import 'package:demo/models/online_playable.dart';
 import 'package:demo/presentation/providers.dart';
-import 'package:file_selector/file_selector.dart';
+import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
@@ -87,13 +85,23 @@ class AudioActionMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlistViewModel = ref.watch(playlistViewModelProvider);
-    final playlistState = playlistViewModel.playlistState;
-    final isFavorited = playlistState.maybeWhen(
-      loaded: (_, __, ___, ____, _____, favoritesItems, ______) =>
-          favoritesItems.any((item) => item.bvid == bvid),
-      orElse: () => false,
+    final playlistState = ref.watch(playlistViewModelProvider);
+
+    return playlistState.when(
+      data: (state) {
+        final isFavorited = state.map(
+          initial: (_) => false,
+          loaded: (value) => value.favoritesItems.any((item) => item.bvid == bvid),
+          error: (_) => false,
+        );
+        return _buildContent(context, ref, isFavorited);
+      },
+      loading: () => _buildContent(context, ref, false),
+      error: (_, __) => _buildContent(context, ref, false),
     );
+  }
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, bool isFavorited) {
 
     return SafeArea(
       child: Column(
@@ -228,15 +236,15 @@ class AudioActionMenu extends ConsumerWidget {
     try {
       AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
 
-      final authViewModel = ref.read(authViewModelProvider);
-      if (!authViewModel.isLoggedIn) {
+      final isLoggedIn = ref.read(isLoggedInProvider);
+      if (!isLoggedIn) {
         if (context.mounted) {
           _showSnackBar(context, '请先登录', Colors.orange);
         }
         return;
       }
 
-      final token = authViewModel.currentToken;
+      final token = ref.read(authTokenProvider);
       if (token == null) {
         if (context.mounted) {
           _showSnackBar(context, '请先登录', Colors.orange);
@@ -244,9 +252,9 @@ class AudioActionMenu extends ConsumerWidget {
         return;
       }
 
-      final playlistViewModel = ref.read(playlistViewModelProvider);
+      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
-      final added = await playlistViewModel.toggleFavorite(
+      final added = await playlistNotifier.toggleFavorite(
             token,
             bvid,
             title: title,
@@ -256,7 +264,7 @@ class AudioActionMenu extends ConsumerWidget {
           );
 
       // 刷新收藏列表
-      await playlistViewModel.loadFavorites(token);
+      await playlistNotifier.loadFavorites(token);
 
       if (context.mounted) {
         _showSnackBar(
@@ -293,7 +301,7 @@ class AudioActionMenu extends ConsumerWidget {
     try {
       AppLogger.info('AudioActionMenu', '下载音频: $bvid');
 
-      final downloadViewModel = ref.read(downloadViewModelProvider);
+      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
 
       // 获取下载目录
       final downloadDir = await _getDownloadDirectory();
@@ -301,7 +309,7 @@ class AudioActionMenu extends ConsumerWidget {
       final sanitizedTitle = _sanitizeTitle(title);
       final savePath = '$downloadDir$sanitizedTitle.mp3';
 
-      await downloadViewModel.addDownload(
+      await downloadNotifier.addDownload(
             bvid: bvid,
             savePath: savePath,
             title: title,
@@ -313,9 +321,25 @@ class AudioActionMenu extends ConsumerWidget {
         _showSnackBar(context, '已添加到下载队列', Colors.green);
       }
     } catch (e) {
-      AppLogger.error('AudioActionMenu', '下载失败: $e');
+      AppLogger.error('AudioActionMenu', '下载操作失败: $e');
+
+      // 解析错误消息
+      String message;
+      Color color;
+
+      if (e.toString().contains('任务已完成')) {
+        message = e.toString();
+        color = Colors.orange;
+      } else if (e.toString().contains('任务已在下载队列中')) {
+        message = e.toString();
+        color = Colors.orange;
+      } else {
+        message = '下载失败: $e';
+        color = Colors.red;
+      }
+
       if (context.mounted) {
-        _showSnackBar(context, '下载失败: $e', Colors.red);
+        _showSnackBar(context, message, color);
       }
     }
   }
@@ -428,12 +452,23 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
   @override
   Widget build(BuildContext context) {
-    final playlistViewModel = ref.watch(playlistViewModelProvider);
-    final playlistState = playlistViewModel.playlistState;
-    final userPlaylists = playlistState.maybeWhen(
-      loaded: (_, userPlaylists, __, ___, ____, _____, ______) => userPlaylists,
-      orElse: () => <Playlist>[],
+    final playlistState = ref.watch(playlistViewModelProvider);
+
+    return playlistState.when(
+      data: (state) {
+        final userPlaylists = state.map(
+          initial: (_) => <Playlist>[],
+          loaded: (value) => value.userPlaylists,
+          error: (_) => <Playlist>[],
+        );
+        return _buildContent(context, userPlaylists);
+      },
+      loading: () => _buildContent(context, <Playlist>[]),
+      error: (_, __) => _buildContent(context, <Playlist>[]),
     );
+  }
+
+  Widget _buildContent(BuildContext context, List<Playlist> userPlaylists) {
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -562,12 +597,11 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
               Navigator.pop(context);
 
-              final authViewModel = ref.read(authViewModelProvider);
-              final token = authViewModel.currentToken;
+              final token = ref.read(authTokenProvider);
 
               if (token != null) {
-                final playlistViewModel = ref.read(playlistViewModelProvider);
-                final newPlaylist = await playlistViewModel.createPlaylist(
+                final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+                final newPlaylist = await playlistNotifier.createPlaylist(
                       token,
                       name: name,
                     );
@@ -596,8 +630,7 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
       Navigator.pop(context);
 
-      final authViewModel = ref.read(authViewModelProvider);
-      final token = authViewModel.currentToken;
+      final token = ref.read(authTokenProvider);
 
       if (token == null) {
         if (mounted) {
@@ -606,9 +639,9 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
         return;
       }
 
-      final playlistViewModel = ref.read(playlistViewModelProvider);
+      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
-      final success = await playlistViewModel.addItem(
+      final success = await playlistNotifier.addItem(
             token,
             playlistId,
             widget.bvid,

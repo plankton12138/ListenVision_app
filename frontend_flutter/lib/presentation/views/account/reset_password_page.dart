@@ -155,7 +155,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     });
 
     try {
-      final success = await ref.read(authViewModelProvider).sendVerificationCode(
+      final success = await ref.read(authViewModelProvider.notifier).sendVerificationCode(
         _usernameController.text,
       );
 
@@ -184,7 +184,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     });
 
     try {
-      final success = await ref.read(authViewModelProvider).resetPassword(
+      final success = await ref.read(authViewModelProvider.notifier).resetPassword(
         email: _usernameController.text,
         code: _codeController.text,
         newPassword: _newPasswordController.text,

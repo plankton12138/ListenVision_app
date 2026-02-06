@@ -6,98 +6,244 @@ part of 'auth_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$authRepositoryHash() => r'e3b22fd7863ea1be0b322870da43112c60f80087';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+/// 主账号认证 ViewModel
+///
+/// 负责主账号（Email/Password）的登录、注册、登出
+
+@ProviderFor(AuthViewModel)
+final authViewModelProvider = AuthViewModelProvider._();
+
+/// 主账号认证 ViewModel
+///
+/// 负责主账号（Email/Password）的登录、注册、登出
+final class AuthViewModelProvider
+    extends $AsyncNotifierProvider<AuthViewModel, AuthState> {
+  /// 主账号认证 ViewModel
+  ///
+  /// 负责主账号（Email/Password）的登录、注册、登出
+  AuthViewModelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authViewModelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$authViewModelHash();
+
+  @$internal
+  @override
+  AuthViewModel create() => AuthViewModel();
+}
+
+String _$authViewModelHash() => r'8dffa5a2e4c4351e5aba737472959ef269e93677';
+
+/// 主账号认证 ViewModel
+///
+/// 负责主账号（Email/Password）的登录、注册、登出
+
+abstract class _$AuthViewModel extends $AsyncNotifier<AuthState> {
+  FutureOr<AuthState> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<AuthState>, AuthState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<AuthState>, AuthState>,
+              AsyncValue<AuthState>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
 
 /// Provider 定义
-///
-/// Copied from [authRepository].
+
 @ProviderFor(authRepository)
-final authRepositoryProvider = AutoDisposeProvider<AuthRepository>.internal(
-  authRepository,
-  name: r'authRepositoryProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$authRepositoryHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final authRepositoryProvider = AuthRepositoryProvider._();
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef AuthRepositoryRef = AutoDisposeProviderRef<AuthRepository>;
-String _$authViewModelHash() => r'2835e45e93555ed947a84dd42680f3873e9595ac';
+/// Provider 定义
 
-/// See also [authViewModel].
-@ProviderFor(authViewModel)
-final authViewModelProvider = AutoDisposeProvider<AuthViewModel>.internal(
-  authViewModel,
-  name: r'authViewModelProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$authViewModelHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final class AuthRepositoryProvider
+    extends $FunctionalProvider<AuthRepository, AuthRepository, AuthRepository>
+    with $Provider<AuthRepository> {
+  /// Provider 定义
+  AuthRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authRepositoryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef AuthViewModelRef = AutoDisposeProviderRef<AuthViewModel>;
-String _$currentUserHash() => r'ac56121d3f8776c67fc35e956f7a8813ac0a5c02';
+  @override
+  String debugGetCreateSourceHash() => _$authRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<AuthRepository> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AuthRepository create(Ref ref) {
+    return authRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AuthRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AuthRepository>(value),
+    );
+  }
+}
+
+String _$authRepositoryHash() => r'19a3485653561ac2f781b997131430c5659286d1';
 
 /// 当前用户 Provider
-///
-/// Copied from [currentUser].
-@ProviderFor(currentUser)
-final currentUserProvider = AutoDisposeProvider<User?>.internal(
-  currentUser,
-  name: r'currentUserProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$currentUserHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef CurrentUserRef = AutoDisposeProviderRef<User?>;
-String _$authTokenHash() => r'd02108d4e48a800dfdf32b46a8150c5fa1fd8946';
+@ProviderFor(currentUser)
+final currentUserProvider = CurrentUserProvider._();
+
+/// 当前用户 Provider
+
+final class CurrentUserProvider extends $FunctionalProvider<User?, User?, User?>
+    with $Provider<User?> {
+  /// 当前用户 Provider
+  CurrentUserProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'currentUserProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$currentUserHash();
+
+  @$internal
+  @override
+  $ProviderElement<User?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  User? create(Ref ref) {
+    return currentUser(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(User? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<User?>(value),
+    );
+  }
+}
+
+String _$currentUserHash() => r'590aad092dccfc3de9771a973175f5ef3d8d0c6e';
 
 /// 当前 token Provider（用于 Dio）
-///
-/// Copied from [authToken].
-@ProviderFor(authToken)
-final authTokenProvider = AutoDisposeProvider<String?>.internal(
-  authToken,
-  name: r'authTokenProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$authTokenHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$isLoggedInHash() => r'ac40a585f2734e33cf849c41a9ee45f12569eaa6';
+@ProviderFor(authToken)
+final authTokenProvider = AuthTokenProvider._();
+
+/// 当前 token Provider（用于 Dio）
+
+final class AuthTokenProvider
+    extends $FunctionalProvider<String?, String?, String?>
+    with $Provider<String?> {
+  /// 当前 token Provider（用于 Dio）
+  AuthTokenProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authTokenProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$authTokenHash();
+
+  @$internal
+  @override
+  $ProviderElement<String?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  String? create(Ref ref) {
+    return authToken(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String?>(value),
+    );
+  }
+}
+
+String _$authTokenHash() => r'5c172d2db0b1be253e4eef486c0c38d5235766b5';
 
 /// 是否已登录 Provider
-///
-/// Copied from [isLoggedIn].
-@ProviderFor(isLoggedIn)
-final isLoggedInProvider = AutoDisposeProvider<bool>.internal(
-  isLoggedIn,
-  name: r'isLoggedInProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$isLoggedInHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef IsLoggedInRef = AutoDisposeProviderRef<bool>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+@ProviderFor(isLoggedIn)
+final isLoggedInProvider = IsLoggedInProvider._();
+
+/// 是否已登录 Provider
+
+final class IsLoggedInProvider extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// 是否已登录 Provider
+  IsLoggedInProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'isLoggedInProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$isLoggedInHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return isLoggedIn(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$isLoggedInHash() => r'67b3550ed23708f583a4b1a47b4a05239037cac8';

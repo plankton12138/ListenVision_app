@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/api/backend_api_client.dart';
 
@@ -72,34 +73,28 @@ class SearchResultItem {
 /// 1. B站网络搜索
 /// 2. 搜索历史管理
 /// 3. 搜索建议
-@riverpod
+@Riverpod(keepAlive: true)
 class SearchViewModel extends _$SearchViewModel {
-  late final BackendApiClient _apiClient;
+  BackendApiClient? _apiClient;
 
   @override
-  SearchState build() {
-    _apiClient = ref.read(searchBackendApiClientProvider);
-    _initialize();
-    return const SearchState.initial();
-  }
+  Future<SearchState> build() async {
+    _apiClient = ref.watch(searchBackendApiClientProvider);
 
-  /// 初始化：加载搜索历史
-  Future<void> _initialize() async {
     try {
       AppLogger.debug('SearchViewModel', '初始化');
 
       // 加载搜索历史
       final history = await _loadSearchHistoryFromServer();
 
-      state = SearchState.idle(
+      AppLogger.debug('SearchViewModel', '初始化完成');
+      return SearchState.idle(
         searchHistory: history,
         suggestions: const [],
       );
-
-      AppLogger.debug('SearchViewModel', '初始化完成');
     } catch (e) {
       AppLogger.error('SearchViewModel', '初始化失败: $e');
-      state = const SearchState.idle();
+      return const SearchState.idle();
     }
   }
 
@@ -110,7 +105,8 @@ class SearchViewModel extends _$SearchViewModel {
   /// @returns 是否成功
   Future<bool> search(String keyword, {int page = 1}) async {
     if (keyword.trim().isEmpty) {
-      state = SearchState.resultsLoaded(
+      if (!ref.mounted) return false;
+      state = AsyncData(SearchState.resultsLoaded(
         results: const [],
         query: keyword,
         platform: SearchPlatform.bilibili,
@@ -118,16 +114,17 @@ class SearchViewModel extends _$SearchViewModel {
         pageSize: 20,
         totalCount: 0,
         hasMore: false,
-      );
+      ));
       return false;
     }
 
     try {
       AppLogger.info('SearchViewModel', 'B站搜索: $keyword, page=$page');
 
-      state = const SearchState.loading();
+      if (!ref.mounted) return false;
+      state = const AsyncLoading();
 
-      final data = await _apiClient.searchBilibili(keyword, page: page);
+      final data = await _apiClient!.searchBilibili(keyword, page: page);
       final videos = data['videos'] as List? ?? [];
       // 优先使用后端返回的 total，如果没有则根据结果数量判断
       final totalCount = data['total'] as int? ?? 0;
@@ -156,7 +153,8 @@ class SearchViewModel extends _$SearchViewModel {
           ? (backendPage * pageSize < totalCount)
           : (page == 1 ? results.isNotEmpty : (results.length >= pageSize));
 
-      state = SearchState.resultsLoaded(
+      if (!ref.mounted) return false;
+      state = AsyncData(SearchState.resultsLoaded(
         results: results,
         query: keyword,
         platform: SearchPlatform.bilibili,
@@ -164,18 +162,14 @@ class SearchViewModel extends _$SearchViewModel {
         pageSize: pageSize,
         totalCount: totalCount,
         hasMore: hasMore,
-      );
-
-      // 仅首次搜索添加到历史
-      if (page == 1) {
-        await _addToSearchHistory(keyword);
-      }
+      ));
 
       AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果, total=$totalCount, hasMore=$hasMore');
       return true;
     } catch (e) {
       AppLogger.error('SearchViewModel', '搜索失败: $e');
-      state = SearchState.error(message: e.toString());
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
       return false;
     }
   }
@@ -184,7 +178,7 @@ class SearchViewModel extends _$SearchViewModel {
   ///
   /// @returns 是否成功
   Future<bool> loadNextPage() async {
-    final currentState = state;
+    final currentState = state.valueOrNull;
     if (currentState is! SearchStateResultsLoaded) {
       AppLogger.warn('SearchViewModel', '当前非搜索结果状态，无法加载下一页');
       return false;
@@ -199,7 +193,7 @@ class SearchViewModel extends _$SearchViewModel {
     AppLogger.info('SearchViewModel', '加载下一页: $nextPage');
 
     try {
-      final data = await _apiClient.searchBilibili(
+      final data = await _apiClient!.searchBilibili(
         currentState.query,
         page: nextPage,
       );
@@ -225,12 +219,13 @@ class SearchViewModel extends _$SearchViewModel {
           ? (nextPage * pageSize < totalCount)
           : (newResults.length >= pageSize);
 
-      state = currentState.copyWith(
+      if (!ref.mounted) return false;
+      state = AsyncData(currentState.copyWith(
         results: mergedResults,
         currentPage: nextPage,
         totalCount: totalCount,
         hasMore: hasMore,
-      );
+      ));
 
       AppLogger.info('SearchViewModel', '加载下一页成功: ${newResults.length}条新结果, 总计${mergedResults.length}条');
       return true;
@@ -252,7 +247,7 @@ class SearchViewModel extends _$SearchViewModel {
 
       // B站搜索建议（可接入B站API）
       final suggestions =
-          await _apiClient.getBilibiliSearchSuggestions(prefix);
+          await _apiClient!.getBilibiliSearchSuggestions(prefix);
 
       _updateIdleState(suggestions: suggestions);
 
@@ -276,13 +271,17 @@ class SearchViewModel extends _$SearchViewModel {
 
       final history = await _loadSearchHistoryFromServer();
 
-      state = state.maybeMap(
-        idle: (value) => value.copyWith(searchHistory: history),
-        orElse: () => SearchState.idle(
+      final current = state.valueOrNull;
+      if (current is SearchStateIdle) {
+        if (!ref.mounted) return false;
+        state = AsyncData(current.copyWith(searchHistory: history));
+      } else {
+        if (!ref.mounted) return false;
+        state = AsyncData(SearchState.idle(
           searchHistory: history,
           suggestions: const [],
-        ),
-      );
+        ));
+      }
 
       AppLogger.debug('SearchViewModel', '搜索历史: ${history.length}条');
       return true;
@@ -294,23 +293,24 @@ class SearchViewModel extends _$SearchViewModel {
 
   /// 从搜索历史中删除关键词
   void removeFromHistory(String keyword) {
-    state = state.maybeMap(
-      idle: (value) => value.copyWith(
-        searchHistory: [...value.searchHistory]..remove(keyword),
-      ),
-      orElse: () => state,
-    );
+    final current = state.valueOrNull;
+    if (current is SearchStateIdle) {
+      state = AsyncData(current.copyWith(
+        searchHistory: [...current.searchHistory]..remove(keyword),
+      ));
+    }
   }
 
   /// 清空搜索历史
   Future<void> clearSearchHistory() async {
     try {
-      await _apiClient.clearBilibiliSearchHistory();
+      await _apiClient!.clearBilibiliSearchHistory();
 
-      state = state.maybeMap(
-        idle: (value) => value.copyWith(searchHistory: const []),
-        orElse: () => state,
-      );
+      final current = state.valueOrNull;
+      if (current is SearchStateIdle) {
+        if (!ref.mounted) return;
+        state = AsyncData(current.copyWith(searchHistory: const []));
+      }
 
       AppLogger.info('SearchViewModel', '清空搜索历史成功');
     } catch (e) {
@@ -320,45 +320,27 @@ class SearchViewModel extends _$SearchViewModel {
 
   /// 清空搜索结果
   void clearSearchResults() {
-    state = state.maybeMap(
-      resultsLoaded: (_) => SearchState.idle(
-        searchHistory: state.maybeMap(
-          idle: (value) => value.searchHistory,
-          orElse: () => const [],
-        ),
-        suggestions: state.maybeMap(
-          idle: (value) => value.suggestions,
-          orElse: () => const [],
-        ),
-      ),
-      orElse: () => state,
-    );
+    final current = state.valueOrNull;
+    if (current is SearchStateResultsLoaded) {
+      state = const AsyncData(SearchState.idle());
+    }
   }
 
   /// 清除错误信息
   void clearError() {
-    state = state.maybeMap(
-      error: (_) => const SearchState.idle(),
-      orElse: () => state,
-    );
+    if (state.valueOrNull is SearchStateError) {
+      state = const AsyncData(SearchState.idle());
+    }
   }
 
   // ==================== 私有方法 ====================
 
   Future<List<String>> _loadSearchHistoryFromServer() async {
     try {
-      return await _apiClient.getBilibiliSearchHistory();
+      return await _apiClient!.getBilibiliSearchHistory();
     } catch (e) {
       AppLogger.error('SearchViewModel', '加载搜索历史失败: $e');
       return const [];
-    }
-  }
-
-  Future<void> _addToSearchHistory(String keyword) async {
-    try {
-      await _apiClient.addBilibiliSearchHistory(keyword);
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '添加搜索历史失败: $e');
     }
   }
 
@@ -366,16 +348,18 @@ class SearchViewModel extends _$SearchViewModel {
     List<String>? searchHistory,
     List<String>? suggestions,
   }) {
-    state = state.maybeMap(
-      idle: (value) => value.copyWith(
-        searchHistory: searchHistory ?? value.searchHistory,
-        suggestions: suggestions ?? value.suggestions,
-      ),
-      orElse: () => SearchState.idle(
+    final current = state.valueOrNull;
+    if (current is SearchStateIdle) {
+      state = AsyncData(current.copyWith(
+        searchHistory: searchHistory ?? current.searchHistory,
+        suggestions: suggestions ?? current.suggestions,
+      ));
+    } else {
+      state = AsyncData(SearchState.idle(
         searchHistory: searchHistory ?? const [],
         suggestions: suggestions ?? const [],
-      ),
-    );
+      ));
+    }
   }
 
   /// 解析时长字符串（如 "03:45" -> 225秒）
@@ -396,6 +380,6 @@ class SearchViewModel extends _$SearchViewModel {
 
 /// BackendApiClient Provider
 @riverpod
-BackendApiClient searchBackendApiClient(SearchBackendApiClientRef ref) {
+BackendApiClient searchBackendApiClient(Ref ref) {
   return BackendApiClient();
 }

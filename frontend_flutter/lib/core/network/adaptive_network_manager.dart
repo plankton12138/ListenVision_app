@@ -49,6 +49,8 @@ class AdaptiveNetworkManager {
 
   NetworkQuality get currentQuality => _currentQuality;
   bool get isMonitoring => _monitoringTimer?.isActive ?? false;
+  DateTime get lastCheckTime => _lastCheckTime;
+  String? get monitoringPausedReason => _monitoringPausedReason;
 
   // ==================== 监听器管理 ====================
 

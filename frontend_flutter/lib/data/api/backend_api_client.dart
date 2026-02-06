@@ -569,8 +569,9 @@ class BackendApiClient {
     try {
       final response = await _dioClient.get(BilibiliEndpoints.searchRecent);
       final data = _handleResponse(response);
-      final history = data['history'] as List?;
-      return history?.map((e) => e.toString()).toList() ?? [];
+      // 后端返回 data.keywords 字段
+      final keywords = data['keywords'] as List?;
+      return keywords?.map((e) => e.toString()).toList() ?? [];
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取B站搜索历史失败: $e');
       return [];

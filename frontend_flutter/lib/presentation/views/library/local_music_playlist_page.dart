@@ -40,12 +40,20 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
         ],
       ),
       body: state.when(
-        initial: () => const Center(child: CircularProgressIndicator()),
+        data: (localState) => localState.map(
+          initial: (_) => const Center(child: CircularProgressIndicator()),
+          loading: (_) => const Center(child: CircularProgressIndicator()),
+          loaded: (data) => _buildPlaylistView(context, data.audios, ref),
+          importing: (data) => _buildImportingView(
+            context,
+            data.current,
+            data.total,
+            data.currentFile,
+          ),
+          error: (data) => _buildErrorView(context, data.message, ref),
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        loaded: (audios) => _buildPlaylistView(context, audios, ref),
-        importing: (current, total, currentFile) =>
-            _buildImportingView(context, current, total, currentFile),
-        error: (message) => _buildErrorView(context, message, ref),
+        error: (err, stack) => Center(child: Text('错误: $err')),
       ),
     );
   }

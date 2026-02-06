@@ -27,6 +27,7 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 
 // ==================== 资源库相关 ====================
 export 'viewmodels/library/playlist_viewmodel.dart' show playlistViewModelProvider;
+export 'viewmodels/library/playlist_viewmodel.dart' show PlaylistState;
 export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;
 export 'viewmodels/library/history_viewmodel.dart' show historyStateProvider;
 export 'viewmodels/library/history_viewmodel.dart' show HistoryState;

@@ -96,7 +96,7 @@ class AppRouteObserver extends RouteObserver<PageRoute<dynamic>> {
 
     // 尝试从 Widget 类型获取名称
     if (route is MaterialPageRoute) {
-      final builder = route.builder;
+      // final builder = route.builder; // 预留用于提取页面名称
       // 这里可以添加更多逻辑来提取页面名称
       return 'MaterialPage';
     }

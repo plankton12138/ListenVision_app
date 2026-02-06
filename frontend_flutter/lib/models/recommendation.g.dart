@@ -6,8 +6,8 @@ part of 'recommendation.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$RecommendationImpl _$$RecommendationImplFromJson(Map<String, dynamic> json) =>
-    _$RecommendationImpl(
+_Recommendation _$RecommendationFromJson(Map<String, dynamic> json) =>
+    _Recommendation(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
@@ -21,27 +21,26 @@ _$RecommendationImpl _$$RecommendationImplFromJson(Map<String, dynamic> json) =>
           RecommendationType.video,
     );
 
-Map<String, dynamic> _$$RecommendationImplToJson(
-  _$RecommendationImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'title': instance.title,
-  'description': instance.description,
-  'coverUrl': instance.coverUrl,
-  'duration': instance.duration,
-  'artist': instance.artist,
-  'playCount': instance.playCount,
-  'url': instance.url,
-  'type': _$RecommendationTypeEnumMap[instance.type]!,
-};
+Map<String, dynamic> _$RecommendationToJson(_Recommendation instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'title': instance.title,
+      'description': instance.description,
+      'coverUrl': instance.coverUrl,
+      'duration': instance.duration,
+      'artist': instance.artist,
+      'playCount': instance.playCount,
+      'url': instance.url,
+      'type': _$RecommendationTypeEnumMap[instance.type]!,
+    };
 
 const _$RecommendationTypeEnumMap = {
   RecommendationType.video: 'video',
   RecommendationType.playlist: 'playlist',
 };
 
-_$BiliPlaylistImpl _$$BiliPlaylistImplFromJson(Map<String, dynamic> json) =>
-    _$BiliPlaylistImpl(
+_BiliPlaylist _$BiliPlaylistFromJson(Map<String, dynamic> json) =>
+    _BiliPlaylist(
       menuId: (json['menuId'] as num).toInt(),
       uid: (json['uid'] as num?)?.toInt(),
       uploader: json['uploader'] as String?,
@@ -58,7 +57,7 @@ _$BiliPlaylistImpl _$$BiliPlaylistImplFromJson(Map<String, dynamic> json) =>
           const [],
     );
 
-Map<String, dynamic> _$$BiliPlaylistImplToJson(_$BiliPlaylistImpl instance) =>
+Map<String, dynamic> _$BiliPlaylistToJson(_BiliPlaylist instance) =>
     <String, dynamic>{
       'menuId': instance.menuId,
       'uid': instance.uid,
@@ -72,45 +71,41 @@ Map<String, dynamic> _$$BiliPlaylistImplToJson(_$BiliPlaylistImpl instance) =>
       'previews': instance.previews,
     };
 
-_$BiliPlaylistStatsImpl _$$BiliPlaylistStatsImplFromJson(
+_BiliPlaylistStats _$BiliPlaylistStatsFromJson(Map<String, dynamic> json) =>
+    _BiliPlaylistStats(
+      play: (json['play'] as num?)?.toInt() ?? 0,
+      collect: (json['collect'] as num?)?.toInt() ?? 0,
+      comment: (json['comment'] as num?)?.toInt() ?? 0,
+      share: (json['share'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$BiliPlaylistStatsToJson(_BiliPlaylistStats instance) =>
+    <String, dynamic>{
+      'play': instance.play,
+      'collect': instance.collect,
+      'comment': instance.comment,
+      'share': instance.share,
+    };
+
+_BiliAudioPreview _$BiliAudioPreviewFromJson(Map<String, dynamic> json) =>
+    _BiliAudioPreview(
+      id: (json['id'] as num).toInt(),
+      title: json['title'] as String,
+      duration: (json['duration'] as num?)?.toInt(),
+      coverUrl: json['coverUrl'] as String?,
+    );
+
+Map<String, dynamic> _$BiliAudioPreviewToJson(_BiliAudioPreview instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'title': instance.title,
+      'duration': instance.duration,
+      'coverUrl': instance.coverUrl,
+    };
+
+_RecommendationResponse _$RecommendationResponseFromJson(
   Map<String, dynamic> json,
-) => _$BiliPlaylistStatsImpl(
-  play: (json['play'] as num?)?.toInt() ?? 0,
-  collect: (json['collect'] as num?)?.toInt() ?? 0,
-  comment: (json['comment'] as num?)?.toInt() ?? 0,
-  share: (json['share'] as num?)?.toInt() ?? 0,
-);
-
-Map<String, dynamic> _$$BiliPlaylistStatsImplToJson(
-  _$BiliPlaylistStatsImpl instance,
-) => <String, dynamic>{
-  'play': instance.play,
-  'collect': instance.collect,
-  'comment': instance.comment,
-  'share': instance.share,
-};
-
-_$BiliAudioPreviewImpl _$$BiliAudioPreviewImplFromJson(
-  Map<String, dynamic> json,
-) => _$BiliAudioPreviewImpl(
-  id: (json['id'] as num).toInt(),
-  title: json['title'] as String,
-  duration: (json['duration'] as num?)?.toInt(),
-  coverUrl: json['coverUrl'] as String?,
-);
-
-Map<String, dynamic> _$$BiliAudioPreviewImplToJson(
-  _$BiliAudioPreviewImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'title': instance.title,
-  'duration': instance.duration,
-  'coverUrl': instance.coverUrl,
-};
-
-_$RecommendationResponseImpl _$$RecommendationResponseImplFromJson(
-  Map<String, dynamic> json,
-) => _$RecommendationResponseImpl(
+) => _RecommendationResponse(
   items:
       (json['items'] as List<dynamic>?)
           ?.map((e) => Recommendation.fromJson(e as Map<String, dynamic>))
@@ -122,8 +117,8 @@ _$RecommendationResponseImpl _$$RecommendationResponseImplFromJson(
   source: json['source'] as String?,
 );
 
-Map<String, dynamic> _$$RecommendationResponseImplToJson(
-  _$RecommendationResponseImpl instance,
+Map<String, dynamic> _$RecommendationResponseToJson(
+  _RecommendationResponse instance,
 ) => <String, dynamic>{
   'items': instance.items,
   'page': instance.page,
@@ -132,9 +127,9 @@ Map<String, dynamic> _$$RecommendationResponseImplToJson(
   'source': instance.source,
 };
 
-_$PersonalizedResponseImpl _$$PersonalizedResponseImplFromJson(
+_PersonalizedResponse _$PersonalizedResponseFromJson(
   Map<String, dynamic> json,
-) => _$PersonalizedResponseImpl(
+) => _PersonalizedResponse(
   source: json['source'] as String,
   keywords:
       (json['keywords'] as List<dynamic>?)?.map((e) => e as String).toList() ??
@@ -151,8 +146,8 @@ _$PersonalizedResponseImpl _$$PersonalizedResponseImplFromJson(
       const [],
 );
 
-Map<String, dynamic> _$$PersonalizedResponseImplToJson(
-  _$PersonalizedResponseImpl instance,
+Map<String, dynamic> _$PersonalizedResponseToJson(
+  _PersonalizedResponse instance,
 ) => <String, dynamic>{
   'source': instance.source,
   'keywords': instance.keywords,

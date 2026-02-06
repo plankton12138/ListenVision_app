@@ -33,7 +33,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
-      final success = await ref.read(authViewModelProvider).login(
+      final success = await ref.read(authViewModelProvider.notifier).login(
         email: _usernameController.text,
         password: _passwordController.text,
       );
@@ -46,10 +46,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
         context.go('/');
       } else {
-        final viewModel = ref.read(authViewModelProvider);
-        final errorMsg = viewModel.authState.maybeWhen(
-          error: (msg) => msg,
-          orElse: () => '登录失败',
+        // 获取错误消息
+        final authState = ref.read(authViewModelProvider);
+        String errorMsg = '登录失败，请检查用户名和密码';
+        authState.whenOrNull(
+          error: (err, stack) {
+            errorMsg = err.toString();
+          },
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),

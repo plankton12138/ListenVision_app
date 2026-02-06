@@ -5,7 +5,6 @@ import 'package:audio_session/audio_session.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/playback_config.dart';
@@ -117,9 +116,10 @@ extension PlayerStateX on PlayerState {
 /// 依赖：
 /// - AudioPlayerService: 底层播放器封装
 /// - SharedStorageService: 持久化播放设置
-class PlayerViewModel extends StateNotifier<PlayerState> {
-  final AudioPlayerService _audioService;
-  final SharedStorageService _storage;
+@Riverpod(keepAlive: true)
+class PlayerViewModel extends _$PlayerViewModel {
+  AudioPlayerService? _audioService;
+  SharedStorageService? _storage;
 
   /// 状态订阅
   final List<StreamSubscription> _subscriptions = [];
@@ -142,13 +142,29 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
   /// 状态更新限流
   DateTime _lastStateUpdateTime = DateTime.now();
 
-  PlayerViewModel({
-    required AudioPlayerService audioService,
-    required SharedStorageService storage,
-  })  : _audioService = audioService,
-        _storage = storage,
-        super(const PlayerState()) {
-    _init();
+  @override
+  PlayerState build() {
+    _audioService = ref.watch(audioPlayerServiceProvider);
+    _storage = ref.watch(sharedStorageServiceProvider);
+
+    // 设置清理回调
+    ref.onDispose(() {
+      if (!_disposed) {
+        _disposed = true;
+        _positionSaveTimer?.cancel();
+        _debounceTimer?.cancel();
+        for (final sub in _subscriptions) {
+          sub.cancel();
+        }
+        _subscriptions.clear();
+        _audioService?.dispose();
+      }
+    });
+
+    // 延迟初始化
+    Future.microtask(_init);
+
+    return const PlayerState();
   }
 
   /// 初始化
@@ -164,8 +180,8 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       double speed = 1.0;
 
       try {
-        volume = _storage.getDouble(StorageKeys.playbackVolume) ?? 1.0;
-        speed = _storage.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
+        volume = _storage!.getDouble(StorageKeys.playbackVolume) ?? 1.0;
+        speed = _storage!.getDouble(StorageKeys.playbackSpeed) ?? 1.0;
       } catch (e) {
         AppLogger.warn('PlayerViewModel', '加载播放设置失败，使用默认值: $e');
       }
@@ -176,8 +192,8 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       );
 
       // 应用设置到播放器
-      await _audioService.setVolume(volume);
-      await _audioService.setPlaybackRate(speed);
+      await _audioService!.setVolume(volume);
+      await _audioService!.setPlaybackRate(speed);
 
       // 初始化监听器
       _initListeners();
@@ -192,7 +208,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
   void _initListeners() {
     // 位置变化监听
     _subscriptions.add(
-      _audioService.positionStream.listen(
+      _audioService!.positionStream.listen(
         (position) {
           if (_disposed) return;
           state = state.copyWith(position: position);
@@ -205,7 +221,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
 
     // 时长变化监听
     _subscriptions.add(
-      _audioService.durationStream.listen(
+      _audioService!.durationStream.listen(
         (duration) {
           if (_disposed) return;
           state = state.copyWith(
@@ -221,7 +237,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
 
     // 播放状态监听
     _subscriptions.add(
-      _audioService.playerStateStream.listen(
+      _audioService!.playerStateStream.listen(
         (playerState) {
           if (_disposed) return;
           _onPlayerStateChanged(playerState);
@@ -234,7 +250,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
 
     // 播放完成监听
     _subscriptions.add(
-      _audioService.onPlayerComplete.listen(
+      _audioService!.onPlayerComplete.listen(
         (_) {
           if (_disposed) return;
           _onPlaybackComplete();
@@ -339,7 +355,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     if (_disposed) return;
 
     try {
-      await _audioService.play();
+      await _audioService!.play();
       _startPositionSaveTimer();
       AppLogger.debug('PlayerViewModel', '播放');
     } catch (e) {
@@ -353,7 +369,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     if (_disposed) return;
 
     try {
-      await _audioService.pause();
+      await _audioService!.pause();
       _stopPositionSaveTimer();
       await _savePlaybackState();
       AppLogger.debug('PlayerViewModel', '暂停');
@@ -381,10 +397,10 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
         rethrow;
       }
     } else if (state.isCompleted && !state.isCurrentOnline) {
-      await _audioService.seek(Duration.zero);
+      await _audioService!.seek(Duration.zero);
     }
 
-    await _audioService.play();
+    await _audioService!.play();
     _startPositionSaveTimer();
   }
 
@@ -392,7 +408,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
   Future<void> stop() async {
     if (_disposed) return;
 
-    await _audioService.stop();
+    await _audioService!.stop();
     _stopPositionSaveTimer();
     AppLogger.debug('PlayerViewModel', '停止');
   }
@@ -405,7 +421,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       return;
     }
 
-    await _audioService.seek(position);
+    await _audioService!.seek(position);
     AppLogger.debug('PlayerViewModel', '跳转到: ${position.inSeconds}秒');
   }
 
@@ -414,7 +430,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     if (_disposed) return;
 
     final clampedValue = value.clamp(0.0, 1.0);
-    await _audioService.setVolume(clampedValue);
+    await _audioService!.setVolume(clampedValue);
     state = state.copyWith(volume: clampedValue);
 
     // 防抖保存
@@ -427,7 +443,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     if (_disposed) return;
 
     final clampedValue = value.clamp(0.5, 2.0);
-    await _audioService.setPlaybackRate(clampedValue);
+    await _audioService!.setPlaybackRate(clampedValue);
     state = state.copyWith(speed: clampedValue);
 
     // 防抖保存
@@ -468,7 +484,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       );
 
       // 设置并播放
-      await _audioService.setSourceAndPlayFile(filePath);
+      await _audioService!.setSourceAndPlayFile(filePath);
 
       state = state.copyWith(
         statusMessage: '',
@@ -576,14 +592,14 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
     }
 
     // 停止当前播放
-    await _audioService.stop();
+    await _audioService!.stop();
     await Future.delayed(const Duration(milliseconds: 100));
 
     // 设置并播放
     if (playable.isOnline) {
-      await _audioService.playUrl(playable.url);
+      await _audioService!.playUrl(playable.url);
     } else {
-      await _audioService.playFile(playable.url);
+      await _audioService!.playFile(playable.url);
     }
 
     _isSwitchingSource = false;
@@ -598,13 +614,13 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
       AppLogger.info('PlayerViewModel', '准备音频源: ${playable.title}');
 
       if (playable.isOnline) {
-        await _audioService.setUrlSource(playable.url);
+        await _audioService!.setUrlSource(playable.url);
       } else {
-        await _audioService.setSource(playable.url);
+        await _audioService!.setSource(playable.url);
       }
 
       if (startPosition > 0) {
-        await _audioService.seek(Duration(seconds: startPosition));
+        await _audioService!.seek(Duration(seconds: startPosition));
       }
 
       // 更新状态
@@ -653,7 +669,7 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
 
     try {
       // 保存位置
-      await _storage.setInt(
+      await _storage!.setInt(
         StorageKeys.playbackPosition,
         state.position.inSeconds,
       );
@@ -674,8 +690,8 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
   /// 保存播放设置
   Future<void> _saveSettings() async {
     try {
-      await _storage.setDouble(StorageKeys.playbackVolume, state.volume);
-      await _storage.setDouble(StorageKeys.playbackSpeed, state.speed);
+      await _storage!.setDouble(StorageKeys.playbackVolume, state.volume);
+      await _storage!.setDouble(StorageKeys.playbackSpeed, state.speed);
       AppLogger.debug('PlayerViewModel', '设置已保存');
     } catch (e) {
       AppLogger.error('PlayerViewModel', '保存设置失败: $e');
@@ -686,57 +702,18 @@ class PlayerViewModel extends StateNotifier<PlayerState> {
 
   /// 获取当前播放器状态（公开 getter）
   PlayerState get playerState => state;
-
-  // ==================== 资源释放 ====================
-
-  @override
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-
-    // 停止定时器
-    _stopPositionSaveTimer();
-    _debounceTimer?.cancel();
-
-    // 取消订阅
-    for (final sub in _subscriptions) {
-      sub.cancel();
-    }
-    _subscriptions.clear();
-
-    // 保存最终状态
-    _saveSettings();
-    _savePlaybackState();
-
-    // 释放播放服务
-    _audioService.dispose();
-
-    AppLogger.debug('PlayerViewModel', '已释放');
-    super.dispose();
-  }
 }
 
 // ==================== Providers ====================
 
 /// AudioPlayerService Provider
 @riverpod
-AudioPlayerService audioPlayerService(AudioPlayerServiceRef ref) {
+AudioPlayerService audioPlayerService(Ref ref) {
   return AudioPlayerService();
 }
 
 /// SharedStorageService Provider
 @riverpod
-SharedStorageService sharedStorageService(SharedStorageServiceRef ref) {
+SharedStorageService sharedStorageService(Ref ref) {
   return SharedStorageService.instance;
-}
-
-/// PlayerViewModel Provider
-@riverpod
-PlayerViewModel playerViewModel(PlayerViewModelRef ref) {
-  final audioService = ref.watch(audioPlayerServiceProvider);
-  final storage = ref.watch(sharedStorageServiceProvider);
-  return PlayerViewModel(
-    audioService: audioService,
-    storage: storage,
-  );
 }

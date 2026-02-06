@@ -6,67 +6,164 @@ part of 'platform_auth_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$platformAuthViewModelHash() =>
-    r'037f61ce1668d23cfc8fd23ff569c1da1a1cf6f7';
-
-/// Provider 定义
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+/// 平台认证 ViewModel
 ///
-/// Copied from [platformAuthViewModel].
-@ProviderFor(platformAuthViewModel)
-final platformAuthViewModelProvider =
-    AutoDisposeProvider<PlatformAuthViewModel>.internal(
-      platformAuthViewModel,
-      name: r'platformAuthViewModelProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$platformAuthViewModelHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+/// 负责第三方平台（B站）的认证
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef PlatformAuthViewModelRef =
-    AutoDisposeProviderRef<PlatformAuthViewModel>;
-String _$boundBilibiliAccountHash() =>
-    r'ef573fa6c12193955bdafc9dd877f1d876c4ad4c';
+@ProviderFor(PlatformAuthViewModel)
+final platformAuthViewModelProvider = PlatformAuthViewModelProvider._();
+
+/// 平台认证 ViewModel
+///
+/// 负责第三方平台（B站）的认证
+final class PlatformAuthViewModelProvider
+    extends $AsyncNotifierProvider<PlatformAuthViewModel, PlatformAuthState> {
+  /// 平台认证 ViewModel
+  ///
+  /// 负责第三方平台（B站）的认证
+  PlatformAuthViewModelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'platformAuthViewModelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$platformAuthViewModelHash();
+
+  @$internal
+  @override
+  PlatformAuthViewModel create() => PlatformAuthViewModel();
+}
+
+String _$platformAuthViewModelHash() =>
+    r'55237f31f41e861981e0fb3d091ec02239d41705';
+
+/// 平台认证 ViewModel
+///
+/// 负责第三方平台（B站）的认证
+
+abstract class _$PlatformAuthViewModel
+    extends $AsyncNotifier<PlatformAuthState> {
+  FutureOr<PlatformAuthState> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<PlatformAuthState>, PlatformAuthState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<PlatformAuthState>, PlatformAuthState>,
+              AsyncValue<PlatformAuthState>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
 
 /// 当前绑定的B站账号 Provider
-///
-/// Copied from [boundBilibiliAccount].
-@ProviderFor(boundBilibiliAccount)
-final boundBilibiliAccountProvider =
-    AutoDisposeProvider<BilibiliUserInfo?>.internal(
-      boundBilibiliAccount,
-      name: r'boundBilibiliAccountProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$boundBilibiliAccountHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef BoundBilibiliAccountRef = AutoDisposeProviderRef<BilibiliUserInfo?>;
-String _$isBilibiliBoundHash() => r'84713c9fe01faf641c36e95969eeb9ae0c96f407';
+@ProviderFor(boundBilibiliAccount)
+final boundBilibiliAccountProvider = BoundBilibiliAccountProvider._();
+
+/// 当前绑定的B站账号 Provider
+
+final class BoundBilibiliAccountProvider
+    extends
+        $FunctionalProvider<
+          BilibiliUserInfo?,
+          BilibiliUserInfo?,
+          BilibiliUserInfo?
+        >
+    with $Provider<BilibiliUserInfo?> {
+  /// 当前绑定的B站账号 Provider
+  BoundBilibiliAccountProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'boundBilibiliAccountProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$boundBilibiliAccountHash();
+
+  @$internal
+  @override
+  $ProviderElement<BilibiliUserInfo?> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  BilibiliUserInfo? create(Ref ref) {
+    return boundBilibiliAccount(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(BilibiliUserInfo? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<BilibiliUserInfo?>(value),
+    );
+  }
+}
+
+String _$boundBilibiliAccountHash() =>
+    r'6271256b6f46886f8da1ef5e67f75cc9a59cea30';
 
 /// 是否已绑定B站 Provider
-///
-/// Copied from [isBilibiliBound].
-@ProviderFor(isBilibiliBound)
-final isBilibiliBoundProvider = AutoDisposeProvider<bool>.internal(
-  isBilibiliBound,
-  name: r'isBilibiliBoundProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$isBilibiliBoundHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef IsBilibiliBoundRef = AutoDisposeProviderRef<bool>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+@ProviderFor(isBilibiliBound)
+final isBilibiliBoundProvider = IsBilibiliBoundProvider._();
+
+/// 是否已绑定B站 Provider
+
+final class IsBilibiliBoundProvider
+    extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// 是否已绑定B站 Provider
+  IsBilibiliBoundProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'isBilibiliBoundProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$isBilibiliBoundHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return isBilibiliBound(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$isBilibiliBoundHash() => r'3a180a8a2efe949a6f99e2a88abbb7b3572213cc';

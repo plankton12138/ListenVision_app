@@ -1,4 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/state/state_utils.dart';
 import 'package:demo/models/audio.dart';
 import 'package:demo/models/online_playable.dart';
 import 'package:demo/presentation/providers.dart';
@@ -53,10 +54,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final playable = OnlinePlayable(audio);
 
     // 添加到播放队列并立即播放
-    await ref.read(queueViewModelProvider).add(playable, playImmediately: true);
+    await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
 
     // 开始播放
-    await ref.read(playerViewModelProvider).playOnlineAudio(audio: audio);
+    await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
 
     // 导航回主页（播放器在主页上）
     if (mounted) {
@@ -135,13 +136,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           // 搜索结果或状态
           Expanded(
             child: searchState.when(
-              initial: () => _buildInitialState(),
+              data: (state) => state.map(
+                initial: (_) => _buildInitialState(),
+                loading: (_) => const Center(child: CircularProgressIndicator()),
+                resultsLoaded: (data) => _buildResultsList(
+                  data.results,
+                  data.currentPage,
+                  data.pageSize,
+                  data.totalCount,
+                  data.hasMore,
+                ),
+                idle: (data) => _buildIdleState(
+                  data.searchHistory,
+                  data.suggestions,
+                ),
+                error: (data) => Center(child: Text('错误: ${data.message}')),
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
-              resultsLoaded: (results, query, platform, currentPage, pageSize, totalCount, hasMore) =>
-                  _buildResultsList(results, currentPage, pageSize, totalCount, hasMore),
-              idle: (history, suggestions, platform) =>
-                  _buildIdleState(history, suggestions),
-              error: (message) => Center(child: Text('错误: $message')),
+              error: (err, stack) => Center(child: Text('错误: $err')),
             ),
           ),
         ],
@@ -324,10 +336,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 加载指定页
   void _loadPage(int page) {
     final currentState = ref.read(searchViewModelProvider);
-    final query = currentState.maybeMap(
+    final query = currentState.valueOrNull?.map(
+      initial: (_) => '',
+      loading: (_) => '',
       resultsLoaded: (state) => state.query,
-      orElse: () => '',
-    );
+      idle: (_) => '',
+      error: (_) => '',
+    ) ?? '';
     if (query.isNotEmpty) {
       ref.read(searchViewModelProvider.notifier).search(query, page: page);
     }

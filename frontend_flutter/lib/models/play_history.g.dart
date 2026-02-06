@@ -6,22 +6,21 @@ part of 'play_history.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$PlayHistoryImpl _$$PlayHistoryImplFromJson(Map<String, dynamic> json) =>
-    _$PlayHistoryImpl(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      audio: Audio.fromJson(json['audio'] as Map<String, dynamic>),
-      playedAt: DateTime.parse(json['playedAt'] as String),
-      progress: (json['progress'] as num?)?.toInt() ?? 0,
-      createdAt: json['createdAt'] == null
-          ? null
-          : DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] == null
-          ? null
-          : DateTime.parse(json['updatedAt'] as String),
-    );
+_PlayHistory _$PlayHistoryFromJson(Map<String, dynamic> json) => _PlayHistory(
+  id: json['id'] as String,
+  userId: json['userId'] as String,
+  audio: Audio.fromJson(json['audio'] as Map<String, dynamic>),
+  playedAt: DateTime.parse(json['playedAt'] as String),
+  progress: (json['progress'] as num?)?.toInt() ?? 0,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-Map<String, dynamic> _$$PlayHistoryImplToJson(_$PlayHistoryImpl instance) =>
+Map<String, dynamic> _$PlayHistoryToJson(_PlayHistory instance) =>
     <String, dynamic>{
       'id': instance.id,
       'userId': instance.userId,
@@ -32,22 +31,20 @@ Map<String, dynamic> _$$PlayHistoryImplToJson(_$PlayHistoryImpl instance) =>
       'updatedAt': instance.updatedAt?.toIso8601String(),
     };
 
-_$PlayHistoryStatsImpl _$$PlayHistoryStatsImplFromJson(
-  Map<String, dynamic> json,
-) => _$PlayHistoryStatsImpl(
-  totalPlays: (json['totalPlays'] as num?)?.toInt() ?? 0,
-  lastPlayed: json['lastPlayed'] == null
-      ? null
-      : PlayHistory.fromJson(json['lastPlayed'] as Map<String, dynamic>),
-  uniqueTracks: (json['uniqueTracks'] as num?)?.toInt() ?? 0,
-  totalDuration: (json['totalDuration'] as num?)?.toInt() ?? 0,
-);
+_PlayHistoryStats _$PlayHistoryStatsFromJson(Map<String, dynamic> json) =>
+    _PlayHistoryStats(
+      totalPlays: (json['totalPlays'] as num?)?.toInt() ?? 0,
+      lastPlayed: json['lastPlayed'] == null
+          ? null
+          : PlayHistory.fromJson(json['lastPlayed'] as Map<String, dynamic>),
+      uniqueTracks: (json['uniqueTracks'] as num?)?.toInt() ?? 0,
+      totalDuration: (json['totalDuration'] as num?)?.toInt() ?? 0,
+    );
 
-Map<String, dynamic> _$$PlayHistoryStatsImplToJson(
-  _$PlayHistoryStatsImpl instance,
-) => <String, dynamic>{
-  'totalPlays': instance.totalPlays,
-  'lastPlayed': instance.lastPlayed,
-  'uniqueTracks': instance.uniqueTracks,
-  'totalDuration': instance.totalDuration,
-};
+Map<String, dynamic> _$PlayHistoryStatsToJson(_PlayHistoryStats instance) =>
+    <String, dynamic>{
+      'totalPlays': instance.totalPlays,
+      'lastPlayed': instance.lastPlayed,
+      'uniqueTracks': instance.uniqueTracks,
+      'totalDuration': instance.totalDuration,
+    };

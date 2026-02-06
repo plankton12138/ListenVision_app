@@ -10,8 +10,7 @@ class VolumeSlider extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final viewModel = ref.watch(playerViewModelProvider);
-    final playerState = viewModel.playerState;
+    final playerState = ref.watch(playerViewModelProvider);
     final volume = playerState.volume;
     final volumePercent = (volume * 100).toInt();
 
@@ -33,7 +32,7 @@ class VolumeSlider extends ConsumerWidget {
             label: '$volumePercent%',
             activeColor: Theme.of(context).colorScheme.primary,
             onChanged: (value) {
-              ref.read(playerViewModelProvider).setVolume(value);
+              ref.read(playerViewModelProvider.notifier).setVolume(value);
             },
           ),
         ),

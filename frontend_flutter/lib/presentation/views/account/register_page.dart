@@ -55,7 +55,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     });
 
     try {
-      final success = await ref.read(authViewModelProvider).register(
+      final success = await ref.read(authViewModelProvider.notifier).register(
         username: _usernameController.text,
         email: _emailController.text,
         password: _passwordController.text,
@@ -69,10 +69,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         );
         context.go('/');
       } else {
-        final viewModel = ref.read(authViewModelProvider);
-        final errorMsg = viewModel.authState.maybeWhen(
-          error: (msg) => msg,
-          orElse: () => '注册失败',
+        final authState = ref.read(authViewModelProvider);
+        String errorMsg = '注册失败，请稍后重试';
+        authState.whenOrNull(
+          error: (err, stack) {
+            errorMsg = err.toString();
+          },
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),

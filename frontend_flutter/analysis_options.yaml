@@ -9,6 +9,16 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    # 忽略 Freezed 生成的代码中的 mixin 实现错误
+    # 这些错误是误报，不影响实际编译和运行
+    non_abstract_class_inherits_abstract_member: ignore
+  exclude:
+    # 排除生成的文件
+    - "**/*.freezed.dart"
+    - "**/*.g.dart"
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

@@ -24,8 +24,7 @@ class SpeedButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final viewModel = ref.watch(playerViewModelProvider);
-    final playerState = viewModel.playerState;
+    final playerState = ref.watch(playerViewModelProvider);
 
     final currentSpeed = playerState.speed;
     final isDefaultSpeed = currentSpeed == 1.0;
@@ -86,7 +85,7 @@ class SpeedButton extends ConsumerWidget {
       if (selectedSpeed != null) {
         AppLogger.logButtonClick('倍速选择-${kSpeedLabels[selectedSpeed]}', 'SpeedButton',
           parameters: {'speed': selectedSpeed});
-        ref.read(playerViewModelProvider).setSpeed(selectedSpeed);
+        ref.read(playerViewModelProvider.notifier).setSpeed(selectedSpeed);
       }
     });
   }

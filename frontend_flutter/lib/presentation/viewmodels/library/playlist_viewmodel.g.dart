@@ -6,63 +6,163 @@ part of 'playlist_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$playlistRepositoryHash() =>
-    r'73f7d3d33b57fa8946c22cd347502a642320a237';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+///
+/// 负责歌单、收藏、播放队列的状态管理
+
+@ProviderFor(PlaylistViewModel)
+final playlistViewModelProvider = PlaylistViewModelProvider._();
+
+/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+///
+/// 负责歌单、收藏、播放队列的状态管理
+final class PlaylistViewModelProvider
+    extends $AsyncNotifierProvider<PlaylistViewModel, PlaylistState> {
+  /// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+  ///
+  /// 负责歌单、收藏、播放队列的状态管理
+  PlaylistViewModelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playlistViewModelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playlistViewModelHash();
+
+  @$internal
+  @override
+  PlaylistViewModel create() => PlaylistViewModel();
+}
+
+String _$playlistViewModelHash() => r'c5ed26177d5d58c518813ab21d7e91b4b32d40b8';
+
+/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+///
+/// 负责歌单、收藏、播放队列的状态管理
+
+abstract class _$PlaylistViewModel extends $AsyncNotifier<PlaylistState> {
+  FutureOr<PlaylistState> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<PlaylistState>, PlaylistState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<PlaylistState>, PlaylistState>,
+              AsyncValue<PlaylistState>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
 
 /// Provider定义
-///
-/// Copied from [playlistRepository].
+
 @ProviderFor(playlistRepository)
-final playlistRepositoryProvider =
-    AutoDisposeProvider<PlaylistRepository>.internal(
-      playlistRepository,
-      name: r'playlistRepositoryProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$playlistRepositoryHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
+final playlistRepositoryProvider = PlaylistRepositoryProvider._();
+
+/// Provider定义
+
+final class PlaylistRepositoryProvider
+    extends
+        $FunctionalProvider<
+          PlaylistRepository,
+          PlaylistRepository,
+          PlaylistRepository
+        >
+    with $Provider<PlaylistRepository> {
+  /// Provider定义
+  PlaylistRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playlistRepositoryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playlistRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<PlaylistRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  PlaylistRepository create(Ref ref) {
+    return playlistRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlaylistRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlaylistRepository>(value),
     );
+  }
+}
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef PlaylistRepositoryRef = AutoDisposeProviderRef<PlaylistRepository>;
-String _$sharedStorageServiceHash() =>
-    r'c847f3fa26c0afddfe000f6e2c2ea96ea14ba7f7';
+String _$playlistRepositoryHash() =>
+    r'0a26317aff8d4e4c62085bd2cc2f9bcaca55a160';
 
-/// See also [sharedStorageService].
 @ProviderFor(sharedStorageService)
-final sharedStorageServiceProvider =
-    AutoDisposeProvider<SharedStorageService>.internal(
-      sharedStorageService,
-      name: r'sharedStorageServiceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$sharedStorageServiceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
+final sharedStorageServiceProvider = SharedStorageServiceProvider._();
+
+final class SharedStorageServiceProvider
+    extends
+        $FunctionalProvider<
+          SharedStorageService,
+          SharedStorageService,
+          SharedStorageService
+        >
+    with $Provider<SharedStorageService> {
+  SharedStorageServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sharedStorageServiceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sharedStorageServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<SharedStorageService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  SharedStorageService create(Ref ref) {
+    return sharedStorageService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SharedStorageService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SharedStorageService>(value),
     );
+  }
+}
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef SharedStorageServiceRef = AutoDisposeProviderRef<SharedStorageService>;
-String _$playlistViewModelHash() => r'dc64453caa941caa3e3e456f19ce8874fcc25b34';
-
-/// See also [playlistViewModel].
-@ProviderFor(playlistViewModel)
-final playlistViewModelProvider =
-    AutoDisposeProvider<PlaylistViewModel>.internal(
-      playlistViewModel,
-      name: r'playlistViewModelProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$playlistViewModelHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef PlaylistViewModelRef = AutoDisposeProviderRef<PlaylistViewModel>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+String _$sharedStorageServiceHash() =>
+    r'df792e9db096eeedfe0f22cac72ea90a1712c709';

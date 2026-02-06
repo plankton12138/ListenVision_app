@@ -16,8 +16,7 @@ class AddSongDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authViewModelProvider);
-    final isLoggedIn = authState.isLoggedIn;
+    final isLoggedIn = ref.watch(isLoggedInProvider);
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,

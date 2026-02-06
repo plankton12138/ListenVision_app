@@ -1,4 +1,5 @@
 const bilibiliService = require('../services/bilibiliService');
+const searchHistoryService = require('../services/audio/searchHistoryService');
 const { successResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
@@ -368,6 +369,21 @@ const getRecentSearches = async (req, res) => {
 };
 
 /**
+ * 清空搜索历史
+ */
+const clearSearchHistory = async (req, res) => {
+  try {
+    const cleared = searchHistoryService.clearSearchHistory(req.user.id);
+    successResponse(res, { cleared });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+/**
  * 代理图片（解决封面防盗链）
  */
 const proxyImage = async (req, res) => {
@@ -725,8 +741,9 @@ const downloadAudioWithMetadata = async (req, res) => {
 
   const userId = req.user?.id;
   const audioService = require('../services/audio');
+  const startTime = Date.now();
 
-  logger.info('BiliDownload start', { bvid, format, userId: userId || 'none' });
+  logger.info('BiliDownload 开始', { bvid, format, userId: userId || 'none', timestamp: new Date().toISOString() });
 
   // 设置 SSE 响应头（但可能被前端当作下载处理）
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -743,11 +760,13 @@ const downloadAudioWithMetadata = async (req, res) => {
       timestamp: Date.now()
     };
     res.write(`data: ${JSON.stringify(event)}\n\n`);
-    logger.debug('BiliDownload progress', { percent, stage, message });
+    // 记录进度日志（info 级别，方便追踪）
+    logger.info('BiliDownload 进度', { bvid, percent, stage, message });
   };
 
   try {
     // 步骤1: 获取视频信息
+    logger.info('BiliDownload 阶段1', { bvid, stage: 'fetching_info', message: '获取视频信息...' });
     sendProgress(5, 'fetching_info', '获取视频信息...');
     const videoInfo = await bilibiliService.getVideoInfo(bvid);
 
@@ -758,19 +777,24 @@ const downloadAudioWithMetadata = async (req, res) => {
       coverUrl: videoInfo.cover
     };
 
-    logger.info('BiliDownload video info', { title: metadata.title, artist: metadata.artist });
+    logger.info('BiliDownload 视频信息获取成功', { bvid, title: metadata.title, artist: metadata.artist, duration: videoInfo.duration });
     sendProgress(10, 'info_loaded', `已获取: ${metadata.title}`);
 
     // 步骤2: 获取音频流URL
+    logger.info('BiliDownload 阶段2', { bvid, stage: 'fetching_audio', message: '获取音频流URL...' });
     sendProgress(15, 'fetching_audio', '获取音频流...');
     const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
 
     if (!audioStream || !audioStream.baseUrl) {
+      logger.error('BiliDownload 失败', { bvid, reason: '无法获取音频流URL' });
       sendProgress(0, 'error', '无法获取音频流URL');
       return res.end();
     }
 
+    logger.info('BiliDownload 音频流获取成功', { bvid, baseUrl: audioStream.baseUrl.substring(0, 50) + '...' });
+
     // 步骤3: 转换并写入元数据（带实时进度）
+    logger.info('BiliDownload 阶段3', { bvid, stage: 'converting', message: '开始转换...' });
     sendProgress(20, 'converting', '开始转换...');
     const result = await audioService.convertWithMetadata(
       audioStream.baseUrl,
@@ -798,13 +822,15 @@ const downloadAudioWithMetadata = async (req, res) => {
       }
     );
 
+    logger.info('BiliDownload 转换完成', { bvid, bytes: result.buffer.length, contentType: result.contentType });
+
     // 步骤4: 发送文件完成事件和分块文件数据
     const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
     const fileBuffer = result.buffer;
     const chunkSize = 64 * 1024; // 64KB per chunk (base64 encoded will be ~85KB)
     const totalChunks = Math.ceil(fileBuffer.length / chunkSize);
 
-    logger.info('BiliDownload send file', { fileName, bytes: fileBuffer.length, totalChunks });
+    logger.info('BiliDownload 开始发送文件', { bvid, fileName, bytes: fileBuffer.length, totalChunks });
 
     // 发送文件元数据
     res.write(`event: fileStart\ndata: ${JSON.stringify({
@@ -829,8 +855,10 @@ const downloadAudioWithMetadata = async (req, res) => {
         timestamp: Date.now()
       })}\n\n`);
 
-      // 每发送几个块就刷新一次缓冲区
-      if (i % 5 === 0) {
+      // 每发送一些块就记录进度和刷新缓冲区
+      if (i % 10 === 0) {
+        const progress = Math.floor((i / totalChunks) * 100);
+        logger.info('BiliDownload 发送文件中', { bvid, chunk: i + 1, totalChunks, progress: `${progress}%` });
         // 给客户端一些时间处理
         await new Promise(resolve => setImmediate(resolve));
       }
@@ -844,10 +872,12 @@ const downloadAudioWithMetadata = async (req, res) => {
 
     res.end();
 
-    logger.info('BiliDownload complete', { bvid, bytes: fileBuffer.length, totalChunks });
+    const duration = Date.now() - startTime;
+    logger.info('BiliDownload 完成', { bvid, bytes: fileBuffer.length, totalChunks, durationMs: duration });
 
   } catch (error) {
-    logger.error('BiliDownload error', { error: error.message, stack: error.stack });
+    const duration = Date.now() - startTime;
+    logger.error('BiliDownload 失败', { bvid, error: error.message, stack: error.stack, durationMs: duration });
 
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
@@ -891,6 +921,7 @@ module.exports = {
   // 搜索
   searchBilibili,
   getRecentSearches,
+  clearSearchHistory,
 
   // 代理
   proxyImage,

@@ -21,7 +21,7 @@ enum SystemPlaylistType {
 
 /// 歌单实体
 @freezed
-class Playlist with _$Playlist {
+abstract class Playlist with _$Playlist {
   const Playlist._();
 
   const factory Playlist({
@@ -142,7 +142,7 @@ class Playlist with _$Playlist {
 
 /// 歌单项实体
 @freezed
-class PlaylistItem with _$PlaylistItem {
+abstract class PlaylistItem with _$PlaylistItem {
   const PlaylistItem._();
 
   const factory PlaylistItem({
@@ -217,7 +217,7 @@ class PlaylistItem with _$PlaylistItem {
 
 /// 歌单详情（包含items）
 @freezed
-class PlaylistDetail with _$PlaylistDetail {
+abstract class PlaylistDetail with _$PlaylistDetail {
   const factory PlaylistDetail({
     required Playlist playlist,
     @Default([]) List<PlaylistItem> items,

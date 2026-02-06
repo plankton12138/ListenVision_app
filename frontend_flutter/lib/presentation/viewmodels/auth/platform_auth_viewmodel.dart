@@ -35,7 +35,7 @@ enum QRLoginStatus {
 
 /// 平台认证状态
 @freezed
-class PlatformAuthState with _$PlatformAuthState {
+abstract class PlatformAuthState with _$PlatformAuthState {
   /// 初始状态
   const factory PlatformAuthState.initial() = PlatformAuthStateInitial;
 

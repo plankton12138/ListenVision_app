@@ -1,8 +1,11 @@
 # 发现页面与搜索功能改进计划
 
 **创建日期**: 2026-02-05
-**状态**: 进行中 (Phase 2 已完成 / 5)
+**更新日期**: 2026-02-06
+**状态**: 进行中 (Phase 2 已完成 / 5) - Phase 3-5 暂停，等待 Riverpod 3 迁移完成
 **优先级**: P0（核心功能改进）
+
+**前置依赖**: [Riverpod 3.0 迁移计划](./2026-02-06-riverpod-3-migration-plan.md) Phase 1-4
 
 ---
 
@@ -13,6 +16,51 @@
 1. **搜索页面**：添加分页功能、操作菜单（下载/加入歌单/跳转原网页）
 2. **发现页面**：简化为纯音频列表，基于 B 站音乐区推荐，添加绑定状态检查
 3. **歌单详情页面**：实现完整的歌单详情展示和管理功能
+
+---
+
+## 二、前置依赖说明
+
+⚠️ **重要**: Phase 3-5 的实施依赖于 **Riverpod 3.0 迁移计划** 的完成。
+
+### 2.1 依赖关系
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Riverpod 3.0 迁移计划 (2026-02-06-riverpod-3-migration) │
+│  - Phase 1: 基础设施准备                                 │
+│  - Phase 2: 核心 ViewModel 迁移 (Download, Queue, etc.)  │
+│  - Phase 4: 其他 ViewModel 迁移 (SearchViewModel, etc.) │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  本计划 Phase 3-5 可以开始执行                           │
+│  - Phase 3: 发现页面重构 (需 SearchViewModel 迁移完成)   │
+│  - Phase 4: 歌单详情页面 (需 PlaylistViewModel 迁移完成) │
+│  - Phase 5: 批量导入 (需 LocalMusicViewModel 迁移完成)   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2.2 原因说明
+
+当前项目使用 `StateNotifier` (Riverpod 2.x)，存在以下问题：
+
+| 问题 | 影响 | 解决方案 |
+|------|------|----------|
+| UI 不刷新 | Widget 监听 ViewModel 实例而非状态 | 迁移到 Riverpod 3.0 `AsyncNotifier` |
+| Phase 3 新建 ExploreViewModel | 使用旧架构会产生重复工作 | 等待迁移后在正确架构上实现 |
+| Phase 4 新建 PlaylistDetailViewModel | 与正在迁移的 PlaylistViewModel 冲突 | 等待迁移完成后再实现 |
+
+### 2.3 当前状态
+
+| Phase | 状态 | 说明 |
+|-------|------|------|
+| Phase 1 | ✅ 已完成 | 搜索分页功能 |
+| Phase 2 | ✅ 已完成 | 搜索结果操作菜单 |
+| Phase 3 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 4 完成 |
+| Phase 4 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 2 完成 |
+| Phase 5 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 4 完成 |
 
 ---
 
@@ -38,7 +86,31 @@
 
 ---
 
-## 三、分阶段实施计划
+## 三、执行顺序建议
+
+### 3.1 整体时间线
+
+```
+Week 1: Riverpod 3.0 迁移 (参见: 2026-02-06-riverpod-3-migration-plan.md)
+├── Day 1-2: Phase 1-2 (基础设施 + 核心 ViewModel)
+├── Day 3:   Phase 4 (其他 ViewModel: SearchViewModel, LocalMusicViewModel, etc.)
+└── Day 4-5: Phase 5 (Widget 更新 + 测试)
+
+Week 2: 本计划 Phase 3-5 实施
+├── Day 6-7: Phase 3 (发现页面重构) - ExploreViewModel 使用 Riverpod 3 模式
+├── Day 8:   Phase 4 (歌单详情页面) - PlaylistDetailViewModel 使用 Riverpod 3 模式
+└── Day 9:   Phase 5 (批量导入改进，可选)
+```
+
+### 3.2 与 Riverpod 3 迁移的对照
+
+| 本计划 Phase | 依赖 Riverpod 3 Phase | 说明 |
+|-------------|----------------------|------|
+| Phase 3 | Phase 4 | SearchViewModel 迁移后，ExploreViewModel 可复用相同模式 |
+| Phase 4 | Phase 2 | PlaylistViewModel 迁移后，PlaylistDetailViewModel 保持一致 |
+| Phase 5 | Phase 4 | LocalMusicViewModel 迁移后，批量导入功能正确刷新 UI |
+
+---
 
 ### Phase 1: 搜索分页功能 (优先级: P0) ✅ 已完成
 
@@ -971,23 +1043,7 @@ Future<void> importMultipleFiles() async {
 
 ---
 
-## 五、实施顺序建议
-
-```
-Phase 1: 搜索分页 (2-3小时)
-    ↓
-Phase 2: 搜索操作菜单 (3-4小时)
-    ↓
-Phase 3: 发现页面重构 (4-5小时)
-    ↓
-Phase 4: 歌单详情页面 (3-4小时)
-    ↓
-Phase 5: 批量导入改进 (1-2小时)
-```
-
----
-
-## 六、风险与注意事项
+## 五、风险与注意事项
 
 1. **B站 API 限制**
    - 搜索频率限制，需添加防抖
@@ -1007,7 +1063,7 @@ Phase 5: 批量导入改进 (1-2小时)
 
 ---
 
-## 七、验收标准总结
+## 六、验收标准总结
 
 | 功能 | 验收点 |
 |------|--------|

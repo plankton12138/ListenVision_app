@@ -340,6 +340,21 @@ router.get('/search/recent', authMiddleware, bilibiliController.getRecentSearche
 
 /**
  * @swagger
+ * /api/bilibili/search/recent:
+ *   delete:
+ *     tags: [B站API]
+ *     summary: 清空搜索历史
+ *     description: 清空当前用户的搜索历史
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 清空成功
+ */
+router.delete('/search/recent', authMiddleware, bilibiliController.clearSearchHistory);
+
+/**
+ * @swagger
  * /api/bilibili/proxy/image:
  *   get:
  *     tags: [B站API]

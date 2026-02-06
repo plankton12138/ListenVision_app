@@ -5,7 +5,7 @@ part 'user.g.dart';
 
 /// 用户实体
 @freezed
-class User with _$User {
+abstract class User with _$User {
   const User._();
 
   const factory User({

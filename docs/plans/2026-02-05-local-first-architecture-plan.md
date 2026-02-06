@@ -1,8 +1,11 @@
 # 本地优先架构升级方案
 
 **创建日期**: 2026-02-05
-**状态**: 进行中 - Phase 3 ⏳
+**更新日期**: 2026-02-06
+**状态**: 进行中 - Phase 4 已完成，Phase 5 待开始
 **优先级**: P0（架构级改进）
+
+**关联计划**: [Riverpod 3.0 迁移计划](./2026-02-06-riverpod-3-migration-plan.md)
 
 ---
 
@@ -13,12 +16,14 @@
 | Phase 1 | 数据库层重构 | - | ✅ 已完成 | 2026-02-05 |
 | Phase 2 | Repository 层重构 | - | ✅ 已完成 | 2026-02-05 |
 | Phase 3 | 下载队列机制 | 🔴 P0 | ✅ 已完成 | 2026-02-05 |
-| Phase 4 | 下载 UI 重构 | 🔴 P0 | ⏳ 当前 | - |
+| Phase 4 | 下载 UI 重构 | 🔴 P0 | ✅ 已完成 | 2026-02-05 |
 | Phase 5 | 网络同步重试 | 🟡 P1 | ⏳ 待开始 | - |
-| Phase 6 | ViewModel 层重构 | 🟡 P1 | ⏳ 待开始 | - |
+| Phase 6 | ~~ViewModel 层重构~~ | 🟡 P1 | 🔄 **已合并** | 见 Riverpod 3 迁移计划 |
 | Phase 7 | 断点续传功能 | 🟢 P2 | ⏳ 待开始 | - |
 | Phase 8 | 其他 UI 更新 | 🟢 P2 | ⏳ 待开始 | - |
 | Phase 9 | 剩余功能 | 🟢 P2 | ⏳ 待开始 | - |
+
+> **注**: Phase 6 (ViewModel 层重构) 已合并到 [Riverpod 3.0 迁移计划](./2026-02-06-riverpod-3-migration-plan.md)，该计划将彻底解决 UI 不刷新问题。
 
 ---
 
@@ -343,7 +348,7 @@ void updateQueuePositions() {
   final queuedTasks = repo.getQueuedTasks();
   _queuePositions.clear();
   for (int i = 0; i < queuedTasks.length; i++) {
-    _queuePositions[queuedTasks[i].id!] = i;
+    _queuePositions[queuedTasks[i].id!] = i + 1; // 1-based position（用户友好的"第1位"）
   }
   state = state; // 触发 UI 更新
 }
@@ -393,10 +398,10 @@ class _DownloadTaskTile extends ConsumerWidget {
 ```
 
 **验收标准**:
-- [ ] 每个任务独立显示进度条
-- [ ] 队列中任务显示位置信息
-- [ ] 操作按钮根据状态智能显示
-- [ ] 移除顶部整体进度 Banner
+- [x] 每个任务独立显示进度条
+- [x] 队列中任务显示位置信息
+- [x] 操作按钮根据状态智能显示
+- [x] 移除顶部整体进度 Banner
 
 ---
 
@@ -452,35 +457,29 @@ Future<void> toggleFavorite(int trackId, bool isFavorite) async {
 
 ---
 
-### Phase 6: ViewModel 层重构 🟡 P1
+### Phase 6: ViewModel 层重构 🟡 P1 🔄 已合并
 
-**目标**: ViewModels 监听数据库变化，而非持有内存状态
+> ⚠️ **重要变更**: 本阶段已合并到 [Riverpod 3.0 迁移计划](./2026-02-06-riverpod-3-migration-plan.md)
 
-**修改文件**: `download_viewmodel.dart`
+#### 合并原因
 
-```dart
-@riverpod
-class DownloadViewModel extends _$DownloadViewModel {
-  late final DownloadRepository _repository;
+| 原计划 Phase 6 目标 | Riverpod 3 迁移对应内容 |
+|---------------------|------------------------|
+| ViewModel 监听数据库变化 | Phase 2: 使用 `AsyncNotifier.build()` 异步初始化 |
+| 修复 UI 不刷新问题 | Phase 5: Widget 监听 `AsyncValue` 而非实例 |
+| 状态持久化 | 已在 Phase 1-4 完成 (Repository + DAO) |
 
-  @override
-  DownloadModelState build() {
-    _repository = ref.watch(downloadRepositoryProvider);
-    _loadTasks();
-    return const DownloadModelState.initial();
-  }
+#### 迁移状态
 
-  Future<void> _loadTasks() async {
-    final tasks = await _repository.getAllTasks();
-    state = DownloadModelState.loaded(tasks: tasks);
-  }
-}
-```
+请参考 [Riverpod 3.0 迁移跟踪文档](./2026-02-06-riverpod-3-migration-tracking.md) 查看详细进度。
 
-**验收标准**:
-- [ ] ViewModel 初始化时从数据库加载
-- [ ] 数据库变化自动同步到 UI
-- [ ] App 重启后状态保持
+| ViewModel | 原计划 | 现计划 | 状态 |
+|-----------|--------|--------|------|
+| DownloadViewModel | Phase 6 | Riverpod 3 Phase 2 | ⏳ 待迁移 |
+| QueueViewModel | Phase 6 | Riverpod 3 Phase 2 | ⏳ 待迁移 |
+| PlaylistViewModel | Phase 6 | Riverpod 3 Phase 2 | ⏳ 待迁移 |
+| SearchViewModel | Phase 6 | Riverpod 3 Phase 4 | ⏳ 待迁移 |
+| LocalMusicViewModel | Phase 6 | Riverpod 3 Phase 4 | ⏳ 待迁移 |
 
 ---
 
@@ -575,22 +574,41 @@ Widget _buildResultItem(SearchResultItem item) {
 
 ## 四、实施顺序建议
 
+### 4.1 更新后的时间线
+
 ```
-Week 1-2: Phase 1-2 ✅ 已完成
+Week 1-2: Phase 1-4 ✅ 已完成
+  ├─ Phase 1: 数据库层重构
+  ├─ Phase 2: Repository 层重构
+  ├─ Phase 3: 下载队列机制
+  └─ Phase 4: 下载 UI 重构
 
-Week 2 (当前):
-  ├─ Day 7:   Phase 3 下载队列机制 🔴 P0
-  ├─ Day 8:   Phase 4 下载 UI 重构 🔴 P0
-  └─ Day 9:   Phase 5 网络同步重试 🟡 P1
+Week 2-3: Riverpod 3.0 迁移 (优先执行)
+  └─ 参见: 2026-02-06-riverpod-3-migration-plan.md
+    ├─ Phase 1-2: 基础设施 + 核心 ViewModel
+    ├─ Phase 4: 其他 ViewModel (含原 Phase 6 内容)
+    └─ Phase 5: Widget 全面更新
 
-Week 2-3:
-  ├─ Day 10:  Phase 6 ViewModel 重构 🟡 P1
+Week 3-4: 本计划剩余 Phase (按需执行)
+  ├─ Day 10:  Phase 5 网络同步重试 🟡 P1
   ├─ Day 11:  Phase 8 其他 UI 更新 🟢 P2
-  └─ Day 12:  Phase 7 断点续传 🟢 P2
-
-Week 3:
-  └─ Day 13+: Phase 9 剩余功能 🟢 P2
+  ├─ Day 12:  Phase 7 断点续传 🟢 P2 (可选)
+  └─ Day 13+:  Phase 9 剩余功能 🟢 P2
 ```
+
+### 4.2 与 Riverpod 3 迁移的协调
+
+| 本计划 Phase | 执行时机 | 说明 |
+|-------------|----------|------|
+| Phase 1-4 | ✅ 已完成 | 不受影响 |
+| Phase 5 | Riverpod 3 迁移后 | 网络同步重试，使用迁移后的 ViewModel |
+| Phase 6 | 🔄 合并 | 由 Riverpod 3 迁移计划 Phase 2/4 覆盖 |
+| Phase 7-9 | Riverpod 3 迁移后 | 断点续传、UI 更新等功能 |
+
+**关键原则**:
+1. **先完成 Riverpod 3 迁移**，确保所有 ViewModels 使用正确架构
+2. **Phase 5 网络同步重试** 依赖迁移后的 ViewModel，需要在迁移后实施
+3. **Phase 7-9 可按需调整优先级**，根据实际需求决定执行顺序
 
 ---
 

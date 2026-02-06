@@ -14,7 +14,7 @@ part 'playlist_viewmodel.g.dart';
 
 /// 歌单状态
 @freezed
-class PlaylistState with _$PlaylistState {
+abstract class PlaylistState with _$PlaylistState {
   /// 初始状态
   const factory PlaylistState.initial() = PlaylistStateInitial;
 

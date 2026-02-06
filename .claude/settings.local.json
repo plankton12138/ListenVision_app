@@ -58,7 +58,9 @@
       "Skill(superpowers:systematic-debugging)",
       "Skill(superpowers:requesting-code-review)",
       "Bash(flutter pub run build_runner build:*)",
-      "Bash(Sort-Object LastWriteTime -Descending)"
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(ForEach-Object { Get-Content $_FullName -Tail 100 })",
+      "mcp__web-reader__webReader"
     ]
   }
 }

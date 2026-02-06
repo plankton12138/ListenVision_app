@@ -7,7 +7,7 @@ part 'recommendation.g.dart';
 ///
 /// Clean Architecture 中的推荐内容领域对象
 @freezed
-class Recommendation with _$Recommendation {
+abstract class Recommendation with _$Recommendation {
   const Recommendation._();
 
   const factory Recommendation({
@@ -101,7 +101,7 @@ enum RecommendationType {
 
 /// B站热门歌单实体
 @freezed
-class BiliPlaylist with _$BiliPlaylist {
+abstract class BiliPlaylist with _$BiliPlaylist {
   const BiliPlaylist._();
 
   const factory BiliPlaylist({
@@ -159,7 +159,7 @@ class BiliPlaylist with _$BiliPlaylist {
 
 /// B站歌单统计信息
 @freezed
-class BiliPlaylistStats with _$BiliPlaylistStats {
+abstract class BiliPlaylistStats with _$BiliPlaylistStats {
   const factory BiliPlaylistStats({
     @Default(0) int play,
     @Default(0) int collect,
@@ -183,7 +183,7 @@ class BiliPlaylistStats with _$BiliPlaylistStats {
 
 /// B站音频预览
 @freezed
-class BiliAudioPreview with _$BiliAudioPreview {
+abstract class BiliAudioPreview with _$BiliAudioPreview {
   const BiliAudioPreview._();
 
   const factory BiliAudioPreview({
@@ -217,7 +217,7 @@ class BiliAudioPreview with _$BiliAudioPreview {
 
 /// 推荐响应（分页）
 @freezed
-class RecommendationResponse with _$RecommendationResponse {
+abstract class RecommendationResponse with _$RecommendationResponse {
   const RecommendationResponse._();
 
   const factory RecommendationResponse({
@@ -240,7 +240,7 @@ class RecommendationResponse with _$RecommendationResponse {
 
 /// 个性化推荐响应
 @freezed
-class PersonalizedResponse with _$PersonalizedResponse {
+abstract class PersonalizedResponse with _$PersonalizedResponse {
   const PersonalizedResponse._();
 
   const factory PersonalizedResponse({

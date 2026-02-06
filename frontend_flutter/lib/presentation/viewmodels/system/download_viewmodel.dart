@@ -24,7 +24,7 @@ class DownloadTaskException implements Exception {
 
 /// 下载状态
 @freezed
-class DownloadModelState with _$DownloadModelState {
+abstract class DownloadModelState with _$DownloadModelState {
   /// 初始状态
   const factory DownloadModelState.initial() = DownloadModelStateInitial;
 

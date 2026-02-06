@@ -12,7 +12,7 @@ part 'local_music_viewmodel.g.dart';
 
 /// 本地音乐状态
 @freezed
-class LocalMusicState with _$LocalMusicState {
+abstract class LocalMusicState with _$LocalMusicState {
   const factory LocalMusicState.initial() = LocalMusicStateInitial;
   const factory LocalMusicState.loading() = LocalMusicStateLoading;
   const factory LocalMusicState.loaded({

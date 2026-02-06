@@ -14,7 +14,7 @@ part 'auth_viewmodel.g.dart';
 
 /// 认证状态
 @freezed
-class AuthState with _$AuthState {
+abstract class AuthState with _$AuthState {
   /// 初始状态
   const factory AuthState.initial() = AuthStateInitial;
 

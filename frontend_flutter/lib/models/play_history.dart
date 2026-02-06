@@ -6,7 +6,7 @@ part 'play_history.g.dart';
 
 /// 播放历史实体
 @freezed
-class PlayHistory with _$PlayHistory {
+abstract class PlayHistory with _$PlayHistory {
   const PlayHistory._();
 
   const factory PlayHistory({
@@ -128,7 +128,7 @@ class PlayHistory with _$PlayHistory {
 
 /// 播放历史统计
 @freezed
-class PlayHistoryStats with _$PlayHistoryStats {
+abstract class PlayHistoryStats with _$PlayHistoryStats {
   const factory PlayHistoryStats({
     @Default(0) int totalPlays,
     PlayHistory? lastPlayed,

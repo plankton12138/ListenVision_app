@@ -21,6 +21,7 @@ module.exports = {
   // 音频转换
   convertStream: conversionService.convertStream,
   convertFile: conversionService.convertFile,
+  convertWithMetadata: conversionService.convertWithMetadata,
   proxyAndConvert: conversionService.proxyAndConvert,
 
   // 元数据管理

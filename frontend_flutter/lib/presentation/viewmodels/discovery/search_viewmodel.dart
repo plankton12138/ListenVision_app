@@ -17,7 +17,7 @@ enum SearchPlatform {
 
 /// 搜索状态
 @freezed
-class SearchState with _$SearchState {
+abstract class SearchState with _$SearchState {
   /// 初始状态
   const factory SearchState.initial() = SearchStateInitial;
 

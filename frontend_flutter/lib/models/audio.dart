@@ -6,7 +6,7 @@ part 'audio.g.dart';
 
 /// 音频实体
 @freezed
-class Audio with _$Audio {
+abstract class Audio with _$Audio {
   const Audio._();
 
   const factory Audio({

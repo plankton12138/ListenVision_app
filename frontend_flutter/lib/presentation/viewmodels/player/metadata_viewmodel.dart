@@ -12,7 +12,7 @@ part 'metadata_viewmodel.g.dart';
 
 /// 元数据状态
 @freezed
-class MetadataState with _$MetadataState {
+abstract class MetadataState with _$MetadataState {
   const factory MetadataState({
     /// 是否正在加载
     @Default(false) bool isLoading,
@@ -30,7 +30,7 @@ class MetadataState with _$MetadataState {
 
 /// 音频元数据（简化的展示用）
 @freezed
-class AudioMetadata with _$AudioMetadata {
+abstract class AudioMetadata with _$AudioMetadata {
   const factory AudioMetadata({
     required String title,
     required String artist,

@@ -15,7 +15,7 @@ part 'history_viewmodel.g.dart';
 
 /// 播放历史状态
 @freezed
-class HistoryState with _$HistoryState {
+abstract class HistoryState with _$HistoryState {
   /// 初始状态
   const factory HistoryState.initial() = HistoryStateInitial;
 
@@ -36,7 +36,7 @@ class HistoryState with _$HistoryState {
 
 /// 播放历史统计
 @freezed
-class PlayHistoryStats with _$PlayHistoryStats {
+abstract class PlayHistoryStats with _$PlayHistoryStats {
   const factory PlayHistoryStats({
     @Default(0) int totalPlays,
     @Default(0) int uniqueTracks,

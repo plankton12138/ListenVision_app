@@ -17,7 +17,7 @@ part 'queue_viewmodel.g.dart';
 
 /// 播放队列状态
 @freezed
-class QueueState with _$QueueState {
+abstract class QueueState with _$QueueState {
   /// 初始状态
   const factory QueueState({
     /// 播放队列（本地和在线混合）

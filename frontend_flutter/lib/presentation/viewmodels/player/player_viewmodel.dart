@@ -22,7 +22,7 @@ part 'player_viewmodel.g.dart';
 
 /// 播放器状态
 @freezed
-class PlayerState with _$PlayerState {
+abstract class PlayerState with _$PlayerState {
   /// 初始状态
   const factory PlayerState({
     /// 当前可播放音频

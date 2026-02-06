@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../viewmodels/system/theme_viewmodel.dart';
+import '../../widgets/common/sync_status_indicator.dart';
 
 /// 设置页面
 ///
@@ -54,6 +55,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 16),
           // B站账号绑定
           _buildBilibiliBindCard(context, isLoggedIn),
+          const SizedBox(height: 16),
+          // 数据同步状态
+          _buildSyncStatusCard(context, isLoggedIn),
         ],
       ),
     );
@@ -371,6 +375,47 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         }
       }
     }
+  }
+
+  /// 数据同步状态卡片
+  Widget _buildSyncStatusCard(BuildContext context, bool isLoggedIn) {
+    if (!isLoggedIn) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_sync, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                '数据同步',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const Spacer(),
+              // 同步状态指示器
+              const SyncStatusIndicator(size: 18, showMenu: true),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '本地数据将自动同步到服务器',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

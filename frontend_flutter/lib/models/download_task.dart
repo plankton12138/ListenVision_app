@@ -57,6 +57,9 @@ class DownloadTask {
   final String? coverUrl;
   final String? bvid;
   final String? errorMessage;
+  final String? tempFilePath; // 临时文件路径（断点续传使用）
+  final String? etag; // ETag 用于验证文件是否更改
+  final String? lastModified; // Last-Modified 头
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -74,6 +77,9 @@ class DownloadTask {
     this.coverUrl,
     this.bvid,
     this.errorMessage,
+    this.tempFilePath,
+    this.etag,
+    this.lastModified,
     this.createdAt,
     this.updatedAt,
   });
@@ -110,6 +116,9 @@ class DownloadTask {
       coverUrl: map['cover_url'] as String?,
       bvid: map['bvid'] as String?,
       errorMessage: map['error_message'] as String?,
+      tempFilePath: map['temp_file_path'] as String?,
+      etag: map['etag'] as String?,
+      lastModified: map['last_modified'] as String?,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'] as String)
           : null,
@@ -135,6 +144,9 @@ class DownloadTask {
       if (coverUrl != null) 'cover_url': coverUrl,
       if (bvid != null) 'bvid': bvid,
       if (errorMessage != null) 'error_message': errorMessage,
+      if (tempFilePath != null) 'temp_file_path': tempFilePath,
+      if (etag != null) 'etag': etag,
+      if (lastModified != null) 'last_modified': lastModified,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
@@ -155,6 +167,9 @@ class DownloadTask {
     String? coverUrl,
     String? bvid,
     String? errorMessage,
+    String? tempFilePath,
+    String? etag,
+    String? lastModified,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -172,6 +187,9 @@ class DownloadTask {
       coverUrl: coverUrl ?? this.coverUrl,
       bvid: bvid ?? this.bvid,
       errorMessage: errorMessage ?? this.errorMessage,
+      tempFilePath: tempFilePath ?? this.tempFilePath,
+      etag: etag ?? this.etag,
+      lastModified: lastModified ?? this.lastModified,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

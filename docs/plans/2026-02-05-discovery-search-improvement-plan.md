@@ -2,7 +2,7 @@
 
 **创建日期**: 2026-02-05
 **更新日期**: 2026-02-06
-**状态**: 进行中 (Phase 2 已完成 / 5) - Phase 3-5 暂停，等待 Riverpod 3 迁移完成
+**状态**: ✅ 已完成 (5/5 Phase)
 **优先级**: P0（核心功能改进）
 
 **前置依赖**: [Riverpod 3.0 迁移计划](./2026-02-06-riverpod-3-migration-plan.md) Phase 1-4
@@ -21,46 +21,38 @@
 
 ## 二、前置依赖说明
 
-⚠️ **重要**: Phase 3-5 的实施依赖于 **Riverpod 3.0 迁移计划** 的完成。
+✅ **Riverpod 3.0 迁移已完成**，所有 Phase 可以正常执行。
 
 ### 2.1 依赖关系
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Riverpod 3.0 迁移计划 (2026-02-06-riverpod-3-migration) │
-│  - Phase 1: 基础设施准备                                 │
-│  - Phase 2: 核心 ViewModel 迁移 (Download, Queue, etc.)  │
-│  - Phase 4: 其他 ViewModel 迁移 (SearchViewModel, etc.) │
+│  ✅ Phase 1: 基础设施准备                                 │
+│  ✅ Phase 2: 核心 ViewModel 迁移 (Download, Queue, etc.)  │
+│  ✅ Phase 4: 其他 ViewModel 迁移 (SearchViewModel, etc.) │
 └─────────────────────────┬───────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│  本计划 Phase 3-5 可以开始执行                           │
-│  - Phase 3: 发现页面重构 (需 SearchViewModel 迁移完成)   │
-│  - Phase 4: 歌单详情页面 (需 PlaylistViewModel 迁移完成) │
-│  - Phase 5: 批量导入 (需 LocalMusicViewModel 迁移完成)   │
+│  本计划所有 Phase 已完成                                   │
+│  ✅ Phase 1: 搜索分页功能                                 │
+│  ✅ Phase 2: 搜索结果操作菜单                             │
+│  ✅ Phase 3: 发现页面重构                                 │
+│  ✅ Phase 4: 歌单详情页面                                 │
+│  ✅ Phase 5: 批量导入                                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 原因说明
-
-当前项目使用 `StateNotifier` (Riverpod 2.x)，存在以下问题：
-
-| 问题 | 影响 | 解决方案 |
-|------|------|----------|
-| UI 不刷新 | Widget 监听 ViewModel 实例而非状态 | 迁移到 Riverpod 3.0 `AsyncNotifier` |
-| Phase 3 新建 ExploreViewModel | 使用旧架构会产生重复工作 | 等待迁移后在正确架构上实现 |
-| Phase 4 新建 PlaylistDetailViewModel | 与正在迁移的 PlaylistViewModel 冲突 | 等待迁移完成后再实现 |
-
-### 2.3 当前状态
+### 2.2 当前状态
 
 | Phase | 状态 | 说明 |
 |-------|------|------|
-| Phase 1 | ✅ 已完成 | 搜索分页功能 |
-| Phase 2 | ✅ 已完成 | 搜索结果操作菜单 |
-| Phase 3 | ✅ 已完成 | 发现页面重构 |
-| Phase 4 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 2 完成 |
-| Phase 5 | ⏸️ 暂停 | 等待 Riverpod 3 迁移 Phase 4 完成 |
+| Phase 1 | ✅ 已完成 | 搜索分页功能 (2026-02-05) |
+| Phase 2 | ✅ 已完成 | 搜索结果操作菜单 (2026-02-05) |
+| Phase 3 | ✅ 已完成 | 发现页面重构 (2026-02-06) |
+| Phase 4 | ✅ 已完成 | 歌单详情页面 (2026-02-06) |
+| Phase 5 | ✅ 已完成 | 批量导入 (2026-02-06) |
 
 ---
 
@@ -975,17 +967,34 @@ class PlaylistDetailPage extends ConsumerWidget {
 
 #### 4.4 验收标准
 
-- [ ] 显示歌单封面、名称、描述、歌曲数量
-- [ ] 播放全部按钮功能正常
-- [ ] 下载全部按钮功能正常
-- [ ] 列表显示所有歌曲
-- [ ] 点击歌曲播放
-- [ ] 长按/更多按钮显示操作菜单
-- [ ] 所有者可编辑/删除歌单
+- [x] 显示歌单封面、名称、描述、歌曲数量
+- [x] 播放全部按钮功能正常
+- [x] 下载全部按钮功能正常
+- [x] 列表显示所有歌曲
+- [x] 点击歌曲播放
+- [x] 长按/更多按钮显示操作菜单
+- [x] 所有者可编辑/删除歌单
+
+**实施记录**:
+- 创建 `viewmodels/library/playlist_detail_viewmodel.dart`: PlaylistDetailViewModel
+  - PlaylistDetailState (initial/loading/loaded/error)
+  - build() - 自动加载歌单详情
+  - refresh() - 刷新详情
+  - removeItem() - 移除歌单项
+  - updatePlaylist() - 更新歌单信息
+  - deletePlaylist() - 删除歌单
+- 更新 `views/library/playlist_detail_page.dart`: 实现歌单详情 UI
+  - 歌单头部信息（封面、名称、描述）
+  - 操作按钮（播放全部、下载全部）
+  - 歌曲列表
+  - 编辑/删除歌单功能
+- 更新 `providers.dart`: 导出 playlistDetailViewModelProvider
 
 ---
 
-### Phase 5: 批量导入功能改进 (优先级: P2)
+### Phase 5: 批量导入功能改进 (优先级: P2) ✅
+
+**完成日期**: 2026-02-06
 
 **目标**: 支持多文件选择导入
 
@@ -993,38 +1002,24 @@ class PlaylistDetailPage extends ConsumerWidget {
 
 **文件**: `frontend_flutter/lib/presentation/viewmodels/library/local_music_viewmodel.dart`
 
-已支持单文件导入，需扩展为多文件。
+`importMultipleFiles()` 方法已存在，支持多文件选择和批量导入。
 
-#### 5.2 改进方案
+#### 5.2 UI 改进
 
-```dart
-// 添加批量导入方法
-Future<void> importMultipleFiles() async {
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.audio,
-    allowMultiple: true,  // 启用多选
-    allowedExtensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg'],
-  );
+**文件**: `frontend_flutter/lib/presentation/views/library/local_music_playlist_page.dart`
 
-  if (result?.files.isEmpty ?? true) return;
-
-  final files = result!.files;
-  state = state.copyWith(
-    importingFiles: files.map((f) => f.path).toList(),
-  );
-
-  for (final file in files) {
-    if (file.path != null) {
-      await importAudioFile(file.path!);
-    }
-  }
-}
-```
+- 添加批量导入按钮（`Icons.playlist_add`）
+- 显示导入进度（current/total + 当前文件名）
 
 #### 5.3 验收标准
 
-- [ ] 支持多文件选择
-- [ ] 显示导入进度
+- [x] 支持多文件选择
+- [x] 显示导入进度
+- [x] 支持取消导入（通过返回按钮）
+
+**实施记录**:
+- 验证 `local_music_viewmodel.dart` 已实现 `importMultipleFiles()`
+- 更新 `local_music_playlist_page.dart` 添加批量导入按钮
 - [ ] 支持取消导入
 
 ---

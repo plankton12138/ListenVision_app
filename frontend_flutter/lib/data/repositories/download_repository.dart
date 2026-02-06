@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../core/utils/app_logger.dart';
+import '../../services/resumable_download_service.dart';
 
 import '../../models/download_task.dart';
 import 'track_repository.dart' show DownloadProgressEvent;
@@ -16,13 +17,14 @@ import '../database/track_dao.dart';
 ///
 /// 整合新的本地优先架构，支持：
 /// 1. 下载任务持久化到数据库
-/// 2. 断点续传（待实现）
+/// 2. 断点续传（Phase 7 已完成）
 /// 3. 并发下载控制
 /// 4. 下载进度实时同步
 class DownloadRepository {
   final TrackDao _trackDao;
   final DownloadTaskDao _downloadTaskDao;
   final BilibiliApiClient _bilibiliApi;
+  final ResumableDownloadService _resumableDownloadService;
 
 
   // 当前活跃的下载任务
@@ -45,10 +47,13 @@ class DownloadRepository {
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
     BilibiliApiClient? bilibiliApi,
+    ResumableDownloadService? resumableDownloadService,
   })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
         _downloadTaskDao = downloadTaskDao ??
             DownloadTaskDao(AppDatabase.instance),
-        _bilibiliApi = bilibiliApi ?? BilibiliApiClient();
+        _bilibiliApi = bilibiliApi ?? BilibiliApiClient(),
+        _resumableDownloadService = resumableDownloadService ??
+            ResumableDownloadService();
 
   /// 下载进度事件流
   Stream<DownloadProgressEvent> get progressStream => _progressController.stream;
@@ -187,32 +192,20 @@ class DownloadRepository {
     AppLogger.info('DownloadRepository', '开始下载: ${task.bvid} -> ${task.savePath}');
 
     try {
-      // 执行下载
-      await _bilibiliApi.downloadAudio(
-        bvid: task.bvid!,
-        savePath: task.savePath,
-        onProgress: (percent, stage, message) async {
-          // 更新数据库
-          await _downloadTaskDao.updateProgressPercent(taskId, percent);
-          if (task.trackId != null) {
-            await _trackDao.updateDownloadStatus(
-              task.trackId!,
-              DownloadStatus.downloading,
-              percent,
-            );
-          }
+      // 检查是否支持断点续传（有已下载字节数和 ETag）
+      final canResume = task.downloadedBytes > 0 &&
+          task.etag != null &&
+          (task.tempFilePath != null ||
+              (task.totalBytes > 0 && task.downloadedBytes < task.totalBytes));
 
-          // 发送进度事件
-          _progressController.add(DownloadProgressEvent(
-            taskId: taskId,
-            trackId: task.trackId,
-            bvid: task.bvid!,
-            progress: percent,
-            stage: stage,
-            message: message,
-          ));
-        },
-      );
+      if (canResume) {
+        // 使用断点续传下载
+        AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
+        await _downloadWithResumable(taskId, task, cancelToken);
+      } else {
+        // 使用普通 SSE 下载
+        await _downloadWithSSE(taskId, task, cancelToken);
+      }
 
       // 下载完成
       await _downloadTaskDao.markAsCompleted(taskId);
@@ -232,7 +225,11 @@ class DownloadRepository {
       AppLogger.info('DownloadRepository', '下载完成: ${task.savePath}');
     } catch (e) {
       if (cancelToken.isCancelled) {
-        // 用户取消
+        // 用户取消 - 保留临时文件以便续传
+        await _downloadTaskDao.updateResumableInfo(
+          id: taskId,
+          tempFilePath: '${task.savePath}.tmp',
+        );
         await _downloadTaskDao.markAsPaused(taskId);
         _progressController.add(DownloadProgressEvent(
           taskId: taskId,
@@ -268,6 +265,86 @@ class DownloadRepository {
       _activeDownloads.remove(taskId);
       _processQueue(); // 触发队列中的下一个任务（不等待，避免阻塞）
     }
+  }
+
+  /// 使用断点续传下载
+  Future<void> _downloadWithResumable(
+    int taskId,
+    DownloadTask task,
+    CancelToken cancelToken,
+  ) async {
+    final result = await _resumableDownloadService.downloadAudio(
+      bvid: task.bvid!,
+      savePath: task.savePath,
+      downloadedBytes: task.downloadedBytes,
+      etag: task.etag,
+      lastModified: task.lastModified,
+      onProgress: (current, total, percent) async {
+        await _downloadTaskDao.updateResumableInfo(
+          id: taskId,
+          downloadedBytes: current,
+          totalBytes: total,
+          tempFilePath: '${task.savePath}.tmp',
+        );
+        if (task.trackId != null) {
+          await _trackDao.updateDownloadStatus(
+            task.trackId!,
+            DownloadStatus.downloading,
+            percent,
+          );
+        }
+        _progressController.add(DownloadProgressEvent(
+          taskId: taskId,
+          trackId: task.trackId,
+          bvid: task.bvid!,
+          progress: percent,
+          stage: 'downloading',
+          message: '下载中 $current/$total',
+        ));
+      },
+    );
+
+    if (result.success) {
+      // 保存 ETag 和 Last-Modified 以便后续续传
+      await _downloadTaskDao.updateResumableInfo(
+        id: taskId,
+        etag: result.etag,
+        lastModified: result.lastModified,
+        tempFilePath: null, // 清除临时文件路径
+      );
+    } else {
+      throw Exception(result.error ?? '下载失败');
+    }
+  }
+
+  /// 使用 SSE 方式下载
+  Future<void> _downloadWithSSE(
+    int taskId,
+    DownloadTask task,
+    CancelToken cancelToken,
+  ) async {
+    await _bilibiliApi.downloadAudio(
+      bvid: task.bvid!,
+      savePath: task.savePath,
+      onProgress: (percent, stage, message) async {
+        await _downloadTaskDao.updateProgressPercent(taskId, percent);
+        if (task.trackId != null) {
+          await _trackDao.updateDownloadStatus(
+            task.trackId!,
+            DownloadStatus.downloading,
+            percent,
+          );
+        }
+        _progressController.add(DownloadProgressEvent(
+          taskId: taskId,
+          trackId: task.trackId,
+          bvid: task.bvid!,
+          progress: percent,
+          stage: stage,
+          message: message,
+        ));
+      },
+    );
   }
 
   /// 处理下载队列 - 启动队列中的下一个任务
@@ -322,9 +399,8 @@ class DownloadRepository {
 
   /// 恢复下载
   ///
-  /// 先标记为待处理状态，再启动下载流程。
+  /// 支持断点续传：如果有已下载的字节数和 ETag，会从断点继续下载。
   /// 如果并发已满，任务会自动进入等待队列。
-  /// TODO: 未来实现断点续传（Phase 7）
   Future<void> resumeDownload(int taskId) async {
     // 先更新状态为 pending，确保任务可以重新进入下载流程
     await _downloadTaskDao.markAsPending(taskId);

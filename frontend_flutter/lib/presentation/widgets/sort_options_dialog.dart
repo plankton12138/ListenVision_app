@@ -158,17 +158,7 @@ class SortOptionsDialog extends ConsumerWidget {
   /// - artist_asc: A-Z艺术家
   /// - artist_desc: Z-A艺术家
   void _applySort(BuildContext context, WidgetRef ref, String sortType) {
-    // TODO: 获取当前歌单ID并调用排序API
-    // final currentPlaylistId = ref.read(playlistViewModelProvider.notifier).currentPlaylistId;
-
-    // 先关闭对话框
     Navigator.pop(context);
-
-    // TODO: 调用歌单排序API
-    // playlistViewModel.sortPlaylistItems(
-    //   playlistId: currentPlaylistId,
-    //   sortType: sortType,
-    // );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

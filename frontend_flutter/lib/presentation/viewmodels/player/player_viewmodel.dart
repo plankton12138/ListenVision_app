@@ -16,6 +16,7 @@ import '../../../models/local_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../services/audio_player_service.dart';
+import '../library/history_viewmodel.dart';
 
 part 'player_viewmodel.freezed.dart';
 part 'player_viewmodel.g.dart';
@@ -553,6 +554,9 @@ class PlayerViewModel extends _$PlayerViewModel {
 
       _startPositionSaveTimer();
 
+      // 记录播放历史（非阻塞）
+      _recordPlayHistory(audio);
+
       AppLogger.info('PlayerViewModel', '在线播放开始: ${audio.title}');
     } catch (e) {
       AppLogger.error('PlayerViewModel', '在线播放失败: $e');
@@ -695,6 +699,25 @@ class PlayerViewModel extends _$PlayerViewModel {
       AppLogger.debug('PlayerViewModel', '设置已保存');
     } catch (e) {
       AppLogger.error('PlayerViewModel', '保存设置失败: $e');
+    }
+  }
+
+  /// 记录播放历史（非阻塞）
+  void _recordPlayHistory(Audio audio) {
+    try {
+      // 使用 ref.read 获取 HistoryViewModel 并记录播放
+      ref.read(historyViewModelProvider.notifier).recordPlay(
+        bvid: audio.id,
+        title: audio.title,
+        artist: audio.artist,
+        duration: audio.duration,
+        coverUrl: audio.coverUrl,
+        progress: 0,
+      );
+      AppLogger.debug('PlayerViewModel', '已记录播放历史: ${audio.title}');
+    } catch (e) {
+      // 静默失败，不影响播放
+      AppLogger.debug('PlayerViewModel', '记录播放历史失败（不影响播放）: $e');
     }
   }
 

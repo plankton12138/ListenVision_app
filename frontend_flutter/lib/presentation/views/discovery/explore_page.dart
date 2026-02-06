@@ -4,6 +4,7 @@ import 'package:demo/models/audio.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/explore_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
+import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -325,10 +326,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(
-        _buildSubtitle(item),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      subtitle: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _buildSubtitle(item),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 下载状态指示器
+          DownloadStatusIndicator(bvid: item.bvid, size: 16),
+        ],
       ),
       trailing: IconButton(
         icon: const Icon(Icons.more_vert),

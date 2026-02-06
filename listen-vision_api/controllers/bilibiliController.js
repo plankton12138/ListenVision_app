@@ -904,6 +904,131 @@ function sanitizeFileName(input) {
     .trim();
 }
 
+/**
+ * 支持断点续传的音频下载接口
+ *
+ * 与 downloadAudioWithMetadata 不同，这个接口：
+ * 1. 支持 HTTP Range 请求（断点续传）
+ * 2. 直接流式传输，不使用 SSE
+ * 3. 返回标准的 HTTP 响应头（Content-Range, ETag, Last-Modified）
+ *
+ * GET /api/bilibili/download-range/:bvid?format=mp3
+ */
+const downloadAudioWithRange = async (req, res) => {
+  const { bvid } = req.params;
+  const { format = 'mp3' } = req.query;
+  const range = req.headers.range;
+
+  if (!bvid) {
+    return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
+  }
+
+  const userId = req.user?.id;
+  const startTime = Date.now();
+
+  logger.info('BiliDownloadRange 开始', { bvid, format, range, userId: userId || 'none' });
+
+  try {
+    // 获取视频信息
+    const videoInfo = await bilibiliService.getVideoInfo(bvid);
+
+    const metadata = {
+      title: videoInfo.title || '未知标题',
+      artist: videoInfo.owner?.name || '未知艺术家',
+      album: `https://www.bilibili.com/video/${bvid}`,
+      coverUrl: videoInfo.cover
+    };
+
+    // 获取音频流URL
+    const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
+
+    if (!audioStream || !audioStream.baseUrl) {
+      logger.error('BiliDownloadRange 失败', { bvid, reason: '无法获取音频流URL' });
+      return res.status(404).json({ success: false, error: '无法获取音频流URL' });
+    }
+
+    const audioService = require('../services/audio');
+
+    // 转换并获取文件
+    logger.info('BiliDownloadRange 开始转换', { bvid });
+    const result = await audioService.convertWithMetadata(
+      audioStream.baseUrl,
+      metadata,
+      format,
+      { bitrate: '192k', sampleRate: '44100', channels: 2 },
+      null // 无进度回调
+    );
+
+    const fileBuffer = result.buffer;
+    const fileSize = fileBuffer.length;
+    const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
+
+    // 生成 ETag（使用文件大小和 BVID 的哈希）
+    const etag = `"${bvid}-${fileSize}-${format}"`;
+    const lastModified = new Date().toUTCString();
+
+    // 设置响应头
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', lastModified);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // 处理 Range 请求
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      // 验证 If-Match 或 If-Range（用于验证文件未更改）
+      const ifMatch = req.headers['if-match'];
+      const ifRange = req.headers['if-range'];
+
+      if ((ifMatch && ifMatch !== etag) || (ifRange && ifRange !== etag && ifRange !== lastModified)) {
+        // 文件已更改，返回 412 Precondition Failed
+        logger.info('BiliDownloadRange 文件已更改', { bvid, ifMatch, ifRange, etag });
+        return res.status(412).end();
+      }
+
+      // 验证范围
+      if (start >= fileSize || end >= fileSize || start > end) {
+        return res.status(416).json({
+          error: 'Requested Range Not Satisfiable',
+          fileSize: fileSize
+        });
+      }
+
+      const chunkSize = (end - start) + 1;
+      const chunk = fileBuffer.slice(start, end + 1);
+
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Content-Length', chunkSize);
+      res.status(206);
+
+      logger.info('BiliDownloadRange Range 响应', { bvid, start, end, fileSize, chunkSize });
+      res.send(chunk);
+    } else {
+      // 完整文件请求
+      res.setHeader('Content-Length', fileSize);
+      res.status(200);
+
+      logger.info('BiliDownloadRange 完整响应', { bvid, fileSize });
+      res.send(fileBuffer);
+    }
+
+    logger.info('BiliDownloadRange 完成', { bvid, durationMs: Date.now() - startTime });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('BiliDownloadRange 失败', { bvid, error: error.message, stack: error.stack, durationMs: duration });
+
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
+    } else {
+      res.end();
+    }
+  }
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -930,6 +1055,7 @@ module.exports = {
 
   // 下载
   downloadAudioWithMetadata,  // 新增：带元数据的下载
+  downloadAudioWithRange,     // 新增：支持断点续传的下载
 
   // 测试辅助
   conversionTracker  // 导出用于测试

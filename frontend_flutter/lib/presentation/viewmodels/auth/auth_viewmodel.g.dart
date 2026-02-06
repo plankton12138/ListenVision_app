@@ -42,7 +42,7 @@ final class AuthViewModelProvider
   AuthViewModel create() => AuthViewModel();
 }
 
-String _$authViewModelHash() => r'8dffa5a2e4c4351e5aba737472959ef269e93677';
+String _$authViewModelHash() => r'284a6134aecfdf2dba12487245362e1d2c762350';
 
 /// 主账号认证 ViewModel
 ///

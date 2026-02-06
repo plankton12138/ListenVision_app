@@ -138,7 +138,7 @@ final class HistoryRepositoryProvider
   }
 }
 
-String _$historyRepositoryHash() => r'6ebc71d52aebb1c03221b101850ad794485c6f70';
+String _$historyRepositoryHash() => r'a781e03edfae4ec73d85e04829f89408e07227d7';
 
 /// 历史状态 Provider - 用于 UI 层监听状态
 

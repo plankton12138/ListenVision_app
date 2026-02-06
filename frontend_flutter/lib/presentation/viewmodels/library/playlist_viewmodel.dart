@@ -216,17 +216,19 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       );
 
       final currentState = state.valueOrNull;
-      if (currentState is PlaylistStateLoaded) {
+      if (currentState is PlaylistStateLoaded && newPlaylist != null) {
         final newState = currentState.copyWith(
           playlists: [...currentState.playlists, newPlaylist],
-          userPlaylists: [...currentState.userPlaylists, newPlaylist],
+          userPlaylists: [...currentState.userPlaylists.whereType<Playlist>(), newPlaylist],
         );
 
         if (!ref.mounted) return newPlaylist;
         state = AsyncData(newState);
       }
 
-      AppLogger.info('PlaylistViewModel', '创建歌单成功: ${newPlaylist.id}');
+      if (newPlaylist != null) {
+        AppLogger.info('PlaylistViewModel', '创建歌单成功: ${newPlaylist.id}');
+      }
       return newPlaylist;
     } catch (e) {
       AppLogger.error('PlaylistViewModel', '创建歌单失败: $e');
@@ -253,7 +255,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       );
 
       final currentState = state.valueOrNull;
-      if (currentState != null) {
+      if (currentState != null && updatedPlaylist != null) {
         final updatedPlaylists = currentState.playlists.map((p) {
           return p.id == id ? updatedPlaylist : p;
         }).toList();
@@ -280,8 +282,10 @@ class PlaylistViewModel extends _$PlaylistViewModel {
         state = AsyncData(newState);
       }
 
-      AppLogger.info('PlaylistViewModel', '更新歌单成功: $id');
-      return true;
+      if (updatedPlaylist != null) {
+        AppLogger.info('PlaylistViewModel', '更新歌单成功: $id');
+      }
+      return updatedPlaylist != null;
     } catch (e) {
       AppLogger.error('PlaylistViewModel', '更新歌单失败: $e');
       return false;
@@ -660,7 +664,8 @@ extension PlaylistStateX on PlaylistState {
 /// Provider定义
 @riverpod
 PlaylistRepository playlistRepository(Ref ref) {
-  return PlaylistRepository();
+  // 启用本地优先模式
+  return PlaylistRepository(localOnlyMode: true);
 }
 
 @riverpod

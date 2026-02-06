@@ -5,6 +5,7 @@ import 'package:demo/models/online_playable.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/search_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
+import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -272,8 +273,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                subtitle: Text(
-                  '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
+                subtitle: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // 下载状态指示器
+                    DownloadStatusIndicator(bvid: item.bvid, size: 16),
+                  ],
                 ),
                 onTap: () => _onResultTap(item),
                 trailing: IconButton(

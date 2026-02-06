@@ -24,6 +24,13 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.playlist_add),
+            tooltip: '批量导入',
+            onPressed: () {
+              ref.read(localMusicViewModelProvider.notifier).importMultipleFiles();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             tooltip: '导入音频',
             onPressed: () {

@@ -25,6 +25,9 @@ Projects_ListenVison/
 │       ├── core/              # 基础设施（常量、错误、网络）
 │       ├── models/            # 轻量实体（原 domain/entities）
 │       ├── data/              # 数据层（API客户端、Repository）
+│       │   ├── database/       # SQLite DAO
+│       │   ├── repositories/   # Repository 实现
+│       │   └── sync/           # 网络同步重试机制
 │       ├── services/          # 有状态服务（音频播放、元数据）
 │       └── presentation/      # UI层
 │           ├── viewmodels/    # StateNotifier 状态管理
@@ -92,8 +95,11 @@ presentation/
 ## 项目状态
 
 ```
-MVVM 重构:  ███████████████████████  100% (Phase 9/10) ✅
+MVVM 重构:       ███████████████████████  100% (Phase 9/10) ✅
+本地优先架构:    ███████████████████████  100% (Phase 9/9) ✅
+发现搜索改进:    ████████████░░░░░░░░░░░░  60% (Phase 3/5) 🟡
 
+--- MVVM 重构进度 (已完成 2026-02-05) ---
 Phase 0:  ✅ 骨架搭建
 Phase 1:  ✅ Models 层迁移
 Phase 2:  ✅ Services 层构建
@@ -104,9 +110,31 @@ Phase 6:  ✅ 其他 ViewModels
 Phase 7:  ✅ Views 迁移与解耦
 Phase 8:  ✅ Widgets 更新
 Phase 9:  ✅ 清理与收尾
-```
 
-**重构完成日期**: 2026-02-05
+**MVVM 重构完成日期**: 2026-02-05
+
+--- 本地优先架构进度 (已完成 2026-02-06) ---
+Phase 1:  ✅ 数据库层重构 (2026-02-05)
+Phase 2:  ✅ Repository 层重构 (2026-02-05)
+Phase 3:  ✅ 下载队列机制 (2026-02-05)
+Phase 4:  ✅ 下载 UI 重构 (2026-02-05)
+Phase 5:  ✅ 网络同步重试 (2026-02-06)
+Phase 6:  ✅ 已合并到 Riverpod 3 迁移 (2026-02-06)
+Phase 7:  ✅ 断点续传功能 (2026-02-06)
+Phase 8:  ✅ UI 集成与同步状态显示 (2026-02-06)
+Phase 9:  ✅ 收藏同步与 Worker 自动启动 (2026-02-06) ← **今日完成**
+
+**本地优先架构完成日期**: 2026-02-06
+
+--- 发现搜索改进进度 (2026-02-06) ---
+Phase 1:  ✅ 搜索分页功能 (2026-02-05)
+Phase 2:  ✅ 搜索结果操作菜单 (2026-02-05)
+Phase 3:  ✅ 发现页面重构 (2026-02-06)
+Phase 4:  ✅ 歌单详情页面 (2026-02-06)
+Phase 5:  ✅ 批量导入改进 (2026-02-06)
+
+**发现搜索改进完成日期**: 2026-02-06
+```
 
 ---
 
@@ -215,11 +243,54 @@ Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.lo
 ```
 models/        # 轻量实体（Audio, Playlist, User 等）
 data/          # 数据层（API客户端、Repository实现）
+  ├── database/   # SQLite DAO (TrackDao, DownloadTaskDao, SyncQueueDao)
+  └── sync/       # 网络同步重试机制 (SyncWorker)
 services/      # 有状态服务（AudioPlayerService, MetadataService）
 viewmodels/    # StateNotifier 状态管理
 views/         # 纯 UI 渲染（ConsumerWidget）
 core/          # 基础设施（常量、网络、存储）
 ```
+
+---
+
+## 本地优先同步机制
+
+**实现日期**: 2026-02-06
+
+### 核心原则
+
+1. **本地优先**：所有写操作先更新本地数据库，UI 立即响应
+2. **异步同步**：网络操作放入同步队列，由 SyncWorker 后台处理
+3. **失败重试**：最多重试 3 次，间隔 30 秒
+4. **持久化**：App 重启后自动恢复未完成的同步任务
+
+### 数据流
+
+```
+用户操作
+   │
+   ├─→ 立即更新本地数据库 ──→ UI 刷新
+   │
+   └─→ 加入同步队列 ──→ SyncWorker ──→ 网络同步
+                              │
+                              ├─ 成功 → 清除任务
+                              ├─ 失败 → 重试（最多3次）
+                              └─ 超过重试次数 → 标记为最终失败
+```
+
+### 支持的同步操作
+
+- 收藏/取消收藏 (`SyncType.favorite/unfavorite`)
+- 播放历史 (`SyncType.playHistory`)
+- 歌单项操作 (`SyncType.addPlaylistItem/removePlaylistItem`)
+- 歌单管理 (`SyncType.createPlaylist/updatePlaylist/deletePlaylist`)
+
+### 相关文件
+
+- [models/sync_queue.dart](frontend_flutter/lib/models/sync_queue.dart) - 数据模型
+- [data/database/sync_queue_dao.dart](frontend_flutter/lib/data/database/sync_queue_dao.dart) - 数据访问
+- [data/sync/sync_worker.dart](frontend_flutter/lib/data/sync/sync_worker.dart) - 同步工作器
+- [data/sync/sync_worker_provider.dart](frontend_flutter/lib/data/sync/sync_worker_provider.dart) - Provider
 
 ---
 

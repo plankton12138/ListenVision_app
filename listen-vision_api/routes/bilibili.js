@@ -502,4 +502,96 @@ router.get('/proxy/audio/:bvid', optionalAuthMiddleware, bilibiliController.prox
  */
 router.get('/download/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithMetadata);
 
+/**
+ * @swagger
+ * /api/bilibili/download-range/{bvid}:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 下载音频文件（支持断点续传）
+ *     description: |
+ *       下载B站视频的音频，支持 HTTP Range 请求实现断点续传。
+ *
+ *       **与 /download/{bvid} 的区别**：
+ *       - 支持 Range 请求头，可实现断点续传
+ *       - 返回 206 Partial Content 状态码
+ *       - 包含 Content-Range, ETag, Last-Modified 响应头
+ *       - 使用标准 HTTP 流式传输（非 SSE）
+ *
+ *       **断点续传示例**：
+ *       ```
+ *       // 首次请求
+ *       GET /api/bilibili/download-range/BV1xx411c7mD
+ *       -> 200 OK, ETag: "BV1xx411c7mD-1234567-mp3"
+ *
+ *       // 断点续传请求
+ *       GET /api/bilibili/download-range/BV1xx411c7mD
+ *       Range: bytes=500000-
+ *       If-Match: "BV1xx411c7mD-1234567-mp3"
+ *       -> 206 Partial Content, Content-Range: bytes 500000-1234566/1234567
+ *       ```
+ *     parameters:
+ *       - in: path
+ *         name: bvid
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 视频BVID
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [mp3, m4a]
+ *           default: mp3
+ *         description: 输出格式
+ *       - in: header
+ *         name: Range
+ *         schema:
+ *           type: string
+ *           example: "bytes=0-1048575"
+ *         description: 请求的字节范围（断点续传）
+ *       - in: header
+ *         name: If-Match
+ *         schema:
+ *           type: string
+ *         description: ETag 验证（确保文件未更改）
+ *     responses:
+ *       200:
+ *         description: 完整文件
+ *         headers:
+ *           Content-Type:
+ *             schema:
+ *               type: string
+ *           Content-Length:
+ *             schema:
+ *               type: integer
+ *           ETag:
+ *             schema:
+ *               type: string
+ *           Accept-Ranges:
+ *             schema:
+ *               type: string
+ *               example: "bytes"
+ *       206:
+ *         description: 部分内容（断点续传）
+ *         headers:
+ *           Content-Range:
+ *             schema:
+ *               type: string
+ *               example: "bytes 500000-1234566/1234567"
+ *           Content-Type:
+ *             schema:
+ *               type: string
+ *           Content-Length:
+ *             schema:
+ *               type: integer
+ *           ETag:
+ *             schema:
+ *               type: string
+ *       412:
+ *         description: 前置条件失败（文件已更改）
+ *       416:
+ *         description: 请求范围无效
+ */
+router.get('/download-range/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithRange);
+
 module.exports = router;

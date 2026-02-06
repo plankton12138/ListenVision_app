@@ -1,15 +1,29 @@
+import 'dart:convert';
+
 import '../../core/utils/app_logger.dart';
 import '../../models/play_history.dart';
+import '../../models/sync_queue.dart';
 import '../api/backend_api_client.dart';
+import '../database/app_database.dart';
+import '../database/sync_queue_dao.dart';
 
 /// 播放历史仓库
 ///
 /// 负责播放历史相关的数据操作
+/// 支持本地优先模式：网络操作失败时加入同步队列
 class PlayHistoryRepository {
   final BackendApiClient _apiClient;
+  final SyncQueueDao _syncDao;
 
-  PlayHistoryRepository({BackendApiClient? apiClient})
-      : _apiClient = apiClient ?? BackendApiClient();
+  /// 本地优先模式：true = 仅网络操作失败时加入队列，false = 直接抛出错误
+  final bool localOnlyMode;
+
+  PlayHistoryRepository({
+    BackendApiClient? apiClient,
+    SyncQueueDao? syncDao,
+    this.localOnlyMode = false,
+  })  : _apiClient = apiClient ?? BackendApiClient(),
+        _syncDao = syncDao ?? SyncQueueDao(AppDatabase.instance);
 
   // ==================== 播放历史操作 ====================
 
@@ -34,7 +48,7 @@ class PlayHistoryRepository {
     }
   }
 
-  /// 添加播放历史
+  /// 添加播放历史（带同步重试）
   Future<bool> addPlayHistory({
     required String bvid,
     int? progress,
@@ -48,6 +62,24 @@ class PlayHistoryRepository {
       return true;
     } catch (e) {
       AppLogger.error('PlayHistoryRepository', '添加播放历史失败: $e');
+
+      // 本地优先模式：加入同步队列
+      if (localOnlyMode) {
+        try {
+          final syncTask = SyncTask(
+            type: SyncType.playHistory,
+            bvid: bvid,
+            data: progress != null ? jsonEncode({'progress': progress}) : null,
+            status: SyncStatus.pending,
+            createdAt: DateTime.now(),
+          );
+          await _syncDao.insert(syncTask);
+          AppLogger.info('PlayHistoryRepository', '添加播放历史已加入同步队列: $bvid');
+          return true;
+        } catch (syncError) {
+          AppLogger.error('PlayHistoryRepository', '加入同步队列失败: $syncError');
+        }
+      }
       return false;
     }
   }

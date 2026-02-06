@@ -42,7 +42,7 @@ final class PlaylistViewModelProvider
   PlaylistViewModel create() => PlaylistViewModel();
 }
 
-String _$playlistViewModelHash() => r'c5ed26177d5d58c518813ab21d7e91b4b32d40b8';
+String _$playlistViewModelHash() => r'06f0dc56a45f7a6cf5ab7235678fd2df99a2adc9';
 
 /// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
 ///
@@ -117,7 +117,7 @@ final class PlaylistRepositoryProvider
 }
 
 String _$playlistRepositoryHash() =>
-    r'0a26317aff8d4e4c62085bd2cc2f9bcaca55a160';
+    r'd94960eabb81afa084d6e1daccbf2bbd9d327dc5';
 
 @ProviderFor(sharedStorageService)
 final sharedStorageServiceProvider = SharedStorageServiceProvider._();

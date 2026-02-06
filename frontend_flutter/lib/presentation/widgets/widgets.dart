@@ -3,17 +3,23 @@
 /// 导出所有可复用的 UI 组件
 library;
 
-// 架构组件
+// ===== 架构组件 =====
 export 'async_builder.dart';
 export 'empty_state.dart';
 export 'error_banner.dart';
 
-// 从 ui/components/ 迁移的组件
-export 'common/loading_overlay.dart';
-export 'common/error_view.dart';
-export 'common/empty_state_view.dart';
-export 'cards/music_zone_card.dart';
-export 'audio/audio_action_menu.dart';
+// ===== 子模块统一导出 =====
+export 'audio/widgets.dart';
+export 'cards/widgets.dart';
+export 'common/widgets.dart';
+
+// ===== 根级组件 =====
 export 'audio_info.dart';
 export 'controls_panel.dart';
 export 'my_drawer.dart';
+export 'player_action_bar.dart';
+export 'playlist_cover_dialog.dart';
+export 'add_song_dialog.dart';
+export 'sort_options_dialog.dart';
+export 'speed_button.dart';
+export 'volume_slider.dart';

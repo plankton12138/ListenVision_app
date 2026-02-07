@@ -1,10 +1,16 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/playlist_repository.dart';
+import '../../../models/audio.dart';
+import '../../../models/online_playable.dart';
+import '../../../models/playable_audio.dart';
 import '../../../models/playlist.dart';
+import '../player/player_viewmodel.dart';
+import '../player/queue_viewmodel.dart';
 import 'playlist_viewmodel.dart';
 
 part 'playlist_detail_viewmodel.freezed.dart';
@@ -138,6 +144,18 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   }
 
   /// 播放全部
+  ///
+  /// 返回 Future<bool> 便于页面显示加载状态：
+  /// ```dart
+  /// onPressed: () async {
+  ///   final success = await viewModel.playAll();
+  ///   if (!success) {
+  ///     ScaffoldMessenger.of(context).showSnackBar(
+  ///       const SnackBar(content: Text('播放失败')),
+  ///     );
+  ///   }
+  /// }
+  /// ```
   Future<bool> playAll() async {
     final items = state.valueOrNull?.maybeWhen(
       loaded: (_, items, __) => items,
@@ -148,13 +166,161 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     try {
       AppLogger.info('PlaylistDetailViewModel', '播放全部: ${items.length}首');
 
-      // TODO: 实现播放队列逻辑
-      // ref.read(queueViewModelProvider.notifier).replaceAll(items);
-      // ref.read(playerViewModelProvider.notifier).play();
+      // 构建队列（过滤掉本地音乐，只处理在线音频）
+      final queueItems = <PlayableAudio>[];
+      final playlist = state.valueOrNull?.maybeWhen(
+        loaded: (playlist, _, __) => playlist,
+        orElse: () => null,
+      );
+
+      for (final item in items) {
+        final bvid = item.bvid;
+        final localPath = item.localPath;
+
+        // 如果有本地路径，跳过（本地音乐由另一套逻辑处理）
+        if (localPath != null && localPath.isNotEmpty) {
+          continue;
+        }
+
+        // 如果有 bvid，创建在线可播放对象
+        if (bvid != null && bvid.isNotEmpty) {
+          // 创建 Audio 对象
+          final audio = Audio(
+            id: bvid,
+            title: item.title ?? '未知标题',
+            artist: item.artist,
+            duration: item.duration,
+            coverUrl: item.coverUrl,
+          );
+
+          // 构建代理 URL
+          final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
+          final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
+
+          final playable = OnlinePlayable(audio, proxyUrl);
+          queueItems.add(playable);
+        }
+      }
+
+      if (queueItems.isEmpty) {
+        AppLogger.warn('PlaylistDetailViewModel', '没有可播放的在线音频');
+        return false;
+      }
+
+      // TODO: 记录队列来源（Phase 3）
+      // 替换队列
+      await ref.read(queueViewModelProvider.notifier).setQueue(
+        queueItems,
+        initialIndex: 0,
+      );
+
+      // 开始播放第一首
+      final firstItem = queueItems.first;
+      if (firstItem is OnlinePlayable) {
+        await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
+          audio: firstItem.original,
+          proxyUrl: firstItem.proxyUrl,
+        );
+      }
 
       return true;
     } catch (e) {
       AppLogger.error('PlaylistDetailViewModel', '播放全部失败: $e');
+      return false;
+    }
+  }
+
+  /// 点击单首歌曲播放
+  ///
+  /// 返回 Future<bool> 便于页面显示加载状态：
+  /// ```dart
+  /// onTap: () async {
+  ///   final success = await viewModel.playItem(item.bvid);
+  ///   if (!success) {
+  ///     // 处理失败情况
+  ///   }
+  /// }
+  /// ```
+  Future<bool> playItem(String bvid) async {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return false;
+
+    final items = currentState.maybeWhen(
+      loaded: (_, items, _) => items,
+      orElse: () => null,
+    );
+    if (items == null || items.isEmpty) return false;
+
+    // 找到当前点击歌曲的索引
+    final startIndex = items.indexWhere((item) => item.bvid == bvid);
+    if (startIndex == -1) {
+      AppLogger.warn('PlaylistDetailViewModel', '未找到歌曲: bvid=$bvid');
+      return false;
+    }
+
+    final clickedItem = items[startIndex];
+
+    // 如果是本地音乐，返回 false（由页面层处理）
+    if (clickedItem.localPath != null && clickedItem.localPath!.isNotEmpty) {
+      AppLogger.debug('PlaylistDetailViewModel', '跳过本地音乐，由页面层处理');
+      return false;
+    }
+
+    try {
+      AppLogger.info('PlaylistDetailViewModel', '播放歌曲: bvid=$bvid, 索引=$startIndex');
+
+      // 构建队列（从当前歌曲开始）
+      final queueItems = <PlayableAudio>[];
+      for (int i = startIndex; i < items.length; i++) {
+        final item = items[i];
+        final itemBvid = item.bvid;
+        final localPath = item.localPath;
+
+        // 跳过本地音乐
+        if (localPath != null && localPath.isNotEmpty) {
+          continue;
+        }
+
+        if (itemBvid != null && itemBvid.isNotEmpty) {
+          final audio = Audio(
+            id: itemBvid,
+            title: item.title ?? '未知标题',
+            artist: item.artist,
+            duration: item.duration,
+            coverUrl: item.coverUrl,
+          );
+
+          final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
+          final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$itemBvid?format=auto';
+
+          final playable = OnlinePlayable(audio, proxyUrl);
+          queueItems.add(playable);
+        }
+      }
+
+      if (queueItems.isEmpty) {
+        AppLogger.warn('PlaylistDetailViewModel', '没有可播放的在线音频');
+        return false;
+      }
+
+      // 替换队列
+      await ref.read(queueViewModelProvider.notifier).setQueue(
+        queueItems,
+        initialIndex: 0,
+      );
+
+      // 开始播放第一首（即用户点击的歌曲）
+      final firstItem = queueItems.first;
+      if (firstItem is OnlinePlayable) {
+        await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
+          audio: firstItem.original,
+          proxyUrl: firstItem.proxyUrl,
+        );
+      }
+
+      return true;
+    } catch (e) {
+      AppLogger.error('PlaylistDetailViewModel', '播放歌曲失败: $e');
       return false;
     }
   }

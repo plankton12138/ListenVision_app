@@ -90,6 +90,12 @@ class StorageKeys {
   /// 当前播放位置（秒）
   static const String currentPlaybackPosition = 'current_playback_position';
 
+  /// 队列来源（JSON）
+  static const String queueSource = 'queue_source';
+
+  /// 播放模式
+  static const String playMode = 'play_mode';
+
   /// 是否正在播放在线音频
   static const String isCurrentOnline = 'is_current_online';
 

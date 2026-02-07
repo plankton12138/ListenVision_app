@@ -4,6 +4,7 @@ import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
 
 /// 音频信息显示组件
 ///
@@ -15,15 +16,21 @@ class AudioInfo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(playerViewModelProvider);
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 专辑封面
-        _buildAlbumArt(context, playerState),
-        // 音频信息（标题、艺术家）
-        _buildAudioInfo(context, playerState),
-      ],
+    return GestureDetector(
+      onTap: () {
+        AppLogger.logButtonClick('歌曲信息区', 'AudioInfo');
+        QueueBottomSheet.show(context);
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 专辑封面
+          _buildAlbumArt(context, playerState),
+          // 音频信息（标题、艺术家）
+          _buildAudioInfo(context, playerState),
+        ],
+      ),
     );
   }
 

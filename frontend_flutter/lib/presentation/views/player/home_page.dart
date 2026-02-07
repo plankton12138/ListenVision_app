@@ -7,6 +7,7 @@ import 'package:demo/presentation/widgets/audio_info.dart';
 import 'package:demo/presentation/widgets/controls_panel.dart';
 import 'package:demo/presentation/widgets/player_action_bar.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -257,13 +258,16 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 持久显示的底部按钮
       persistentFooterButtons: [
         ElevatedButton(
-          onPressed: () => context.go('/playlist'),
+          onPressed: () {
+            AppLogger.logButtonClick('播放列表', 'HomePage');
+            QueueBottomSheet.show(context);
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).secondaryHeaderColor,
             elevation: 4,
           ),
           child: Icon(
-            Icons.list,
+            Icons.queue_music,
             size: UIConstants.iconMedium,
             color: Theme.of(context).colorScheme.primary,
           ),

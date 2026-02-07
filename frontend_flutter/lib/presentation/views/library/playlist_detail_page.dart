@@ -285,27 +285,36 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   /// 播放歌单项（支持在线和本地音乐）
-  void _playItem(dynamic item, WidgetRef ref) {
+  Future<void> _playItem(dynamic item, WidgetRef ref) async {
     final bvid = item.bvid as String?;
     final localPath = item.localPath as String?;
 
     // 如果有本地路径，尝试通过 localId 播放本地音乐
     if (localPath != null && localPath.isNotEmpty) {
-      _playLocalMusic(localPath, ref);
+      await _playLocalMusic(localPath, ref);
       return;
     }
 
     // 否则使用 bvid 播放在线音乐
     if (bvid != null) {
-      context.pushNamed(
-        AppRoutes.homeName,
-        queryParameters: {'bvid': bvid},
-      );
+      // 调用 ViewModel 的 playItem 方法
+      final success = await ref.read(
+        playlistDetailViewModelProvider(widget.playlistId).notifier,
+      ).playItem(bvid);
+
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('播放失败，请重试'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   /// 播放本地音乐（通过 localPath 查找对应的 LocalAudio）
-  Future<void> _playLocalMusic(String localPath, WidgetRef ref) async {
+  Future<bool> _playLocalMusic(String localPath, WidgetRef ref) async {
     try {
       AppLogger.debug('PlaylistDetailPage', '开始播放本地音乐: $localPath');
 
@@ -343,7 +352,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             const SnackBar(content: Text('本地音乐未找到，请重新导入')),
           );
         }
-        return;
+        return false;
       }
 
       // 使用 localId 导航到播放器
@@ -354,7 +363,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           AppRoutes.homeName,
           queryParameters: {'localId': localId},
         );
+        return true;
       }
+      return false;
     } catch (e) {
       AppLogger.error('PlaylistDetailPage', '播放本地音乐失败: $e');
       if (mounted) {
@@ -362,6 +373,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           SnackBar(content: Text('播放失败: $e')),
         );
       }
+      return false;
     }
   }
 
@@ -399,18 +411,41 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
-  void _playAll(WidgetRef ref, List items) {
+  /// 播放全部
+  Future<void> _playAll(WidgetRef ref, List items) async {
     if (items.isEmpty) return;
 
-    // TODO: 添加到播放队列并开始播放
-    // final bvids = items.map((item) => item.bvid as String).toList();
-    // ref.read(queueViewModelProvider.notifier).replaceAll(bvids);
-    // ref.read(playerViewModelProvider.notifier).play();
-    // context.push('/player');
-
+    // 显示加载状态
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('播放全部功能待实现')),
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Text('正在加载播放列表...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
     );
+
+    // 调用 ViewModel 的 playAll 方法
+    final success = await ref.read(
+      playlistDetailViewModelProvider(widget.playlistId).notifier,
+    ).playAll();
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('播放失败，请重试'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _downloadAll(WidgetRef ref, List items) {

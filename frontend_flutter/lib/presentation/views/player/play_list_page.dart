@@ -15,7 +15,7 @@ class PlaylistPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final queueState = ref.watch(queueViewModelProvider);
-    final queue = queueState.localAudios;
+    final queue = queueState.queue;
     final currentIndex = queueState.currentIndex;
 
     return Scaffold(
@@ -68,7 +68,7 @@ class PlaylistPage extends ConsumerWidget {
                 final isCurrent = currentIndex == index;
 
                 return ListTile(
-                  key: ValueKey(playable.id ?? index),
+                  key: ValueKey(playable.id),
                   leading: CircleAvatar(
                     backgroundColor: isCurrent
                         ? Theme.of(context).colorScheme.primary
@@ -85,7 +85,7 @@ class PlaylistPage extends ConsumerWidget {
                       color: isCurrent ? Theme.of(context).colorScheme.primary : null,
                     ),
                   ),
-                  subtitle: Text(playable.artist),
+                  subtitle: Text(playable.artist ?? '未知艺术家'),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle_outline),
                     onPressed: () => ref.read(queueViewModelProvider.notifier).removeAt(index),

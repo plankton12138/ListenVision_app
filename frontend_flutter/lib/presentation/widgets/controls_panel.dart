@@ -4,6 +4,10 @@ import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/viewmodels/player/queue_viewmodel.dart';
+import 'package:demo/models/playable_audio.dart';
+import 'package:demo/models/online_playable.dart';
+import 'package:demo/models/local_playable.dart';
 
 /// 播放控制面板组件
 ///
@@ -25,9 +29,55 @@ class ControlsPanel extends ConsumerWidget {
         // 进度条
         _buildProgressBar(context, playerState, playerViewModel),
         // 控制按钮
-        _buildControlButtons(context, playerState, playerViewModel),
+        _buildControlButtons(context, ref, playerState, playerViewModel),
       ],
     );
+  }
+
+  /// 播放上一首
+  void _playPrevious(BuildContext context, WidgetRef ref) {
+    final queueNotifier = ref.read(queueViewModelProvider.notifier);
+    final previous = queueNotifier.playPrevious();
+
+    if (previous != null) {
+      _playPlayable(context, ref, previous);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有上一首了')),
+      );
+    }
+  }
+
+  /// 播放下一首
+  void _playNext(BuildContext context, WidgetRef ref) {
+    final queueNotifier = ref.read(queueViewModelProvider.notifier);
+    final next = queueNotifier.playNext();
+
+    if (next != null) {
+      _playPlayable(context, ref, next);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有下一首了')),
+      );
+    }
+  }
+
+  /// 播放可播放音频
+  void _playPlayable(BuildContext context, WidgetRef ref, PlayableAudio playable) {
+    final playerViewModel = ref.read(playerViewModelProvider.notifier);
+
+    if (playable.isOnline) {
+      // 在线音频
+      if (playable is OnlinePlayable) {
+        playerViewModel.playOnlineAudio(
+          audio: playable.original,
+          proxyUrl: playable.proxyUrl,
+        );
+      }
+    } else {
+      // 本地音频 - 使用 url 属性获取文件路径
+      playerViewModel.playLocalAudio(playable.url);
+    }
   }
 
   /// 构建时间显示
@@ -236,7 +286,7 @@ class ControlsPanel extends ConsumerWidget {
   }
 
   /// 构建控制按钮
-  Widget _buildControlButtons(BuildContext context, playerState, playerViewModel) {
+  Widget _buildControlButtons(BuildContext context, WidgetRef ref, playerState, playerViewModel) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -250,10 +300,7 @@ class ControlsPanel extends ConsumerWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('上一首', 'ControlsPanel');
-                // TODO: 实现上一首功能（需要播放队列支持）
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('上一首功能待实现')),
-                );
+                _playPrevious(context, ref);
               },
             ),
             IconButton(
@@ -272,10 +319,7 @@ class ControlsPanel extends ConsumerWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('下一首', 'ControlsPanel');
-                // TODO: 实现下一首功能（需要播放队列支持）
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('下一首功能待实现')),
-                );
+                _playNext(context, ref);
               },
             ),
           ],

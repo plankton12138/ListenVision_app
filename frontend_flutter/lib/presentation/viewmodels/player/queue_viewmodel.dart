@@ -10,6 +10,8 @@ import '../../../models/local_audio.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
+import '../../../models/queue_source.dart';
+import '../../../models/play_mode.dart';
 import 'player_viewmodel.dart' show sharedStorageServiceProvider;
 
 part 'queue_viewmodel.freezed.dart';
@@ -34,6 +36,12 @@ abstract class QueueState with _$QueueState {
 
     /// 错误消息
     String? errorMessage,
+
+    /// 播放模式
+    @Default(PlayMode.sequence) PlayMode playMode,
+
+    /// 队列来源
+    QueueSource? source,
   }) = _QueueState;
 }
 
@@ -111,6 +119,38 @@ class QueueViewModel extends _$QueueViewModel {
 
     await _saveToStorage();
     AppLogger.debug('QueueViewModel', '设置播放队列，长度: ${queue.length}');
+  }
+
+  /// 设置播放队列（带来源）
+  ///
+  /// 从歌单、收藏等来源设置播放队列，记录来源信息便于追溯
+  Future<void> setQueueFromPlaylist(
+    List<PlayableAudio> queue,
+    QueueSource source, {
+    int initialIndex = -1,
+  }) async {
+    state = state.copyWith(
+      queue: queue,
+      currentIndex: initialIndex,
+      source: source,
+    );
+
+    await _saveToStorage();
+    AppLogger.info('QueueViewModel',
+      '设置播放队列: ${queue.length}首, 来源: ${source.name}');
+  }
+
+  /// 切换播放模式
+  void togglePlayMode() {
+    final newMode = state.playMode.next();
+    state = state.copyWith(playMode: newMode);
+    AppLogger.info('QueueViewModel', '切换播放模式: ${newMode.displayName}');
+  }
+
+  /// 设置播放模式
+  void setPlayMode(PlayMode mode) {
+    state = state.copyWith(playMode: mode);
+    AppLogger.info('QueueViewModel', '设置播放模式: ${mode.displayName}');
   }
 
   /// 添加到播放队列
@@ -257,6 +297,84 @@ class QueueViewModel extends _$QueueViewModel {
     return currentPlayable;
   }
 
+  /// 拖拽排序
+  ///
+  /// 将 [oldIndex] 位置的项移动到 [newIndex]
+  Future<void> reorder(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= state.queue.length) return;
+    if (newIndex < 0 || newIndex >= state.queue.length) return;
+    if (oldIndex == newIndex) return;
+
+    final newQueue = List<PlayableAudio>.from(state.queue);
+    final item = newQueue.removeAt(oldIndex);
+    newQueue.insert(newIndex, item);
+
+    // 调整当前播放索引
+    int newCurrentIndex = state.currentIndex;
+    if (state.currentIndex == oldIndex) {
+      newCurrentIndex = newIndex;
+    } else if (oldIndex < state.currentIndex && newIndex >= state.currentIndex) {
+      newCurrentIndex--;
+    } else if (oldIndex > state.currentIndex && newIndex <= state.currentIndex) {
+      newCurrentIndex++;
+    }
+
+    state = state.copyWith(
+      queue: newQueue,
+      currentIndex: newCurrentIndex,
+    );
+
+    await _saveToStorage();
+    AppLogger.info('QueueViewModel', '拖拽排序: $oldIndex -> $newIndex');
+  }
+
+  /// 插队播放（下一首播放）
+  ///
+  /// 将 [playable] 插入到当前播放位置的下一首
+  Future<void> insertNext(PlayableAudio playable) async {
+    if (isEmpty) {
+      // 队列为空，直接添加
+      await add(playable, playImmediately: true);
+      return;
+    }
+
+    final newQueue = List<PlayableAudio>.from(state.queue);
+    final insertIndex = state.currentIndex + 1;
+
+    // 检查是否已存在
+    final existingIndex = newQueue.indexWhere((p) => p.id == playable.id);
+
+    if (existingIndex != -1) {
+      // 已存在，先移除
+      newQueue.removeAt(existingIndex);
+      if (existingIndex < insertIndex) {
+        // 移除位置在插入位置之前，插入索引需要调整
+        final adjustedIndex = insertIndex - 1;
+        newQueue.insert(adjustedIndex, playable);
+
+        // 调整当前索引
+        int newCurrentIndex = state.currentIndex;
+        if (state.currentIndex > existingIndex) {
+          newCurrentIndex--;
+        }
+        if (state.currentIndex >= adjustedIndex) {
+          newCurrentIndex++;
+        }
+
+        state = state.copyWith(queue: newQueue, currentIndex: newCurrentIndex);
+      } else {
+        newQueue.insert(insertIndex, playable);
+        state = state.copyWith(queue: newQueue);
+      }
+    } else {
+      newQueue.insert(insertIndex, playable);
+      state = state.copyWith(queue: newQueue);
+    }
+
+    await _saveToStorage();
+    AppLogger.info('QueueViewModel', '插队播放: ${playable.title}');
+  }
+
   // ==================== 本地音频管理 ====================
 
   /// 添加本地音频到队列
@@ -318,7 +436,24 @@ class QueueViewModel extends _$QueueViewModel {
       final queueJson = state.queue.map((p) => p.toMap()).toList();
       await _storage!.setJsonList(StorageKeys.unifiedPlaylist, queueJson);
 
-      AppLogger.debug('QueueViewModel', '保存播放队列: 索引=${state.currentIndex}, 长度=${state.queue.length}');
+      // 保存播放模式
+      await _storage!.setString(
+        StorageKeys.playMode,
+        state.playMode.name,
+      );
+
+      // 保存队列来源
+      if (state.source != null) {
+        await _storage!.setJson(
+          StorageKeys.queueSource,
+          state.source!.toJson(),
+        );
+      } else {
+        await _storage!.remove(StorageKeys.queueSource);
+      }
+
+      AppLogger.debug('QueueViewModel',
+        '保存播放队列: 索引=${state.currentIndex}, 长度=${state.queue.length}, 模式=${state.playMode.name}');
     } catch (e) {
       AppLogger.error('QueueViewModel', '保存播放队列失败: $e');
     }
@@ -329,6 +464,26 @@ class QueueViewModel extends _$QueueViewModel {
     try {
       // 加载索引
       final savedIndex = _storage!.getInt(StorageKeys.currentPlaylistIndex) ?? -1;
+
+      // 加载播放模式
+      final playModeName = _storage!.getString(StorageKeys.playMode);
+      final playMode = playModeName != null
+        ? PlayMode.values.firstWhere(
+            (e) => e.name == playModeName,
+            orElse: () => PlayMode.sequence,
+          )
+        : PlayMode.sequence;
+
+      // 加载队列来源
+      QueueSource? source;
+      final sourceJson = _storage!.getJson(StorageKeys.queueSource);
+      if (sourceJson != null) {
+        try {
+          source = QueueSource.fromJson(sourceJson);
+        } catch (e) {
+          AppLogger.warn('QueueViewModel', '加载队列来源失败: $e');
+        }
+      }
 
       // 加载队列
       final queueJson = _storage!.getJsonList(StorageKeys.unifiedPlaylist);
@@ -350,9 +505,12 @@ class QueueViewModel extends _$QueueViewModel {
         state = state.copyWith(
           queue: queue,
           currentIndex: savedIndex >= 0 && savedIndex < queue.length ? savedIndex : -1,
+          playMode: playMode,
+          source: source,
         );
 
-        AppLogger.info('QueueViewModel', '加载播放队列: 索引=$savedIndex, 长度=${queue.length}');
+        AppLogger.info('QueueViewModel',
+          '加载播放队列: 索引=$savedIndex, 长度=${queue.length}, 模式=${playMode.name}, 来源=${source?.name ?? "无"}');
       }
     } catch (e) {
       AppLogger.error('QueueViewModel', '加载播放队列失败: $e');

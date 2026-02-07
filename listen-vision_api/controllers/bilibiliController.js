@@ -1,5 +1,6 @@
 const bilibiliService = require('../services/bilibiliService');
 const searchHistoryService = require('../services/audio/searchHistoryService');
+const { downloadTaskStore, TaskStatus } = require('../services/downloadTaskStore');
 const { successResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
@@ -733,7 +734,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
  */
 const downloadAudioWithMetadata = async (req, res) => {
   const { bvid } = req.params;
-  const { format = 'mp3' } = req.query;
+  const { format = 'mp3', requestId: clientRequestId } = req.query;
 
   if (!bvid) {
     return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
@@ -741,15 +742,38 @@ const downloadAudioWithMetadata = async (req, res) => {
 
   const userId = req.user?.id;
   const audioService = require('../services/audio');
+  const crypto = require('crypto');
   const startTime = Date.now();
 
-  logger.info('BiliDownload 开始', { bvid, format, userId: userId || 'none', timestamp: new Date().toISOString() });
+  // 创建或获取任务
+  const task = clientRequestId
+    ? downloadTaskStore.getTask(clientRequestId)
+    : downloadTaskStore.createTask(bvid, format);
 
-  // 设置 SSE 响应头（但可能被前端当作下载处理）
+  if (!task) {
+    return res.status(404).json({ success: false, error: '任务不存在或已过期' });
+  }
+
+  const requestId = task.requestId;
+
+  logger.info('BiliDownload 开始', {
+    requestId,
+    bvid,
+    format,
+    userId: userId || 'none',
+    timestamp: new Date().toISOString()
+  });
+
+  // 设置 SSE 响应头
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+  res.setHeader('X-Accel-Buffering', 'no');
+  // 发送 requestId 给客户端
+  res.setHeader('X-Request-Id', requestId);
+
+  // 立即发送任务信息给客户端
+  res.write(`event: taskStart\ndata: ${JSON.stringify({ requestId, bvid, format })}\n\n`);
 
   const sendProgress = (percent, stage, message) => {
     const event = {
@@ -760,14 +784,17 @@ const downloadAudioWithMetadata = async (req, res) => {
       timestamp: Date.now()
     };
     res.write(`data: ${JSON.stringify(event)}\n\n`);
-    // 记录进度日志（info 级别，方便追踪）
-    logger.info('BiliDownload 进度', { bvid, percent, stage, message });
+
+    // 同步更新到状态存储
+    downloadTaskStore.updateProgress(requestId, percent, stage, message);
   };
 
   try {
     // 步骤1: 获取视频信息
-    logger.info('BiliDownload 阶段1', { bvid, stage: 'fetching_info', message: '获取视频信息...' });
+    logger.info('BiliDownload 阶段1', { requestId, stage: 'fetching_info' });
     sendProgress(5, 'fetching_info', '获取视频信息...');
+    downloadTaskStore.updateStatus(requestId, TaskStatus.DOWNLOADING);
+
     const videoInfo = await bilibiliService.getVideoInfo(bvid);
 
     const metadata = {
@@ -791,16 +818,27 @@ const downloadAudioWithMetadata = async (req, res) => {
       return res.end();
     }
 
-    logger.info('BiliDownload 音频流获取成功', { bvid, baseUrl: audioStream.baseUrl.substring(0, 50) + '...' });
+    logger.info('BiliDownload 音频流获取成功', { requestId, bvid });
 
     // 步骤3: 转换并写入元数据（带实时进度）
-    logger.info('BiliDownload 阶段3', { bvid, stage: 'converting', message: '开始转换...' });
+    logger.info('BiliDownload 阶段3', { requestId, stage: 'converting' });
     sendProgress(20, 'converting', '开始转换...');
+    downloadTaskStore.updateStatus(requestId, TaskStatus.CONVERTING);
+
     const result = await audioService.convertWithMetadata(
       audioStream.baseUrl,
       metadata,
       format,
-      { bitrate: '192k', sampleRate: '44100', channels: 2 },
+      {
+        bitrate: '192k',
+        sampleRate: '44100',
+        channels: 2,
+        // 取消检测函数：检查任务是否被取消
+        shouldCancel: () => {
+          const task = downloadTaskStore.getTask(requestId);
+          return task && (task.status === TaskStatus.CANCELED);
+        }
+      },
       (percent, stage) => {
         // 映射内部进度到总进度 (20% -> 95%)
         const totalPercent = 20 + Math.floor(percent * 0.75);
@@ -822,22 +860,37 @@ const downloadAudioWithMetadata = async (req, res) => {
       }
     );
 
-    logger.info('BiliDownload 转换完成', { bvid, bytes: result.buffer.length, contentType: result.contentType });
+    logger.info('BiliDownload 转换完成', { requestId, bytes: result.buffer.length });
 
-    // 步骤4: 发送文件完成事件和分块文件数据
+    // 步骤4: 计算文件校验和
     const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
     const fileBuffer = result.buffer;
-    const chunkSize = 64 * 1024; // 64KB per chunk (base64 encoded will be ~85KB)
+    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    logger.info('BiliDownload 校验和计算完成', { requestId, fileName, checksum });
+
+    // 标记任务为待验证状态
+    downloadTaskStore.markCompleted(requestId, {
+      fileName,
+      fileSize: fileBuffer.length,
+      contentType: result.contentType,
+      checksum,
+    });
+
+    // 步骤5: 发送文件完成事件和分块文件数据
+    const chunkSize = 64 * 1024; // 64KB per chunk
     const totalChunks = Math.ceil(fileBuffer.length / chunkSize);
 
-    logger.info('BiliDownload 开始发送文件', { bvid, fileName, bytes: fileBuffer.length, totalChunks });
+    logger.info('BiliDownload 开始发送文件', { requestId, fileName, bytes: fileBuffer.length, totalChunks });
 
-    // 发送文件元数据
+    // 发送文件元数据（包含校验和）
     res.write(`event: fileStart\ndata: ${JSON.stringify({
+      requestId,
       fileName: fileName,
       contentType: result.contentType,
       totalChunks: totalChunks,
       totalSize: fileBuffer.length,
+      checksum: checksum,
       timestamp: Date.now()
     })}\n\n`);
 
@@ -858,7 +911,7 @@ const downloadAudioWithMetadata = async (req, res) => {
       // 每发送一些块就记录进度和刷新缓冲区
       if (i % 10 === 0) {
         const progress = Math.floor((i / totalChunks) * 100);
-        logger.info('BiliDownload 发送文件中', { bvid, chunk: i + 1, totalChunks, progress: `${progress}%` });
+        logger.info('BiliDownload 发送文件中', { requestId, chunk: i + 1, totalChunks, progress: `${progress}%` });
         // 给客户端一些时间处理
         await new Promise(resolve => setImmediate(resolve));
       }
@@ -866,18 +919,54 @@ const downloadAudioWithMetadata = async (req, res) => {
 
     // 发送文件完成事件
     res.write(`event: fileEnd\ndata: ${JSON.stringify({
+      requestId,
       fileName: fileName,
+      checksum: checksum,
       timestamp: Date.now()
     })}\n\n`);
 
     res.end();
 
     const duration = Date.now() - startTime;
-    logger.info('BiliDownload 完成', { bvid, bytes: fileBuffer.length, totalChunks, durationMs: duration });
+    logger.info('BiliDownload 完成', { requestId, bytes: fileBuffer.length, totalChunks, durationMs: duration });
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error('BiliDownload 失败', { bvid, error: error.message, stack: error.stack, durationMs: duration });
+
+    // 检查是否是用户主动取消
+    const isCanceled = error.message && error.message.includes('已取消');
+    const task = downloadTaskStore.getTask(requestId);
+    const wasCanceled = task && task.status === TaskStatus.CANCELED;
+
+    if (isCanceled || wasCanceled) {
+      // 用户取消，不标记为失败
+      logger.info('BiliDownload 用户取消', { requestId, durationMs: duration });
+
+      if (!res.headersSent) {
+        res.status(499).json({ success: false, error: '任务已取消' });
+      } else {
+        const cancelEvent = {
+          type: 'error',
+          error: '任务已取消',
+          requestId: requestId,
+          timestamp: Date.now()
+        };
+        res.write(`event: error\ndata: ${JSON.stringify(cancelEvent)}\n\n`);
+        res.end();
+      }
+      return;
+    }
+
+    // 更新任务状态为失败
+    downloadTaskStore.updateStatus(requestId, TaskStatus.FAILED, error.message);
+
+    logger.error('BiliDownload 失败', {
+      requestId,
+      bvid,
+      error: error.message,
+      stack: error.stack,
+      durationMs: duration
+    });
 
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
@@ -885,6 +974,7 @@ const downloadAudioWithMetadata = async (req, res) => {
       const errorEvent = {
         type: 'error',
         error: error.message,
+        requestId: requestId,
         timestamp: Date.now()
       };
       res.write(`event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`);
@@ -1029,6 +1119,180 @@ const downloadAudioWithRange = async (req, res) => {
   }
 };
 
+// ==================== 下载状态管理 ====================
+
+/**
+ * 查询下载任务状态
+ *
+ * GET /api/bilibili/download/status/:requestId
+ */
+const getDownloadStatus = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!requestId) {
+    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
+  }
+
+  const task = downloadTaskStore.getTask(requestId);
+
+  if (!task) {
+    return res.status(404).json({
+      success: false,
+      error: '任务不存在或已过期',
+      hint: '请重新发起下载请求'
+    });
+  }
+
+  // 更新心跳
+  downloadTaskStore.heartbeat(requestId);
+
+  // 计算预计剩余时间（基于已用时间和进度）
+  let estimatedTimeRemaining = null;
+  if (task.progress > 0 && task.status !== TaskStatus.COMPLETED) {
+    const elapsed = Date.now() - task.createdAt;
+    const totalTime = (elapsed / task.progress) * 100;
+    estimatedTimeRemaining = Math.max(0, totalTime - elapsed);
+  }
+
+  // 状态描述映射
+  const statusMessages = {
+    [TaskStatus.PENDING]: '准备中...',
+    [TaskStatus.DOWNLOADING]: '下载音频中...',
+    [TaskStatus.CONVERTING]: '转换格式中...',
+    [TaskStatus.VERIFYING]: '等待验证...',
+    [TaskStatus.COMPLETED]: '下载完成',
+    [TaskStatus.FAILED]: task.error || '下载失败',
+    [TaskStatus.CANCELED]: '已取消',
+    [TaskStatus.TIMEOUT]: '下载超时',
+  };
+
+  const response = {
+    requestId: task.requestId,
+    bvid: task.bvid,
+    status: task.status,
+    progress: task.progress,
+    stage: task.stage,
+    message: task.message || statusMessages[task.status] || task.status,
+    fileUrl: task.fileUrl,
+    fileName: task.fileName,
+    fileSize: task.fileSize,
+    checksum: task.checksum,
+    contentType: task.contentType,
+    error: task.error,
+    createdAt: task.createdAt,
+    completedAt: task.completedAt,
+    estimatedTimeRemaining,
+    clientConnected: task.clientConnected,
+  };
+
+  successResponse(res, response);
+};
+
+/**
+ * 确认下载完成并验证文件
+ *
+ * POST /api/bilibili/download/confirm/:requestId
+ * Body: { checksum?: string }
+ */
+const confirmDownload = async (req, res) => {
+  const { requestId } = req.params;
+  const { checksum } = req.body;
+
+  if (!requestId) {
+    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
+  }
+
+  const result = downloadTaskStore.confirmDownload(requestId, checksum);
+
+  if (!result.success) {
+    // 校验失败
+    if (result.error === '文件校验失败') {
+      logger.warn('DownloadConfirm 校验失败', {
+        requestId,
+        expected: result.expectedChecksum,
+        actual: result.actualChecksum
+      });
+      return res.status(400).json({
+        success: false,
+        error: result.error,
+        expectedChecksum: result.expectedChecksum,
+        actualChecksum: result.actualChecksum,
+        hint: '文件可能已损坏，请重新下载'
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: result.error || '确认失败'
+    });
+  }
+
+  logger.info('DownloadConfirm 确认成功', { requestId });
+
+  successResponse(res, {
+    requestId,
+    verified: true,
+    message: '下载完成并已验证'
+  });
+};
+
+/**
+ * 取消下载任务
+ *
+ * DELETE /api/bilibili/download/cancel/:requestId
+ */
+const cancelDownload = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!requestId) {
+    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
+  }
+
+  const result = downloadTaskStore.cancelTask(requestId);
+
+  if (!result.success) {
+    return res.status(404).json({
+      success: false,
+      error: result.error
+    });
+  }
+
+  logger.info('DownloadCancel 任务已取消', { requestId });
+
+  successResponse(res, {
+    requestId,
+    canceled: true,
+    message: '任务已取消'
+  });
+};
+
+/**
+ * 客户端心跳
+ *
+ * POST /api/bilibili/download/heartbeat/:requestId
+ */
+const heartbeat = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!requestId) {
+    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
+  }
+
+  const success = downloadTaskStore.heartbeat(requestId);
+
+  if (!success) {
+    return res.status(404).json({
+      success: false,
+      error: '任务不存在或已过期'
+    });
+  }
+
+  successResponse(res, {
+    heartbeat: true,
+    timestamp: Date.now()
+  });
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -1056,6 +1320,12 @@ module.exports = {
   // 下载
   downloadAudioWithMetadata,  // 新增：带元数据的下载
   downloadAudioWithRange,     // 新增：支持断点续传的下载
+
+  // 下载状态管理
+  getDownloadStatus,          // 查询下载状态
+  confirmDownload,            // 确认下载完成
+  cancelDownload,              // 取消下载
+  heartbeat,                  // 客户端心跳
 
   // 测试辅助
   conversionTracker  // 导出用于测试

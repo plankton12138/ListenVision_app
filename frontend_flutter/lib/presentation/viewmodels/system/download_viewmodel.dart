@@ -215,8 +215,11 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.error('DownloadViewModel', '暂停任务失败: $e');
       rethrow;
     } finally {
+      _operationStates[taskId] = false;  // 结束操作
+      // 触发一次 state 更新，确保 UI 能感知到操作状态的变化
       if (ref.mounted) {
-        _operationStates[taskId] = false;  // 结束操作
+        final tasks = await _repository!.getAllTasks();
+        state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
   }
@@ -237,8 +240,11 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
       rethrow;
     } finally {
+      _operationStates[taskId] = false;
+      // 触发一次 state 更新，确保 UI 能感知到操作状态的变化
       if (ref.mounted) {
-        _operationStates[taskId] = false;
+        final tasks = await _repository!.getAllTasks();
+        state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
   }
@@ -261,8 +267,10 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.error('DownloadViewModel', '删除任务失败: $e');
       rethrow;
     } finally {
+      _operationStates[taskId] = false;
       if (ref.mounted) {
-        _operationStates[taskId] = false;
+        final tasks = await _repository!.getAllTasks();
+        state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
   }
@@ -285,8 +293,10 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.error('DownloadViewModel', '取消任务失败: $e');
       rethrow;
     } finally {
+      _operationStates[taskId] = false;
       if (ref.mounted) {
-        _operationStates[taskId] = false;
+        final tasks = await _repository!.getAllTasks();
+        state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
   }

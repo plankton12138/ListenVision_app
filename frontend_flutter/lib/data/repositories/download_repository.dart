@@ -326,6 +326,8 @@ class DownloadRepository {
     await _bilibiliApi.downloadAudio(
       bvid: task.bvid!,
       savePath: task.savePath,
+      // 如果之前有保存的 requestId，恢复时使用
+      requestId: task.requestId,
       onProgress: (percent, stage, message) async {
         await _downloadTaskDao.updateProgressPercent(taskId, percent);
         if (task.trackId != null) {
@@ -343,6 +345,11 @@ class DownloadRepository {
           stage: stage,
           message: message,
         ));
+      },
+      // 保存服务器分配的 requestId
+      onRequestIdReceived: (requestId) async {
+        AppLogger.info('DownloadRepository', '收到服务器 requestId: $requestId, 保存到数据库');
+        await _downloadTaskDao.updateRequestId(taskId, requestId);
       },
     );
   }
@@ -378,14 +385,22 @@ class DownloadRepository {
       AppLogger.info('DownloadRepository', '任务 $taskId 从队列中移除（暂停）');
     }
 
+    // 获取任务信息，用于通知后端取消
+    final task = await _downloadTaskDao.getById(taskId);
+
+    // 取消前端的下载流
     final cancelToken = _activeDownloads[taskId];
     if (cancelToken != null && !cancelToken.isCancelled) {
       cancelToken.cancel('用户暂停');
     }
 
+    // 通知后端停止处理（如果有 requestId）
+    if (task?.requestId != null) {
+      await _bilibiliApi.cancelDownload(task!.requestId!);
+    }
+
     await _downloadTaskDao.markAsPaused(taskId);
 
-    final task = await _downloadTaskDao.getById(taskId);
     if (task?.trackId != null) {
       await _trackDao.updateDownloadStatus(
         task!.trackId!,
@@ -417,9 +432,17 @@ class DownloadRepository {
       _queueController.add(taskId);
     }
 
+    // 获取任务信息，用于通知后端取消
+    final task = await _downloadTaskDao.getById(taskId);
+
     final cancelToken = _activeDownloads[taskId];
     if (cancelToken != null && !cancelToken.isCancelled) {
       cancelToken.cancel('用户取消');
+    }
+
+    // 通知后端停止处理（如果有 requestId）
+    if (task?.requestId != null) {
+      await _bilibiliApi.cancelDownload(task!.requestId!);
     }
 
     await _downloadTaskDao.delete(taskId);

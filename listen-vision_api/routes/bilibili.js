@@ -594,4 +594,161 @@ router.get('/download/:bvid', optionalAuthMiddleware, bilibiliController.downloa
  */
 router.get('/download-range/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithRange);
 
+// ========== 下载状态管理 ==========
+
+/**
+ * @swagger
+ * /api/bilibili/download/status/:requestId:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 查询下载任务状态
+ *     description: |
+ *       查询下载任务的实时状态，支持断线重连后恢复。
+ *
+ *       **使用场景**：
+ *       - SSE 连接断开后重新获取状态
+ *       - 检查长时间任务是否完成
+ *       - 获取详细的错误信息
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 下载请求ID
+ *     responses:
+ *       200:
+ *         description: 任务状态
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requestId:
+ *                       type: string
+ *                     bvid:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       enum: [pending, downloading, converting, verifying, completed, failed, canceled, timeout]
+ *                     progress:
+ *                       type: integer
+ *                       description: 进度百分比 (0-100)
+ *                     stage:
+ *                       type: string
+ *                       description: 当前阶段
+ *                     message:
+ *                       type: string
+ *                       description: 状态描述
+ *                     fileUrl:
+ *                       type: string
+ *                       description: 文件URL（完成后）
+ *                     fileName:
+ *                       type: string
+ *                     fileSize:
+ *                       type: integer
+ *                     checksum:
+ *                       type: string
+ *                       description: 文件校验和（用于验证）
+ *                     error:
+ *                       type: string
+ *                       description: 错误信息（失败时）
+ *                     createdAt:
+ *                       type: integer
+ *                       description: 创建时间戳
+ *                     estimatedTimeRemaining:
+ *                       type: integer
+ *                       description: 预计剩余时间（毫秒）
+ *       404:
+ *         description: 任务不存在或已过期
+ */
+router.get('/download/status/:requestId', optionalAuthMiddleware, bilibiliController.getDownloadStatus);
+
+/**
+ * @swagger
+ * /api/bilibili/download/confirm/:requestId:
+ *   post:
+ *     tags: [B站API]
+ *     summary: 确认下载完成并验证文件
+ *     description: |
+ *       客户端下载完成后调用此接口确认，并可选地提供文件校验和进行双重验证。
+ *
+ *       **双重验证机制**：
+ *       - 客户端计算本地文件的校验和
+ *       - 服务端验证校验和是否匹配
+ *       - 验证通过后才标记任务真正完成
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: body
+ *         name: body
+ *         schema:
+ *           type: object
+ *           properties:
+ *             checksum:
+ *               type: string
+ *               description: 客户端计算的文件校验和（SHA256）
+ *     responses:
+ *       200:
+ *         description: 确认成功
+ *       400:
+ *         description: 校验失败
+ *       404:
+ *         description: 任务不存在
+ */
+router.post('/download/confirm/:requestId', optionalAuthMiddleware, bilibiliController.confirmDownload);
+
+/**
+ * @swagger
+ * /api/bilibili/download/cancel/:requestId:
+ *   delete:
+ *     tags: [B站API]
+ *     summary: 取消下载任务
+ *     description: 取消正在进行的下载任务
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 取消成功
+ *       404:
+ *         description: 任务不存在
+ */
+router.delete('/download/cancel/:requestId', optionalAuthMiddleware, bilibiliController.cancelDownload);
+
+/**
+ * @swagger
+ * /api/bilibili/download/heartbeat/:requestId:
+ *   post:
+ *     tags: [B站API]
+ *     summary: 发送客户端心跳
+ *     description: |
+ *       客户端定期发送心跳，告知服务器仍在等待。
+ *
+ *       服务器使用此信息判断客户端是否在线：
+ *       - 如果超过60秒没有心跳，认为客户端离线
+ *       - 离线客户端的任务可能被清理
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 心跳接收成功
+ */
+router.post('/download/heartbeat/:requestId', optionalAuthMiddleware, bilibiliController.heartbeat);
+
 module.exports = router;

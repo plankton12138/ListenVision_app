@@ -3,8 +3,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../core/config/app_config.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/utils/app_logger.dart';
 import '../../core/errors/exceptions.dart' show ApiException;
@@ -335,21 +337,50 @@ class BilibiliApiClient {
     required String bvid,
     required String savePath,
     String format = 'mp3',
+    String? requestId, // 用于断线重连
     void Function(int percent, String stage, String message)? onProgress,
+    void Function(String requestId)? onRequestIdReceived, // 当收到服务器分配的 requestId 时回调
   }) async {
+    String? serverRequestId;
+    String? expectedChecksum;
+
     try {
       final url = getDownloadUrl(bvid, format: format);
       final dio = _dioClient.dio;
 
-      final response = await dio.get(
+      // 创建独立的 Dio 实例用于下载，使用更长的超时时间
+      // FFmpeg 转换需要较长时间，默认超时可能导致下载失败
+      final downloadDio = Dio(BaseOptions(
+        connectTimeout: Duration(milliseconds: AppConfig().downloadConnectTimeoutSeconds * 1000),
+        receiveTimeout: Duration(milliseconds: AppConfig().downloadReceiveTimeoutSeconds * 1000),
+        sendTimeout: Duration(milliseconds: AppConfig().downloadSendTimeoutSeconds * 1000),
+        responseType: ResponseType.stream,
+        headers: {
+          'Accept': 'text/event-stream',
+          ...dio.options.headers,
+        },
+      ));
+
+      // 构建查询参数
+      final queryParams = <String, dynamic>{'format': format};
+      if (requestId != null) {
+        queryParams['requestId'] = requestId;
+      }
+
+      final response = await downloadDio.get(
         url,
-        options: Options(
-          responseType: ResponseType.stream,
-          headers: {
-            'Accept': 'text/event-stream',
-          },
-        ),
+        queryParameters: queryParams,
+        // 注意：不要传递 Options，因为会覆盖 BaseOptions 的超时配置
+        // responseType 和 headers 已经在 BaseOptions 中设置
       );
+
+      // 从响应头获取服务器分配的 requestId
+      serverRequestId = response.headers['X-Request-Id']?.firstOrNull;
+      if (serverRequestId != null) {
+        AppLogger.debug('BilibiliApiClient', '服务器分配的 requestId: $serverRequestId');
+        // 通知调用者 requestId（用于保存到数据库）
+        onRequestIdReceived?.call(serverRequestId);
+      }
 
       final stream = response.data.stream;
       final buffer = StringBuffer();
@@ -381,16 +412,31 @@ class BilibiliApiClient {
                 final json = jsonDecode(currentData) as Map<String, dynamic>;
                 final eventType = currentEvent ?? json['type'] as String?;
 
-                if (eventType == 'progress' || json.containsKey('percent')) {
+                // 处理任务开始事件
+                if (eventType == 'taskStart') {
+                  serverRequestId = json['requestId'] as String?;
+                  AppLogger.info('BilibiliApiClient', '任务开始: $serverRequestId');
+                  // 通知调用者 requestId（用于保存到数据库）
+                  onRequestIdReceived?.call(serverRequestId!);
+                }
+                // 处理进度事件
+                else if (eventType == 'progress' || json.containsKey('percent')) {
                   final percent = json['percent'] as int? ?? 0;
                   final stage = json['stage'] as String? ?? '';
                   final message = json['message'] as String? ?? '';
                   onProgress?.call(percent, stage, message);
-                } else if (eventType == 'fileStart') {
+                }
+                // 处理文件开始事件
+                else if (eventType == 'fileStart') {
                   totalChunks = json['totalChunks'] as int?;
                   receivingFile = true;
                   fileChunks.clear();
-                } else if (eventType == 'fileChunk') {
+                  // 获取服务器计算的校验和
+                  expectedChecksum = json['checksum'] as String?;
+                  AppLogger.debug('BilibiliApiClient', '文件开始传输: ${json['fileName']}, 校验和: $expectedChecksum');
+                }
+                // 处理文件分块事件
+                else if (eventType == 'fileChunk') {
                   if (receivingFile) {
                     final chunkData = json['data'] as String? ?? '';
                     final chunkBytes = base64Decode(chunkData);
@@ -405,7 +451,9 @@ class BilibiliApiClient {
                       }
                     }
                   }
-                } else if (eventType == 'fileEnd') {
+                }
+                // 处理文件结束事件
+                else if (eventType == 'fileEnd') {
                   final totalSize = fileChunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
                   final fileBytes = Uint8List(totalSize);
                   int offset = 0;
@@ -414,17 +462,44 @@ class BilibiliApiClient {
                     offset += chunk.length;
                   }
 
+                  // 写入文件
                   final file = File(savePath);
                   await file.writeAsBytes(fileBytes);
+
+                  // 验证文件完整性（双重验证）
+                  if (expectedChecksum != null && expectedChecksum.isNotEmpty) {
+                    onProgress?.call(99, 'verifying', '验证文件完整性...');
+                    final actualChecksum = _calculateSHA256(savePath);
+                    if (actualChecksum != expectedChecksum) {
+                      // 校验失败，删除文件并抛出异常
+                      await file.delete();
+                      AppLogger.error('BilibiliApiClient', '文件校验失败: 期望=$expectedChecksum, 实际=$actualChecksum');
+                      throw ApiException(
+                        '文件校验失败，可能下载不完整，请重试',
+                        400,
+                      );
+                    }
+                    // 通知服务器确认下载成功
+                    if (serverRequestId != null) {
+                      await _confirmDownload(serverRequestId, actualChecksum);
+                    }
+                    AppLogger.info('BilibiliApiClient', '文件校验通过: $actualChecksum');
+                  }
 
                   AppLogger.info('BilibiliApiClient', '下载成功: $savePath');
                   onProgress?.call(100, 'complete', '下载完成');
                   return;
-                } else if (eventType == 'error') {
-                  throw ApiException(json['error'] as String? ?? '未知错误', 500);
+                }
+                // 处理错误事件
+                else if (eventType == 'error') {
+                  final errorMsg = json['error'] as String? ?? '未知错误';
+                  AppLogger.info('BilibiliApiClient', '收到服务器错误事件: $errorMsg');
+                  throw ApiException(errorMsg, 500);
                 }
               } catch (e) {
                 AppLogger.error('BilibiliApiClient', '解析事件失败: $e');
+                // 解析失败时重新抛出异常，确保下载流程正确处理错误
+                rethrow;
               }
             }
           } else if (line.isEmpty) {
@@ -446,5 +521,49 @@ class BilibiliApiClient {
       AppLogger.error('BilibiliApiClient', '下载失败: $e');
       rethrow;
     }
+  }
+
+  /// 确认下载完成
+  Future<void> _confirmDownload(String requestId, String checksum) async {
+    try {
+      final url = '${ApiConstants.fullBaseUrl}/bilibili/download/confirm/$requestId';
+      await _dioClient.post(
+        url,
+        data: {'checksum': checksum},
+      );
+      AppLogger.info('BilibiliApiClient', '已确认下载: $requestId');
+    } catch (e) {
+      // 确认失败不影响下载结果，只记录日志
+      AppLogger.warn('BilibiliApiClient', '确认下载失败: $e');
+    }
+  }
+
+  /// 取消下载任务
+  ///
+  /// 通知后端停止处理下载任务，避免资源浪费。
+  /// 当用户暂停或取消下载时调用。
+  Future<void> cancelDownload(String requestId) async {
+    try {
+      final url = '${ApiConstants.fullBaseUrl}/bilibili/download/cancel/$requestId';
+      await _dioClient.delete(url);
+      AppLogger.info('BilibiliApiClient', '已取消下载任务: $requestId');
+    } catch (e) {
+      // 取消失败只记录日志，不影响前端状态
+      AppLogger.warn('BilibiliApiClient', '取消下载任务失败: $e');
+    }
+  }
+
+  /// 计算文件的 SHA256 校验和
+  String _calculateSHA256(String filePath) {
+    final file = File(filePath);
+    final bytes = file.readAsBytesSync();
+    return _sha256Bytes(bytes);
+  }
+
+  /// 计算 bytes 的 SHA256 校验和
+  String _sha256Bytes(Uint8List data) {
+    // 使用 crypto 包计算真正的 SHA256
+    final digest = sha256.convert(data);
+    return digest.toString();  // 返回64位十六进制字符串
   }
 }

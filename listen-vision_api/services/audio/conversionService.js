@@ -246,11 +246,11 @@ const proxyAndConvert = async (sourceUrl, format = 'mp3', options = {}) => {
  * @param {string} audioUrl - 音频流URL
  * @param {object} metadata - 元数据 { title, artist, coverUrl }
  * @param {string} format - 输出格式 (mp3, m4a, aac)
- * @param {object} options - 转换选项 { bitrate, sampleRate, channels }
+ * @param {object} options - 转换选项 { bitrate, sampleRate, channels, shouldCancel }
  * @param {function} onProgress - 进度回调 (percent, stage)
  */
 const convertWithMetadata = async (audioUrl, metadata, format = 'mp3', options = {}, onProgress) => {
-  const { bitrate = '192k', sampleRate = '44100', channels = 2 } = options;
+  const { bitrate = '192k', sampleRate = '44100', channels = 2, shouldCancel } = options;
   const uniqueId = crypto.randomUUID();
   const tempDir = os.tmpdir();
   const audioInputPath = path.join(tempDir, `audio-input-${uniqueId}.m4s`);
@@ -318,6 +318,14 @@ const convertWithMetadata = async (audioUrl, metadata, format = 'mp3', options =
       ffmpegCmd
         .on('start', (cmd) => logger.debug('convertWithMetadata FFmpeg 命令: %s', cmd))
         .on('progress', (p) => {
+          // 检查是否被取消
+          if (shouldCancel && shouldCancel()) {
+            logger.warn('convertWithMetadata 任务被取消，终止 FFmpeg 进程');
+            ffmpegCmd.kill('SIGKILL');
+            reject(new AppError('任务已被取消', 499));
+            return;
+          }
+
           const percent = 50 + Math.floor(p.percent * 0.4); // 50% -> 90%
           // 每2秒记录一次进度日志
           if (Date.now() - lastProgressLog > 2000) {
@@ -332,6 +340,12 @@ const convertWithMetadata = async (audioUrl, metadata, format = 'mp3', options =
           resolve();
         })
         .on('error', (err, stdout, stderr) => {
+          // 检查是否是主动取消
+          if (err.message && err.message.includes('已取消')) {
+            logger.info('convertWithMetadata 任务已被取消');
+            reject(err);
+            return;
+          }
           logger.error('convertWithMetadata FFmpeg 错误', { message: err.message, stdout, stderr });
           reject(new AppError(`音频转换失败: ${err.message}`, 500));
         })

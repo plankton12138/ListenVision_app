@@ -198,12 +198,10 @@ class _DownloadTaskTile extends ConsumerWidget {
           status: DownloadStatus.pending,
         );
 
-    // Phase 3: 获取操作状态（通过 notifier 的 getter）
-    // 注意：这里使用 read + build 时的调用方式，状态变化时会触发 widget 重建
     final notifier = ref.read(downloadViewModelProvider.notifier);
+    final isOperating = notifier.isOperating(taskId);
     final progress = notifier.getTaskProgress(taskId);
     final queuePosition = notifier.getQueuePosition(taskId);
-    final isOperating = notifier.isOperating(taskId);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

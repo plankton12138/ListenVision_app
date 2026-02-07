@@ -60,6 +60,7 @@ class DownloadTask {
   final String? tempFilePath; // 临时文件路径（断点续传使用）
   final String? etag; // ETag 用于验证文件是否更改
   final String? lastModified; // Last-Modified 头
+  final String? requestId; // 服务器分配的请求ID（用于断线重连）
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -80,6 +81,7 @@ class DownloadTask {
     this.tempFilePath,
     this.etag,
     this.lastModified,
+    this.requestId,
     this.createdAt,
     this.updatedAt,
   });
@@ -119,6 +121,7 @@ class DownloadTask {
       tempFilePath: map['temp_file_path'] as String?,
       etag: map['etag'] as String?,
       lastModified: map['last_modified'] as String?,
+      requestId: map['request_id'] as String?,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'] as String)
           : null,
@@ -147,6 +150,7 @@ class DownloadTask {
       if (tempFilePath != null) 'temp_file_path': tempFilePath,
       if (etag != null) 'etag': etag,
       if (lastModified != null) 'last_modified': lastModified,
+      if (requestId != null) 'request_id': requestId,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
@@ -170,6 +174,7 @@ class DownloadTask {
     String? tempFilePath,
     String? etag,
     String? lastModified,
+    String? requestId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -190,6 +195,7 @@ class DownloadTask {
       tempFilePath: tempFilePath ?? this.tempFilePath,
       etag: etag ?? this.etag,
       lastModified: lastModified ?? this.lastModified,
+      requestId: requestId ?? this.requestId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

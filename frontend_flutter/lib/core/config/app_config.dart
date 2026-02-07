@@ -92,11 +92,25 @@ class AppConfig {
   /// 连接超时（秒）
   int get connectTimeoutSeconds => _currentEnv == AppEnvironment.prod ? 30 : 60;
 
-  /// 接收超时（秒）
+  /// 接收超时（秒）- 普通API请求
   int get receiveTimeoutSeconds => _currentEnv == AppEnvironment.prod ? 30 : 60;
 
   /// 发送超时（秒）
   int get sendTimeoutSeconds => _currentEnv == AppEnvironment.prod ? 30 : 60;
+
+  // ==================== 下载专用超时配置 ====================
+
+  /// 下载连接超时（秒）
+  /// 下载接口需要更长的超时时间，因为需要等待服务器完成音频转换
+  int get downloadConnectTimeoutSeconds => 30;
+
+  /// 下载接收超时（秒）
+  /// SSE 流式下载需要足够长时间等待服务器完成转换和传输
+  /// FFmpeg 转换时间约为：音频时长 * 0.8 + 10秒，预留5分钟缓冲
+  int get downloadReceiveTimeoutSeconds => 300;
+
+  /// 下载发送超时（秒）
+  int get downloadSendTimeoutSeconds => 30;
 
   // ==================== 日志配置 ====================
 

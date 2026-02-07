@@ -1,4 +1,6 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/presentation/routes/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -383,7 +385,11 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
   void _playAudio(BuildContext context, LocalAudio audio) {
     // 导航到播放器页面，播放本地音频
     // 使用 localId 参数标识本地音频
-    context.push('/player?localId=${audio.id}');
+    AppLogger.info('LocalMusicPlaylistPage', '点击播放: id=${audio.id}, title=${audio.title}, filePath=${audio.filePath}');
+    context.pushNamed(
+      AppRoutes.homeName,
+      queryParameters: {'localId': audio.id.toString()},
+    );
   }
 
   /// 格式化时长

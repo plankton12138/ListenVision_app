@@ -1,6 +1,9 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/presentation/routes/router.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
+import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_detail_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +39,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
+        // 返回上一级按钮
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: detailState.valueOrNull?.maybeWhen(
           loaded: (playlist, _, __) => Text(
             playlist.name,
@@ -225,10 +233,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Widget _buildItemTile(dynamic item, int index, WidgetRef ref) {
-    final bvid = item.bvid as String;
+    final bvid = item.bvid as String?;
+    final localPath = item.localPath as String?;
     final title = item.title as String?;
     final artist = item.artist as String?;
     final duration = item.duration as int?;
+
+    // 判断是否为本地音乐
+    final isLocalMusic = localPath != null && localPath.isNotEmpty;
 
     return ListTile(
       leading: Text(
@@ -239,23 +251,118 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      title: Text(
-        title ?? '未知标题',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title ?? '未知标题',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isLocalMusic)
+            const Icon(
+             (Icons.folder_open),
+              size: 14,
+              color: Colors.green,
+            ),
+        ],
       ),
       subtitle: Text(
         '${artist ?? '未知艺术家'}${duration != null ? ' • ${_formatDuration(duration)}' : ''}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: AudioActionMenu(
-        bvid: bvid,
-        title: title ?? '',
-        artist: artist,
-      ),
-      onTap: () => context.push('/player?bvid=$bvid'),
+      trailing: bvid != null
+          ? AudioActionMenu(
+              bvid: bvid,
+              title: title ?? '',
+              artist: artist,
+            )
+          : const Icon(Icons.more_vert, size: 20),
+      onTap: () => _playItem(item, ref),
     );
+  }
+
+  /// 播放歌单项（支持在线和本地音乐）
+  void _playItem(dynamic item, WidgetRef ref) {
+    final bvid = item.bvid as String?;
+    final localPath = item.localPath as String?;
+
+    // 如果有本地路径，尝试通过 localId 播放本地音乐
+    if (localPath != null && localPath.isNotEmpty) {
+      _playLocalMusic(localPath, ref);
+      return;
+    }
+
+    // 否则使用 bvid 播放在线音乐
+    if (bvid != null) {
+      context.pushNamed(
+        AppRoutes.homeName,
+        queryParameters: {'bvid': bvid},
+      );
+    }
+  }
+
+  /// 播放本地音乐（通过 localPath 查找对应的 LocalAudio）
+  Future<void> _playLocalMusic(String localPath, WidgetRef ref) async {
+    try {
+      AppLogger.debug('PlaylistDetailPage', '开始播放本地音乐: $localPath');
+
+      // 从 LocalMusicViewModel 获取所有本地音乐
+      final localMusicAsync = ref.read(localMusicViewModelProvider);
+
+      final localAudio = await localMusicAsync.whenOrNull(
+        data: (state) async {
+          return state.map(
+            initial: (_) => null,
+            loading: (_) => null,
+            loaded: (data) {
+              AppLogger.debug('PlaylistDetailPage', '本地音乐列表数量: ${data.audios.length}');
+              try {
+                final found = data.audios.firstWhere(
+                  (audio) => audio.filePath == localPath,
+                );
+                AppLogger.debug('PlaylistDetailPage', '找到本地音频: ${found.title}, id: ${found.id}');
+                return found;
+              } catch (_) {
+                AppLogger.warn('PlaylistDetailPage', '未找到匹配的本地音频');
+                return null;
+              }
+            },
+            importing: (_) => null,
+            error: (_) => null,
+          );
+        },
+      );
+
+      if (localAudio == null) {
+        AppLogger.warn('PlaylistDetailPage', '本地音乐未找到: $localPath');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('本地音乐未找到，请重新导入')),
+          );
+        }
+        return;
+      }
+
+      // 使用 localId 导航到播放器
+      if (mounted) {
+        final localId = localAudio.id.toString();
+        AppLogger.info('PlaylistDetailPage', '导航到播放器，localId: $localId');
+        context.pushNamed(
+          AppRoutes.homeName,
+          queryParameters: {'localId': localId},
+        );
+      }
+    } catch (e) {
+      AppLogger.error('PlaylistDetailPage', '播放本地音乐失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('播放失败: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildEmptyState() {

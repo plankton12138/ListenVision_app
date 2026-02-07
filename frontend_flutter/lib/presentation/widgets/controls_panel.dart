@@ -164,7 +164,8 @@ class ControlsPanel extends ConsumerWidget {
           child: TextButton.icon(
             onPressed: () {
               AppLogger.logButtonClick('重试', 'ControlsPanel');
-              playerState.clearError();
+              // 使用 ViewModel 的 clearError 方法而不是 state 的扩展方法
+              playerViewModel.clearError();
               playerViewModel.togglePlayPause();
             },
             icon: const Icon(Icons.refresh, color: Colors.blue),
@@ -249,7 +250,10 @@ class ControlsPanel extends ConsumerWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('上一首', 'ControlsPanel');
-                playerViewModel.playPrevious?.call();
+                // TODO: 实现上一首功能（需要播放队列支持）
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('上一首功能待实现')),
+                );
               },
             ),
             IconButton(
@@ -268,7 +272,10 @@ class ControlsPanel extends ConsumerWidget {
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick('下一首', 'ControlsPanel');
-                playerViewModel.playNext?.call();
+                // TODO: 实现下一首功能（需要播放队列支持）
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('下一首功能待实现')),
+                );
               },
             ),
           ],

@@ -336,12 +336,39 @@ class PlayerViewModel extends _$PlayerViewModel {
       state = state.clearError();
     }
 
-    try {
-      if (state.isPlaying) {
-        await pause();
-      } else {
-        await resume();
+    // 如果正在播放或暂停（有音频正在处理），直接切换播放状态
+    if (state.isPlaying || state.isPaused || state.isReady) {
+      try {
+        if (state.isPlaying) {
+          await pause();
+        } else {
+          await resume();
+        }
+        return;
+      } catch (e) {
+        AppLogger.error('PlayerViewModel', '切换播放/暂停失败: $e');
+        state = state.copyWith(
+          statusMessage: '播放失败: $e',
+          hasError: true,
+        );
+        return;
       }
+    }
+
+    // 没有可播放内容时的处理
+    if (state.currentPlayable == null && state.currentAudio == null && state.currentOnlineAudio == null) {
+      const message = '请先选择要播放的音频';
+      AppLogger.warn('PlayerViewModel', message);
+      state = state.copyWith(
+        statusMessage: message,
+        hasError: true,
+      );
+      return;
+    }
+
+    // 有可播放内容但未就绪，尝试恢复播放
+    try {
+      await resume();
     } catch (e) {
       AppLogger.error('PlayerViewModel', '切换播放/暂停失败: $e');
       state = state.copyWith(

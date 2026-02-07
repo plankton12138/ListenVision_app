@@ -104,10 +104,15 @@ class AudioPlayerService {
   /// 播放
   ///
   /// 恢复已暂停的音频或开始播放已加载的音频。
+  /// 注意：如果未加载音频源，此方法会抛出异常。
   Future<void> play() async {
     if (_disposed) return;
+    // 检查是否已加载音频源
+    if (_currentSourceUrl == null) {
+      AppLogger.warn('AudioPlayerService', 'play() 调用失败：未加载音频源');
+      throw Exception('未加载音频源，请先调用 setSource 或 playFile/playUrl');
+    }
     AppLogger.debug('AudioPlayerService', 'play()');
-    await _player.play(AssetSource('')); // 空资源，实际由 resume 控制
     await _player.resume();
   }
 

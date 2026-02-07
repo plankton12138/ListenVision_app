@@ -74,7 +74,7 @@ final class PlayerViewModelProvider
   }
 }
 
-String _$playerViewModelHash() => r'e672c49e464b3dbd3fc21cedfe60575f32e8735e';
+String _$playerViewModelHash() => r'e6f82f3a121f270eb4e4c76e6dee6d30161dff3c';
 
 /// 播放器 ViewModel
 ///

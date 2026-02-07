@@ -170,7 +170,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
                       title: Text(playlist.name),
                       subtitle: Text('${playlist.itemCount}首'),
                       onTap: () {
-                        context.push('/playlist/${playlist.id}');
+                        context.push('/playlists/${playlist.id}');
                       },
                       trailing: IconButton(
                         icon: const Icon(Icons.more_vert),
@@ -283,7 +283,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
         },
       ),
       onTap: () {
-        context.push('/playlist/local');
+        context.push('/playlists/local');
       },
     );
   }

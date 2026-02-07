@@ -53,7 +53,7 @@ class HistoryTabView extends ConsumerWidget {
         );
       },
       loading: () => _buildLoadingState(),
-      error: (_, __) => _buildEmptyState(context),
+      error: (_, stackTrace) => _buildEmptyState(context),
     );
   }
 

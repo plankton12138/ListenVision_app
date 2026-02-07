@@ -12,7 +12,7 @@ import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
-import 'player_viewmodel.dart' show sharedStorageServiceProvider;
+import 'player_viewmodel.dart' show sharedStorageServiceProvider, playerViewModelProvider;
 
 part 'queue_viewmodel.freezed.dart';
 part 'queue_viewmodel.g.dart';
@@ -269,6 +269,37 @@ class QueueViewModel extends _$QueueViewModel {
 
     state = state.copyWith(currentIndex: index);
     AppLogger.debug('QueueViewModel', '设置当前索引: $index');
+  }
+
+  /// 播放指定索引的音频
+  ///
+  /// [index] 要播放的索引
+  Future<void> playAt(int index) async {
+    if (index < 0 || index >= state.queue.length) {
+      AppLogger.warn('QueueViewModel', '无效的索引: $index, 队列长度: ${state.queue.length}');
+      return;
+    }
+
+    final playable = state.queue[index];
+
+    // 更新索引
+    state = state.copyWith(currentIndex: index);
+
+    // 通知播放器播放
+    final playerNotifier = ref.read(playerViewModelProvider.notifier);
+
+    if (playable.isOnline && playable is OnlinePlayable) {
+      // 在线音频：从 OnlinePlayable 获取原始 Audio
+      await playerNotifier.playOnlineAudio(
+        audio: playable.original,
+        streamUrl: playable.url,
+      );
+    } else {
+      // 本地音频
+      await playerNotifier.playLocalAudio(playable.url);
+    }
+
+    AppLogger.info('QueueViewModel', '播放索引 $index: ${playable.title}');
   }
 
   /// 播放下一首

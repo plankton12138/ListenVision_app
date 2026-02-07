@@ -37,41 +37,25 @@ class QueueTabView extends ConsumerWidget {
         _buildPlayModeBar(context, ref, queueState),
 
         Expanded(
-          child: ReorderableListView.builder(
+          child: ListView.builder(
             padding: const EdgeInsets.only(bottom: 100),
             itemCount: queue.length,
-            onReorder: (oldIndex, newIndex) {
-              AppLogger.logButtonClick('拖拽排序', 'QueueTabView',
-                parameters: {'from': oldIndex, 'to': newIndex});
-
-              // ReorderableListView 的 newIndex 是在移除 oldIndex 之后的索引
-              // 需要调整
-              int adjustedIndex = newIndex;
-              if (newIndex > oldIndex) {
-                adjustedIndex = newIndex - 1;
-              }
-
-              ref.read(queueViewModelProvider.notifier).reorder(oldIndex, adjustedIndex);
-            },
             itemBuilder: (context, index) {
               final playable = queue[index];
               final isCurrent = currentIndex == index;
 
-              return ReorderableDelayedDragStartListener(
-                key: ValueKey(playable.id),
+              return QueueItemTile(
+                key: ValueKey('${playable.id}_$index'),
+                playable: playable,
                 index: index,
-                child: QueueItemTile(
-                  playable: playable,
-                  index: index,
-                  isCurrent: isCurrent,
-                ),
+                isCurrent: isCurrent,
               );
             },
           ),
         ),
 
         // 底部操作栏
-        _buildBottomActions(context, ref),
+        _buildBottomActions(context, ref, queueState),
       ],
     );
   }
@@ -267,9 +251,7 @@ class QueueTabView extends ConsumerWidget {
   }
 
   /// 构建底部操作栏
-  Widget _buildBottomActions(BuildContext context, WidgetRef ref) {
-    final queueState = ref.watch(queueViewModelProvider);
-
+  Widget _buildBottomActions(BuildContext context, WidgetRef ref, QueueState queueState) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

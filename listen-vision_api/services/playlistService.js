@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const { AppError } = require('../middleware/errorHandler');
+const { logger } = require('../utils/logger');
 
 // 系统歌单类型常量
 const SYSTEM_TYPES = {
@@ -79,7 +80,7 @@ const ensureSystemPlaylists = (userId) => {
     const existing = stmt.playlistBySystemType.get(userId, sp.systemType);
     if (!existing) {
       stmt.insertPlaylist.run(userId, sp.name, sp.description, null, 'system', sp.systemType, 0);
-      console.log(`✅ 创建系统歌单: ${sp.name} for user ${userId}`);
+      logger.info(`创建系统歌单: ${sp.name}`, { userId, systemType: sp.systemType });
     }
   }
 };
@@ -102,6 +103,9 @@ const getUserPlaylists = (userId) => {
  * @returns {Object} 歌单详情及items
  */
 const getPlaylistDetail = (playlistId, userId, sortType = 'position_asc') => {
+  // 确保用户系统歌单已创建（防止直接调用此接口时出现 404）
+  ensureSystemPlaylists(userId);
+
   const playlist = stmt.playlistById.get(playlistId);
   if (!playlist) {
     throw new AppError('歌单不存在', 404);

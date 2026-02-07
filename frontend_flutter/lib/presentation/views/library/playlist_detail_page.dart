@@ -2,7 +2,6 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/routes/router.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_detail_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -233,7 +232,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Widget _buildItemTile(dynamic item, int index, WidgetRef ref) {
-    final bvid = item.bvid as String?;
     final localPath = item.localPath as String?;
     final title = item.title as String?;
     final artist = item.artist as String?;
@@ -273,13 +271,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: bvid != null
-          ? AudioActionMenu(
-              bvid: bvid,
-              title: title ?? '',
-              artist: artist,
-            )
-          : const Icon(Icons.more_vert, size: 20),
+      // 暂时移除操作菜单，避免布局问题
+      // TODO: 添加简单的操作菜单（收藏、下载等）
+      trailing: const Icon(Icons.play_circle_outline, size: 20),
       onTap: () => _playItem(item, ref),
     );
   }

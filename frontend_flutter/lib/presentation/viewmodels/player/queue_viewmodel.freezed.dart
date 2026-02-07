@@ -69,7 +69,7 @@ class _$QueueStateCopyWithImpl<$Res>
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = freezed,}) {
   return _then(_self.copyWith(
 queue: null == queue ? _self.queue : queue // ignore: cast_nullable_to_non_nullable
 as List<PlayableAudio>,localAudios: null == localAudios ? _self.localAudios : localAudios // ignore: cast_nullable_to_non_nullable
@@ -77,7 +77,7 @@ as List<LocalAudio>,currentIndex: null == currentIndex ? _self.currentIndex : cu
 as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,playMode: null == playMode ? _self.playMode : playMode // ignore: cast_nullable_to_non_nullable
-as PlayMode,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as PlayMode,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as QueueSource?,
   ));
 }
@@ -220,8 +220,7 @@ return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading
 
 class _QueueState implements QueueState {
   const _QueueState({final  List<PlayableAudio> queue = const [], final  List<LocalAudio> localAudios = const [], this.currentIndex = -1, this.isLoading = false, this.errorMessage, this.playMode = PlayMode.sequence, this.source}): _queue = queue,_localAudios = localAudios;
-
-
+  
 
 /// 播放队列（本地和在线混合）
  final  List<PlayableAudio> _queue;
@@ -246,13 +245,15 @@ class _QueueState implements QueueState {
 /// 是否正在加载
 @override@JsonKey() final  bool isLoading;
 /// 错误消息
-@override final  String? errorMessage;/// 播放模式
-@Override@JsonKey() final  PlayMode playMode;/// 队列来源
-@Override final  QueueSource? source;
+@override final  String? errorMessage;
+/// 播放模式
+@override@JsonKey() final  PlayMode playMode;
+/// 队列来源
+@override final  QueueSource? source;
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
-@Override @JsonKey(includeFromJson: false, includeToJson: false)
+@override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 _$QueueStateCopyWith<_QueueState> get copyWith => __$QueueStateCopyWithImpl<_QueueState>(this, _$identity);
 
@@ -297,7 +298,7 @@ class __$QueueStateCopyWithImpl<$Res>
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
-@Override @pragma('vm:prefer-inline') $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = freezed,}) {
   return _then(_QueueState(
 queue: null == queue ? _self._queue : queue // ignore: cast_nullable_to_non_nullable
 as List<PlayableAudio>,localAudios: null == localAudios ? _self._localAudios : localAudios // ignore: cast_nullable_to_non_nullable
@@ -305,7 +306,7 @@ as List<LocalAudio>,currentIndex: null == currentIndex ? _self.currentIndex : cu
 as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,playMode: null == playMode ? _self.playMode : playMode // ignore: cast_nullable_to_non_nullable
-as PlayMode,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as PlayMode,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as QueueSource?,
   ));
 }

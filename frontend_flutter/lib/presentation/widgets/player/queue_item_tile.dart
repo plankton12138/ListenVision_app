@@ -21,9 +21,6 @@ class QueueItemTile extends ConsumerWidget {
   /// 是否为当前播放
   final bool isCurrent;
 
-  /// 是否启用拖拽排序
-  final bool isReorderable;
-
   /// 点击回调
   final VoidCallback? onTap;
 
@@ -35,7 +32,6 @@ class QueueItemTile extends ConsumerWidget {
     required this.playable,
     required this.index,
     required this.isCurrent,
-    this.isReorderable = true,
     this.onTap,
     this.onLongPress,
   });
@@ -47,7 +43,6 @@ class QueueItemTile extends ConsumerWidget {
     // 获取收藏状态（仅在线音频支持收藏）
     final isOnline = playable.isOnline;
     final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-    final playlistState = ref.watch(playlistViewModelProvider);
 
     // 获取 bvid（仅在线音频）
     String? bvid;
@@ -64,18 +59,9 @@ class QueueItemTile extends ConsumerWidget {
             : Colors.transparent,
       ),
       child: ListTile(
-        // 拖拽手柄
-        leading: isReorderable
-            ? ReorderableDragStartListener(
-                index: index,
-                child: Icon(
-                  Icons.drag_handle,
-                  color: Colors.grey[400],
-                ),
-              )
-            : (isCurrent
-                ? Icon(Icons.play_arrow, color: theme.colorScheme.primary)
-                : const Icon(Icons.music_note, color: Colors.grey)),
+        leading: isCurrent
+            ? Icon(Icons.play_arrow, color: theme.colorScheme.primary)
+            : const Icon(Icons.music_note, color: Colors.grey),
 
         title: Text(
           playable.title,
@@ -155,7 +141,7 @@ class QueueItemTile extends ConsumerWidget {
             () {
               AppLogger.logButtonClick('播放队列项', 'QueueItemTile',
                 parameters: {'index': index});
-              ref.read(queueViewModelProvider.notifier).setCurrentIndex(index);
+              ref.read(queueViewModelProvider.notifier).playAt(index);
             },
 
         onLongPress: onLongPress ??

@@ -58,15 +58,11 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     try {
       AppLogger.info('PlaylistDetailViewModel', '加载歌单详情: $playlistId');
 
-      // 从 PlaylistViewModel 获取歌单信息
-      final playlistState = ref.read(playlistViewModelProvider);
-      final playlist = playlistState.valueOrNull?.playlists.firstWhere(
-        (p) => p.id == playlistId,
-        orElse: () => Playlist.favorites,
-      ) ?? Playlist.favorites;
-
-      // 加载歌单项
-      final items = await _repository!.getPlaylistItems(playlistId);
+      // 直接从 API 获取歌单详情，确保数据是最新的
+      // 这样即使歌单不在 PlaylistViewModel 缓存中也能正确加载
+      final playlistDetail = await _repository!.getPlaylistDetail(playlistId);
+      final playlist = playlistDetail.playlist;
+      final items = playlistDetail.items;
 
       // 检查所有权（用户歌单即为所有者）
       final isOwner = playlist.isUserPlaylist;

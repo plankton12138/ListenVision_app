@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:demo/core/state/state_utils.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,46 +69,148 @@ class DownloadViewModel extends _$DownloadViewModel {
 
   @override
   Future<DownloadModelState> build() async {
-    _repository = ref.watch(downloadRepositoryProvider);
+    try {
+      _repository = ref.watch(downloadRepositoryProvider);
 
-    // 设置清理回调
-    ref.onDispose(() {
-      _debounceTimer?.cancel();
-      _progressSub?.cancel();
-      _queueSub?.cancel();
-    });
+      // 设置清理回调
+      ref.onDispose(() {
+        _debounceTimer?.cancel();
+        _progressSub?.cancel();
+        _queueSub?.cancel();
+      });
 
-    // 监听进度流
-    _progressSub = _repository!.progressStream.listen(
-      _onProgressUpdate,
-      onError: (e) => AppLogger.error('DownloadViewModel', '进度流错误: $e'),
-    );
+      // 监听进度流
+      _progressSub = _repository!.progressStream.listen(
+        _onProgressUpdate,
+        onError: (e) => AppLogger.error('DownloadViewModel', '进度流错误: $e'),
+      );
 
-    _queueSub = _repository!.queueStream.listen(
-      (_) => _updateQueuePositions(),
-      onError: (e) => AppLogger.error('DownloadViewModel', '队列流错误: $e'),
-    );
+      _queueSub = _repository!.queueStream.listen(
+        (_) => _updateQueuePositions(),
+        onError: (e) => AppLogger.error('DownloadViewModel', '队列流错误: $e'),
+      );
 
-    // 加载任务
-    final tasks = await _repository!.getAllTasks();
-    _updateQueuePositions();
-    await _resumeIncompleteTasks();
+      // 从数据库重建内存状态（应用重启后调用）
+      // 捕获异常，防止导致整个 build 失败
+      try {
+        await _repository!.rebuildState();
+      } catch (e) {
+        AppLogger.error('DownloadViewModel', 'rebuildState 失败: $e');
+        // 继续执行，不阻塞
+      }
 
-    return DownloadModelState.loaded(downloads: tasks);
+      // 加载任务
+      final tasks = await _repository!.getAllTasks();
+      _updateQueuePositions();
+
+      // 恢复未完成的任务（捕获异常，防止导致整个 build 失败）
+      try {
+        await _resumeIncompleteTasks();
+      } catch (e) {
+        AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
+        // 继续执行，不阻塞 UI 加载
+      }
+
+      return DownloadModelState.loaded(downloads: tasks);
+    } catch (e, stack) {
+      AppLogger.error('DownloadViewModel', 'build 失败: $e\n$stack');
+      // 返回空列表而不是抛出异常，让 UI 能正常显示
+      return DownloadModelState.loaded(downloads: []);
+    }
   }
 
-  /// 恢复未完成的任务（pending 和 paused）
+  /// 恢复未完成的任务（pending + paused + downloading）
+  ///
+  /// 改进版：验证文件状态，处理崩溃恢复，校验文件完整性。
+  /// - pending: 恢复等待中的任务
+  /// - paused: 检查临时文件是否存在，存在则可恢复
+  /// - downloading: 崩溃前在下载，检查临时文件状态后决定是否恢复
   Future<void> _resumeIncompleteTasks() async {
     try {
-      final pendingTasks = await _repository!.getPendingTasks();
-      for (final task in pendingTasks) {
-        if (task.id != null) {
-          AppLogger.info('DownloadViewModel', '自动恢复任务: ${task.bvid}');
-          await _repository!.startDownload(task.id!);
+      // 获取所有未完成的任务
+      final incompleteTasks = await _repository!.getIncompleteTasks();
+
+      for (final task in incompleteTasks) {
+        // 单个任务失败不影响其他任务
+        try {
+          if (task.id == null) continue;
+
+          // 验证文件状态
+          final file = File(task.savePath);
+          final tempFile = File('${task.savePath}.tmp');
+
+          final fileExists = await file.exists();
+          final tempExists = await tempFile.exists();
+
+          // 已完成且文件存在，跳过
+          if (task.status == DownloadStatus.completed && fileExists) {
+            continue;
+          }
+
+          // 文件完整性校验
+          bool hasValidTempFile = tempExists;
+          if (tempExists) {
+            try {
+              final actualSize = await tempFile.length();
+              final recordedSize = task.downloadedBytes;
+
+              // 文件大小差异超过 1MB，可能损坏
+              if ((actualSize - recordedSize).abs() > 1024 * 1024) {
+                AppLogger.warn('DownloadViewModel',
+                  '临时文件大小不一致: 记录=$recordedSize, 实际=$actualSize，重新下载');
+                try {
+                  await tempFile.delete();
+                } catch (_) {}
+                await _repository!.updateDownloadedBytes(task.id!, 0);
+                hasValidTempFile = false;
+              }
+            } catch (e) {
+              AppLogger.error('DownloadViewModel', '检查临时文件失败: $e');
+              hasValidTempFile = false;
+            }
+          }
+
+          // 崩溃前在下载，但临时文件不存在，重置状态
+          if (task.status == DownloadStatus.downloading && !tempExists) {
+            await _repository!.resetTaskStatus(task.id!, DownloadStatus.pending);
+          }
+
+          // 决定是否恢复
+          bool shouldResume = switch (task.status) {
+            DownloadStatus.pending => true,
+            DownloadStatus.paused => hasValidTempFile || fileExists,
+            DownloadStatus.downloading => hasValidTempFile,
+            DownloadStatus.stalled => hasValidTempFile || fileExists,
+            _ => false,
+          };
+
+          if (shouldResume) {
+            AppLogger.info('DownloadViewModel',
+              '恢复任务: ${task.bvid}, 状态: ${task.status}, 临时文件: $hasValidTempFile');
+            try {
+              await _repository!.startDownload(task.id!);
+            } catch (e) {
+              // 恢复失败，标记为失败状态但继续处理其他任务
+              AppLogger.error('DownloadViewModel', '恢复任务 ${task.id} 失败: $e');
+              try {
+                await _repository!.markAsFailed(task.id!, '恢复失败: $e');
+              } catch (_) {}
+            }
+          } else {
+            // 无法恢复的任务标记为失败
+            try {
+              await _repository!.markAsFailed(task.id!, '应用异常关闭，下载未完成');
+            } catch (e) {
+              AppLogger.error('DownloadViewModel', '标记任务失败出错: $e');
+            }
+          }
+        } catch (e) {
+          // 单个任务处理出错，记录日志但继续处理其他任务
+          AppLogger.error('DownloadViewModel', '处理任务 ${task.id} 时出错: $e');
         }
       }
     } catch (e) {
-      AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
+      AppLogger.error('DownloadViewModel', '获取未完成任务列表失败: $e');
     }
   }
 
@@ -201,24 +305,26 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 暂停下载
   Future<void> pauseDownload(int taskId) async {
     _operationStates[taskId] = true;  // 开始操作
+    // 先更新 state 以触发 UI 重建（显示操作中状态）
+    if (ref.mounted) {
+      final currentTasks = state.valueOrNull?.downloads ?? [];
+      state = AsyncData(DownloadModelState.loaded(downloads: currentTasks));
+    }
+
     try {
       await _repository!.pauseDownload(taskId);
       _taskProgress.remove(taskId);
 
-      if (!ref.mounted) return;
-      final tasks = await _repository!.getAllTasks();
-      _updateQueuePositions();
-
-      state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       AppLogger.info('DownloadViewModel', '已暂停任务: $taskId');
     } catch (e) {
       AppLogger.error('DownloadViewModel', '暂停任务失败: $e');
       rethrow;
     } finally {
       _operationStates[taskId] = false;  // 结束操作
-      // 触发一次 state 更新，确保 UI 能感知到操作状态的变化
+      // 触发重建，确保 UI 能感知到操作状态的变化
       if (ref.mounted) {
         final tasks = await _repository!.getAllTasks();
+        _updateQueuePositions();
         state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
@@ -227,14 +333,15 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 恢复下载
   Future<void> resumeDownload(int taskId) async {
     _operationStates[taskId] = true;
+    // 先更新 state 以触发 UI 重建（显示操作中状态）
+    if (ref.mounted) {
+      final currentTasks = state.valueOrNull?.downloads ?? [];
+      state = AsyncData(DownloadModelState.loaded(downloads: currentTasks));
+    }
+
     try {
       await _repository!.resumeDownload(taskId);
 
-      if (!ref.mounted) return;
-      final tasks = await _repository!.getAllTasks();
-      _updateQueuePositions();
-
-      state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       AppLogger.info('DownloadViewModel', '已恢复任务: $taskId');
     } catch (e) {
       AppLogger.error('DownloadViewModel', '恢复任务失败: $e');
@@ -244,6 +351,32 @@ class DownloadViewModel extends _$DownloadViewModel {
       // 触发一次 state 更新，确保 UI 能感知到操作状态的变化
       if (ref.mounted) {
         final tasks = await _repository!.getAllTasks();
+        _updateQueuePositions();
+        state = AsyncData(DownloadModelState.loaded(downloads: tasks));
+      }
+    }
+  }
+
+  /// 强制恢复下载（忽略卡死/失败状态）
+  Future<void> forceResume(int taskId) async {
+    _operationStates[taskId] = true;
+    // 先更新 state 以触发 UI 重建（显示操作中状态）
+    if (ref.mounted) {
+      final currentTasks = state.valueOrNull?.downloads ?? [];
+      state = AsyncData(DownloadModelState.loaded(downloads: currentTasks));
+    }
+
+    try {
+      await _repository!.forceResume(taskId);
+      AppLogger.info('DownloadViewModel', '已强制恢复任务: $taskId');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '强制恢复任务失败: $e');
+      rethrow;
+    } finally {
+      _operationStates[taskId] = false;
+      if (ref.mounted) {
+        final tasks = await _repository!.getAllTasks();
+        _updateQueuePositions();
         state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
@@ -252,16 +385,17 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 删除下载任务
   Future<void> deleteDownload(int taskId, {bool deleteFile = false}) async {
     _operationStates[taskId] = true;
+    // 先更新 state 以触发 UI 重建（显示操作中状态）
+    if (ref.mounted) {
+      final currentTasks = state.valueOrNull?.downloads ?? [];
+      state = AsyncData(DownloadModelState.loaded(downloads: currentTasks));
+    }
+
     try {
       await _repository!.deleteDownloadTask(taskId, deleteFile: deleteFile);
       _taskProgress.remove(taskId);
       _queuePositions.remove(taskId);
 
-      if (!ref.mounted) return;
-      final tasks = await _repository!.getAllTasks();
-      _updateQueuePositions();
-
-      state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       AppLogger.info('DownloadViewModel', '已删除任务: $taskId');
     } catch (e) {
       AppLogger.error('DownloadViewModel', '删除任务失败: $e');
@@ -270,6 +404,7 @@ class DownloadViewModel extends _$DownloadViewModel {
       _operationStates[taskId] = false;
       if (ref.mounted) {
         final tasks = await _repository!.getAllTasks();
+        _updateQueuePositions();
         state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
@@ -278,16 +413,17 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 取消下载
   Future<void> cancelDownload(int taskId) async {
     _operationStates[taskId] = true;
+    // 先更新 state 以触发 UI 重建（显示操作中状态）
+    if (ref.mounted) {
+      final currentTasks = state.valueOrNull?.downloads ?? [];
+      state = AsyncData(DownloadModelState.loaded(downloads: currentTasks));
+    }
+
     try {
       await _repository!.cancelDownload(taskId);
       _taskProgress.remove(taskId);
       _queuePositions.remove(taskId);
 
-      if (!ref.mounted) return;
-      final tasks = await _repository!.getAllTasks();
-      _updateQueuePositions();
-
-      state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       AppLogger.info('DownloadViewModel', '已取消任务: $taskId');
     } catch (e) {
       AppLogger.error('DownloadViewModel', '取消任务失败: $e');
@@ -296,6 +432,7 @@ class DownloadViewModel extends _$DownloadViewModel {
       _operationStates[taskId] = false;
       if (ref.mounted) {
         final tasks = await _repository!.getAllTasks();
+        _updateQueuePositions();
         state = AsyncData(DownloadModelState.loaded(downloads: tasks));
       }
     }
@@ -328,6 +465,21 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.info('DownloadViewModel', '重试失败任务');
     } catch (e) {
       AppLogger.error('DownloadViewModel', '重试失败: $e');
+    }
+  }
+
+  /// 重试卡死的任务
+  Future<void> retryStalledAll() async {
+    try {
+      await _repository!.retryStalledAll();
+
+      if (!ref.mounted) return;
+      final tasks = await _repository!.getAllTasks();
+
+      state = AsyncData(DownloadModelState.loaded(downloads: tasks));
+      AppLogger.info('DownloadViewModel', '重试卡死任务');
+    } catch (e) {
+      AppLogger.error('DownloadViewModel', '重试卡死任务失败: $e');
     }
   }
 

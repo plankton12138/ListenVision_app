@@ -1,4 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/history_viewmodel.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
@@ -217,7 +218,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           style: const TextStyle(color: Colors.grey),
         ),
         onTap: () {
-          // TODO: 播放该音频
+          _playHistoryItem(item, ref);
         },
       ),
     );
@@ -249,6 +250,20 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               child: const Icon(Icons.music_note),
             ),
     );
+  }
+
+  Future<void> _playHistoryItem(PlayHistory item, WidgetRef ref) async {
+    final audio = item.audio;
+
+    ref.read(playerViewModelProvider.notifier).playOnlineAudio(
+      audio: audio,
+    );
+
+    if (mounted) {
+      context.go('/');
+    }
+
+    AppLogger.info('PlayHistoryPage', '播放历史记录: ${audio.title}');
   }
 
   /// 格式化时长

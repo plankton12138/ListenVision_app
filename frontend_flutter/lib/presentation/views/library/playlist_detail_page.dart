@@ -1,12 +1,17 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/routes/router.dart';
+import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_detail_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 import '../../../core/state/state_utils.dart';
 
@@ -237,45 +242,294 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final artist = item.artist as String?;
     final duration = item.duration as int?;
 
-    // 判断是否为本地音乐
     final isLocalMusic = localPath != null && localPath.isNotEmpty;
 
     return ListTile(
-      leading: Text(
-        '${index + 1}',
-        style: TextStyle(
-          fontSize: 16,
-          color: Colors.grey[600],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      title: Row(
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          SizedBox(
+            width: 24,
             child: Text(
-              title ?? '未知标题',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              '${index + 1}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           if (isLocalMusic)
-            const Icon(
-             (Icons.folder_open),
-              size: 14,
-              color: Colors.green,
-            ),
+            Icon(Icons.folder_open, size: 14, color: Colors.green),
         ],
+      ),
+      title: Text(
+        title ?? '未知标题',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         '${artist ?? '未知艺术家'}${duration != null ? ' • ${_formatDuration(duration)}' : ''}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      // 暂时移除操作菜单，避免布局问题
-      // TODO: 添加简单的操作菜单（收藏、下载等）
-      trailing: const Icon(Icons.play_circle_outline, size: 20),
+      trailing: _buildItemTrailing(item, ref),
       onTap: () => _playItem(item, ref),
     );
+  }
+
+  Widget _buildItemTrailing(dynamic item, WidgetRef ref) {
+    final localPath = item.localPath as String?;
+    final isLocalMusic = localPath != null && localPath.isNotEmpty;
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      iconSize: 20,
+      onSelected: (action) => _onItemMenuAction(action, item, ref),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'play',
+          child: Row(
+            children: [
+              Icon(Icons.play_arrow, size: 18),
+              SizedBox(width: 8),
+              Text('播放'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'add_to_playlist',
+          child: Row(
+            children: [
+              Icon(Icons.playlist_add, size: 18),
+              SizedBox(width: 8),
+              Text('添加到歌单'),
+            ],
+          ),
+        ),
+        if (!isLocalMusic) ...[
+          const PopupMenuItem(
+            value: 'download',
+            child: Row(
+              children: [
+                Icon(Icons.download, size: 18),
+                SizedBox(width: 8),
+                Text('下载'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'favorite',
+            child: Row(
+              children: [
+                Icon(Icons.favorite_border, size: 18),
+                SizedBox(width: 8),
+                Text('收藏'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'share',
+            child: Row(
+              children: [
+                Icon(Icons.share, size: 18),
+                SizedBox(width: 8),
+                Text('分享'),
+              ],
+            ),
+          ),
+        ],
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'remove',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 18, color: Colors.red),
+              SizedBox(width: 8),
+              Text('从歌单移除', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onItemMenuAction(String action, dynamic item, WidgetRef ref) {
+    final bvid = item.bvid as String?;
+    final title = item.title as String?;
+    final artist = item.artist as String?;
+    final coverUrl = item.coverUrl as String?;
+    final duration = item.duration as int?;
+
+    switch (action) {
+      case 'play':
+        _playItem(item, ref);
+        break;
+      case 'add_to_playlist':
+        if (bvid != null) {
+          AudioActionMenu.show(
+            context,
+            bvid: bvid,
+            title: title ?? '未知标题',
+            artist: artist,
+            coverUrl: coverUrl,
+            duration: duration,
+            showFavorite: false,
+            showDownload: true,
+          );
+        }
+        break;
+      case 'download':
+        _handleDownload(item, ref);
+        break;
+      case 'favorite':
+        _handleFavorite(item, ref);
+        break;
+      case 'share':
+        _handleShare(bvid);
+        break;
+      case 'remove':
+        _showRemoveConfirmDialog(item, ref);
+        break;
+    }
+  }
+
+  void _handleDownload(dynamic item, WidgetRef ref) async {
+    final bvid = item.bvid as String?;
+    if (bvid == null) return;
+
+    try {
+      final downloadDir = await _getDownloadDirectory();
+      final sanitizedTitle = _sanitizeTitle(item.title as String? ?? '未知');
+      final savePath = '$downloadDir$sanitizedTitle.mp3';
+
+      await ref.read(downloadViewModelProvider.notifier).addDownload(
+        bvid: bvid,
+        savePath: savePath,
+        title: item.title,
+        artist: item.artist,
+        coverUrl: item.coverUrl,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到下载队列')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('PlaylistDetailPage', '下载失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<String> _getDownloadDirectory() async {
+    try {
+      final downloadDir = await getDownloadsDirectory();
+      if (downloadDir == null) {
+        throw Exception('系统下载目录不可用');
+      }
+
+      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      if (!await appDownloadDir.exists()) {
+        await appDownloadDir.create(recursive: true);
+      }
+
+      return '${appDownloadDir.path}${path.separator}';
+    } catch (e) {
+      AppLogger.error('PlaylistDetailPage', '获取下载目录失败: $e');
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        if (!await fallbackDir.exists()) {
+          await fallbackDir.create(recursive: true);
+        }
+        return '${fallbackDir.path}${path.separator}';
+      } catch (e) {
+        AppLogger.error('PlaylistDetailPage', '获取备用目录失败: $e');
+        return '';
+      }
+    }
+  }
+
+  String _sanitizeTitle(String input) {
+    const pattern = r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+    final sanitized = input.replaceAll(RegExp(pattern), '');
+    return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  void _handleFavorite(dynamic item, WidgetRef ref) async {
+    final bvid = item.bvid as String?;
+    if (bvid == null) return;
+
+    final token = ref.read(authTokenProvider);
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先登录')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+      await playlistNotifier.toggleFavorite(
+        token,
+        bvid,
+        title: item.title,
+        artist: item.artist,
+        duration: item.duration,
+        coverUrl: item.coverUrl,
+      );
+      await playlistNotifier.loadFavorites(token);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到收藏')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('PlaylistDetailPage', '收藏失败: $e');
+    }
+  }
+
+  void _handleShare(String? bvid) {
+    if (bvid == null) return;
+    final url = 'https://www.bilibili.com/video/$bvid';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('分享链接:\n$url')),
+    );
+  }
+
+  void _showRemoveConfirmDialog(dynamic item, WidgetRef ref) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('从歌单移除'),
+        content: Text('确定要从歌单中移除 "${item.title ?? '此歌曲'}" 吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) {
+        final bvid = item.bvid as String?;
+        if (bvid != null) {
+          ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier)
+              .removeItem(bvid);
+        }
+      }
+    });
   }
 
   /// 播放歌单项（支持在线和本地音乐）
@@ -442,17 +696,49 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
-  void _downloadAll(WidgetRef ref, List items) {
+  void _downloadAll(WidgetRef ref, List items) async {
     if (items.isEmpty) return;
 
-    // TODO: 批量下载
-    // for (final item in items) {
-    //   ref.read(downloadViewModelProvider.notifier).addDownload(item.bvid);
-    // }
-    // context.push('/downloads');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Text('正在添加到下载队列...'),
+          ],
+        ),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    final addedCount = await ref.read(
+      playlistDetailViewModelProvider(widget.playlistId).notifier,
+    ).downloadAllItems();
+
+    if (!mounted) return;
+
+    String message;
+    if (addedCount > 0) {
+      message = '已添加 $addedCount 首到下载队列';
+    } else {
+      message = '没有需要下载的歌曲';
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已添加 ${items.length} 首歌曲到下载队列')),
+      SnackBar(
+        content: Text(message),
+        action: addedCount > 0
+            ? SnackBarAction(
+                label: '查看下载',
+                onPressed: () => context.push('/downloads'),
+              )
+            : null,
+      ),
     );
   }
 

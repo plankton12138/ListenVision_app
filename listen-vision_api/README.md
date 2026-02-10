@@ -40,7 +40,7 @@ ListenVision API 是一个为音频流媒体应用设计的后端服务，采用
 | API 文档 | Swagger UI | 5.0.1 | 交互式 API 文档 |
 | CORS | cors | 2.8.5 | 跨域资源共享 |
 | 邮件 | nodemailer | 7.0.3 | 邮件发送服务 |
-| 音频处理 | fluent-ffmpeg | 2.1.3 | 音频格式转换 |
+| 音频处理 | 后端已移除（迁移至前端，使用 metadata_god） | - | 仅代理 m4s 流，格式转换由客户端处理 |
 
 ---
 
@@ -82,7 +82,7 @@ listen-vision_api/
 ├── services/                  # 服务层（核心业务逻辑）
 │   ├── audio/                # 音频服务模块
 │   │   ├── index.js          # 统一入口
-│   │   ├── conversionService.js    # 音频转换
+│   │   ├── (conversionService 已移除 - 后端不做转换)
 │   │   ├── metadataService.js      # 元数据缓存
 │   │   └── searchHistoryService.js # 搜索历史
 │   ├── userService.js        # 用户服务

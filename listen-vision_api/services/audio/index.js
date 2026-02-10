@@ -9,22 +9,11 @@
  * 保持向后兼容，原有导入方式仍然有效
  */
 
-const conversionService = require('./conversionService');
 const metadataService = require('./metadataService');
 const searchHistoryService = require('./searchHistoryService');
 
 module.exports = {
-  // FFmpeg 配置
-  setFFmpegPath: conversionService.setFFmpegPath,
-  getFFmpegVersion: conversionService.getFFmpegVersion,
-
-  // 音频转换
-  convertStream: conversionService.convertStream,
-  convertFile: conversionService.convertFile,
-  convertWithMetadata: conversionService.convertWithMetadata,
-  proxyAndConvert: conversionService.proxyAndConvert,
-
-  // 元数据管理
+  // 元数据管理（后端保留）
   getAudioMetadata: metadataService.getAudioMetadata,
   getMultipleMetadata: metadataService.getMultipleMetadata,
   getAudioStreamUrl: metadataService.getAudioStreamUrl,
@@ -42,7 +31,6 @@ module.exports = {
   deleteSearchKeyword: searchHistoryService.deleteSearchKeyword,
 
   // 子模块（供内部使用）
-  conversionService,
   metadataService,
   searchHistoryService
 };

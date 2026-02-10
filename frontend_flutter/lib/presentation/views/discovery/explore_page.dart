@@ -3,6 +3,7 @@ import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/models/audio.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/explore_viewmodel.dart';
+import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
@@ -23,16 +24,47 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const List<String> _tabs = ['热门', '开发中'];
+  static const List<String> _tabs = ['推荐', '热门'];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+
+    final currentIndex = _tabController.index;
+    if (currentIndex == 0) {
+      _loadRecommendIfNeed();
+    } else if (currentIndex == 1) {
+      _loadHotIfNeed();
+    }
+  }
+
+  void _loadRecommendIfNeed() {
+    final state = ref.read(exploreViewModelProvider);
+    state.whenData((s) {
+      if (s is ExploreStateInitial || (s is ExploreStateLoaded && s.type != ExploreType.recommended)) {
+        ref.read(exploreViewModelProvider.notifier).loadRecommended();
+      }
+    });
+  }
+
+  void _loadHotIfNeed() {
+    final state = ref.read(exploreViewModelProvider);
+    state.whenData((s) {
+      if (s is ExploreStateInitial || (s is ExploreStateLoaded && s.type != ExploreType.hot)) {
+        ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -64,7 +96,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     exploreState.whenData((state) {
       if (state is ExploreStateInitial) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+          if (_tabController.index == 0) {
+            ref.read(exploreViewModelProvider.notifier).loadRecommended();
+          } else {
+            ref.read(exploreViewModelProvider.notifier).loadHotRanking();
+          }
         });
       }
     });
@@ -99,11 +135,208 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildRecommendTab(exploreState),
           _buildHotTab(exploreState),
-          _buildComingSoonTab(),
         ],
       ),
     );
+  }
+
+  Widget _buildRecommendTab(AsyncValue<ExploreState> exploreState) {
+    return exploreState.when(
+      loading: () => _buildLoadingView(),
+      error: (e, _) => _buildErrorView(e.toString()),
+      data: (state) {
+        return state.when(
+          initial: () => _buildLoadingView(),
+          loading: () => _buildLoadingView(),
+          notBound: () => _buildNotBoundPrompt(),
+          loaded: (items, _, _, type) => type == ExploreType.recommended
+              ? _buildRecommendList(items)
+              : _buildLoadingView(),
+          error: (message) => _buildErrorView(message),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecommendList(List<ExploreItem> items) {
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.music_note, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('暂无推荐内容', style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(8),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _buildRecommendItem(item, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecommendItem(ExploreItem item, int index) {
+    return Card(
+      child: ListTile(
+        leading: SizedBox(
+          width: 80,
+          height: 56,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: item.coverUrl != null && item.coverUrl!.isNotEmpty
+                    ? Image.network(
+                        item.coverUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.music_note),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.music_note),
+                      ),
+              ),
+              if (item.duration != null)
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    color: Colors.black54,
+                    child: Text(
+                      _formatDuration(item.duration!),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        title: Text(
+          item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.author,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            if (item.playCount != null)
+              Text(
+                ' ${_formatPlayCount(item.playCount!)} ',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+          ],
+        ),
+        trailing: _buildItemTrailing(item),
+        onTap: () => _playAudio(item),
+      ),
+    );
+  }
+
+  Widget _buildItemTrailing(ExploreItem item) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      iconSize: 20,
+      onSelected: (action) => _onItemAction(action, item),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'add_to_playlist',
+          child: Text('添加到歌单'),
+        ),
+        const PopupMenuItem(
+          value: 'favorite',
+          child: Text('收藏'),
+        ),
+        const PopupMenuItem(
+          value: 'download',
+          child: Text('下载'),
+        ),
+        const PopupMenuItem(
+          value: 'share',
+          child: Text('分享'),
+        ),
+      ],
+    );
+  }
+
+  void _onItemAction(String action, ExploreItem item) {
+    switch (action) {
+      case 'add_to_playlist':
+        AudioActionMenu.show(
+          context,
+          bvid: item.bvid,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.coverUrl,
+          duration: item.duration,
+          showFavorite: false,
+          showDownload: true,
+        );
+        break;
+      case 'favorite':
+        AudioActionMenu.show(
+          context,
+          bvid: item.bvid,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.coverUrl,
+          duration: item.duration,
+          showAddToPlaylist: false,
+          showDownload: false,
+        );
+        break;
+      case 'download':
+        AudioActionMenu.show(
+          context,
+          bvid: item.bvid,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.coverUrl,
+          duration: item.duration,
+          showFavorite: false,
+          showAddToPlaylist: false,
+        );
+        break;
+      case 'share':
+        final url = 'https://www.bilibili.com/video/${item.bvid}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('分享链接:\n$url')),
+        );
+        break;
+    }
+  }
+
+  String _formatPlayCount(int count) {
+    if (count >= 100000000) {
+      return '${(count / 100000000).toStringAsFixed(1)}亿';
+    }
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
   }
 
   /// 构建热门Tab
@@ -287,30 +520,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
-      ),
-    );
-  }
-
-  /// 构建开发中Tab
-  Widget _buildComingSoonTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.construction, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            '功能开发中',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.grey[600],
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '敬请期待更多内容',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-        ],
       ),
     );
   }

@@ -15,6 +15,9 @@ class ResumableDownloadResult {
   /// 错误信息
   final String? error;
 
+  /// 错误类型
+  final ResumableDownloadErrorType? errorType;
+
   /// 文件 ETag
   final String? etag;
 
@@ -28,6 +31,7 @@ class ResumableDownloadResult {
     required this.success,
     this.filePath,
     this.error,
+    this.errorType,
     this.etag,
     this.lastModified,
     this.fileSize,
@@ -54,8 +58,29 @@ class ResumableDownloadResult {
     return ResumableDownloadResult(success: false, error: error);
   }
 
+  /// 失败结果（带类型）
+  factory ResumableDownloadResult.failureWithType(
+    String error,
+    ResumableDownloadErrorType errorType,
+  ) {
+    return ResumableDownloadResult(
+      success: false,
+      error: error,
+      errorType: errorType,
+    );
+  }
+
   @override
   String toString() => success ? '下载成功: $filePath' : '下载失败: $error';
+}
+
+/// 断点续传错误类型
+enum ResumableDownloadErrorType {
+  etagMismatch,
+  notResumable,
+  cancelled,
+  network,
+  unknown,
 }
 
 /// 断点续传下载服务
@@ -92,7 +117,10 @@ class ResumableDownloadService {
     void Function(int current, int total, int percent)? onProgress,
   }) async {
     if (_disposed) {
-      return ResumableDownloadResult.failure('服务已释放');
+      return ResumableDownloadResult.failureWithType(
+        '服务已释放',
+        ResumableDownloadErrorType.unknown,
+      );
     }
 
     _currentToken = CancellationToken();
@@ -153,7 +181,10 @@ class ResumableDownloadService {
       );
 
       if (_disposed || token.isCancelled) {
-        return ResumableDownloadResult.failure('下载已取消');
+        return ResumableDownloadResult.failureWithType(
+          '下载已取消',
+          ResumableDownloadErrorType.cancelled,
+        );
       }
 
       // 获取响应信息
@@ -201,26 +232,36 @@ class ResumableDownloadService {
       } else if (statusCode == 412) {
         // Precondition Failed - 文件已更改，需要重新下载
         AppLogger.warn('ResumableDownloadService', '文件已更改 (ETag 不匹配)，重新下载');
-        return await downloadAudio(
-          bvid: bvid,
-          savePath: savePath,
-          downloadedBytes: 0,
-          onProgress: onProgress,
+        return ResumableDownloadResult.failureWithType(
+          'ETag 不匹配，需重新下载',
+          ResumableDownloadErrorType.etagMismatch,
         );
       } else {
-        return ResumableDownloadResult.failure('服务器返回状态码: $statusCode');
+        return ResumableDownloadResult.failureWithType(
+          '服务器返回状态码: $statusCode',
+          ResumableDownloadErrorType.notResumable,
+        );
       }
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         AppLogger.info('ResumableDownloadService', '下载已取消');
-        return ResumableDownloadResult.failure('下载已取消');
+        return ResumableDownloadResult.failureWithType(
+          '下载已取消',
+          ResumableDownloadErrorType.cancelled,
+        );
       }
       final error = e.message ?? '网络请求失败';
       AppLogger.error('ResumableDownloadService', '下载失败: $error');
-      return ResumableDownloadResult.failure(error);
+      return ResumableDownloadResult.failureWithType(
+        error,
+        ResumableDownloadErrorType.network,
+      );
     } catch (e) {
       AppLogger.error('ResumableDownloadService', '下载失败: $e');
-      return ResumableDownloadResult.failure(e.toString());
+      return ResumableDownloadResult.failureWithType(
+        e.toString(),
+        ResumableDownloadErrorType.unknown,
+      );
     } finally {
       _currentToken = null;
     }
@@ -247,7 +288,10 @@ class ResumableDownloadService {
       await for (final data in stream) {
         if (_disposed || token.isCancelled) {
           await file.close();
-          return ResumableDownloadResult.failure('下载已取消');
+          return ResumableDownloadResult.failureWithType(
+            '下载已取消',
+            ResumableDownloadErrorType.cancelled,
+          );
         }
 
         // 写入数据
@@ -296,7 +340,10 @@ class ResumableDownloadService {
       await file.close();
       AppLogger.error('ResumableDownloadService', '下载流处理失败: $e');
       // 保留临时文件以便续传
-      return ResumableDownloadResult.failure(e.toString());
+      return ResumableDownloadResult.failureWithType(
+        e.toString(),
+        ResumableDownloadErrorType.unknown,
+      );
     }
   }
 

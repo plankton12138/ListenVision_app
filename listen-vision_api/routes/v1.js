@@ -104,7 +104,10 @@ router.use('/recommendations', require('./recommendations'));
  * @route   GET /api/v1/bilibili/proxy/audio
  * @access  Private (需要 B站账号绑定)
  */
-router.use('/bilibili', require('./bilibili'));
+router.use('/bilibili', (req, res, next) => {
+  console.log('[DEBUG] v1.js - /bilibili route accessed:', req.method, req.path, req.originalUrl);
+  next();
+}, require('./bilibili'));
 
 // ==================== 音频元数据相关 ====================
 

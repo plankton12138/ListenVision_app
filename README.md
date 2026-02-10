@@ -125,7 +125,7 @@ ListenVision 采用 **Clean Architecture** 设计原则，遵循清晰的分层�
 - **认证**: bcrypt ^5.1.1 + JWT
 - **加密**: AES-256-CBC (Cookie 加密存储)
 - **B站API**: WBI签名、QR码登录、元数据缓存
-- **音频处理**: fluent-ffmpeg ^2.1.3 (格式转换)
+- **音频处理**: 后端已移除（迁移至前端，使用 metadata_god）
 - **邮件**: nodemailer ^7.0.3
 - **跨域**: cors ^2.8.5
 

@@ -76,6 +76,7 @@ try {
   logger.info('v1 API routes registered (/api/v1/*)');
 } catch (e) {
   logger.error('Failed to load v1 routes:', e.message);
+  logger.error('Stack trace:', e.stack);
 }
 
 // ========== 错误处理 ==========
@@ -103,6 +104,9 @@ const server = app.listen(PORT, () => {
   console.log(`  Health: http://localhost:${PORT}/health`);
   console.log('========================================\n');
   logger.info(`Server started on port ${PORT}`);
+
+  const cookieRefreshScheduler = require('./services/cookieRefreshScheduler');
+  cookieRefreshScheduler.start();
 });
 
 // ========== 优雅退出 ==========

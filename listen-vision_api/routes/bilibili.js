@@ -318,6 +318,26 @@ router.get('/search', optionalAuthMiddleware, bilibiliController.searchBilibili)
 
 /**
  * @swagger
+ * /api/bilibili/search/suggest:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 获取搜索建议（联想词）
+ *     description: 根据输入关键词返回B站搜索建议
+ *     parameters:
+ *       - in: query
+ *         name: keyword
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 输入关键词
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ */
+router.get('/search/suggest', bilibiliController.getSearchSuggestions);
+
+/**
+ * @swagger
  * /api/bilibili/search/recent:
  *   get:
  *     tags: [B站API]
@@ -450,305 +470,77 @@ router.get('/proxy/audio/:bvid', optionalAuthMiddleware, bilibiliController.prox
 
 /**
  * @swagger
- * /api/bilibili/download/{bvid}:
+ * /api/bilibili/recommend:
  *   get:
  *     tags: [B站API]
- *     summary: 下载音频文件（带元数据写入）
- *     description: |
- *       下载B站视频的音频，自动转换为标准格式并写入元数据（标题、艺术家、封面）。
- *
- *       **处理流程**：
- *       1. 获取视频信息（标题、UP主、封面）
- *       2. 下载 m4s 音频流
- *       3. FFmpeg 转换为标准 MP3/M4A
- *       4. 写入元数据到文件
- *       5. 返回转换后的文件
- *
- *       **优势**：
- *       - 转换后的文件是标准格式，元数据嵌入文件中
- *       - 重传或用其他播放器打开也能显示正确信息
- *       - 封面图片嵌入文件，无需额外下载
+ *     summary: 获取B站音乐区推荐
+ *     description: 获取B站音乐区的个性化推荐视频
  *     parameters:
- *       - in: path
- *         name: bvid
- *         required: true
- *         schema:
- *           type: string
- *         description: 视频BVID
  *       - in: query
- *         name: format
+ *         name: page
  *         schema:
- *           type: string
- *           enum: [mp3, m4a]
- *           default: mp3
- *         description: 输出格式
- *     responses:
- *       200:
- *         description: 音频文件（带元数据）
- *         content:
- *           audio/mpeg:
- *             type: string
- *             format: binary
- *           audio/m4a:
- *             type: string
- *             format: binary
- *         headers:
- *           Content-Disposition:
- *             description: 文件名（包含标题）
- *             schema:
- *               type: string
- *       404:
- *         description: 视频不存在或无法获取音频流
- */
-router.get('/download/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithMetadata);
-
-/**
- * @swagger
- * /api/bilibili/download-range/{bvid}:
- *   get:
- *     tags: [B站API]
- *     summary: 下载音频文件（支持断点续传）
- *     description: |
- *       下载B站视频的音频，支持 HTTP Range 请求实现断点续传。
- *
- *       **与 /download/{bvid} 的区别**：
- *       - 支持 Range 请求头，可实现断点续传
- *       - 返回 206 Partial Content 状态码
- *       - 包含 Content-Range, ETag, Last-Modified 响应头
- *       - 使用标准 HTTP 流式传输（非 SSE）
- *
- *       **断点续传示例**：
- *       ```
- *       // 首次请求
- *       GET /api/bilibili/download-range/BV1xx411c7mD
- *       -> 200 OK, ETag: "BV1xx411c7mD-1234567-mp3"
- *
- *       // 断点续传请求
- *       GET /api/bilibili/download-range/BV1xx411c7mD
- *       Range: bytes=500000-
- *       If-Match: "BV1xx411c7mD-1234567-mp3"
- *       -> 206 Partial Content, Content-Range: bytes 500000-1234566/1234567
- *       ```
- *     parameters:
- *       - in: path
- *         name: bvid
- *         required: true
- *         schema:
- *           type: string
- *         description: 视频BVID
+ *           type: integer
+ *           default: 1
+ *         description: 页码
  *       - in: query
- *         name: format
+ *         name: pageSize
  *         schema:
- *           type: string
- *           enum: [mp3, m4a]
- *           default: mp3
- *         description: 输出格式
- *       - in: header
- *         name: Range
- *         schema:
- *           type: string
- *           example: "bytes=0-1048575"
- *         description: 请求的字节范围（断点续传）
- *       - in: header
- *         name: If-Match
- *         schema:
- *           type: string
- *         description: ETag 验证（确保文件未更改）
+ *           type: integer
+ *           default: 20
+ *         description: 每页数量
  *     responses:
  *       200:
- *         description: 完整文件
- *         headers:
- *           Content-Type:
- *             schema:
- *               type: string
- *           Content-Length:
- *             schema:
- *               type: integer
- *           ETag:
- *             schema:
- *               type: string
- *           Accept-Ranges:
- *             schema:
- *               type: string
- *               example: "bytes"
- *       206:
- *         description: 部分内容（断点续传）
- *         headers:
- *           Content-Range:
- *             schema:
- *               type: string
- *               example: "bytes 500000-1234566/1234567"
- *           Content-Type:
- *             schema:
- *               type: string
- *           Content-Length:
- *             schema:
- *               type: integer
- *           ETag:
- *             schema:
- *               type: string
- *       412:
- *         description: 前置条件失败（文件已更改）
- *       416:
- *         description: 请求范围无效
+ *         description: 获取成功
  */
-router.get('/download-range/:bvid', optionalAuthMiddleware, bilibiliController.downloadAudioWithRange);
-
-// ========== 下载状态管理 ==========
+router.get('/recommend', (req, res, next) => {
+  console.log('[DEBUG] /recommend route hit! query:', req.query, 'user:', req.user);
+  next();
+}, optionalAuthMiddleware, bilibiliController.getRecommendedVideos);
 
 /**
  * @swagger
- * /api/bilibili/download/status/:requestId:
- *   get:
- *     tags: [B站API]
- *     summary: 查询下载任务状态
- *     description: |
- *       查询下载任务的实时状态，支持断线重连后恢复。
- *
- *       **使用场景**：
- *       - SSE 连接断开后重新获取状态
- *       - 检查长时间任务是否完成
- *       - 获取详细的错误信息
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: string
- *         description: 下载请求ID
- *     responses:
- *       200:
- *         description: 任务状态
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     requestId:
- *                       type: string
- *                     bvid:
- *                       type: string
- *                     status:
- *                       type: string
- *                       enum: [pending, downloading, converting, verifying, completed, failed, canceled, timeout]
- *                     progress:
- *                       type: integer
- *                       description: 进度百分比 (0-100)
- *                     stage:
- *                       type: string
- *                       description: 当前阶段
- *                     message:
- *                       type: string
- *                       description: 状态描述
- *                     fileUrl:
- *                       type: string
- *                       description: 文件URL（完成后）
- *                     fileName:
- *                       type: string
- *                     fileSize:
- *                       type: integer
- *                     checksum:
- *                       type: string
- *                       description: 文件校验和（用于验证）
- *                     error:
- *                       type: string
- *                       description: 错误信息（失败时）
- *                     createdAt:
- *                       type: integer
- *                       description: 创建时间戳
- *                     estimatedTimeRemaining:
- *                       type: integer
- *                       description: 预计剩余时间（毫秒）
- *       404:
- *         description: 任务不存在或已过期
- */
-router.get('/download/status/:requestId', optionalAuthMiddleware, bilibiliController.getDownloadStatus);
-
-/**
- * @swagger
- * /api/bilibili/download/confirm/:requestId:
+ * /api/bilibili/refresh-cookie:
  *   post:
  *     tags: [B站API]
- *     summary: 确认下载完成并验证文件
- *     description: |
- *       客户端下载完成后调用此接口确认，并可选地提供文件校验和进行双重验证。
- *
- *       **双重验证机制**：
- *       - 客户端计算本地文件的校验和
- *       - 服务端验证校验和是否匹配
- *       - 验证通过后才标记任务真正完成
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: string
- *       - in: body
- *         name: body
- *         schema:
- *           type: object
- *           properties:
- *             checksum:
- *               type: string
- *               description: 客户端计算的文件校验和（SHA256）
+ *     summary: 手动刷新Cookie
+ *     description: 手动触发当前用户的B站Cookie刷新
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: 确认成功
+ *         description: 刷新成功
  *       400:
- *         description: 校验失败
- *       404:
- *         description: 任务不存在
+ *         description: 刷新失败或无需刷新
  */
-router.post('/download/confirm/:requestId', optionalAuthMiddleware, bilibiliController.confirmDownload);
+router.post('/refresh-cookie', authMiddleware, async (req, res) => {
+  try {
+    const cookieRefreshScheduler = require('../services/cookieRefreshScheduler');
+    const success = await cookieRefreshScheduler.refreshUser(req.user.id);
 
-/**
- * @swagger
- * /api/bilibili/download/cancel/:requestId:
- *   delete:
- *     tags: [B站API]
- *     summary: 取消下载任务
- *     description: 取消正在进行的下载任务
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: 取消成功
- *       404:
- *         description: 任务不存在
- */
-router.delete('/download/cancel/:requestId', optionalAuthMiddleware, bilibiliController.cancelDownload);
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Cookie刷新成功',
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Cookie刷新失败或无需刷新',
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
 
-/**
- * @swagger
- * /api/bilibili/download/heartbeat/:requestId:
- *   post:
- *     tags: [B站API]
- *     summary: 发送客户端心跳
- *     description: |
- *       客户端定期发送心跳，告知服务器仍在等待。
- *
- *       服务器使用此信息判断客户端是否在线：
- *       - 如果超过60秒没有心跳，认为客户端离线
- *       - 离线客户端的任务可能被清理
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: 心跳接收成功
- */
-router.post('/download/heartbeat/:requestId', optionalAuthMiddleware, bilibiliController.heartbeat);
+// 注意：下载功能已迁移到前端，以下路由已移除
+// - /download/:bvid (SSE 下载)
+// - /download-range/:bvid (断点续传)
+// - /download/status/:requestId (状态查询)
+// - /download/confirm/:requestId (确认下载)
+// - /download/heartbeat/:requestId (心跳)
 
 module.exports = router;

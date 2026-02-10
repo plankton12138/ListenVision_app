@@ -60,7 +60,11 @@
       "Bash(flutter pub run build_runner build:*)",
       "Bash(Sort-Object LastWriteTime -Descending)",
       "Bash(ForEach-Object { Get-Content $_FullName -Tail 100 })",
-      "mcp__web-reader__webReader"
+      "mcp__web-reader__webReader",
+      "Bash($env:USERNAME = $env:USERNAME)",
+      "Bash(ForEach-Object { Get-Content $_FullName -Tail 200 })",
+      "Bash(Format-Table Name, LastWriteTime)",
+      "Bash($env:USERNAME = \"23104\")"
     ]
   }
 }

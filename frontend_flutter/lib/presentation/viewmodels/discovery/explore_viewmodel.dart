@@ -105,7 +105,9 @@ class ExploreItem {
 @Riverpod(keepAlive: true)
 class ExploreViewModel extends _$ExploreViewModel {
   BackendApiClient? _apiClient;
-  static const _pageSize = 20;
+  /// B站推荐 API 限制：ps >= 15 时返回错误
+  /// 使用 10 作为安全值
+  static const _pageSize = 10;
 
   @override
   Future<ExploreState> build() async {
@@ -187,60 +189,45 @@ class ExploreViewModel extends _$ExploreViewModel {
   /// 加载个性化推荐
   Future<bool> loadRecommended({int page = 1}) async {
     try {
-      AppLogger.info('ExploreViewModel', '加载个性化推荐: page=$page');
+      AppLogger.info('ExploreViewModel', '加载推荐: page=$page');
 
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      final data = await _apiClient!.getPersonalizedRecommendations(
-        limit: _pageSize,
+      final data = await _apiClient!.getRecommend(
+        page: page,
+        pageSize: _pageSize,
       );
 
-      // 后端可能返回 'playlists' 或 'videos' 字段
-      final playlistsData = data['playlists'] as List? ?? [];
-      final videosData = data['videos'] as List? ?? [];
+      final videos = data['videos'] as List? ?? [];
+      final total = data['total'] as int? ?? 0;
 
-      final items = <ExploreItem>[];
+      final items = videos.map((v) {
+        final json = v as Map<String, dynamic>;
+        return ExploreItem(
+          bvid: json['bvid'] as String? ?? '',
+          title: json['title'] as String? ?? '',
+          author: json['author'] as String? ?? '未知',
+          duration: json['duration'] as int?,
+          playCount: json['play'] as int?,
+          coverUrl: json['cover'] as String?,
+        );
+      }).toList();
 
-      // 处理歌单中的预览音频
-      for (final playlist in playlistsData) {
-        final playlistJson = playlist as Map<String, dynamic>;
-        final previews = playlistJson['previews'] as List? ?? [];
-
-        for (final preview in previews) {
-          final previewJson = preview as Map<String, dynamic>;
-          items.add(ExploreItem(
-            bvid: previewJson['id']?.toString() ?? '',
-            title: previewJson['title']?.toString() ?? '',
-            author: playlistJson['uname']?.toString() ?? '',
-            duration: previewJson['duration'] as int?,
-            playCount: playlistJson['statistic']?['play'] as int?,
-            coverUrl: playlistJson['cover'] as String?,
-          ));
-        }
-      }
-
-      // 处理直接的视频列表
-      for (final video in videosData) {
-        final videoJson = video as Map<String, dynamic>;
-        items.add(ExploreItem.fromJson(videoJson));
-      }
-
-      // 个性化推荐通常不分页，没有更多
-      final hasMore = false;
+      final hasMore = (page * _pageSize) < total;
 
       if (!ref.mounted) return false;
       state = AsyncData(ExploreState.loaded(
         items: items,
         hasMore: hasMore,
-        currentPage: 1,
+        currentPage: page,
         type: ExploreType.recommended,
       ));
 
-      AppLogger.info('ExploreViewModel', '个性化推荐加载成功: ${items.length}条');
+      AppLogger.info('ExploreViewModel', '推荐加载成功: ${items.length}条');
       return true;
     } catch (e) {
-      AppLogger.error('ExploreViewModel', '加载个性化推荐失败: $e');
+      AppLogger.error('ExploreViewModel', '加载推荐失败: $e');
       if (!ref.mounted) return false;
       state = AsyncError(e, StackTrace.current);
       return false;

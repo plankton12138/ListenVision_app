@@ -59,12 +59,21 @@ const decryptCookie = (encryptedData) => {
 const stmt = {
   // B站账号相关
   insertBiliAccount: db.prepare(`
+    INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, refresh_token_encrypted, is_active, expires_at)
+    VALUES (?, ?, ?, ?, ?, 1, ?)
+  `),
+  insertBiliAccountWithoutRefresh: db.prepare(`
     INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, is_active, expires_at)
     VALUES (?, ?, ?, ?, 1, ?)
   `),
   updateBiliAccount: db.prepare(`
     UPDATE bilibili_accounts
     SET bili_user_id = ?, bili_username = ?, cookie_encrypted = ?, is_active = 1, updated_at = datetime('now')
+    WHERE id = ?
+  `),
+  updateBiliAccountWithRefresh: db.prepare(`
+    UPDATE bilibili_accounts
+    SET bili_user_id = ?, bili_username = ?, cookie_encrypted = ?, refresh_token_encrypted = ?, expires_at = ?, is_active = 1, updated_at = datetime('now')
     WHERE id = ?
   `),
   getActiveBiliAccount: db.prepare(`
@@ -369,23 +378,36 @@ const buildCookieString = (loginData) => {
  * @param {string} cookie - Cookie字符串
  * @param {Object} userInfo - B站用户信息
  */
-const saveCookie = async (userId, cookie, userInfo = {}) => {
+const saveCookie = async (userId, cookie, userInfo = {}, refreshToken = null) => {
   const encrypted = encryptCookie(cookie);
   const biliUserId = userInfo.mid || userInfo.uid || '';
   const biliUsername = userInfo.uname || '';
 
-  // 检查是否已有绑定
+  const encryptedRefreshToken = refreshToken ? encryptCookie(refreshToken) : null;
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString().replace('T', ' ').substring(0, 19);
+
   const existing = stmt.getActiveBiliAccount.get(userId);
 
   if (existing) {
-    // 更新现有绑定
-    stmt.updateBiliAccount.run(biliUserId, biliUsername, encrypted, existing.id);
+    if (encryptedRefreshToken) {
+      stmt.updateBiliAccountWithRefresh.run(
+        biliUserId, biliUsername, encrypted, encryptedRefreshToken, expiresAt, existing.id
+      );
+    } else {
+      stmt.updateBiliAccount.run(biliUserId, biliUsername, encrypted, existing.id);
+    }
   } else {
-    // 创建新绑定
-    // 假设Cookie有效期30天
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      .toISOString().replace('T', ' ').substring(0, 19);
-    stmt.insertBiliAccount.run(userId, biliUserId, biliUsername, encrypted, expiresAt);
+    if (encryptedRefreshToken) {
+      stmt.insertBiliAccount.run(
+        userId, biliUserId, biliUsername, encrypted, encryptedRefreshToken, expiresAt
+      );
+    } else {
+      stmt.insertBiliAccountWithoutRefresh.run(
+        userId, biliUserId, biliUsername, encrypted, expiresAt
+      );
+    }
   }
 
   return { success: true };
@@ -423,17 +445,102 @@ const getCookie = (userId) => {
 /**
  * 刷新Cookie（如果即将过期）
  *
- * 注意：B站的 refresh_token 机制需要调用特定的刷新 API。
- * 当前实现中，refresh_token 已保存但刷新逻辑待实现。
- *
  * @param {number} userId - 用户ID
  * @returns {boolean} 是否成功
  */
 const refreshCookie = async (userId) => {
-  // Cookie 刷新逻辑：调用 B站 refresh_token API 更新过期 Cookie
-  // 参考文档：bilibili-API-collect/docs/login/login_action/QR.md
-  // 当前暂不实现，用户重新扫码登录即可
-  return true;
+  try {
+    const account = stmt.getActiveBiliAccount.get(userId);
+    if (!account) {
+      logger.warn('[Cookie刷新] 账号不存在或已停用: userId=%d', userId);
+      return false;
+    }
+
+    if (!account.refresh_token_encrypted) {
+      logger.warn('[Cookie刷新] 无 refresh_token，无法刷新: userId=%d', userId);
+      return false;
+    }
+
+    const refreshToken = decryptCookie(account.refresh_token_encrypted);
+    if (!refreshToken) {
+      logger.warn('[Cookie刷新] refresh_token 解密失败: userId=%d', userId);
+      return false;
+    }
+
+    const csrf = _extractBiliJct(account.cookie_encrypted);
+    const currentCookie = decryptCookie(account.cookie_encrypted);
+
+    const url = 'https://passport.bilibili.com/x/passport-login/web/cookie/refresh';
+    const response = await httpPost(
+      url,
+      {
+        refresh_token: refreshToken,
+        csrf: csrf,
+      },
+      {
+        'Cookie': currentCookie || '',
+      }
+    );
+
+    logger.debug('[Cookie刷新] API响应: %o', response);
+
+    if (response.code !== 0) {
+      logger.error('[Cookie刷新] 失败: %s (code=%d)', response.message, response.code);
+      
+      // -101: 账号未登录, -6: refresh_token无效, -7: refresh_token过期
+      if (response.code === -101 || response.code === -6 || response.code === -7) {
+        stmt.deactivateBiliAccount.run(userId);
+        logger.warn('[Cookie刷新] 账号已过期，已停用: userId=%d', userId);
+      }
+      return false;
+    }
+
+    const newRefreshToken = response.data?.refresh_token;
+    const newCookieParts = [];
+
+    if (response.data?.refresh_csrf) {
+      // 更新 Cookie 中的 bili_jct（如果变了）
+      // B站刷新API返回的是新的 refresh_token，Cookie 可能需要重新构建
+      logger.info('[Cookie刷新] 获取到新的 refresh_token');
+    }
+
+    if (newRefreshToken) {
+      const encryptedNewRefreshToken = encryptCookie(newRefreshToken);
+      const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString().replace('T', ' ').substring(0, 19);
+
+      stmt.updateBiliAccountWithRefresh.run(
+        account.bili_user_id,
+        account.bili_username,
+        account.cookie_encrypted,
+        encryptedNewRefreshToken,
+        newExpiresAt,
+        account.id
+      );
+
+      logger.info('[Cookie刷新] 成功: userId=%d', userId);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error('[Cookie刷新] 异常: %s', error.message);
+    return false;
+  }
+};
+
+/**
+ * 从加密Cookie中提取 bili_jct
+ */
+const _extractBiliJct = (cookieEncrypted) => {
+  try {
+    const cookie = decryptCookie(cookieEncrypted);
+    if (!cookie) return '';
+    const match = cookie.match(/bili_jct=([^;]+)/);
+    return match ? match[1] : '';
+  } catch (e) {
+    return '';
+  }
 };
 
 /**
@@ -940,6 +1047,53 @@ const getRecentSearches = (userId) => {
 };
 
 /**
+ * 获取搜索建议（联想词）
+ *
+ * 调用 B站搜索建议 API，根据输入关键词返回相关的搜索建议。
+ *
+ * @param {string} keyword - 输入关键词
+ * @returns {Array} 搜索建议列表
+ */
+const getSearchSuggestions = async (keyword) => {
+  try {
+    if (!keyword || keyword.trim().length === 0) {
+      return [];
+    }
+
+    // B站搜索建议 API
+    const url = `https://api.bilibili.com/x/web-interface/search/suggest?keyword=${encodeURIComponent(keyword)}`;
+
+    const data = await httpGet(url, {}, 5000);
+
+    if (data.code !== 0) {
+      logger.warn(`获取搜索建议失败: ${data.message}`);
+      return [];
+    }
+
+    // 解析返回结果
+    // B站返回格式: { code: 0, data: { tag: [{ ... }] } }
+    const suggestions = [];
+
+    if (data.data && data.data.tag) {
+      for (const tag of data.data.tag) {
+        if (tag.keyword) {
+          suggestions.push(tag.keyword);
+        }
+        if (tag.value) {
+          suggestions.push(tag.value);
+        }
+      }
+    }
+
+    // 去重并限制数量
+    return [...new Set(suggestions)].slice(0, 10);
+  } catch (error) {
+    logger.warn(`获取搜索建议失败: ${error.message}`);
+    return [];
+  }
+};
+
+/**
  * 获取缓存的音频内容
  * @param {string} bvid - 视频ID
  * @returns {Object|null} 缓存的音频数据
@@ -983,6 +1137,86 @@ const cleanupInvalidBindings = () => {
   }
 };
 
+/**
+ * 获取B站音乐区排行榜
+ *
+ * API: GET https://api.bilibili.com/x/web-interface/ranking/v2?rid=3
+ *
+ * rid=3 为音乐主分区，参考: docs/video/video_zone.md
+ *
+ * @param {number} userId - 用户ID（用于获取Cookie）
+ * @param {number} page - 页码（暂不支持，API返回固定100个）
+ * @param {number} pageSize - 每页数量（用于限制返回数量）
+ * @returns {Object} 推荐视频列表
+ */
+const getRecommendedVideos = async (userId = null, page = 1, pageSize = 20) => {
+  try {
+    logger.info('[getRecommendedVideos] 开始: userId=%s, page=%d, pageSize=%d', userId, page, pageSize);
+
+    const wbiKey = await getWbiKey(userId);
+
+    if (!wbiKey.imgKey || !wbiKey.subKey) {
+      logger.error('[getRecommendedVideos] WBI Key 获取失败');
+      throw new Error('WBI签名密钥获取失败');
+    }
+
+    // 使用分区排行榜 API，rid=3 为音乐主分区
+    const params = {
+      rid: 3,           // 音乐主分区
+      type: 'all',      // 全部类型
+    };
+    const signedParams = signWbi(params, wbiKey);
+
+    const url = `https://api.bilibili.com/x/web-interface/ranking/v2?${new URLSearchParams(signedParams).toString()}`;
+
+    const headers = {};
+    if (userId) {
+      const cookie = getCookie(userId);
+      if (cookie) {
+        headers['Cookie'] = cookie;
+        logger.info('[getRecommendedVideos] 使用用户Cookie (长度: %d)', cookie.length);
+      }
+    }
+
+    const data = await httpGet(url, headers);
+    logger.info('[getRecommendedVideos] B站API响应: code=%d', data.code);
+
+    if (data.code !== 0) {
+      throw new Error(data.message || '获取音乐区排行榜失败');
+    }
+
+    // ranking/v2 返回 data.list 数组
+    const list = data.data?.list || [];
+
+    // 根据 pageSize 截取返回结果
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedList = list.slice(startIndex, endIndex);
+
+    logger.info('[getRecommendedVideos] 成功: 返回 %d 个视频（第 %d 页，每页 %d）',
+                paginatedList.length, page, pageSize);
+
+    return {
+      videos: paginatedList.map(item => ({
+        bvid: item.bvid,
+        title: item.title,
+        cover: item.pic,
+        duration: item.duration,
+        author: item.owner?.name,
+        play: item.stat?.view,
+        description: item.desc,
+        pubdate: item.pubdate,
+      })),
+      page,
+      pageSize,
+      total: list.length,
+    };
+  } catch (error) {
+    logger.error('[getRecommendedVideos] 异常: %s', error.message);
+    throw new Error(`获取音乐区推荐失败: ${error.message}`);
+  }
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -1008,7 +1242,11 @@ module.exports = {
 
   // 搜索功能
   searchBilibili,
+  getSearchSuggestions,
   getRecentSearches,
+
+  // 推荐功能
+  getRecommendedVideos,
 
   // WBI签名（用于分区推荐）
   getWbiKey,

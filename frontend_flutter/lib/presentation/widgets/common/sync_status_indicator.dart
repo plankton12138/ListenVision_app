@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../../data/database/sync_queue_dao.dart';
 import '../../../../data/sync/sync_worker_provider.dart';
 
@@ -62,6 +63,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
 
     return statsAsync.when(
       data: (stats) {
+        AppLogger.debug('SyncStatusIndicator', '状态更新: $stats');
         final hasActive = stats.active > 0;
 
         if (!hasActive) {
@@ -78,12 +80,18 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
           child: child,
         );
       },
-      loading: () => SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      error: (_, __) => const SizedBox.shrink(),
+      loading: () {
+        AppLogger.debug('SyncStatusIndicator', '状态: loading');
+        return SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      },
+      error: (error, stackTrace) {
+        AppLogger.error('SyncStatusIndicator', '状态: error - $error', error: error, stackTrace: stackTrace);
+        return const SizedBox.shrink();
+      },
     );
   }
 

@@ -51,7 +51,7 @@ final class ExploreViewModelProvider
   ExploreViewModel create() => ExploreViewModel();
 }
 
-String _$exploreViewModelHash() => r'e63af9655472a312f97b001013ecba87f4c06927';
+String _$exploreViewModelHash() => r'280b5c0ec1c3212a90242fb925bf68473f5e6c15';
 
 /// 发现页面 ViewModel
 ///

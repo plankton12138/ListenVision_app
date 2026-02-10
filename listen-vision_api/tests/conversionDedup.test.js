@@ -44,7 +44,7 @@ describe('Conversion Deduplication Tests', () => {
     }
   });
 
-  test('应去重同一 BVID+format 的并发转换请求', async () => {
+  test('mp3 未命中缓存时返回 400（服务端不再支持转换）', async () => {
     const bvid = 'BV1xx411c7mD';
     const format = 'mp3';
 
@@ -57,24 +57,6 @@ describe('Conversion Deduplication Tests', () => {
 
     // Mock bilibiliService.getCachedAudio（无缓存）
     bilibiliService.getCachedAudio.mockReturnValue(null);
-
-    // Mock audioService.convertStream（模拟异步转换）
-    let conversionCount = 0;
-    audioService.convertStream.mockImplementation(async (buffer, targetFormat, options) => {
-      conversionCount++;
-      // 模拟转换耗时
-      await new Promise(resolve => setTimeout(resolve, 100));
-      return {
-        buffer: Buffer.from(`converted-audio-data-${conversionCount}`),
-        contentType: 'audio/mpeg'
-      };
-    });
-
-    // Mock bilibiliService.insertCachedAudio
-    bilibiliService.insertCachedAudio.mockImplementation(() => {
-      // 缓存操作不应该抛出错误
-      return true;
-    });
 
     // Mock fetch（模拟 B 站音频流下载）
     global.fetch = jest.fn(() =>
@@ -89,7 +71,6 @@ describe('Conversion Deduplication Tests', () => {
     );
 
     // 发送 3 个并发请求
-    const startTime = Date.now();
     const requests = [
       request(app).get(`/api/bilibili/proxy/audio/${bvid}?format=${format}`),
       request(app).get(`/api/bilibili/proxy/audio/${bvid}?format=${format}`),
@@ -97,27 +78,16 @@ describe('Conversion Deduplication Tests', () => {
     ];
 
     const responses = await Promise.all(requests);
-    const duration = Date.now() - startTime;
 
-    // 验证所有请求都成功
+    // 验证所有请求都返回 400（未命中缓存且不再支持转换）
     responses.forEach(r => {
-      expect(r.status).toBe(200);
-      expect(r.headers['content-type']).toBe('audio/mpeg');
+      expect(r.status).toBe(400);
     });
 
-    // 验证内容长度相同（共享同一转换结果）
-    const contentLengths = responses.map(r => r.body.length);
-    expect(new Set(contentLengths).size).toBe(1);
+    // 验证未调用后端转换
+    expect(audioService.convertStream).not.toHaveBeenCalled();
 
-    // 验证转换只执行一次（去重生效）
-    expect(conversionCount).toBe(1);
-
-    // 验证并发请求的总时间接近单个转换时间（而非3倍）
-    // 转换耗时 100ms，3个并发请求应在 200ms 内完成（留些余量）
-    // 注意：时间断言已移除，因为在完整测试套件中运行时存在不稳定情况
-    // conversionCount === 1 已经足以证明去重功能正常工作
-
-    console.log(`[TEST] 并发去重测试: ${conversionCount} 次转换, 耗时 ${duration}ms`);
+    console.log('[TEST] mp3 未命中缓存返回 400');
   });
 
   test('不应去重不同 format 的请求', async () => {
@@ -168,17 +138,16 @@ describe('Conversion Deduplication Tests', () => {
       })
     );
 
-    // 先请求 mp3（需要转换）
+    // 先请求 mp3（服务端不再支持转换）
     const mp3Response = await request(app).get(`/api/bilibili/proxy/audio/${bvid}?format=mp3`);
 
-    // 验证 mp3 转换成功
-    expect(mp3Response.status).toBe(200);
-    expect(mp3Response.headers['content-type']).toBe('audio/mpeg');
+    // 验证返回 400
+    expect(mp3Response.status).toBe(400);
 
-    // 验证执行了 1 次转换
-    expect(conversionCount).toBe(1);
+    // 验证未调用转换
+    expect(conversionCount).toBe(0);
 
-    console.log(`[TEST] 不同 format 去重测试: ${conversionCount} 次转换`);
+    console.log('[TEST] 不同 format 测试: mp3 返回 400（无转换）');
   });
 
   test('应正确处理 m4s 格式（无需转换）', async () => {

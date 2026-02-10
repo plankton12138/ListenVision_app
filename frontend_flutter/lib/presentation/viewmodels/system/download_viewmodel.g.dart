@@ -60,7 +60,7 @@ final class DownloadViewModelProvider
   DownloadViewModel create() => DownloadViewModel();
 }
 
-String _$downloadViewModelHash() => r'eecd40e6c15c2fb8256271b6601a5f2b8afba99f';
+String _$downloadViewModelHash() => r'1eee34d73c53f69049e63a57f97240a39a640464';
 
 /// 下载管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
 ///

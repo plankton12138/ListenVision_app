@@ -38,6 +38,11 @@ abstract class AppException implements Exception {
 
 // ==================== 网络相关异常 ====================
 
+/// 任务被取消异常
+class TaskCanceledException extends AppException {
+  const TaskCanceledException([String message = '任务已取消']) : super(message, 'TASK_CANCELED');
+}
+
 /// 网络请求异常
 ///
 /// 请求失败、超时、无网络连接等情况

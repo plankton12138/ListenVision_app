@@ -1,6 +1,5 @@
 const bilibiliService = require('../services/bilibiliService');
 const searchHistoryService = require('../services/audio/searchHistoryService');
-const { downloadTaskStore, TaskStatus } = require('../services/downloadTaskStore');
 const { successResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
@@ -370,6 +369,34 @@ const getRecentSearches = async (req, res) => {
 };
 
 /**
+ * 获取搜索建议（联想词）
+ */
+const getSearchSuggestions = async (req, res) => {
+  try {
+    const { keyword } = req.query;
+
+    if (!keyword) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少 keyword 参数'
+      });
+    }
+
+    const suggestions = await bilibiliService.getSearchSuggestions(keyword);
+
+    successResponse(res, {
+      suggestions,
+      keyword
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+/**
  * 清空搜索历史
  */
 const clearSearchHistory = async (req, res) => {
@@ -461,23 +488,12 @@ const proxyAudioStream = async (req, res) => {
       return res.status(response.status).send('获取音频失败');
     }
 
-    // 如果需要转换格式（不支持 seek）
+    // 服务端不再提供格式转换（除缓存命中），建议请求 m4s 或在客户端转换
     if (targetFormat !== 'm4s') {
-      const audioService = require('../services/audio');
-      const inputBuffer = await response.arrayBuffer();
-
-      logger.info('Audio converting', { from: 'm4s', to: targetFormat });
-
-      const { buffer, contentType } = await audioService.convertStream(
-        Buffer.from(inputBuffer),
-        targetFormat,
-        { bitrate: '192k', sampleRate: '44100', channels: 2 }
-      );
-
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Accept-Ranges', 'none'); // 转码流不支持 seek
-      res.send(buffer);
+      return res.status(400).json({
+        success: false,
+        error: '服务器不再支持服务端音频转换，请请求 m4s 或在客户端执行转换'
+      });
     } else {
       // 直接转发原始音频流（支持 seek 和断点续传）
       const contentType = response.headers.get('Content-Type') || 'audio/mp4';
@@ -654,59 +670,24 @@ const proxyAudioStreamByBvid = async (req, res) => {
       }
 
     } else if (targetFormat === 'mp3') {
-      // ✅ 模式B：转换为 mp3（并发控制 + 去重 + 缓存）
-      logger.info('BiliProxy convert to mp3', { bvid });
-
-      let result;
-      try {
-        result = await conversionTracker.getOrExecute(bvid, 'mp3', async () => {
-          const response = await fetch(streamUrl, {
-            headers: {
-              'Referer': 'https://www.bilibili.com/',
-              'User-Agent': 'Mozilla/5.0'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          // 下载并转换
-          const inputBuffer = Buffer.from(await response.arrayBuffer());
-          const { buffer, contentType } = await require('../services/audio').convertStream(
-            inputBuffer,
-            'mp3',
-            { bitrate: '192k', sampleRate: '44100', channels: 2 }
-          );
-
-          return { buffer, contentType };
-        });
-      } catch (conversionError) {
-        logger.error('MP3 conversion failed', { bvid, error: conversionError.message });
-        return res.status(502).json({
-          success: false,
-          error: `音频转换失败: ${conversionError.message}`
-        });
+      // 如果存在缓存，则返回缓存；否则服务器不再支持服务端转换
+      const cached = bilibiliService.getCachedAudio(bvid);
+      if (cached) {
+        logger.info('BiliProxy cached mp3 hit', { bvid });
+        res.setHeader('Content-Type', cached.contentType || 'audio/mpeg');
+        res.setHeader('Content-Length', cached.data.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(cached.data);
+        return;
       }
 
-      // ✅ 缓存转换结果（先缓存，再发送）
-      try {
-        bilibiliService.insertCachedAudio(bvid, result.buffer, result.contentType);
-      } catch (cacheError) {
-        logger.warn('Failed to cache audio', { bvid, error: cacheError.message });
-        // Continue anyway - non-critical
-      }
-
-      // 设置响应头
-      res.setHeader('Content-Type', result.contentType);
-      res.setHeader('Content-Length', result.buffer.length);
-      res.setHeader('Accept-Ranges', 'none');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.send(result.buffer);
-
-      logger.info('BiliProxy mp3 conversion complete', { bvid, bytes: result.buffer.length });
-    } else {
       return res.status(400).json({
+        success: false,
+        error: '服务器不再支持服务端音频转换（mp3），请请求 m4s 或在客户端执行转换'
+      });
+    } else {
+    return res.status(400).json({
         success: false,
         error: `不支持的格式: ${targetFormat}`
       });
@@ -718,579 +699,30 @@ const proxyAudioStreamByBvid = async (req, res) => {
 };
 
 /**
- * 下载音频文件（带元数据写入和实时进度）
- *
- * 使用 Server-Sent Events (SSE) 发送实时进度，最后发送二进制文件
- *
- * 流程：
- * 1. 发送 SSE 进度事件（阶段 + 百分比）
- * 2. 获取视频信息
- * 3. 下载 m4s 音频流
- * 4. FFmpeg 转换为标准 MP3/M4A
- * 5. 写入元数据
- * 6. 发送二进制文件
- *
- * GET /api/bilibili/download/:bvid?format=mp3
+ * 获取B站推荐视频
  */
-const downloadAudioWithMetadata = async (req, res) => {
-  const { bvid } = req.params;
-  const { format = 'mp3', requestId: clientRequestId } = req.query;
-
-  if (!bvid) {
-    return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
-  }
-
-  const userId = req.user?.id;
-  const audioService = require('../services/audio');
-  const crypto = require('crypto');
-  const startTime = Date.now();
-
-  // 创建或获取任务
-  const task = clientRequestId
-    ? downloadTaskStore.getTask(clientRequestId)
-    : downloadTaskStore.createTask(bvid, format);
-
-  if (!task) {
-    return res.status(404).json({ success: false, error: '任务不存在或已过期' });
-  }
-
-  const requestId = task.requestId;
-
-  logger.info('BiliDownload 开始', {
-    requestId,
-    bvid,
-    format,
-    userId: userId || 'none',
-    timestamp: new Date().toISOString()
-  });
-
-  // 设置 SSE 响应头
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  // 发送 requestId 给客户端
-  res.setHeader('X-Request-Id', requestId);
-
-  // 立即发送任务信息给客户端
-  res.write(`event: taskStart\ndata: ${JSON.stringify({ requestId, bvid, format })}\n\n`);
-
-  const sendProgress = (percent, stage, message) => {
-    const event = {
-      type: 'progress',
-      percent: percent,
-      stage: stage,
-      message: message,
-      timestamp: Date.now()
-    };
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    // 同步更新到状态存储
-    downloadTaskStore.updateProgress(requestId, percent, stage, message);
-  };
-
+const getRecommendedVideos = async (req, res) => {
   try {
-    // 步骤1: 获取视频信息
-    logger.info('BiliDownload 阶段1', { requestId, stage: 'fetching_info' });
-    sendProgress(5, 'fetching_info', '获取视频信息...');
-    downloadTaskStore.updateStatus(requestId, TaskStatus.DOWNLOADING);
+    const { page = 1, pageSize = 20 } = req.query;
+    const userId = req.user?.id || null;
+    console.log('[DEBUG] getRecommendedVideos called: userId=%s, page=%s, pageSize=%s', userId, page, pageSize);
+    logger.info('[getRecommendedVideos] 请求: userId=%s, page=%s, pageSize=%s', userId, page, pageSize);
 
-    const videoInfo = await bilibiliService.getVideoInfo(bvid);
-
-    const metadata = {
-      title: videoInfo.title || '未知标题',
-      artist: videoInfo.owner?.name || '未知艺术家',
-      album: `https://www.bilibili.com/video/${bvid}`,
-      coverUrl: videoInfo.cover
-    };
-
-    logger.info('BiliDownload 视频信息获取成功', { bvid, title: metadata.title, artist: metadata.artist, duration: videoInfo.duration });
-    sendProgress(10, 'info_loaded', `已获取: ${metadata.title}`);
-
-    // 步骤2: 获取音频流URL
-    logger.info('BiliDownload 阶段2', { bvid, stage: 'fetching_audio', message: '获取音频流URL...' });
-    sendProgress(15, 'fetching_audio', '获取音频流...');
-    const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
-
-    if (!audioStream || !audioStream.baseUrl) {
-      logger.error('BiliDownload 失败', { bvid, reason: '无法获取音频流URL' });
-      sendProgress(0, 'error', '无法获取音频流URL');
-      return res.end();
-    }
-
-    logger.info('BiliDownload 音频流获取成功', { requestId, bvid });
-
-    // 步骤3: 转换并写入元数据（带实时进度）
-    logger.info('BiliDownload 阶段3', { requestId, stage: 'converting' });
-    sendProgress(20, 'converting', '开始转换...');
-    downloadTaskStore.updateStatus(requestId, TaskStatus.CONVERTING);
-
-    const result = await audioService.convertWithMetadata(
-      audioStream.baseUrl,
-      metadata,
-      format,
-      {
-        bitrate: '192k',
-        sampleRate: '44100',
-        channels: 2,
-        // 取消检测函数：检查任务是否被取消
-        shouldCancel: () => {
-          const task = downloadTaskStore.getTask(requestId);
-          return task && (task.status === TaskStatus.CANCELED);
-        }
-      },
-      (percent, stage) => {
-        // 映射内部进度到总进度 (20% -> 95%)
-        const totalPercent = 20 + Math.floor(percent * 0.75);
-        const stageMap = {
-          'downloading_audio': 'downloading_audio',
-          'downloading_cover': 'downloading_cover',
-          'converting': 'converting',
-          'finishing': 'finishing',
-          'complete': 'complete'
-        };
-        const stageMessages = {
-          'downloading_audio': '下载音频流...',
-          'downloading_cover': '下载封面...',
-          'converting': 'FFmpeg 转换中...',
-          'finishing': '完成处理...',
-          'complete': '准备下载...'
-        };
-        sendProgress(totalPercent, stageMap[stage] || stage, stageMessages[stage] || stage);
-      }
+    const result = await bilibiliService.getRecommendedVideos(
+      userId,
+      parseInt(page) || 1,
+      parseInt(pageSize) || 20
     );
 
-    logger.info('BiliDownload 转换完成', { requestId, bytes: result.buffer.length });
-
-    // 步骤4: 计算文件校验和
-    const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
-    const fileBuffer = result.buffer;
-    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-
-    logger.info('BiliDownload 校验和计算完成', { requestId, fileName, checksum });
-
-    // 标记任务为待验证状态
-    downloadTaskStore.markCompleted(requestId, {
-      fileName,
-      fileSize: fileBuffer.length,
-      contentType: result.contentType,
-      checksum,
-    });
-
-    // 步骤5: 发送文件完成事件和分块文件数据
-    const chunkSize = 64 * 1024; // 64KB per chunk
-    const totalChunks = Math.ceil(fileBuffer.length / chunkSize);
-
-    logger.info('BiliDownload 开始发送文件', { requestId, fileName, bytes: fileBuffer.length, totalChunks });
-
-    // 发送文件元数据（包含校验和）
-    res.write(`event: fileStart\ndata: ${JSON.stringify({
-      requestId,
-      fileName: fileName,
-      contentType: result.contentType,
-      totalChunks: totalChunks,
-      totalSize: fileBuffer.length,
-      checksum: checksum,
-      timestamp: Date.now()
-    })}\n\n`);
-
-    // 分块发送文件数据
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, fileBuffer.length);
-      const chunk = fileBuffer.slice(start, end);
-      const base64Chunk = chunk.toString('base64');
-
-      res.write(`event: fileChunk\ndata: ${JSON.stringify({
-        chunkIndex: i,
-        totalChunks: totalChunks,
-        data: base64Chunk,
-        timestamp: Date.now()
-      })}\n\n`);
-
-      // 每发送一些块就记录进度和刷新缓冲区
-      if (i % 10 === 0) {
-        const progress = Math.floor((i / totalChunks) * 100);
-        logger.info('BiliDownload 发送文件中', { requestId, chunk: i + 1, totalChunks, progress: `${progress}%` });
-        // 给客户端一些时间处理
-        await new Promise(resolve => setImmediate(resolve));
-      }
-    }
-
-    // 发送文件完成事件
-    res.write(`event: fileEnd\ndata: ${JSON.stringify({
-      requestId,
-      fileName: fileName,
-      checksum: checksum,
-      timestamp: Date.now()
-    })}\n\n`);
-
-    res.end();
-
-    const duration = Date.now() - startTime;
-    logger.info('BiliDownload 完成', { requestId, bytes: fileBuffer.length, totalChunks, durationMs: duration });
-
+    successResponse(res, result);
   } catch (error) {
-    const duration = Date.now() - startTime;
-
-    // 检查是否是用户主动取消
-    const isCanceled = error.message && error.message.includes('已取消');
-    const task = downloadTaskStore.getTask(requestId);
-    const wasCanceled = task && task.status === TaskStatus.CANCELED;
-
-    if (isCanceled || wasCanceled) {
-      // 用户取消，不标记为失败
-      logger.info('BiliDownload 用户取消', { requestId, durationMs: duration });
-
-      if (!res.headersSent) {
-        res.status(499).json({ success: false, error: '任务已取消' });
-      } else {
-        const cancelEvent = {
-          type: 'error',
-          error: '任务已取消',
-          requestId: requestId,
-          timestamp: Date.now()
-        };
-        res.write(`event: error\ndata: ${JSON.stringify(cancelEvent)}\n\n`);
-        res.end();
-      }
-      return;
-    }
-
-    // 更新任务状态为失败
-    downloadTaskStore.updateStatus(requestId, TaskStatus.FAILED, error.message);
-
-    logger.error('BiliDownload 失败', {
-      requestId,
-      bvid,
-      error: error.message,
-      stack: error.stack,
-      durationMs: duration
-    });
-
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
-    } else {
-      const errorEvent = {
-        type: 'error',
-        error: error.message,
-        requestId: requestId,
-        timestamp: Date.now()
-      };
-      res.write(`event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`);
-      res.end();
-    }
-  }
-};
-
-/**
- * 清理文件名（移除非法字符）
- */
-function sanitizeFileName(input) {
-  // 移除或替换非法字符
-  return input
-    .replace(/[<>:"/\\|?*]/g, '_')  // 替换非法字符
-    .replace(/\s+/g, ' ')           // 合并空格
-    .trim();
-}
-
-/**
- * 支持断点续传的音频下载接口
- *
- * 与 downloadAudioWithMetadata 不同，这个接口：
- * 1. 支持 HTTP Range 请求（断点续传）
- * 2. 直接流式传输，不使用 SSE
- * 3. 返回标准的 HTTP 响应头（Content-Range, ETag, Last-Modified）
- *
- * GET /api/bilibili/download-range/:bvid?format=mp3
- */
-const downloadAudioWithRange = async (req, res) => {
-  const { bvid } = req.params;
-  const { format = 'mp3' } = req.query;
-  const range = req.headers.range;
-
-  if (!bvid) {
-    return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
-  }
-
-  const userId = req.user?.id;
-  const startTime = Date.now();
-
-  logger.info('BiliDownloadRange 开始', { bvid, format, range, userId: userId || 'none' });
-
-  try {
-    // 获取视频信息
-    const videoInfo = await bilibiliService.getVideoInfo(bvid);
-
-    const metadata = {
-      title: videoInfo.title || '未知标题',
-      artist: videoInfo.owner?.name || '未知艺术家',
-      album: `https://www.bilibili.com/video/${bvid}`,
-      coverUrl: videoInfo.cover
-    };
-
-    // 获取音频流URL
-    const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
-
-    if (!audioStream || !audioStream.baseUrl) {
-      logger.error('BiliDownloadRange 失败', { bvid, reason: '无法获取音频流URL' });
-      return res.status(404).json({ success: false, error: '无法获取音频流URL' });
-    }
-
-    const audioService = require('../services/audio');
-
-    // 转换并获取文件
-    logger.info('BiliDownloadRange 开始转换', { bvid });
-    const result = await audioService.convertWithMetadata(
-      audioStream.baseUrl,
-      metadata,
-      format,
-      { bitrate: '192k', sampleRate: '44100', channels: 2 },
-      null // 无进度回调
-    );
-
-    const fileBuffer = result.buffer;
-    const fileSize = fileBuffer.length;
-    const fileName = `${sanitizeFileName(metadata.title)}.${format}`;
-
-    // 生成 ETag（使用文件大小和 BVID 的哈希）
-    const etag = `"${bvid}-${fileSize}-${format}"`;
-    const lastModified = new Date().toUTCString();
-
-    // 设置响应头
-    res.setHeader('Content-Type', result.contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('ETag', etag);
-    res.setHeader('Last-Modified', lastModified);
-    res.setHeader('Accept-Ranges', 'bytes');
-
-    // 处理 Range 请求
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-      // 验证 If-Match 或 If-Range（用于验证文件未更改）
-      const ifMatch = req.headers['if-match'];
-      const ifRange = req.headers['if-range'];
-
-      if ((ifMatch && ifMatch !== etag) || (ifRange && ifRange !== etag && ifRange !== lastModified)) {
-        // 文件已更改，返回 412 Precondition Failed
-        logger.info('BiliDownloadRange 文件已更改', { bvid, ifMatch, ifRange, etag });
-        return res.status(412).end();
-      }
-
-      // 验证范围
-      if (start >= fileSize || end >= fileSize || start > end) {
-        return res.status(416).json({
-          error: 'Requested Range Not Satisfiable',
-          fileSize: fileSize
-        });
-      }
-
-      const chunkSize = (end - start) + 1;
-      const chunk = fileBuffer.slice(start, end + 1);
-
-      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
-      res.setHeader('Content-Length', chunkSize);
-      res.status(206);
-
-      logger.info('BiliDownloadRange Range 响应', { bvid, start, end, fileSize, chunkSize });
-      res.send(chunk);
-    } else {
-      // 完整文件请求
-      res.setHeader('Content-Length', fileSize);
-      res.status(200);
-
-      logger.info('BiliDownloadRange 完整响应', { bvid, fileSize });
-      res.send(fileBuffer);
-    }
-
-    logger.info('BiliDownloadRange 完成', { bvid, durationMs: Date.now() - startTime });
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    logger.error('BiliDownloadRange 失败', { bvid, error: error.message, stack: error.stack, durationMs: duration });
-
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
-    } else {
-      res.end();
-    }
-  }
-};
-
-// ==================== 下载状态管理 ====================
-
-/**
- * 查询下载任务状态
- *
- * GET /api/bilibili/download/status/:requestId
- */
-const getDownloadStatus = async (req, res) => {
-  const { requestId } = req.params;
-
-  if (!requestId) {
-    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
-  }
-
-  const task = downloadTaskStore.getTask(requestId);
-
-  if (!task) {
-    return res.status(404).json({
+    console.error('[DEBUG] getRecommendedVideos ERROR:', error.message, error.stack);
+    logger.error('[getRecommendedVideos] 失败: userId=%s, error=%s', req.user?.id, error.message);
+    res.status(500).json({
       success: false,
-      error: '任务不存在或已过期',
-      hint: '请重新发起下载请求'
+      error: error.message
     });
   }
-
-  // 更新心跳
-  downloadTaskStore.heartbeat(requestId);
-
-  // 计算预计剩余时间（基于已用时间和进度）
-  let estimatedTimeRemaining = null;
-  if (task.progress > 0 && task.status !== TaskStatus.COMPLETED) {
-    const elapsed = Date.now() - task.createdAt;
-    const totalTime = (elapsed / task.progress) * 100;
-    estimatedTimeRemaining = Math.max(0, totalTime - elapsed);
-  }
-
-  // 状态描述映射
-  const statusMessages = {
-    [TaskStatus.PENDING]: '准备中...',
-    [TaskStatus.DOWNLOADING]: '下载音频中...',
-    [TaskStatus.CONVERTING]: '转换格式中...',
-    [TaskStatus.VERIFYING]: '等待验证...',
-    [TaskStatus.COMPLETED]: '下载完成',
-    [TaskStatus.FAILED]: task.error || '下载失败',
-    [TaskStatus.CANCELED]: '已取消',
-    [TaskStatus.TIMEOUT]: '下载超时',
-  };
-
-  const response = {
-    requestId: task.requestId,
-    bvid: task.bvid,
-    status: task.status,
-    progress: task.progress,
-    stage: task.stage,
-    message: task.message || statusMessages[task.status] || task.status,
-    fileUrl: task.fileUrl,
-    fileName: task.fileName,
-    fileSize: task.fileSize,
-    checksum: task.checksum,
-    contentType: task.contentType,
-    error: task.error,
-    createdAt: task.createdAt,
-    completedAt: task.completedAt,
-    estimatedTimeRemaining,
-    clientConnected: task.clientConnected,
-  };
-
-  successResponse(res, response);
-};
-
-/**
- * 确认下载完成并验证文件
- *
- * POST /api/bilibili/download/confirm/:requestId
- * Body: { checksum?: string }
- */
-const confirmDownload = async (req, res) => {
-  const { requestId } = req.params;
-  const { checksum } = req.body;
-
-  if (!requestId) {
-    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
-  }
-
-  const result = downloadTaskStore.confirmDownload(requestId, checksum);
-
-  if (!result.success) {
-    // 校验失败
-    if (result.error === '文件校验失败') {
-      logger.warn('DownloadConfirm 校验失败', {
-        requestId,
-        expected: result.expectedChecksum,
-        actual: result.actualChecksum
-      });
-      return res.status(400).json({
-        success: false,
-        error: result.error,
-        expectedChecksum: result.expectedChecksum,
-        actualChecksum: result.actualChecksum,
-        hint: '文件可能已损坏，请重新下载'
-      });
-    }
-
-    return res.status(404).json({
-      success: false,
-      error: result.error || '确认失败'
-    });
-  }
-
-  logger.info('DownloadConfirm 确认成功', { requestId });
-
-  successResponse(res, {
-    requestId,
-    verified: true,
-    message: '下载完成并已验证'
-  });
-};
-
-/**
- * 取消下载任务
- *
- * DELETE /api/bilibili/download/cancel/:requestId
- */
-const cancelDownload = async (req, res) => {
-  const { requestId } = req.params;
-
-  if (!requestId) {
-    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
-  }
-
-  const result = downloadTaskStore.cancelTask(requestId);
-
-  if (!result.success) {
-    return res.status(404).json({
-      success: false,
-      error: result.error
-    });
-  }
-
-  logger.info('DownloadCancel 任务已取消', { requestId });
-
-  successResponse(res, {
-    requestId,
-    canceled: true,
-    message: '任务已取消'
-  });
-};
-
-/**
- * 客户端心跳
- *
- * POST /api/bilibili/download/heartbeat/:requestId
- */
-const heartbeat = async (req, res) => {
-  const { requestId } = req.params;
-
-  if (!requestId) {
-    return res.status(400).json({ success: false, error: '缺少 requestId 参数' });
-  }
-
-  const success = downloadTaskStore.heartbeat(requestId);
-
-  if (!success) {
-    return res.status(404).json({
-      success: false,
-      error: '任务不存在或已过期'
-    });
-  }
-
-  successResponse(res, {
-    heartbeat: true,
-    timestamp: Date.now()
-  });
 };
 
 module.exports = {
@@ -1309,23 +741,17 @@ module.exports = {
 
   // 搜索
   searchBilibili,
+  getSearchSuggestions,
   getRecentSearches,
   clearSearchHistory,
+
+  // 推荐
+  getRecommendedVideos,
 
   // 代理
   proxyImage,
   proxyAudioStream,
   proxyAudioStreamByBvid,
-
-  // 下载
-  downloadAudioWithMetadata,  // 新增：带元数据的下载
-  downloadAudioWithRange,     // 新增：支持断点续传的下载
-
-  // 下载状态管理
-  getDownloadStatus,          // 查询下载状态
-  confirmDownload,            // 确认下载完成
-  cancelDownload,              // 取消下载
-  heartbeat,                  // 客户端心跳
 
   // 测试辅助
   conversionTracker  // 导出用于测试

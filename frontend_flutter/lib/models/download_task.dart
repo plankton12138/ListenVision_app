@@ -3,6 +3,7 @@ enum DownloadStatus {
   pending,
   downloading,
   paused,
+  stalled,
   completed,
   failed,
 }
@@ -17,6 +18,8 @@ extension DownloadStatusExtension on DownloadStatus {
         return 'downloading';
       case DownloadStatus.paused:
         return 'paused';
+      case DownloadStatus.stalled:
+        return 'stalled';
       case DownloadStatus.completed:
         return 'completed';
       case DownloadStatus.failed:
@@ -32,6 +35,8 @@ extension DownloadStatusExtension on DownloadStatus {
         return DownloadStatus.downloading;
       case 'paused':
         return DownloadStatus.paused;
+      case 'stalled':
+        return DownloadStatus.stalled;
       case 'completed':
         return DownloadStatus.completed;
       case 'failed':
@@ -60,7 +65,14 @@ class DownloadTask {
   final String? tempFilePath; // 临时文件路径（断点续传使用）
   final String? etag; // ETag 用于验证文件是否更改
   final String? lastModified; // Last-Modified 头
-  final String? requestId; // 服务器分配的请求ID（用于断线重连）
+  // SSE 相关字段已移除：
+  // - requestId (服务器分配的请求ID - 不再需要)
+  // - resumeToken (断点续传令牌 - 不再需要)
+  // - lastHeartbeatAt (最后心跳时间 - 不再需要)
+  final DateTime? lastProgressAt;
+  final int retryCount;
+  final String? lastError;
+  final bool userPaused;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -81,7 +93,10 @@ class DownloadTask {
     this.tempFilePath,
     this.etag,
     this.lastModified,
-    this.requestId,
+    this.lastProgressAt,
+    this.retryCount = 0,
+    this.lastError,
+    this.userPaused = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -102,6 +117,9 @@ class DownloadTask {
   /// 是否已失败
   bool get isFailed => status == DownloadStatus.failed;
 
+  /// 是否已卡死
+  bool get isStalled => status == DownloadStatus.stalled;
+
   /// 从 Map 创建
   factory DownloadTask.fromMap(Map<String, dynamic> map) {
     return DownloadTask(
@@ -121,7 +139,16 @@ class DownloadTask {
       tempFilePath: map['temp_file_path'] as String?,
       etag: map['etag'] as String?,
       lastModified: map['last_modified'] as String?,
-      requestId: map['request_id'] as String?,
+      // 兼容旧数据库中的字段（如果存在则忽略）
+      // requestId: map['request_id'] as String?,
+      // resumeToken: map['resume_token'] as String?,
+      // lastHeartbeatAt: ...,
+      lastProgressAt: map['last_progress_at'] != null
+          ? DateTime.tryParse(map['last_progress_at'] as String)
+          : null,
+      retryCount: map['retry_count'] as int? ?? 0,
+      lastError: map['last_error'] as String?,
+      userPaused: (map['user_paused'] as int? ?? 0) == 1,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'] as String)
           : null,
@@ -150,7 +177,11 @@ class DownloadTask {
       if (tempFilePath != null) 'temp_file_path': tempFilePath,
       if (etag != null) 'etag': etag,
       if (lastModified != null) 'last_modified': lastModified,
-      if (requestId != null) 'request_id': requestId,
+      if (lastProgressAt != null)
+        'last_progress_at': lastProgressAt!.toIso8601String(),
+      'retry_count': retryCount,
+      if (lastError != null) 'last_error': lastError,
+      'user_paused': userPaused ? 1 : 0,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
@@ -174,7 +205,10 @@ class DownloadTask {
     String? tempFilePath,
     String? etag,
     String? lastModified,
-    String? requestId,
+    DateTime? lastProgressAt,
+    int? retryCount,
+    String? lastError,
+    bool? userPaused,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -195,7 +229,10 @@ class DownloadTask {
       tempFilePath: tempFilePath ?? this.tempFilePath,
       etag: etag ?? this.etag,
       lastModified: lastModified ?? this.lastModified,
-      requestId: requestId ?? this.requestId,
+      lastProgressAt: lastProgressAt ?? this.lastProgressAt,
+      retryCount: retryCount ?? this.retryCount,
+      lastError: lastError ?? this.lastError,
+      userPaused: userPaused ?? this.userPaused,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

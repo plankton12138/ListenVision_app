@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -11,6 +15,7 @@ import '../../../models/playable_audio.dart';
 import '../../../models/playlist.dart';
 import '../player/player_viewmodel.dart';
 import '../player/queue_viewmodel.dart';
+import '../system/download_viewmodel.dart';
 import 'playlist_viewmodel.dart';
 
 part 'playlist_detail_viewmodel.freezed.dart';
@@ -321,27 +326,101 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     }
   }
 
-  /// 下载全部
-  Future<bool> downloadAll() async {
+  /// 批量下载歌单中的音频
+  ///
+  /// 返回成功添加的下载任务数量
+  Future<int> downloadAllItems() async {
     final items = state.valueOrNull?.maybeWhen(
       loaded: (_, items, __) => items,
       orElse: () => null,
     );
-    if (items == null || items.isEmpty) return false;
+    if (items == null || items.isEmpty) return 0;
+
+    int addedCount = 0;
+    int skippedLocal = 0;
+    int skippedNoBvid = 0;
 
     try {
-      AppLogger.info('PlaylistDetailViewModel', '下载全部: ${items.length}首');
+      AppLogger.info('PlaylistDetailViewModel', '批量下载: ${items.length}首');
 
-      // TODO: 实现批量下载逻辑
-      // for (final item in items) {
-      //   ref.read(downloadViewModelProvider.notifier).addDownload(item.bvid);
-      // }
+      final downloadDir = await _getDownloadDirectory();
+      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
 
-      return true;
+      for (final item in items) {
+        // 跳过本地音乐
+        if (item.localPath?.isNotEmpty == true) {
+          skippedLocal++;
+          continue;
+        }
+
+        // 跳过没有 bvid 的项
+        if (item.bvid == null || item.bvid!.isEmpty) {
+          skippedNoBvid++;
+          continue;
+        }
+
+        // 添加到下载队列
+        try {
+          final sanitizedTitle = _sanitizeTitle(item.title ?? '未知');
+          final savePath = '$downloadDir$sanitizedTitle.mp3';
+
+          await downloadNotifier.addDownload(
+            bvid: item.bvid!,
+            savePath: savePath,
+            title: item.title,
+            artist: item.artist,
+            coverUrl: item.coverUrl,
+          );
+          addedCount++;
+        } catch (e) {
+          // 任务已存在或其他错误，继续处理下一项
+          AppLogger.debug('PlaylistDetailViewModel', '跳过下载: ${item.bvid} - $e');
+        }
+      }
+
+      AppLogger.info('PlaylistDetailViewModel',
+        '批量下载完成: 添加$addedCount, 跳过本地$skippedLocal, 跳过无BVID$skippedNoBvid');
+
+      return addedCount;
     } catch (e) {
-      AppLogger.error('PlaylistDetailViewModel', '下载全部失败: $e');
-      return false;
+      AppLogger.error('PlaylistDetailViewModel', '批量下载失败: $e');
+      return addedCount;
     }
+  }
+
+  Future<String> _getDownloadDirectory() async {
+    try {
+      final downloadDir = await getDownloadsDirectory();
+      if (downloadDir == null) {
+        throw Exception('系统下载目录不可用');
+      }
+
+      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      if (!await appDownloadDir.exists()) {
+        await appDownloadDir.create(recursive: true);
+      }
+
+      return '${appDownloadDir.path}${path.separator}';
+    } catch (e) {
+      AppLogger.error('PlaylistDetailViewModel', '获取下载目录失败: $e');
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        if (!await fallbackDir.exists()) {
+          await fallbackDir.create(recursive: true);
+        }
+        return '${fallbackDir.path}${path.separator}';
+      } catch (e) {
+        AppLogger.error('PlaylistDetailViewModel', '获取备用目录失败: $e');
+        return '';
+      }
+    }
+  }
+
+  String _sanitizeTitle(String input) {
+    const pattern = r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+    final sanitized = input.replaceAll(RegExp(pattern), '');
+    return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   /// 更新歌单信息

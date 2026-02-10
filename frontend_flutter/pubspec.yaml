@@ -73,6 +73,8 @@ dependencies:
   # 元数据写入（纯 Dart，零依赖，支持 M4A/MP3）
   metadata_god: ^0.5.0+1
   mime: ^2.0.0
+  # 设备音频扫描（访问 MediaStore/MPMediaQuery）
+  on_audio_query: ^2.9.0
 
 # setup for flutter_launcher_icons
 flutter_launcher_icons:

@@ -45,6 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- 媒体库访问权限 -->
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Listen Vision 需要访问您的音乐库以扫描本地音频文件</string>
 	<!-- just_audio 代理需要 HTTP 支持 -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

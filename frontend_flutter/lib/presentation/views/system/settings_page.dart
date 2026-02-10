@@ -1,6 +1,8 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/auth/platform_auth_viewmodel.dart';
+import 'package:demo/presentation/viewmodels/settings/scan_viewmodel.dart';
+import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +52,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 深色模式开关
+          _buildLocalMusicScanCard(context),
+          const SizedBox(height: 16),
           _buildDarkModeCard(context, themeMode: themeMode),
           const SizedBox(height: 16),
           // B站账号绑定
@@ -64,6 +67,138 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildLocalMusicScanCard(BuildContext context) {
+    final scanState = ref.watch(scanViewModelProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.library_music, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                '本地音乐',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '扫描设备中的音频文件',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: scanState.maybeWhen(
+              scanning: (current, total, fileName) {
+                final progress = total > 0 ? current / total : 0.0;
+                return Column(
+                  children: [
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 8),
+                    Text(
+                      '正在扫描 ($current/$total): $fileName',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                );
+              },
+              requestingPermission: () => const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text('请求权限中...'),
+                ],
+              ),
+              orElse: () => ElevatedButton.icon(
+                onPressed: () => _startScan(context),
+                icon: const Icon(Icons.search),
+                label: const Text('扫描本地音乐'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
+            ),
+          ),
+          scanState.maybeWhen(
+            completed: (result) => Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    result.summary,
+                    style: TextStyle(color: Colors.green, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            error: (message) => Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startScan(BuildContext context) async {
+    await ref.read(scanViewModelProvider.notifier).startScan(minDurationSeconds: 10);
+
+    if (mounted) {
+      final result = ref.read(scanViewModelProvider);
+      result.maybeWhen(
+        completed: (scanResult) {
+          if (scanResult.addedCount > 0) {
+            ref.read(localMusicViewModelProvider.notifier).refresh();
+          }
+          DialogHelper.showSnackBar(
+            context,
+            '扫描完成: ${scanResult.summary}',
+            backgroundColor: scanResult.addedCount > 0 ? Colors.green : Colors.grey[700]!,
+          );
+        },
+        error: (message) {
+          DialogHelper.showSnackBar(context, message, backgroundColor: Colors.red);
+        },
+        orElse: () {},
+      );
+    }
   }
 
   /// 深色模式开关卡片
@@ -153,7 +288,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
-    // 已登录，显示绑定界面
     return Consumer(
       builder: (context, ref, child) {
         return ref.watch(platformAuthViewModelProvider).when(
@@ -180,7 +314,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 标题
                   Row(
                     children: [
                       const Icon(Icons.link, size: 20),
@@ -190,7 +323,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const Spacer(),
-                      // 绑定状态标签
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -208,12 +340,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // 已绑定用户信息
                   if (isBound && userInfo != null) ...[
                     Row(
                       children: [
-                        // 头像
                         ClipOval(
                           child: Image.network(
                             userInfo.avatar,
@@ -231,25 +360,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // 用户信息
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 userInfo.uname,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'UID: ${userInfo.mid}',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
                               ),
                             ],
                           ),
@@ -257,13 +379,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // 解绑按钮
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: isLoading
-                            ? null
-                            : () => _confirmUnbind(context),
+                        onPressed: isLoading ? null : () => _confirmUnbind(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
@@ -274,22 +393,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                     ),
                   ] else ...[
-                    // 未绑定提示
                     Text(
                       '绑定B站账号后可使用推荐、UP主更新等功能',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     const SizedBox(height: 16),
-                    // 绑定按钮
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: isLoading
-                            ? null
-                            : () => _showQRCodeDialog(context),
+                        onPressed: isLoading ? null : () => _showQRCodeDialog(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
@@ -310,9 +422,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               borderRadius: BorderRadius.circular(15),
             ),
             padding: const EdgeInsets.all(15),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           ),
           error: (_, __) => Container(
             decoration: BoxDecoration(

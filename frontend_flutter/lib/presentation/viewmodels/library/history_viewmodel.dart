@@ -210,7 +210,15 @@ class HistoryViewModel extends _$HistoryViewModel {
       // 异步同步到服务器（非阻塞）
       final token = await _storage!.getString('auth_token');
       if (token != null && token.isNotEmpty && bvid != null) {
-        _syncPlayToServer(token, bvid, progress).catchError((e) {
+        _syncPlayToServer(
+          token,
+          bvid,
+          progress,
+          title: title,
+          artist: artist,
+          duration: duration,
+          coverUrl: coverUrl,
+        ).catchError((e) {
           AppLogger.error('HistoryViewModel', '记录播放失败（不影响播放）: $e');
         });
       }
@@ -222,10 +230,22 @@ class HistoryViewModel extends _$HistoryViewModel {
   }
 
   /// 同步播放到服务器
-  Future<void> _syncPlayToServer(String token, String bvid, int progress) async {
+  Future<void> _syncPlayToServer(
+    String token,
+    String bvid,
+    int progress, {
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
+  }) async {
     try {
       await _repository!.addPlayHistory(
         bvid: bvid,
+        title: title,
+        artist: artist,
+        duration: duration,
+        coverUrl: coverUrl,
         progress: progress,
       );
     } catch (e) {

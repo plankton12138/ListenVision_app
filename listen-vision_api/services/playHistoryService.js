@@ -72,7 +72,11 @@ const insertHistory = db.prepare(`
 
 const updateHistoryProgress = db.prepare(`
   UPDATE play_history
-  SET progress = ?, played_at = datetime('now')
+  SET progress = ?, played_at = datetime('now'),
+      title = COALESCE(?, title),
+      artist = COALESCE(?, artist),
+      duration = COALESCE(?, duration),
+      cover_url = COALESCE(?, cover_url)
   WHERE id = ?
 `);
 
@@ -117,8 +121,8 @@ const recordPlay = (userId, options = {}) => {
   }
 
   if (existingRecord) {
-    // 更新现有记录
-    updateHistoryProgress.run(progress, existingRecord.id);
+    // 更新现有记录（包括元数据）
+    updateHistoryProgress.run(progress, title, artist, duration, coverUrl, existingRecord.id);
     // 返回格式化的数据（确保可以 JSON 序列化）
     return {
       id: existingRecord.id,
@@ -126,10 +130,10 @@ const recordPlay = (userId, options = {}) => {
       bvid: existingRecord.bvid,
       local_path: existingRecord.local_path,
       audio_type: existingRecord.audio_type,
-      title: existingRecord.title,
-      artist: existingRecord.artist,
-      duration: existingRecord.duration,
-      cover_url: existingRecord.cover_url,
+      title: title ?? existingRecord.title,
+      artist: artist ?? existingRecord.artist,
+      duration: duration ?? existingRecord.duration,
+      cover_url: coverUrl ?? existingRecord.cover_url,
       progress: progress,
       played_at: new Date().toISOString()
     };

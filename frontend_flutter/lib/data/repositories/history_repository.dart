@@ -38,10 +38,20 @@ class PlayHistoryRepository {
         pageSize: pageSize,
       );
       final historyJson = data['history'] as List?;
-      return historyJson
-              ?.map((json) => PlayHistory.fromDto(json as Map<String, dynamic>))
+      AppLogger.debug('PlayHistoryRepository', '从服务器获取播放历史: ${historyJson?.length}条');
+      final history = historyJson
+              ?.map((json) {
+                // 打印原始数据以便调试
+                final rawJson = json as Map<String, dynamic>;
+                AppLogger.debug('PlayHistoryRepository', '原始数据: bvid=${rawJson['bvid']}, title=${rawJson['title']}, artist=${rawJson['artist']}, cover_url=${rawJson['cover_url']}');
+                final item = PlayHistory.fromDto(rawJson);
+                AppLogger.debug('PlayHistoryRepository', '解析播放历史: ${item.audio.id} - ${item.audio.title} - ${item.audio.artist}');
+                return item;
+              })
               .toList() ??
           [];
+      AppLogger.info('PlayHistoryRepository', '获取播放历史成功: ${history.length}条');
+      return history;
     } catch (e) {
       AppLogger.error('PlayHistoryRepository', '获取播放历史失败: $e');
       return [];
@@ -51,14 +61,22 @@ class PlayHistoryRepository {
   /// 添加播放历史（带同步重试）
   Future<bool> addPlayHistory({
     required String bvid,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
     int? progress,
   }) async {
     try {
       await _apiClient.addPlayHistory(
         bvid: bvid,
+        title: title,
+        artist: artist,
+        duration: duration,
+        coverUrl: coverUrl,
         progress: progress,
       );
-      AppLogger.debug('PlayHistoryRepository', '添加播放历史: $bvid');
+      AppLogger.debug('PlayHistoryRepository', '添加播放历史: $bvid - $title');
       return true;
     } catch (e) {
       AppLogger.error('PlayHistoryRepository', '添加播放历史失败: $e');
@@ -66,10 +84,17 @@ class PlayHistoryRepository {
       // 本地优先模式：加入同步队列
       if (localOnlyMode) {
         try {
+          final syncData = <String, dynamic>{
+            if (title != null) 'title': title,
+            if (artist != null) 'artist': artist,
+            if (duration != null) 'duration': duration,
+            if (coverUrl != null) 'coverUrl': coverUrl,
+            if (progress != null) 'progress': progress,
+          };
           final syncTask = SyncTask(
             type: SyncType.playHistory,
             bvid: bvid,
-            data: progress != null ? jsonEncode({'progress': progress}) : null,
+            data: syncData.isNotEmpty ? jsonEncode(syncData) : null,
             status: SyncStatus.pending,
             createdAt: DateTime.now(),
           );

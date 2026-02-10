@@ -386,6 +386,10 @@ class BackendApiClient {
   /// 添加播放历史
   Future<Map<String, dynamic>> addPlayHistory({
     required String bvid,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
     int? progress,
   }) async {
     try {
@@ -393,6 +397,10 @@ class BackendApiClient {
         HistoryEndpoints.history,
         data: {
           'bvid': bvid,
+          if (title != null) 'title': title,
+          if (artist != null) 'artist': artist,
+          if (duration != null) 'duration': duration,
+          if (coverUrl != null) 'coverUrl': coverUrl,
           if (progress != null) 'progress': progress,
         },
       );

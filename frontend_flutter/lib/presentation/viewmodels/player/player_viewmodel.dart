@@ -16,7 +16,9 @@ import '../../../models/local_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../services/audio_player_service.dart';
+import '../../../services/metadata_service.dart';
 import '../library/history_viewmodel.dart';
+import 'metadata_viewmodel.dart';
 
 part 'player_viewmodel.freezed.dart';
 part 'player_viewmodel.g.dart';
@@ -502,10 +504,31 @@ class PlayerViewModel extends _$PlayerViewModel {
 
       AppLogger.info('PlayerViewModel', '播放本地音频: $filePath');
 
+      // 如果没有提供元数据，尝试从文件提取
+      String finalTitle = title ?? '未知标题';
+      String finalArtist = artist ?? '未知艺术家';
+      int? duration;
+
+      if (title == null || artist == null) {
+        try {
+          final metadataService = ref.read(metadataServiceProvider);
+          final metadata = await metadataService.extractFromFile(filePath);
+          if (metadata.title.isNotEmpty) {
+            finalTitle = metadata.title;
+          }
+          if (metadata.artist.isNotEmpty) {
+            finalArtist = metadata.artist;
+          }
+          duration = metadata.duration;
+        } catch (e) {
+          AppLogger.debug('PlayerViewModel', '提取本地音频元数据失败: $e');
+        }
+      }
+
       // 更新元数据
       state = state.copyWith(
-        title: title ?? '未知标题',
-        artist: artist ?? '未知艺术家',
+        title: finalTitle,
+        artist: finalArtist,
         albumArt: albumArt,
         isCurrentOnline: false,
         isSeekable: true,
@@ -520,6 +543,16 @@ class PlayerViewModel extends _$PlayerViewModel {
       );
 
       _startPositionSaveTimer();
+
+      // 记录播放历史（使用本地路径作为标识）
+      final audio = Audio(
+        id: 'local_${filePath.hashCode}',
+        title: finalTitle,
+        artist: finalArtist,
+        duration: duration,
+        coverUrl: null, // 本地音频暂不支持在线封面
+      );
+      _recordPlayHistory(audio);
     } catch (e) {
       AppLogger.error('PlayerViewModel', '播放本地音频失败: $e');
       state = state.copyWith(
@@ -733,6 +766,7 @@ class PlayerViewModel extends _$PlayerViewModel {
   void _recordPlayHistory(Audio audio) {
     try {
       // 使用 ref.read 获取 HistoryViewModel 并记录播放
+      AppLogger.debug('PlayerViewModel', '记录播放历史: id=${audio.id}, title=${audio.title}, artist=${audio.artist}, coverUrl=${audio.coverUrl}');
       ref.read(historyViewModelProvider.notifier).recordPlay(
         bvid: audio.id,
         title: audio.title,

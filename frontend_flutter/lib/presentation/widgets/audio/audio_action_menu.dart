@@ -180,8 +180,9 @@ class AudioActionMenu extends ConsumerWidget {
               ),
               title: Text(isFavorited ? '取消收藏' : '收藏'),
               onTap: () {
+                final navigatorContext = Navigator.of(context);
                 Navigator.pop(context);
-                _toggleFavorite(ref, context);
+                _toggleFavorite(ref, navigatorContext.context);
               },
             ),
 
@@ -190,7 +191,7 @@ class AudioActionMenu extends ConsumerWidget {
               leading: const Icon(Icons.playlist_add),
               title: const Text('加入歌单'),
               onTap: () {
-                Navigator.pop(context);
+                // 不关闭当前 bottom sheet，而是直接打开歌单选择器
                 _showPlaylistSelector(context, ref);
               },
             ),
@@ -200,8 +201,11 @@ class AudioActionMenu extends ConsumerWidget {
               leading: const Icon(Icons.download),
               title: const Text('下载'),
               onTap: () {
+                // 在关闭 bottom sheet 之前获取 navigator context
+                // 这样可以在 bottom sheet 关闭后仍然显示 SnackBar
+                final navigatorContext = Navigator.of(context);
                 Navigator.pop(context);
-                _downloadAudio(ref, context);
+                _downloadAudio(ref, navigatorContext.context);
               },
             ),
 
@@ -211,6 +215,7 @@ class AudioActionMenu extends ConsumerWidget {
               title: const Text('在浏览器中打开'),
               onTap: () {
                 Navigator.pop(context);
+                // 在浏览器中打开不需要显示 SnackBar
                 _openInBrowser(context);
               },
             ),
@@ -220,8 +225,9 @@ class AudioActionMenu extends ConsumerWidget {
             leading: const Icon(Icons.share),
             title: const Text('分享'),
             onTap: () {
+              final navigatorContext = Navigator.of(context);
               Navigator.pop(context);
-              _share(context);
+              _share(navigatorContext.context);
             },
           ),
 

@@ -186,13 +186,26 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 加载个性化推荐
-  Future<bool> loadRecommended({int page = 1}) async {
+  /// 加载B站音乐区推荐
+  ///
+  /// [page] 页码
+  /// [append] 是否追加到现有列表（用于加载更多）
+  Future<bool> loadRecommended({int page = 1, bool append = false}) async {
     try {
-      AppLogger.info('ExploreViewModel', '加载推荐: page=$page');
+      AppLogger.info('ExploreViewModel', '加载B站音乐区: page=$page, append=$append');
+
+      List<ExploreItem> existingItems = [];
+      if (append) {
+        final currentState = state.valueOrNull;
+        if (currentState is ExploreStateLoaded && currentState.type == ExploreType.recommended) {
+          existingItems = currentState.items;
+        }
+      }
 
       if (!ref.mounted) return false;
-      state = const AsyncLoading();
+      if (!append) {
+        state = const AsyncLoading();
+      }
 
       final data = await _apiClient!.getRecommend(
         page: page,
@@ -202,7 +215,7 @@ class ExploreViewModel extends _$ExploreViewModel {
       final videos = data['videos'] as List? ?? [];
       final total = data['total'] as int? ?? 0;
 
-      final items = videos.map((v) {
+      final newItems = videos.map((v) {
         final json = v as Map<String, dynamic>;
         return ExploreItem(
           bvid: json['bvid'] as String? ?? '',
@@ -214,20 +227,21 @@ class ExploreViewModel extends _$ExploreViewModel {
         );
       }).toList();
 
+      final allItems = [...existingItems, ...newItems];
       final hasMore = (page * _pageSize) < total;
 
       if (!ref.mounted) return false;
       state = AsyncData(ExploreState.loaded(
-        items: items,
+        items: allItems,
         hasMore: hasMore,
         currentPage: page,
         type: ExploreType.recommended,
       ));
 
-      AppLogger.info('ExploreViewModel', '推荐加载成功: ${items.length}条');
+      AppLogger.info('ExploreViewModel', 'B站音乐区加载成功: 新增${newItems.length}条，共${allItems.length}条');
       return true;
     } catch (e) {
-      AppLogger.error('ExploreViewModel', '加载推荐失败: $e');
+      AppLogger.error('ExploreViewModel', '加载B站音乐区失败: $e');
       if (!ref.mounted) return false;
       state = AsyncError(e, StackTrace.current);
       return false;
@@ -296,8 +310,7 @@ class ExploreViewModel extends _$ExploreViewModel {
       case ExploreType.hot:
         return await loadHotRanking(page: nextPage);
       case ExploreType.recommended:
-        // 个性化推荐不支持分页
-        return false;
+        return await loadRecommended(page: nextPage, append: true);
       case ExploreType.latest:
         return await loadLatest(page: nextPage);
     }

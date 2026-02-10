@@ -25,7 +25,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const List<String> _tabs = ['推荐', '热门'];
+  static const List<String> _tabs = ['B站音乐区', '热门'];
 
   @override
   void initState() {
@@ -152,8 +152,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           initial: () => _buildLoadingView(),
           loading: () => _buildLoadingView(),
           notBound: () => _buildNotBoundPrompt(),
-          loaded: (items, _, _, type) => type == ExploreType.recommended
-              ? _buildRecommendList(items)
+          loaded: (items, hasMore, currentPage, type) => type == ExploreType.recommended
+              ? _buildRecommendList(items, hasMore)
               : _buildLoadingView(),
           error: (message) => _buildErrorView(message),
         );
@@ -161,7 +161,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
   }
 
-  Widget _buildRecommendList(List<ExploreItem> items) {
+  Widget _buildRecommendList(List<ExploreItem> items, bool hasMore) {
     if (items.isEmpty) {
       return Center(
         child: Column(
@@ -175,15 +175,34 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return _buildRecommendItem(item, index);
-        },
+    final itemCount = items.length + (hasMore ? 1 : 0);
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification &&
+            notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+          if (hasMore) {
+            ref.read(exploreViewModelProvider.notifier).loadNext();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: itemCount,
+          itemBuilder: (context, index) {
+            if (index == items.length && hasMore) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final item = items[index];
+            return _buildRecommendItem(item, index);
+          },
+        ),
       ),
     );
   }
@@ -350,7 +369,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           initial: () => _buildLoadingView(),
           loading: () => _buildLoadingView(),
           notBound: () => _buildNotBoundPrompt(),
-          loaded: (items, _, _, _) => _buildHotContentGrid(items),
+          loaded: (items, hasMore, _, _) => _buildHotContentGrid(items, hasMore),
           error: (message) => _buildErrorView(message),
         );
       },
@@ -358,7 +377,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   }
 
   /// 构建热门内容网格
-  Widget _buildHotContentGrid(List<ExploreItem> items) {
+  Widget _buildHotContentGrid(List<ExploreItem> items, bool hasMore) {
     if (items.isEmpty) {
       return Center(
         child: Column(
@@ -372,21 +391,39 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+    final itemCount = items.length + (hasMore ? 1 : 0);
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification &&
+            notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+          if (hasMore) {
+            ref.read(exploreViewModelProvider.notifier).loadNext();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+        child: GridView.builder(
+          padding: const EdgeInsets.all(8),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: itemCount,
+          itemBuilder: (context, index) {
+            if (index == items.length && hasMore) {
+              return const Card(
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final item = items[index];
+            return _buildHotCard(item, index);
+          },
         ),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return _buildHotCard(item, index);
-        },
       ),
     );
   }

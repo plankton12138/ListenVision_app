@@ -5,6 +5,7 @@ import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/explore_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
+import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -635,23 +636,33 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   }
 
   /// 播放音频
-  void _playAudio(ExploreItem item) {
+  void _playAudio(ExploreItem item) async {
     AppLogger.logUserAction(
       'ExplorePage',
       '播放音频',
       parameters: {'bvid': item.bvid, 'title': item.title},
     );
 
-    final audio = Audio(
-      id: item.bvid,
-      title: item.title,
-      artist: item.author,
-      duration: item.duration,
-      coverUrl: item.coverUrl,
-    );
+    try {
+      final audio = Audio(
+        id: item.bvid,
+        title: item.title,
+        artist: item.author,
+        duration: item.duration,
+        coverUrl: item.coverUrl,
+      );
 
-    ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
-    context.go('/');
+      await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
+
+      // 显示播放提示
+      if (mounted) {
+        SnackbarHelper.showPlaying(context, item.title, artist: item.author);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '播放失败: $e');
+      }
+    }
   }
 
   /// 格式化时长

@@ -1,9 +1,9 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/presentation/routes/router.dart';
+import 'package:demo/presentation/providers.dart';
+import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../models/local_audio.dart';
 import '../../viewmodels/library/local_music_viewmodel.dart';
@@ -137,7 +137,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
             onPressed: () {
               // 播放全部本地音乐
               if (audios.isNotEmpty) {
-                _playAudio(context, audios.first);
+                _playAudio(context, ref, audios.first);
               }
             },
             icon: const Icon(Icons.play_arrow),
@@ -237,7 +237,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: () => _playAudio(context, audio),
+      onTap: () => _playAudio(context, ref, audio),
     );
   }
 
@@ -325,7 +325,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
               title: const Text('播放'),
               onTap: () {
                 Navigator.pop(context);
-                _playAudio(context, audio);
+                _playAudio(context, ref, audio);
               },
             ),
             ListTile(
@@ -382,14 +382,25 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
   }
 
   /// 播放音频
-  void _playAudio(BuildContext context, LocalAudio audio) {
-    // 导航到播放器页面，播放本地音频
-    // 使用 localId 参数标识本地音频
+  void _playAudio(BuildContext context, WidgetRef ref, LocalAudio audio) async {
     AppLogger.info('LocalMusicPlaylistPage', '点击播放: id=${audio.id}, title=${audio.title}, filePath=${audio.filePath}');
-    context.pushNamed(
-      AppRoutes.homeName,
-      queryParameters: {'localId': audio.id.toString()},
-    );
+
+    try {
+      await ref.read(playerViewModelProvider.notifier).playLocalAudio(
+        audio.filePath,
+        title: audio.title,
+        artist: audio.artist,
+        albumArt: audio.albumArt,
+      );
+
+      if (context.mounted) {
+        SnackbarHelper.showPlaying(context, audio.title, artist: audio.artist);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        SnackbarHelper.showError(context, '播放失败: $e');
+      }
+    }
   }
 
   /// 格式化时长

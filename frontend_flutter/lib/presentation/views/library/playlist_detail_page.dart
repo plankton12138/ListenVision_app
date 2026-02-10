@@ -1,8 +1,8 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/routes/router.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
+import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_detail_viewmodel.dart';
@@ -411,16 +411,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         coverUrl: item.coverUrl,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到下载队列')),
-        );
+        SnackbarHelper.showSuccess(context, '已添加到下载队列');
       }
     } catch (e) {
       AppLogger.error('PlaylistDetailPage', '下载失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
-        );
+        SnackbarHelper.showError(context, '下载失败: $e');
       }
     }
   }
@@ -467,9 +463,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final token = ref.read(authTokenProvider);
     if (token == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录')),
-        );
+        SnackbarHelper.showWarning(context, '请先登录');
       }
       return;
     }
@@ -486,9 +480,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       );
       await playlistNotifier.loadFavorites(token);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到收藏')),
-        );
+        SnackbarHelper.showSuccess(context, '已添加到收藏');
       }
     } catch (e) {
       AppLogger.error('PlaylistDetailPage', '收藏失败: $e');
@@ -498,9 +490,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   void _handleShare(String? bvid) {
     if (bvid == null) return;
     final url = 'https://www.bilibili.com/video/$bvid';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('分享链接:\n$url')),
-    );
+    if (mounted) {
+      SnackbarHelper.showInfo(context, '分享链接:\n$url', duration: 4000);
+    }
   }
 
   void _showRemoveConfirmDialog(dynamic item, WidgetRef ref) {
@@ -551,12 +543,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       ).playItem(bvid);
 
       if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('播放失败，请重试'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackbarHelper.showError(context, '播放失败，请重试');
       }
     }
   }
@@ -603,23 +590,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         return false;
       }
 
-      // 使用 localId 导航到播放器
+      // 直接播放本地音频
+      await ref.read(playerViewModelProvider.notifier).playLocalAudio(
+        localAudio.filePath,
+        title: localAudio.title,
+        artist: localAudio.artist,
+        albumArt: localAudio.albumArt,
+      );
+
+      // 显示播放提示
       if (mounted) {
-        final localId = localAudio.id.toString();
-        AppLogger.info('PlaylistDetailPage', '导航到播放器，localId: $localId');
-        context.pushNamed(
-          AppRoutes.homeName,
-          queryParameters: {'localId': localId},
-        );
-        return true;
+        SnackbarHelper.showPlaying(context, localAudio.title, artist: localAudio.artist);
       }
-      return false;
+      return true;
     } catch (e) {
       AppLogger.error('PlaylistDetailPage', '播放本地音乐失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
-        );
+        SnackbarHelper.showError(context, '播放失败: $e');
       }
       return false;
     }
@@ -687,34 +674,31 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     ).playAll();
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('播放失败，请重试'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      SnackbarHelper.showError(context, '播放失败，请重试');
     }
   }
 
   void _downloadAll(WidgetRef ref, List items) async {
     if (items.isEmpty) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 16),
-            Text('正在添加到下载队列...'),
-          ],
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 16),
+              Text('正在添加到下载队列...'),
+            ],
+          ),
+          duration: Duration(seconds: 1),
         ),
-        duration: Duration(seconds: 1),
-      ),
-    );
+      );
+    }
 
     final addedCount = await ref.read(
       playlistDetailViewModelProvider(widget.playlistId).notifier,
@@ -795,12 +779,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   );
               if (mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success ? '保存成功' : '保存失败'),
-                    backgroundColor: success ? Colors.green : Colors.red,
-                  ),
-                );
+                if (success) {
+                  SnackbarHelper.showSuccess(context, '保存成功');
+                } else {
+                  SnackbarHelper.showError(context, '保存失败');
+                }
               }
             },
             child: const Text('保存'),
@@ -829,12 +812,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   Navigator.pop(context); // 关闭对话框
                   context.pop(); // 返回上一页
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('删除失败'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  SnackbarHelper.showError(context, '删除失败');
                 }
               }
             },

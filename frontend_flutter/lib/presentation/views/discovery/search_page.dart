@@ -6,6 +6,7 @@ import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/search_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
+import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -42,27 +43,33 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onResultTap(SearchResultItem item) async {
-    // 创建 Audio 对象
-    final audio = Audio(
-      id: item.bvid,
-      title: item.title,
-      artist: item.author,
-      coverUrl: item.coverUrl,
-      duration: item.duration,
-    );
+    try {
+      // 创建 Audio 对象
+      final audio = Audio(
+        id: item.bvid,
+        title: item.title,
+        artist: item.author,
+        coverUrl: item.coverUrl,
+        duration: item.duration,
+      );
 
-    // 创建 OnlinePlayable 对象
-    final playable = OnlinePlayable(audio);
+      // 创建 OnlinePlayable 对象
+      final playable = OnlinePlayable(audio);
 
-    // 添加到播放队列并立即播放
-    await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
+      // 添加到播放队列并立即播放
+      await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
 
-    // 开始播放
-    await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
+      // 开始播放
+      await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
 
-    // 导航回主页（播放器在主页上）
-    if (mounted) {
-      context.go('/');
+      // 显示播放提示
+      if (mounted) {
+        SnackbarHelper.showPlaying(context, item.title, artist: item.author);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '播放失败: $e');
+      }
     }
   }
 

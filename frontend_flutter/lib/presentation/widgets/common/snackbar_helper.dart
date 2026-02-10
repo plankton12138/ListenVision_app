@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 /// SnackBar 辅助类
 ///
 /// 从 utils/show_notes.dart 迁移到 presentation/widgets/common/
+///
+/// 统一项目中的 SnackBar 风格：
+/// - 使用 floating 样式
+/// - 默认 2 秒时长
+/// - 统一的颜色语义
 class SnackbarHelper {
   /// 显示提示消息
   ///
@@ -14,14 +19,16 @@ class SnackbarHelper {
   static void showSnackBar(
     BuildContext context,
     String message,
-    Color color,
-    int duration,
-  ) {
+    Color color, {
+    int duration = 2000,
+    SnackBarBehavior? behavior,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: Duration(milliseconds: duration),
         content: Text(message),
         backgroundColor: color,
+        behavior: behavior ?? SnackBarBehavior.floating,
       ),
     );
   }
@@ -32,7 +39,7 @@ class SnackbarHelper {
     String message, {
     int duration = 2000,
   }) {
-    showSnackBar(context, message, Colors.green, duration);
+    showSnackBar(context, message, Colors.green, duration: duration);
   }
 
   /// 显示错误提示
@@ -41,7 +48,7 @@ class SnackbarHelper {
     String message, {
     int duration = 2000,
   }) {
-    showSnackBar(context, message, Colors.red, duration);
+    showSnackBar(context, message, Colors.red, duration: duration);
   }
 
   /// 显示警告提示
@@ -50,7 +57,7 @@ class SnackbarHelper {
     String message, {
     int duration = 2000,
   }) {
-    showSnackBar(context, message, Colors.orange, duration);
+    showSnackBar(context, message, Colors.orange, duration: duration);
   }
 
   /// 显示信息提示
@@ -59,7 +66,25 @@ class SnackbarHelper {
     String message, {
     int duration = 2000,
   }) {
-    showSnackBar(context, message, Colors.blue, duration);
+    showSnackBar(context, message, Colors.blue, duration: duration);
+  }
+
+  /// 显示播放提示
+  ///
+  /// 专用于音频播放开始时的提示
+  /// [context] 上下文
+  /// [title] 音频标题
+  /// [artist] 艺术家（可选）
+  static void showPlaying(
+    BuildContext context,
+    String title, {
+    String? artist,
+    int duration = 2000,
+  }) {
+    final message = artist != null && artist.isNotEmpty
+        ? '正在播放: $title - $artist'
+        : '正在播放: $title';
+    showSnackBar(context, message, Colors.blue, duration: duration);
   }
 }
 
@@ -67,7 +92,7 @@ class SnackbarHelper {
 ///
 /// 显示一个带有标题和消息的对话框
 /// @Deprecated('请使用 showDialog 或 SnackbarHelper')
-showMyDialog(BuildContext context, String title, String message) async {
+Future<dynamic> showMyDialog(BuildContext context, String title, String message) async {
   var result = await showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -96,5 +121,5 @@ void showMySnackBar(
   Color color,
   int duration,
 ) {
-  SnackbarHelper.showSnackBar(context, message, color, duration);
+  SnackbarHelper.showSnackBar(context, message, color, duration: duration);
 }

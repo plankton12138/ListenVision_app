@@ -364,7 +364,7 @@ class QueueViewModel extends _$QueueViewModel {
   /// 将 [playable] 插入到当前播放位置的下一首
   Future<void> insertNext(PlayableAudio playable) async {
     if (isEmpty) {
-      // 队列为空，直接添加
+      // 队列为空，直接添加并播放
       await add(playable, playImmediately: true);
       return;
     }
@@ -375,32 +375,38 @@ class QueueViewModel extends _$QueueViewModel {
     // 检查是否已存在
     final existingIndex = newQueue.indexWhere((p) => p.id == playable.id);
 
+    // 边界情况：如果 currentIndex == -1，重置为 0
+    int newCurrentIndex = state.currentIndex == -1 ? 0 : state.currentIndex;
+
     if (existingIndex != -1) {
-      // 已存在，先移除
+      // 已存在，需要先移除
       newQueue.removeAt(existingIndex);
-      if (existingIndex < insertIndex) {
-        // 移除位置在插入位置之前，插入索引需要调整
-        final adjustedIndex = insertIndex - 1;
-        newQueue.insert(adjustedIndex, playable);
 
-        // 调整当前索引
-        int newCurrentIndex = state.currentIndex;
-        if (state.currentIndex > existingIndex) {
-          newCurrentIndex--;
-        }
-        if (state.currentIndex >= adjustedIndex) {
-          newCurrentIndex++;
-        }
+      // 调整 currentIndex：如果移除位置在当前播放位置之前，需要 -1
+      if (existingIndex < newCurrentIndex) {
+        newCurrentIndex--;
+      }
 
-        state = state.copyWith(queue: newQueue, currentIndex: newCurrentIndex);
-      } else {
-        newQueue.insert(insertIndex, playable);
-        state = state.copyWith(queue: newQueue);
+      // 重新计算插入位置（因为移除可能改变了索引）
+      final adjustedInsertIndex = (existingIndex < insertIndex)
+          ? insertIndex - 1
+          : insertIndex;
+
+      newQueue.insert(adjustedInsertIndex, playable);
+
+      // 如果插入位置在当前播放位置之前或等于当前位置，需要 +1
+      if (adjustedInsertIndex <= newCurrentIndex) {
+        newCurrentIndex++;
       }
     } else {
+      // 不存在，直接插入
       newQueue.insert(insertIndex, playable);
-      state = state.copyWith(queue: newQueue);
     }
+
+    state = state.copyWith(
+      queue: newQueue,
+      currentIndex: newCurrentIndex,
+    );
 
     await _saveToStorage();
     AppLogger.info('QueueViewModel', '插队播放: ${playable.title}');

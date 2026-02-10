@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../models/history_group.dart';
+import '../../../models/play_history.dart';
+import '../../../models/queue_source.dart';
+import '../../../models/online_playable.dart';
 import '../../viewmodels/library/history_viewmodel.dart';
+import '../../viewmodels/player/queue_viewmodel.dart';
 
 /// 播放历史 Tab
 ///
@@ -126,24 +130,43 @@ class HistoryTabView extends ConsumerWidget {
   Widget _buildHistoryItem(
     BuildContext context,
     WidgetRef ref,
-    dynamic item,
+    PlayHistory item,
   ) {
+    // 将 PlayHistory.audio 转换为 PlayableAudio
+    final audio = item.audio;
+    final playable = OnlinePlayable.fromAudio(audio, null);
+
     return ListTile(
-      leading: const CircleAvatar(
-        child: Icon(Icons.music_note),
+      leading: CircleAvatar(
+        backgroundImage: audio.coverUrl != null
+            ? NetworkImage(audio.coverUrl!)
+            : null,
+        child: audio.coverUrl == null ? const Icon(Icons.music_note) : null,
       ),
-      title: Text(item.audio.title),
-      subtitle: Text(item.audio.artist ?? '未知艺术家'),
+      title: Text(audio.title),
+      subtitle: Text(audio.artist ?? '未知艺术家'),
       trailing: IconButton(
         icon: const Icon(Icons.add_circle_outline),
+        tooltip: '添加到下一首',
         onPressed: () {
-          AppLogger.logButtonClick('添加到队列', 'HistoryTabView');
-          // TODO: 添加到队列
+          AppLogger.logButtonClick('添加到下一首', 'HistoryTabView',
+            parameters: {'title': audio.title});
+          ref.read(queueViewModelProvider.notifier).insertNext(playable);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已添加到下一首: ${audio.title}')),
+          );
         },
       ),
       onTap: () {
-        AppLogger.logButtonClick('播放历史项', 'HistoryTabView');
-        // TODO: 替换队列并播放
+        AppLogger.logButtonClick('播放历史项', 'HistoryTabView',
+          parameters: {'title': audio.title});
+        // 播放该音频（替换当前队列）
+        ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+          [playable],
+          QueueSource.manual(),
+          initialIndex: 0,
+        );
+        ref.read(queueViewModelProvider.notifier).playAt(0);
       },
     );
   }

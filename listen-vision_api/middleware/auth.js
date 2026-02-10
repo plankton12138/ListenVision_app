@@ -1,5 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { logger } = require('../utils/logger');
+const db = require('../config/database');
+
+const stmt = {
+  userById: db.prepare('SELECT id, username FROM users WHERE id = ?'),
+};
 
 /**
  * JWT 认证中间件
@@ -42,6 +47,16 @@ const authMiddleware = async (req, res, next) => {
       id: parseInt(decoded.userId, 10),  // 确保是整数
       username: decoded.username
     };
+
+    // 5. 验证用户是否存在于数据库
+    const user = stmt.userById.get(req.user.id);
+    if (!user) {
+      logger.warn('Token 中的用户不存在: userId=%s', req.user.id);
+      return res.status(401).json({
+        success: false,
+        error: '用户不存在或已被删除，请重新登录'
+      });
+    }
 
     next();
   } catch (error) {
@@ -93,6 +108,13 @@ const optionalAuthMiddleware = async (req, res, next) => {
       id: parseInt(decoded.userId, 10),  // 确保是整数
       username: decoded.username
     };
+
+    // 验证用户是否存在于数据库
+    const user = stmt.userById.get(req.user.id);
+    if (!user) {
+      logger.debug('[OptionalAuth] 用户不存在，跳过认证: userId=%s', req.user.id);
+      req.user = null;
+    }
 
     next();
   } catch (error) {

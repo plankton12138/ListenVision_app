@@ -94,19 +94,48 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
     }
   }
 
-  /// 检查 B站 绑定状态
+  /// 检查 B站 绑定状态（优先从后端验证）
   Future<PlatformAuthState> _checkBilibiliBindStatus() async {
     try {
-      final isBound = await _secureStorage!.isBilibiliBound();
-      if (isBound) {
-        final accountData = await _secureStorage!.getBilibiliAccount();
-        if (accountData != null) {
-          final account = BilibiliUserInfo.fromJson(accountData);
-          AppLogger.info('PlatformAuthViewModel', 'B站已绑定: ${account.uname}');
-          return PlatformAuthState.bound(account: account);
+      // 先尝试从后端获取绑定状态
+      try {
+        final statusData = await _bilibiliApi!.getBindStatus();
+        final isBound = statusData['isBound'] as bool? ?? false;
+        
+        if (isBound) {
+          final userInfo = statusData['userInfo'] as Map<String, dynamic>?;
+          if (userInfo != null) {
+            final account = BilibiliUserInfo.fromJson(userInfo);
+            
+            // 更新本地存储
+            await _secureStorage!.setBilibiliAccount(userInfo);
+            await _secureStorage!.setBilibiliBound(true);
+            
+            AppLogger.info('PlatformAuthViewModel', 'B站已绑定(后端验证): ${account.uname}');
+            return PlatformAuthState.bound(account: account);
+          }
         }
+        
+        // 后端返回未绑定，清除本地数据
+        await _secureStorage!.setBilibiliBound(false);
+        await _secureStorage!.clearBilibiliAccount();
+        
+        return const PlatformAuthState.unbound();
+      } catch (e) {
+        // 后端请求失败，回退到本地存储检查
+        AppLogger.debug('PlatformAuthViewModel', '后端验证失败，使用本地存储: $e');
+        
+        final isBound = await _secureStorage!.isBilibiliBound();
+        if (isBound) {
+          final accountData = await _secureStorage!.getBilibiliAccount();
+          if (accountData != null) {
+            final account = BilibiliUserInfo.fromJson(accountData);
+            AppLogger.info('PlatformAuthViewModel', 'B站已绑定(本地): ${account.uname}');
+            return PlatformAuthState.bound(account: account);
+          }
+        }
+        return const PlatformAuthState.unbound();
       }
-      return const PlatformAuthState.unbound();
     } catch (e) {
       AppLogger.error('PlatformAuthViewModel', '检查B站绑定状态失败: $e');
       return const PlatformAuthState.unbound();
@@ -313,6 +342,24 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
       bound: (_) => true,
       orElse: () => false,
     ) ?? false;
+  }
+
+  /// 重置状态（用户登出/注销账号时调用）
+  Future<void> reset() async {
+    _stopQRPolling();
+    
+    try {
+      // 清除本地存储
+      await _secureStorage!.clearBilibiliAccount();
+      await _secureStorage!.clearBilibiliCookie();
+      await _secureStorage!.setBilibiliBound(false);
+    } catch (e) {
+      AppLogger.error('PlatformAuthViewModel', '重置失败: $e');
+    }
+    
+    if (!ref.mounted) return;
+    state = const AsyncData(PlatformAuthState.unbound());
+    AppLogger.info('PlatformAuthViewModel', '状态已重置');
   }
 }
 

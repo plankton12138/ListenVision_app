@@ -58,6 +58,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 16),
           // 数据同步状态
           _buildSyncStatusCard(context, isLoggedIn),
+          const SizedBox(height: 16),
+          // 账号操作
+          if (isLoggedIn) _buildAccountActionsCard(context),
         ],
       ),
     );
@@ -401,7 +404,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const Spacer(),
-              // 同步状态指示器
               const SyncStatusIndicator(size: 18, showMenu: true),
             ],
           ),
@@ -416,6 +418,135 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
+  }
+
+  /// 账号操作卡片
+  Widget _buildAccountActionsCard(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.secondary,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text(
+                '账号信息',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (currentUser != null) ...[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: colorScheme.primaryContainer,
+                child: Icon(Icons.person, color: colorScheme.onPrimaryContainer),
+              ),
+              title: Text(currentUser.username),
+              subtitle: Text(currentUser.email ?? ''),
+            ),
+            const Divider(),
+          ],
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.logout, color: Colors.orange),
+            title: const Text('退出登录'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _confirmLogout(context),
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_forever, color: colorScheme.error),
+            title: Text(
+              '注销账号',
+              style: TextStyle(color: colorScheme.error),
+            ),
+            trailing: Icon(Icons.chevron_right, color: colorScheme.error),
+            onTap: () => _confirmDeleteAccount(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 确认退出登录
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('确定要退出当前账号吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref.read(authViewModelProvider.notifier).logout();
+      if (mounted) {
+        DialogHelper.showSnackBar(context, '已退出登录', backgroundColor: Colors.green);
+        context.go('/');
+      }
+    }
+  }
+
+  /// 确认注销账号
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('注销账号'),
+        content: const Text(
+          '此操作将永久删除您的账号及所有数据，包括：\n'
+          '• 歌单和收藏\n'
+          '• 播放历史\n'
+          '• B站账号绑定\n\n'
+          '此操作不可撤销，确定要继续吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('确认注销'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final success = await ref.read(authViewModelProvider.notifier).deleteAccount();
+      if (mounted) {
+        if (success) {
+          DialogHelper.showSnackBar(context, '账号已注销', backgroundColor: Colors.green);
+          context.go('/');
+        } else {
+          DialogHelper.showSnackBar(context, '注销失败，请稍后重试', backgroundColor: Colors.red);
+        }
+      }
+    }
   }
 }
 

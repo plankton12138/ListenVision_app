@@ -14,8 +14,8 @@ const { registerLimiter, loginLimiter, sendCodeLimiter } = require('../middlewar
  * /api/auth/register:
  *   post:
  *     tags: [认证]
- *     summary: 用户注册
- *     description: 创建新用户账号
+ *     summary: 用户注册 - 发送验证码
+ *     description: 验证参数后发送验证码到邮箱，返回待验证状态
  *     requestBody:
  *       required: true
  *       content:
@@ -42,6 +42,58 @@ const { registerLimiter, loginLimiter, sendCodeLimiter } = require('../middlewar
  *                 example: password123
  *     responses:
  *       201:
+ *         description: 验证码已发送
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/Success'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         pending:
+ *                           type: boolean
+ *                         email:
+ *                           type: string
+ *                         expiresIn:
+ *                           type: integer
+ *       400:
+ *         $ref: '#/components/schemas/Error'
+ *       409:
+ *         $ref: '#/components/schemas/Error'
+ */
+router.post('/register', registerLimiter, authController.register);
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     tags: [认证]
+ *     summary: 验证邮箱并完成注册
+ *     description: 验证邮箱验证码，创建用户账号
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - code
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: test@example.com
+ *               code:
+ *                 type: string
+ *                 minLength: 6
+ *                 maxLength: 6
+ *                 example: '123456'
+ *     responses:
+ *       201:
  *         description: 注册成功
  *         content:
  *           application/json:
@@ -51,13 +103,11 @@ const { registerLimiter, loginLimiter, sendCodeLimiter } = require('../middlewar
  *                 - type: object
  *                   properties:
  *                     data:
- *                       $ref: '#/components/schemas/User'
+ *                       $ref: '#/components/schemas/LoginResponse'
  *       400:
  *         $ref: '#/components/schemas/Error'
- *       409:
- *         $ref: '#/components/schemas/Error'
  */
-router.post('/register', registerLimiter, authValidators.register, authController.register);
+router.post('/verify-email', registerLimiter, authController.verifyEmail);
 
 /**
  * @swagger
@@ -220,5 +270,37 @@ router.get('/me', authMiddleware, authController.getMe);
  *         $ref: '#/components/schemas/Error'
  */
 router.get('/verify-token', authMiddleware, authController.verifyToken);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     tags: [认证]
+ *     summary: 用户登出
+ *     description: 登出当前用户（客户端清除token即可）
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 登出成功
+ */
+router.post('/logout', authMiddleware, authController.logout);
+
+/**
+ * @swagger
+ * /api/auth/account:
+ *   delete:
+ *     tags: [认证]
+ *     summary: 注销账号
+ *     description: 永久删除用户账号及所有关联数据
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 账号已注销
+ *       401:
+ *         $ref: '#/components/schemas/Error'
+ */
+router.delete('/account', authMiddleware, authController.deleteAccount);
 
 module.exports = router;

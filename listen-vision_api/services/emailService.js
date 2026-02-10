@@ -91,7 +91,46 @@ const sendEmail = async (to, subject, html) => {
   }
 };
 
+// 发送注册验证码
+const sendVerificationCode = async (email, code) => {
+  const mailOptions = {
+    from: `"ListenVision" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: '注册验证码',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">欢迎注册 ListenVision</h2>
+        <p>您好，</p>
+        <p>您正在注册 ListenVision 账号，请使用以下验证码完成注册：</p>
+        <p style="font-size: 32px; color: #007bff; font-weight: bold; letter-spacing: 4px; text-align: center; padding: 20px 0;">
+          ${code}
+        </p>
+        <p>验证码有效期为 <strong>10 分钟</strong>，请尽快使用。</p>
+        <p style="color: #666; font-size: 14px;">如果这不是您的操作，请忽略此邮件。</p>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px;">此邮件由系统自动发送，请勿回复。</p>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('注册验证码已发送至:', email);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('注册验证码发送失败:', error);
+    throw new Error('邮件发送失败');
+  }
+};
+
+// 生成验证码
+const generateVerifyCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 module.exports = {
   sendResetCode,
-  sendEmail
+  sendEmail,
+  sendVerificationCode,
+  generateVerifyCode
 };

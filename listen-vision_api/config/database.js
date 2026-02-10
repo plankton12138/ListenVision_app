@@ -36,8 +36,22 @@ const createTables = () => {
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
+      email_verified INTEGER DEFAULT 0,
       reset_code TEXT,
       code_expire TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // 待验证注册表（注册邮箱验证）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      verify_code TEXT NOT NULL,
+      code_expire TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
@@ -350,10 +364,59 @@ const migratePlayHistory = () => {
   }
 };
 
+// 迁移：为 bilibili_accounts 表添加 refresh_token_encrypted 字段
+// 用于 Cookie 自动刷新机制
+const migrateBilibiliAccountsRefreshToken = () => {
+  try {
+    const tableInfo = db.pragma('table_info(bilibili_accounts)');
+    const refreshTokenColumn = tableInfo.find(col => col.name === 'refresh_token_encrypted');
+
+    if (!refreshTokenColumn) {
+      logger.info('Adding refresh_token_encrypted column to bilibili_accounts table...');
+
+      try {
+        db.exec(`ALTER TABLE bilibili_accounts ADD COLUMN refresh_token_encrypted TEXT`);
+        logger.info('bilibili_accounts.refresh_token_encrypted column added successfully');
+      } catch (e) {
+        logger.debug('bilibili_accounts.refresh_token_encrypted column already exists or error:', e.message);
+      }
+    } else {
+      logger.info('bilibili_accounts table already has refresh_token_encrypted column');
+    }
+  } catch (e) {
+    logger.error('bilibili_accounts table migration failed:', e.message);
+  }
+};
+
+// 迁移：为 users 表添加 email_verified 字段
+const migrateUsersEmailVerified = () => {
+  try {
+    const tableInfo = db.pragma('table_info(users)');
+    const emailVerifiedColumn = tableInfo.find(col => col.name === 'email_verified');
+
+    if (!emailVerifiedColumn) {
+      logger.info('Adding email_verified column to users table...');
+
+      try {
+        db.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`);
+        logger.info('users.email_verified column added successfully (default 1 for existing users)');
+      } catch (e) {
+        logger.debug('users.email_verified column already exists or error:', e.message);
+      }
+    } else {
+      logger.info('users table already has email_verified column');
+    }
+  } catch (e) {
+    logger.error('users table migration failed:', e.message);
+  }
+};
+
 // 先创建表，再执行迁移
 createTables();
 migratePlaylistItems();
 migratePlayHistory();
+migrateBilibiliAccountsRefreshToken();
+migrateUsersEmailVerified();
 
 // 优雅退出处理（由 index.js 统一管理）
 const closeDatabase = () => {

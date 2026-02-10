@@ -45,10 +45,13 @@ class ApiConstants {
 
 class AuthEndpoints {
   static const String register = '/auth/register';
+  static const String verifyEmail = '/auth/verify-email';
   static const String login = '/auth/login';
+  static const String logout = '/auth/logout';
   static const String me = '/auth/me';
   static const String sendCode = '/auth/send-code';
   static const String resetPassword = '/auth/reset-pwd';
+  static const String deleteAccount = '/auth/account';
 }
 
 // ==================== 用户端点 ====================
@@ -107,9 +110,11 @@ class BilibiliEndpoints {
   static String audio(String bvid) => '/bilibili/audio/$bvid';
   static String uploader(dynamic mid) => '/bilibili/uploader/$mid';
   static const String search = '/bilibili/search';
+  static const String searchSuggest = '/bilibili/search/suggest';
   static const String searchRecent = '/bilibili/search/recent';
   static const String proxyImage = '/bilibili/proxy/image';
-  static const String proxyAudio = '/bilibili/proxy/audio';  // 修复：使用 query 参数
+  static const String proxyAudio = '/bilibili/proxy/audio';
+  static const String recommend = '/bilibili/recommend';
 }
 
 /// B站相关常量

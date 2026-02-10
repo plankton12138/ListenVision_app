@@ -1,5 +1,6 @@
 import '../../core/constants/storage_constants.dart';
 import '../../core/storage/shared_storage_service.dart';
+import '../../core/storage/secure_storage_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../models/user.dart';
 import '../api/backend_api_client.dart';
@@ -10,12 +11,15 @@ import '../api/backend_api_client.dart';
 class AuthRepository {
   final BackendApiClient _apiClient;
   final SharedStorageService _storage;
+  final SecureStorageService _secureStorage;
 
   AuthRepository({
     BackendApiClient? apiClient,
     SharedStorageService? storage,
+    SecureStorageService? secureStorage,
   })  : _apiClient = apiClient ?? BackendApiClient(),
-        _storage = storage ?? SharedStorageService.instance;
+        _storage = storage ?? SharedStorageService.instance,
+        _secureStorage = secureStorage ?? SecureStorageService.instance;
 
   // ==================== 认证操作 ====================
 
@@ -30,12 +34,22 @@ class AuthRepository {
         'token': data['token'],
       });
 
-      // 保存 token 和用户信息
       await _storage.setToken(data['token'] as String);
       await _storage.setUserId(user.id);
       await _storage.setJson(StorageKeys.userInfo, user.toDto());
 
-      AppLogger.info('AuthRepository', '登录成功: ${user.username}');
+      // 保存B站绑定状态
+      final bilibiliBound = data['bilibiliBound'] as bool? ?? false;
+      final bilibiliUser = data['bilibiliUser'] as Map<String, dynamic>?;
+      
+      await _secureStorage.setBilibiliBound(bilibiliBound);
+      if (bilibiliBound && bilibiliUser != null) {
+        await _secureStorage.setBilibiliAccount(bilibiliUser);
+      } else {
+        await _secureStorage.clearBilibiliAccount();
+      }
+
+      AppLogger.info('AuthRepository', '登录成功: ${user.username}, B站绑定: $bilibiliBound');
       return user;
     } catch (e) {
       AppLogger.error('AuthRepository', '登录失败: $e');
@@ -43,26 +57,45 @@ class AuthRepository {
     }
   }
 
-  /// 用户注册
-  Future<User> register(RegisterRequest request) async {
+  /// 用户注册 - 发送验证码
+  Future<Map<String, dynamic>> register(RegisterRequest request) async {
     try {
       AppLogger.info('AuthRepository', '开始注册: ${request.email}');
       final data = await _apiClient.register(request);
+      AppLogger.info('AuthRepository', '验证码已发送: ${request.email}');
+      return data;
+    } catch (e) {
+      AppLogger.error('AuthRepository', '注册失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 验证邮箱并完成注册
+  Future<User> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      AppLogger.info('AuthRepository', '验证邮箱: $email');
+      final data = await _apiClient.verifyEmail(email: email, code: code);
 
       final user = User.fromDto({
         ...data['user'],
         'token': data['token'],
       });
 
-      // 保存 token 和用户信息
       await _storage.setToken(data['token'] as String);
       await _storage.setUserId(user.id);
       await _storage.setJson(StorageKeys.userInfo, user.toDto());
 
+      // 新注册用户无B站绑定
+      await _secureStorage.setBilibiliBound(false);
+      await _secureStorage.clearBilibiliAccount();
+
       AppLogger.info('AuthRepository', '注册成功: ${user.username}');
       return user;
     } catch (e) {
-      AppLogger.error('AuthRepository', '注册失败: $e');
+      AppLogger.error('AuthRepository', '邮箱验证失败: $e');
       rethrow;
     }
   }
@@ -120,12 +153,48 @@ class AuthRepository {
   Future<void> logout() async {
     try {
       AppLogger.info('AuthRepository', '开始登出');
+      
+      // 调用后端登出接口
+      await _apiClient.logout();
+      
+      // 清除本地数据
       await _storage.clearToken();
       await _storage.remove(StorageKeys.keyUserId);
       await _storage.remove(StorageKeys.userInfo);
+      
+      // 清除B站绑定数据
+      await _secureStorage.setBilibiliBound(false);
+      await _secureStorage.clearBilibiliAccount();
+      await _secureStorage.clearBilibiliCookie();
+      
       AppLogger.info('AuthRepository', '登出成功');
     } catch (e) {
       AppLogger.error('AuthRepository', '登出失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 注销账号
+  Future<void> deleteAccount() async {
+    try {
+      AppLogger.info('AuthRepository', '开始注销账号');
+      
+      // 调用后端注销接口
+      await _apiClient.deleteAccount();
+      
+      // 清除所有本地数据
+      await _storage.clearToken();
+      await _storage.remove(StorageKeys.keyUserId);
+      await _storage.remove(StorageKeys.userInfo);
+      
+      // 清除B站绑定数据
+      await _secureStorage.setBilibiliBound(false);
+      await _secureStorage.clearBilibiliAccount();
+      await _secureStorage.clearBilibiliCookie();
+      
+      AppLogger.info('AuthRepository', '账号已注销');
+    } catch (e) {
+      AppLogger.error('AuthRepository', '注销账号失败: $e');
       rethrow;
     }
   }

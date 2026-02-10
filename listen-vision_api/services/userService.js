@@ -5,12 +5,12 @@ const { AppError } = require('../middleware/errorHandler');
 
 // 预编译语句（模块初始化时编译，提高性能）
 const stmt = {
-  userById: db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?'),
+  userById: db.prepare('SELECT id, username, email, email_verified, created_at FROM users WHERE id = ?'),
   userByName: db.prepare('SELECT * FROM users WHERE username = ?'),
   userByEmail: db.prepare('SELECT id FROM users WHERE email = ?'),
   userByNameForAuth: db.prepare('SELECT id, username, email, password FROM users WHERE username = ?'),
   allUsers: db.prepare('SELECT id, username, email, created_at FROM users'),
-  insertUser: db.prepare('INSERT INTO users (username, password, email) VALUES (?, ?, ?)'),
+  insertUser: db.prepare('INSERT INTO users (username, password, email, email_verified) VALUES (?, ?, ?, ?)'),
   updateUser: db.prepare('UPDATE users SET username = ?, email = ? WHERE id = ?'),
   updateUserWithPassword: db.prepare('UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?'),
   deleteUser: db.prepare('DELETE FROM users WHERE id = ?'),
@@ -19,6 +19,15 @@ const stmt = {
     WHERE username = ? AND reset_code = ? AND code_expire > datetime('now')`),
   resetPassword: db.prepare(`UPDATE users
     SET password = ?, reset_code = NULL, code_expire = NULL WHERE username = ?`),
+  // 待验证注册相关
+  pendingRegByEmail: db.prepare('SELECT * FROM pending_registrations WHERE email = ?'),
+  pendingRegByCode: db.prepare(`SELECT * FROM pending_registrations
+    WHERE email = ? AND verify_code = ? AND code_expire > datetime('now')`),
+  insertPendingReg: db.prepare(`INSERT INTO pending_registrations
+    (username, email, password, verify_code, code_expire) VALUES (?, ?, ?, ?, ?)`),
+  deletePendingReg: db.prepare('DELETE FROM pending_registrations WHERE email = ?'),
+  deletePendingRegByUsername: db.prepare('DELETE FROM pending_registrations WHERE username = ?'),
+  setEmailVerified: db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?'),
 };
 
 // 检查用户名是否已存在
@@ -31,7 +40,7 @@ const isEmailTaken = (email) => {
   return !!stmt.userByEmail.get(email);
 };
 
-// 用户注册
+// 用户注册（旧方法，保留兼容）
 const registerUser = async (username, password, email) => {
   if (isUsernameTaken(username)) {
     throw new AppError('用户名已存在', 409);
@@ -42,7 +51,7 @@ const registerUser = async (username, password, email) => {
 
   // bcrypt 哈希密码（10轮加密）
   const hashedPassword = await bcrypt.hash(password, 10);
-  const result = stmt.insertUser.run(username, hashedPassword, email);
+  const result = stmt.insertUser.run(username, hashedPassword, email, 1);
 
   const userId = result.lastInsertRowid;
 
@@ -53,6 +62,70 @@ const registerUser = async (username, password, email) => {
     token,
     user: { id: userId, username, email }
   };
+};
+
+// 创建待验证注册记录
+const createPendingRegistration = async (username, password, email, verifyCode, expiryMinutes = 10) => {
+  if (isUsernameTaken(username)) {
+    throw new AppError('用户名已存在', 409);
+  }
+  if (isEmailTaken(email)) {
+    throw new AppError('邮箱已存在', 409);
+  }
+
+  // 检查是否有待验证记录
+  const existing = stmt.pendingRegByEmail.get(email);
+  if (existing) {
+    // 删除旧的待验证记录
+    stmt.deletePendingReg.run(email);
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const expiry = new Date(Date.now() + expiryMinutes * 60 * 1000)
+    .toISOString().replace('T', ' ').substring(0, 19);
+
+  stmt.insertPendingReg.run(username, email, hashedPassword, verifyCode, expiry);
+
+  return { email, expiresIn: expiryMinutes * 60 };
+};
+
+// 验证邮箱并完成注册
+const verifyEmailAndCreateUser = async (email, verifyCode) => {
+  const pending = stmt.pendingRegByCode.get(email, verifyCode);
+
+  if (!pending) {
+    throw new AppError('验证码无效或已过期', 400);
+  }
+
+  // 再次检查用户名和邮箱是否被占用（防止并发）
+  if (isUsernameTaken(pending.username)) {
+    stmt.deletePendingReg.run(email);
+    throw new AppError('用户名已被占用', 409);
+  }
+  if (isEmailTaken(email)) {
+    stmt.deletePendingReg.run(email);
+    throw new AppError('邮箱已被占用', 409);
+  }
+
+  // 创建用户
+  const result = stmt.insertUser.run(pending.username, pending.password, email, 1);
+  const userId = result.lastInsertRowid;
+
+  // 删除待验证记录
+  stmt.deletePendingReg.run(email);
+
+  // 生成 token
+  const token = generateToken({ userId, username: pending.username });
+
+  return {
+    token,
+    user: { id: userId, username: pending.username, email }
+  };
+};
+
+// 删除待验证注册记录（按用户名）
+const deletePendingRegistration = (username) => {
+  stmt.deletePendingRegByUsername.run(username);
 };
 
 // 用户登录 - 支持 username 或 email
@@ -148,6 +221,9 @@ module.exports = {
   isUsernameTaken,
   isEmailTaken,
   registerUser,
+  createPendingRegistration,
+  verifyEmailAndCreateUser,
+  deletePendingRegistration,
   loginUser,
   getUserById,
   getUserByUsername,

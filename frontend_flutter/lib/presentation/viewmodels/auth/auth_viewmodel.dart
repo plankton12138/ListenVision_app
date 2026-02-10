@@ -9,6 +9,7 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../../data/api/backend_api_client.dart' show LoginRequest, RegisterRequest;
 import '../../../data/sync/sync_worker_provider.dart';
 import '../../../models/user.dart';
+import 'platform_auth_viewmodel.dart';
 
 part 'auth_viewmodel.freezed.dart';
 part 'auth_viewmodel.g.dart';
@@ -101,7 +102,7 @@ class AuthViewModel extends _$AuthViewModel {
     }
   }
 
-  /// 用户注册
+  /// 用户注册 - 发送验证码
   Future<bool> register({
     required String username,
     required String email,
@@ -112,7 +113,7 @@ class AuthViewModel extends _$AuthViewModel {
     try {
       AppLogger.info('AuthViewModel', '开始注册: $email');
 
-      final user = await _repository!.register(
+      await _repository!.register(
         RegisterRequest(
           username: username,
           email: email,
@@ -120,6 +121,30 @@ class AuthViewModel extends _$AuthViewModel {
           captchaCode: captchaCode,
         ),
       );
+
+      AppLogger.info('AuthViewModel', '验证码已发送: $email');
+      
+      if (!ref.mounted) return false;
+      state = const AsyncData(AuthState.unauthenticated());
+      return true;
+    } catch (e) {
+      AppLogger.error('AuthViewModel', '注册失败: $e');
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
+      return false;
+    }
+  }
+
+  /// 验证邮箱并完成注册
+  Future<bool> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      AppLogger.info('AuthViewModel', '验证邮箱: $email');
+
+      final user = await _repository!.verifyEmail(email: email, code: code);
 
       AppLogger.logUserAction(
         'Auth',
@@ -130,9 +155,13 @@ class AuthViewModel extends _$AuthViewModel {
 
       if (!ref.mounted) return false;
       state = AsyncData(AuthState.authenticated(user: user, token: user.token));
+
+      // 启动同步工作器
+      ref.read(syncWorkerProvider);
+
       return true;
     } catch (e) {
-      AppLogger.error('AuthViewModel', '注册失败: $e');
+      AppLogger.error('AuthViewModel', '邮箱验证失败: $e');
       if (!ref.mounted) return false;
       state = AsyncError(e, StackTrace.current);
       return false;
@@ -187,6 +216,10 @@ class AuthViewModel extends _$AuthViewModel {
       );
 
       await _repository!.logout();
+      
+      // 重置平台认证状态
+      ref.read(platformAuthViewModelProvider.notifier).reset();
+      
       if (!ref.mounted) return;
       state = const AsyncData(AuthState.unauthenticated());
 
@@ -196,6 +229,36 @@ class AuthViewModel extends _$AuthViewModel {
       // 即使失败也切换到未登录状态
       if (!ref.mounted) return;
       state = const AsyncData(AuthState.unauthenticated());
+    }
+  }
+
+  /// 注销账号
+  Future<bool> deleteAccount() async {
+    state = const AsyncLoading();
+    try {
+      final userId = state.valueOrNull?.whenOrNull(authenticated: (user, token) => user.id);
+      AppLogger.logUserAction(
+        'Auth',
+        '注销账号',
+        parameters: {'userId': userId},
+        userId: userId,
+      );
+
+      await _repository!.deleteAccount();
+      
+      // 重置平台认证状态
+      ref.read(platformAuthViewModelProvider.notifier).reset();
+      
+      if (!ref.mounted) return false;
+      state = const AsyncData(AuthState.unauthenticated());
+
+      AppLogger.info('AuthViewModel', '账号已注销');
+      return true;
+    } catch (e) {
+      AppLogger.error('AuthViewModel', '注销账号失败: $e');
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
+      return false;
     }
   }
 

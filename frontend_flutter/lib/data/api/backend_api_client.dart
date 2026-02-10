@@ -77,17 +77,56 @@ class BackendApiClient {
     }
   }
 
-  /// 用户注册
+  /// 用户注册 - 发送验证码
   Future<Map<String, dynamic>> register(RegisterRequest request) async {
     try {
       final response = await _dioClient.post(
         AuthEndpoints.register,
         data: request.toJson(),
       );
-      AppLogger.info('BackendApiClient', '注册成功: ${request.email}');
+      AppLogger.info('BackendApiClient', '注册验证码已发送: ${request.email}');
       return _handleResponse(response);
     } catch (e) {
       AppLogger.error('BackendApiClient', '注册失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 验证邮箱并完成注册
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final response = await _dioClient.post(
+        AuthEndpoints.verifyEmail,
+        data: {'email': email, 'code': code},
+      );
+      AppLogger.info('BackendApiClient', '邮箱验证成功: $email');
+      return _handleResponse(response);
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '邮箱验证失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 用户登出
+  Future<void> logout() async {
+    try {
+      await _dioClient.post(AuthEndpoints.logout);
+      AppLogger.info('BackendApiClient', '登出成功');
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '登出失败: $e');
+    }
+  }
+
+  /// 注销账号
+  Future<void> deleteAccount() async {
+    try {
+      await _dioClient.delete(AuthEndpoints.deleteAccount);
+      AppLogger.info('BackendApiClient', '账号已注销');
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '注销账号失败: $e');
       rethrow;
     }
   }
@@ -519,6 +558,26 @@ class BackendApiClient {
     }
   }
 
+  /// 获取B站音乐区推荐
+  Future<Map<String, dynamic>> getRecommend({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await _dioClient.get(
+        BilibiliEndpoints.recommend,
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取B站推荐失败: $e');
+      rethrow;
+    }
+  }
+
   // ==================== B站搜索 API ====================
 
   /// B站搜索
@@ -552,7 +611,7 @@ class BackendApiClient {
   Future<List<String>> getBilibiliSearchSuggestions(String keyword) async {
     try {
       final response = await _dioClient.get(
-        BilibiliEndpoints.searchRecent,
+        BilibiliEndpoints.searchSuggest,
         queryParameters: {'keyword': keyword},
       );
       final data = _handleResponse(response);

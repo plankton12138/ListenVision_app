@@ -1,17 +1,12 @@
-import 'dart:math';
+import 'dart:async';
 
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_captcha/flutter_captcha.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-/// 注册页面
-///
-/// 用户注册界面，包含表单验证和验证码功能
-/// 使用 Riverpod 的 AuthViewModel 进行状态管理
+import '../../../core/utils/app_logger.dart';
+import '../../providers.dart';
+
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
@@ -22,33 +17,29 @@ class RegisterPage extends ConsumerStatefulWidget {
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
-  final _captchaController = FlutterCaptchaController(
-    random: Random.secure(),
-  )..init();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _verifyCodeController = TextEditingController();
 
+  int _currentStep = 0;
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _captchaController.randomizePositions = false;
-  }
+  int _countdown = 0;
+  Timer? _timer;
 
   @override
   void dispose() {
     _usernameController.dispose();
-    _passwordController.dispose();
     _emailController.dispose();
-    _captchaController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _verifyCodeController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  /// 提交注册表单到服务器
-  Future<void> _submit() async {
+  Future<void> _sendVerifyCode() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_onCheck()) return;
 
     setState(() {
       _isLoading = true;
@@ -64,13 +55,19 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (!mounted) return;
 
       if (success) {
+        setState(() {
+          _currentStep = 1;
+        });
+        _startCountdown();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('注册成功！'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('验证码已发送到邮箱'),
+            backgroundColor: Colors.green,
+          ),
         );
-        context.go('/');
       } else {
         final authState = ref.read(authViewModelProvider);
-        String errorMsg = '注册失败，请稍后重试';
+        String errorMsg = '发送验证码失败';
         authState.whenOrNull(
           error: (err, stack) {
             errorMsg = err.toString();
@@ -89,115 +86,348 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     }
   }
 
-  /// 检查验证码
-  bool _onCheck() {
-    if (_captchaController.checkSolution()) {
-      return true;
+  Future<void> _verifyEmail() async {
+    if (_verifyCodeController.text.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请输入6位验证码'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('验证码不正确，请完成验证'), backgroundColor: Colors.orange),
-    );
-    return false;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final success = await ref.read(authViewModelProvider.notifier).verifyEmail(
+        email: _emailController.text,
+        code: _verifyCodeController.text,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('注册成功！'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go('/');
+      } else {
+        final authState = ref.read(authViewModelProvider);
+        String errorMsg = '验证失败';
+        authState.whenOrNull(
+          error: (err, stack) {
+            errorMsg = err.toString();
+          },
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _countdown = 60;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown > 0) {
+        setState(() {
+          _countdown--;
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _goBack() {
+    setState(() {
+      _currentStep = 0;
+    });
+    _timer?.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          '注册',
-          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home),
-            iconSize: UIConstants.iconMedium,
-            onPressed: () => context.go('/'),
+        title: const Text('注册'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildStepIndicator(colorScheme),
+              const SizedBox(height: 32),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _currentStep == 0
+                    ? _buildStepOne(colorScheme)
+                    : _buildStepTwo(colorScheme),
+              ),
+            ],
           ),
-        ],
-      ),
-      drawer: const MyDrawer(),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildForm(),
-            _buildCaptcha(),
-          ],
         ),
       ),
     );
   }
 
-  Widget _buildCaptcha() {
-    return SizedBox(
-      height: 300,
-      width: 300,
-      child: FlutterCaptcha(
-        controller: _captchaController,
-        crossLine: (color: Colors.white, width: 5),
-        fit: BoxFit.cover,
-        partsBuilder: (context, part) {
-          return ColoredBox(
-            color: Colors.red,
-            child: part,
-          );
-        },
-        draggingBuilder: (_, child) => Opacity(opacity: 0.5, child: child),
-        child: Image.asset('assets/images/1.png'),
-      ),
+  Widget _buildStepIndicator(ColorScheme colorScheme) {
+    return Row(
+      children: [
+        _buildStepCircle(1, '填写信息', _currentStep >= 0, colorScheme),
+        Expanded(
+          child: Container(
+            height: 2,
+            color: _currentStep >= 1
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        _buildStepCircle(2, '验证邮箱', _currentStep >= 1, colorScheme),
+      ],
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildStepCircle(int step, String label, bool isActive, ColorScheme colorScheme) {
+    return Column(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive ? colorScheme.primary : colorScheme.surfaceContainerHighest,
+          ),
+          child: Center(
+            child: Text(
+              '$step',
+              style: TextStyle(
+                color: isActive ? colorScheme.onPrimary : colorScheme.outline,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive ? colorScheme.onSurface : colorScheme.outline,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepOne(ColorScheme colorScheme) {
     return Form(
       key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            '创建您的账号',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '请填写以下信息完成注册',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.outline,
+            ),
+          ),
+          const SizedBox(height: 32),
           TextFormField(
             controller: _usernameController,
-            decoration: const InputDecoration(labelText: '用户名'),
+            decoration: InputDecoration(
+              labelText: '用户名',
+              prefixIcon: const Icon(Icons.person_outline),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             validator: (value) {
               if (value == null || value.isEmpty) return '请输入用户名';
-              if (value.length < 4) return '用户名长度至少为4位';
+              if (value.length < 3) return '用户名至少3个字符';
+              if (value.length > 20) return '用户名最多20个字符';
               return null;
             },
           ),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: '密码'),
-            validator: (value) {
-              if (value == null || value.isEmpty) return '请输入密码';
-              if (value.length < 6) return '密码长度至少为6位';
-              return null;
-            },
-          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: '邮箱'),
+            decoration: InputDecoration(
+              labelText: '邮箱',
+              prefixIcon: const Icon(Icons.email_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             validator: (value) {
               if (value == null || value.isEmpty) return '请输入邮箱';
-              if (!value.contains('@')) return '请输入有效的邮箱地址';
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                return '请输入有效的邮箱地址';
+              }
               return null;
             },
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _submit,
-            child: _isLoading
-                ? const CircularProgressIndicator()
-                : const Text('注册', style: TextStyle(color: Colors.blue)),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: '密码',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) return '请输入密码';
+              if (value.length < 6) return '密码至少6个字符';
+              return null;
+            },
           ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: '确认密码',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            validator: (value) {
+              if (value != _passwordController.text) {
+                return '两次输入的密码不一致';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 32),
+          FilledButton(
+            onPressed: _isLoading ? null : _sendVerifyCode,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('发送验证码'),
+          ),
+          const SizedBox(height: 16),
           TextButton(
             onPressed: () => context.go('/login'),
-            child: const Text('已有账号？去登录', style: TextStyle(color: Colors.blue)),
+            child: const Text('已有账号？立即登录'),
           ),
-          const Text('提交前请先完成验证码')
         ],
       ),
+    );
+  }
+
+  Widget _buildStepTwo(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '验证邮箱',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '验证码已发送至 ${_emailController.text}',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colorScheme.outline,
+          ),
+        ),
+        const SizedBox(height: 32),
+        TextField(
+          controller: _verifyCodeController,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          maxLength: 6,
+          style: const TextStyle(
+            fontSize: 24,
+            letterSpacing: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          decoration: InputDecoration(
+            hintText: '000000',
+            counterText: '',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: TextButton.icon(
+            onPressed: _countdown > 0 ? null : () {
+              _sendVerifyCode();
+            },
+            icon: const Icon(Icons.refresh),
+            label: Text(
+              _countdown > 0 ? '重新发送 ($_countdown)' : '重新发送验证码',
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        FilledButton(
+          onPressed: _isLoading ? null : _verifyEmail,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('完成注册'),
+        ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: _goBack,
+          child: const Text('返回修改信息'),
+        ),
+      ],
     );
   }
 }

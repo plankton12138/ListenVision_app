@@ -15,9 +15,6 @@ class BilibiliUserInfo {
   });
 
   factory BilibiliUserInfo.fromJson(Map<String, dynamic> json) {
-    // 兼容两种格式：
-    // 1. 后端直接返回: { mid, uid, uname }
-    // 2. B站 API 返回: { data: { mid, uname, face } }
     final isDirectFormat = json.containsKey('mid') || json.containsKey('uid');
 
     final Map<String, dynamic> data;
@@ -41,6 +38,31 @@ class BilibiliUserInfo {
       'uname': uname,
       'avatar': avatar,
       'mid': mid,
+    };
+  }
+}
+
+/// 网易云音乐用户信息模型
+class NeteaseUserInfo {
+  final String id;
+  final String username;
+
+  NeteaseUserInfo({
+    required this.id,
+    required this.username,
+  });
+
+  factory NeteaseUserInfo.fromJson(Map<String, dynamic> json) {
+    return NeteaseUserInfo(
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
     };
   }
 }

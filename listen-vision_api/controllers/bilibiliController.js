@@ -3,6 +3,44 @@ const searchHistoryService = require('../services/audio/searchHistoryService');
 const { successResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
+const FETCH_TIMEOUT_MS = 30000;
+const FETCH_MAX_RETRIES = 3;
+
+async function fetchWithRetry(url, options, maxRetries = FETCH_MAX_RETRIES) {
+  let lastError;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      lastError = error;
+      const isTimeout = error.name === 'AbortError';
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000;
+        logger.warn('BiliProxy fetch retry', {
+          url: url.substring(0, 100),
+          attempt: attempt + 1,
+          maxRetries,
+          delayMs: delay,
+          error: error.message,
+          isTimeout
+        });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // ==================== 转换任务去重 ====================
 
 /**
@@ -621,10 +659,18 @@ const proxyAudioStreamByBvid = async (req, res) => {
         logger.debug('BiliProxy range request', { range: req.headers.range });
       }
 
-      const response = await fetch(streamUrl, { headers: fetchHeaders });
+      const response = await fetchWithRetry(streamUrl, { headers: fetchHeaders });
 
       if (!response.ok) {
-        return res.status(response.status).send('获取音频失败');
+        logger.warn('BiliProxy fetch failed after retries', { 
+          bvid, 
+          status: response.status,
+          statusText: response.statusText 
+        });
+        return res.status(response.status).json({ 
+          success: false, 
+          error: `获取音频失败 (${response.status})` 
+        });
       }
 
       const contentType = response.headers.get('Content-Type') || 'audio/mp4';
@@ -649,15 +695,38 @@ const proxyAudioStreamByBvid = async (req, res) => {
         const nodeStream = require('stream');
         const { Readable } = nodeStream;
         const reader = response.body.getReader();
+        let streamError = null;
 
         const readableStream = new Readable({
           async read() {
-            const { done, value } = await reader.read();
-            if (done) {
-              this.push(null);
-            } else {
-              this.push(Buffer.from(value));
+            if (streamError) {
+              this.destroy(streamError);
+              return;
             }
+            try {
+              const readPromise = reader.read();
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Stream read timeout')), 60000)
+              );
+              
+              const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+              if (done) {
+                this.push(null);
+              } else {
+                this.push(Buffer.from(value));
+              }
+            } catch (error) {
+              streamError = error;
+              logger.warn('BiliProxy stream read error', { bvid, error: error.message });
+              this.destroy(error);
+            }
+          }
+        });
+
+        readableStream.on('error', (err) => {
+          logger.warn('BiliProxy stream error', { bvid, error: err.message });
+          if (!res.headersSent) {
+            res.status(500).json({ success: false, error: '音频流传输中断' });
           }
         });
 
@@ -693,6 +762,24 @@ const proxyAudioStreamByBvid = async (req, res) => {
       });
     }
   } catch (error) {
+    const isNetworkError = error.name === 'AbortError' || 
+                           error.code === 'ECONNREFUSED' ||
+                           error.code === 'ECONNRESET' ||
+                           error.message?.includes('fetch failed');
+    
+    if (isNetworkError) {
+      logger.error('BiliProxy network error', { 
+        bvid, 
+        error: error.message,
+        code: error.code 
+      });
+      return res.status(503).json({ 
+        success: false, 
+        error: '网络连接不稳定，请稍后重试',
+        code: 'NETWORK_ERROR'
+      });
+    }
+    
     logger.error('BiliProxy error', { error: error.message, stack: error.stack });
     res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
   }

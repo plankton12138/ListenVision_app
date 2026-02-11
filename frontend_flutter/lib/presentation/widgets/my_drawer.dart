@@ -79,8 +79,8 @@ class MyDrawer extends ConsumerWidget {
   /// 构建主菜单
   ///
   /// 游客模式支持：
-  /// - 游客可以访问：首页、搜索、发现、歌单、下载任务
-  /// - 游客不能访问：播放历史、设置
+  /// - 游客可以访问：首页、搜索、设置、下载任务
+  /// - 游客不能访问：歌单、发现、播放历史
   Widget _buildMainMenu(BuildContext context, bool isLoggedIn) {
     return Expanded(
       child: ListView(
@@ -92,18 +92,18 @@ class MyDrawer extends ConsumerWidget {
             icon: Icons.home,
             route: '/',
           ),
-          // 公开页面（游客模式可用）
           _buildListTile(
             context: context,
             title: '搜索',
             icon: Icons.search,
             route: '/search',
           ),
+          // 设置对所有用户可见
           _buildListTile(
             context: context,
-            title: '歌单',
-            icon: Icons.playlist_play,
-            route: '/playlists',
+            title: '设置',
+            icon: Icons.settings,
+            route: '/settings',
           ),
           // 下载任务管理（游客可用）
           _buildListTile(
@@ -112,6 +112,13 @@ class MyDrawer extends ConsumerWidget {
             icon: Icons.cloud_download,
             route: '/downloads',
           ),
+          // 歌单（所有用户可见，未登录用户只能看到本地音乐）
+          _buildListTile(
+            context: context,
+            title: '歌单',
+            icon: Icons.playlist_play,
+            route: '/playlists',
+          ),
           // 需要登录的页面
           if (isLoggedIn) ...[
             _buildListTile(
@@ -119,12 +126,6 @@ class MyDrawer extends ConsumerWidget {
               title: '发现',
               icon: Icons.explore,
               route: '/explore',
-            ),
-            _buildListTile(
-              context: context,
-              title: '设置',
-              icon: Icons.settings,
-              route: '/settings',
             ),
             _buildListTile(
               context: context,

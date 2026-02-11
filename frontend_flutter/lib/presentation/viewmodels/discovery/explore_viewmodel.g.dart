@@ -8,30 +8,12 @@ part of 'explore_viewmodel.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// 发现页面 ViewModel
-///
-/// 职责：
-/// 1. 加载B站音乐区热门内容
-/// 2. 加载个性化推荐
-/// 3. 加载最新发布
 
 @ProviderFor(ExploreViewModel)
 final exploreViewModelProvider = ExploreViewModelProvider._();
 
-/// 发现页面 ViewModel
-///
-/// 职责：
-/// 1. 加载B站音乐区热门内容
-/// 2. 加载个性化推荐
-/// 3. 加载最新发布
 final class ExploreViewModelProvider
     extends $AsyncNotifierProvider<ExploreViewModel, ExploreState> {
-  /// 发现页面 ViewModel
-  ///
-  /// 职责：
-  /// 1. 加载B站音乐区热门内容
-  /// 2. 加载个性化推荐
-  /// 3. 加载最新发布
   ExploreViewModelProvider._()
     : super(
         from: null,
@@ -51,14 +33,7 @@ final class ExploreViewModelProvider
   ExploreViewModel create() => ExploreViewModel();
 }
 
-String _$exploreViewModelHash() => r'280b5c0ec1c3212a90242fb925bf68473f5e6c15';
-
-/// 发现页面 ViewModel
-///
-/// 职责：
-/// 1. 加载B站音乐区热门内容
-/// 2. 加载个性化推荐
-/// 3. 加载最新发布
+String _$exploreViewModelHash() => r'722d192888492a9b1fdf703780848b38a2dfca5e';
 
 abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
   FutureOr<ExploreState> build();
@@ -78,12 +53,56 @@ abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
   }
 }
 
-/// BackendApiClient Provider (复用 SearchViewModel 的)
+@ProviderFor(NeteaseExploreViewModel)
+final neteaseExploreViewModelProvider = NeteaseExploreViewModelProvider._();
+
+final class NeteaseExploreViewModelProvider
+    extends
+        $AsyncNotifierProvider<NeteaseExploreViewModel, NeteaseExploreState> {
+  NeteaseExploreViewModelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'neteaseExploreViewModelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$neteaseExploreViewModelHash();
+
+  @$internal
+  @override
+  NeteaseExploreViewModel create() => NeteaseExploreViewModel();
+}
+
+String _$neteaseExploreViewModelHash() =>
+    r'a56f815c35712989d9f939bfe6ef1d0252b7f119';
+
+abstract class _$NeteaseExploreViewModel
+    extends $AsyncNotifier<NeteaseExploreState> {
+  FutureOr<NeteaseExploreState> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<NeteaseExploreState>, NeteaseExploreState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<NeteaseExploreState>, NeteaseExploreState>,
+              AsyncValue<NeteaseExploreState>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
 
 @ProviderFor(exploreBackendApiClient)
 final exploreBackendApiClientProvider = ExploreBackendApiClientProvider._();
-
-/// BackendApiClient Provider (复用 SearchViewModel 的)
 
 final class ExploreBackendApiClientProvider
     extends
@@ -93,7 +112,6 @@ final class ExploreBackendApiClientProvider
           BackendApiClient
         >
     with $Provider<BackendApiClient> {
-  /// BackendApiClient Provider (复用 SearchViewModel 的)
   ExploreBackendApiClientProvider._()
     : super(
         from: null,

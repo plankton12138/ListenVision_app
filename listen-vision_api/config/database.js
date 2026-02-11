@@ -411,12 +411,68 @@ const migrateUsersEmailVerified = () => {
   }
 };
 
+// 迁移：创建统一平台账号表 platform_accounts
+// 支持多平台绑定（bilibili, netease 等）
+const migratePlatformAccounts = () => {
+  try {
+    const tableInfo = db.pragma('table_info(platform_accounts)');
+
+    if (tableInfo.length === 0) {
+      logger.info('Creating platform_accounts table...');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS platform_accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          platform TEXT NOT NULL,
+          platform_user_id TEXT,
+          platform_username TEXT,
+          cookie_encrypted TEXT,
+          token_encrypted TEXT,
+          refresh_token_encrypted TEXT,
+          is_active INTEGER DEFAULT 1,
+          expires_at TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE(user_id, platform)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_platform_accounts_user_id ON platform_accounts(user_id);
+        CREATE INDEX IF NOT EXISTS idx_platform_accounts_platform ON platform_accounts(user_id, platform);
+        CREATE INDEX IF NOT EXISTS idx_platform_accounts_active ON platform_accounts(is_active, expires_at);
+      `);
+
+      logger.info('platform_accounts table created successfully');
+
+      const existingBiliAccounts = db.prepare('SELECT COUNT(*) as count FROM bilibili_accounts').get();
+      if (existingBiliAccounts.count > 0) {
+        logger.info('Migrating existing bilibili_accounts to platform_accounts...');
+
+        db.exec(`
+          INSERT OR IGNORE INTO platform_accounts (user_id, platform, platform_user_id, platform_username, cookie_encrypted, refresh_token_encrypted, is_active, expires_at, created_at, updated_at)
+          SELECT user_id, 'bilibili', bili_user_id, bili_username, cookie_encrypted, refresh_token_encrypted, is_active, expires_at, created_at, updated_at
+          FROM bilibili_accounts
+        `);
+
+        const migratedCount = db.prepare('SELECT COUNT(*) as count FROM platform_accounts WHERE platform = ?').get('bilibili');
+        logger.info(`Migrated ${migratedCount.count} bilibili accounts to platform_accounts`);
+      }
+    } else {
+      logger.info('platform_accounts table already exists');
+    }
+  } catch (e) {
+    logger.error('platform_accounts table migration failed:', e.message);
+  }
+};
+
 // 先创建表，再执行迁移
 createTables();
 migratePlaylistItems();
 migratePlayHistory();
 migrateBilibiliAccountsRefreshToken();
 migrateUsersEmailVerified();
+migratePlatformAccounts();
 
 // 优雅退出处理（由 index.js 统一管理）
 const closeDatabase = () => {

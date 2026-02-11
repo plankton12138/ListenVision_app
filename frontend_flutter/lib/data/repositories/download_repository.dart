@@ -109,38 +109,47 @@ class DownloadRepository {
     String? artist,
     String? coverUrl,
   }) async {
-    // 使用事务确保所有数据库操作原子性
     return await AppDatabase.instance.transaction<int>((txn) async {
-      // 检查是否已存在该 BVID 的任务（在事务内查询）
-      final existingMaps = await txn.query(
-        'download_tasks',
-        where: 'bvid = ?',
-        whereArgs: [bvid],
-        limit: 1,
-      );
-
-      if (existingMaps.isNotEmpty) {
-        AppLogger.info('DownloadRepository', '任务已存在: $bvid, 返回现有任务');
-        return existingMaps.first['id'] as int;
-      }
-
-      // 获取或创建 Track（在事务内查询）
-      final trackMaps = await txn.query(
+      int trackId;
+      final existingTrack = await txn.query(
         'tracks',
         where: 'source_id = ?',
         whereArgs: [bvid],
         limit: 1,
       );
 
-      final trackId = trackMaps.isNotEmpty ? trackMaps.first['id'] as int : null;
+      if (existingTrack.isNotEmpty) {
+        trackId = existingTrack.first['id'] as int;
+      } else {
+        trackId = await txn.insert('tracks', {
+          'source_id': bvid,
+          'source_type': 'bilibili',
+          'title': title ?? bvid,
+          'artist': artist,
+          'cover_url': coverUrl,
+          'bvid': bvid,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        AppLogger.info('DownloadRepository', '为搜索结果创建 Track: $bvid -> $trackId');
+      }
 
-      // 创建下载任务（在事务内插入）
+      final existingTask = await txn.query(
+        'download_tasks',
+        where: 'track_id = ?',
+        whereArgs: [trackId],
+        limit: 1,
+      );
+      if (existingTask.isNotEmpty) {
+        return existingTask.first['id'] as int;
+      }
+
       final now = DateTime.now().toIso8601String();
-      final taskMap = {
-        'url': url,
-        'save_path': savePath,
+      final taskId = await txn.insert('download_tasks', {
         'track_id': trackId,
         'bvid': bvid,
+        'url': url,
+        'save_path': savePath,
         'title': title,
         'artist': artist,
         'cover_url': coverUrl,
@@ -151,26 +160,9 @@ class DownloadRepository {
         'user_paused': 0,
         'created_at': now,
         'updated_at': now,
-      };
+      });
 
-      final taskId = await txn.insert('download_tasks', taskMap);
-
-      // 更新 Track 下载状态（在事务内更新）
-      if (trackId != null) {
-        await txn.update(
-          'tracks',
-          {
-            'download_status': DownloadStatus.pending.value,
-            'download_progress': 0,
-            'updated_at': now,
-          },
-          where: 'id = ?',
-          whereArgs: [trackId],
-        );
-      }
-
-      AppLogger.info('DownloadRepository', '创建下载任务: $taskId, bvid: $bvid');
-
+      AppLogger.info('DownloadRepository', '创建下载任务: $taskId, trackId: $trackId, bvid: $bvid');
       return taskId;
     });
   }
@@ -212,8 +204,6 @@ class DownloadRepository {
 
     // 尝试恢复槽位（如果是暂停的任务）
     if (!_slotManager.restoreSlot(taskId)) {
-      // 槽位不足，加入队列
-      // 避免重复入队
       if (!_pendingQueue.contains(taskId)) {
         _pendingQueue.add(taskId);
         AppLogger.info(
@@ -221,15 +211,7 @@ class DownloadRepository {
           '任务 $taskId 进入等待队列，槽位: ${_slotManager.slotStats}',
         );
 
-        // 更新任务状态为 pending（等待中）
         await _downloadTaskDao.markAsPending(taskId);
-        if (task.trackId != null) {
-          await _trackDao.updateDownloadStatus(
-            task.trackId!,
-            DownloadStatus.pending,
-            0,
-          );
-        }
       }
       return;
     }
@@ -254,13 +236,6 @@ class DownloadRepository {
 
     // 更新状态为下载中
     await _downloadTaskDao.markAsDownloading(taskId);
-    if (task.trackId != null) {
-      await _trackDao.updateDownloadStatus(
-        task.trackId!,
-        DownloadStatus.downloading,
-        0,
-      );
-    }
 
     AppLogger.info('DownloadRepository',
       '开始下载: taskId=$taskId, bvid=${task.bvid}');
@@ -335,13 +310,6 @@ class DownloadRepository {
             '任务状态为 $currentStatus，跳过失败标记: $taskId');
         } else {
           await _downloadTaskDao.markAsFailed(taskId, errorMessage: e.toString());
-          if (task.trackId != null) {
-            await _trackDao.updateDownloadStatus(
-              task.trackId!,
-              DownloadStatus.failed,
-              0,
-            );
-          }
 
           _progressController.add(DownloadProgressEvent(
             taskId: taskId,
@@ -402,13 +370,6 @@ class DownloadRepository {
           tempFilePath: '${task.savePath}.tmp',
         );
         await _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-        if (task.trackId != null) {
-          await _trackDao.updateDownloadStatus(
-            task.trackId!,
-            DownloadStatus.downloading,
-            percent,
-          );
-        }
         _progressController.add(DownloadProgressEvent(
           taskId: taskId,
           trackId: task.trackId,
@@ -470,26 +431,14 @@ class DownloadRepository {
       saveDir: saveDir,
       fileName: fileName,
       onProgress: (percent, stage) {
-        // 检查取消
         if (cancelToken.isCancelled) {
           cancelToken.cancel('用户取消');
           throw TaskCanceledException();
         }
 
-        // 更新数据库
         _downloadTaskDao.updateProgressPercent(taskId, percent);
         _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
 
-        // 更新 Track 状态
-        if (task.trackId != null) {
-          _trackDao.updateDownloadStatus(
-            task.trackId!,
-            DownloadStatus.downloading,
-            percent,
-          );
-        }
-
-        // 通知 UI
         _progressController.add(DownloadProgressEvent(
           taskId: taskId,
           trackId: task.trackId,
@@ -613,15 +562,6 @@ class DownloadRepository {
     await _downloadTaskDao.markAsPaused(taskId);
     await _downloadTaskDao.setUserPaused(taskId, true);
 
-    // 更新关联 Track 状态
-    if (task.trackId != null) {
-      await _trackDao.updateDownloadStatus(
-        task.trackId!,
-        DownloadStatus.paused,
-        0,
-      );
-    }
-
     AppLogger.info('DownloadRepository', '暂停完成: $taskId');
   }
 
@@ -710,13 +650,7 @@ class DownloadRepository {
 
     // 更新 Track 状态
     if (task?.trackId != null) {
-      await _trackDao.updateDownloadStatus(
-        task!.trackId!,
-        DownloadStatus.pending,
-        0,
-      );
-      // 获取 track 并更新
-      final trackToUpdate = await _trackDao.getById(task.trackId!);
+      final trackToUpdate = await _trackDao.getById(task!.trackId!);
       if (trackToUpdate != null) {
         await _trackDao.update(trackToUpdate.copyWith(
           isDownloaded: false,
@@ -788,6 +722,18 @@ class DownloadRepository {
   /// 根据 BVID 获取任务
   Future<DownloadTask?> getTaskByBvid(String bvid) async {
     return await _downloadTaskDao.getByBvid(bvid);
+  }
+
+  Future<DownloadTask?> getTaskByTrackId(int trackId) async {
+    final db = await AppDatabase.instance.database;
+    final maps = await db.query(
+      'download_tasks',
+      where: 'track_id = ?',
+      whereArgs: [trackId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return DownloadTask.fromMap(maps.first);
   }
 
   // ==================== 批量操作 ====================

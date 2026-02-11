@@ -169,6 +169,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       appBar: AppBar(
         title: const Text('注册'),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

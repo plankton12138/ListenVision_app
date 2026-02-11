@@ -1,6 +1,7 @@
 import '../../core/constants/api_constants.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/utils/app_logger.dart';
+import '../../models/search_suggestion.dart';
 
 /// 登录请求
 class LoginRequest {
@@ -616,7 +617,7 @@ class BackendApiClient {
   }
 
   /// 获取B站搜索建议
-  Future<List<String>> getBilibiliSearchSuggestions(String keyword) async {
+  Future<List<SearchSuggestion>> getBilibiliSearchSuggestions(String keyword) async {
     try {
       final response = await _dioClient.get(
         BilibiliEndpoints.searchSuggest,
@@ -624,7 +625,10 @@ class BackendApiClient {
       );
       final data = _handleResponse(response);
       final suggestions = data['suggestions'] as List?;
-      return suggestions?.map((e) => e.toString()).toList() ?? [];
+      return suggestions
+              ?.map((e) => SearchSuggestion.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取B站搜索建议失败: $e');
       return [];
@@ -663,6 +667,113 @@ class BackendApiClient {
       await _dioClient.delete(BilibiliEndpoints.searchRecent);
     } catch (e) {
       AppLogger.error('BackendApiClient', '清空B站搜索历史失败: $e');
+    }
+  }
+
+  // ==================== 网易云音乐 API ====================
+
+  /// 获取网易云绑定状态
+  Future<Map<String, dynamic>> getNeteaseStatus() async {
+    try {
+      final response = await _dioClient.get(NeteaseEndpoints.status);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云绑定状态失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取网易云二维码
+  Future<Map<String, dynamic>> getNeteaseQRCode() async {
+    try {
+      final response = await _dioClient.post(NeteaseEndpoints.qrcode);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云二维码失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 检查网易云二维码状态
+  Future<Map<String, dynamic>> checkNeteaseQRCode(String key) async {
+    try {
+      final response = await _dioClient.post(
+        NeteaseEndpoints.qrcodeCheck,
+        data: {'key': key},
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '检查网易云二维码状态失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 解绑网易云账号
+  Future<void> unbindNetease() async {
+    try {
+      await _dioClient.delete(NeteaseEndpoints.unbind);
+      AppLogger.info('BackendApiClient', '网易云解绑成功');
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '解绑网易云失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取网易云用户歌单
+  Future<Map<String, dynamic>> getNeteaseUserPlaylists(String uid) async {
+    try {
+      final response = await _dioClient.get(NeteaseEndpoints.userPlaylist(uid));
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云用户歌单失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取网易云歌单详情
+  Future<Map<String, dynamic>> getNeteasePlaylistDetail(String id) async {
+    try {
+      final response = await _dioClient.get(NeteaseEndpoints.playlistDetail(id));
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云歌单详情失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取网易云歌曲URL
+  Future<Map<String, dynamic>> getNeteaseSongUrl(String id) async {
+    try {
+      final response = await _dioClient.get(
+        NeteaseEndpoints.songUrl,
+        queryParameters: {'id': id},
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云歌曲URL失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 网易云搜索
+  Future<Map<String, dynamic>> searchNetease(
+    String keywords, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _dioClient.get(
+        NeteaseEndpoints.search,
+        queryParameters: {
+          'keywords': keywords,
+          'limit': limit,
+          'offset': offset,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '网易云搜索失败: $e');
+      rethrow;
     }
   }
 }

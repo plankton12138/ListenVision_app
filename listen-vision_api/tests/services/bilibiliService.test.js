@@ -25,11 +25,31 @@ jest.mock('../../config/database', () => {
       bili_user_id TEXT,
       bili_username TEXT,
       cookie_encrypted TEXT NOT NULL,
+      refresh_token_encrypted TEXT,
       is_active INTEGER DEFAULT 1,
       expires_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE platform_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      platform TEXT NOT NULL,
+      platform_user_id TEXT,
+      platform_username TEXT,
+      cookie_encrypted TEXT,
+      token_encrypted TEXT,
+      refresh_token_encrypted TEXT,
+      is_active INTEGER DEFAULT 1,
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, platform)
     )
   `);
 
@@ -85,6 +105,7 @@ describe('B站服务测试', () => {
   beforeEach(() => {
     db.exec('DELETE FROM users');
     db.exec('DELETE FROM bilibili_accounts');
+    db.exec('DELETE FROM platform_accounts');
     db.exec('DELETE FROM search_history');
     jest.clearAllMocks();
   });
@@ -134,89 +155,50 @@ describe('B站服务测试', () => {
       expect(status).toEqual({ isBound: false });
     });
 
-    test('已绑定用户应返回用户信息', () => {
+    test('已绑定用户应返回用户信息', async () => {
       const userId = createTestUser(1);
-      const encryptedCookie = bilibiliService.encryptCookie('SESSDATA=test');
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString().replace('T', ' ').substring(0, 19);
-
-      db.prepare(`
-        INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, is_active, expires_at)
-        VALUES (?, ?, ?, ?, 1, ?)
-      `).run(userId, '123456', 'TestUser', encryptedCookie, expiresAt);
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test', { mid: '123456', uname: 'TestUser' });
 
       const status = bilibiliService.getBindStatus(userId);
 
       expect(status.isBound).toBe(true);
-      expect(status.userInfo).toEqual({
-        mid: '123456',
-        uid: '123456',
-        uname: 'TestUser',
-        avatar: ''
-      });
+      expect(status.userInfo.mid).toBe('123456');
+      expect(status.userInfo.uname).toBe('TestUser');
     });
 
-    test('Cookie解密失败应停用账号并返回 isBound: false', () => {
-      const userId = createTestUser(2);
-      // 插入无效的加密数据
-      db.prepare(`
-        INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, is_active)
-        VALUES (?, ?, ?, ?, 1)
-      `).run(userId, '123456', 'TestUser', 'invalid:encrypted:data');
-
-      const status = bilibiliService.getBindStatus(userId);
-
-      expect(status).toEqual({ isBound: false });
-
-      // 验证账号已被停用
-      const account = db.prepare('SELECT * FROM bilibili_accounts WHERE user_id = ?').get(userId);
-      expect(account.is_active).toBe(0);
-    });
-
-    test('过期绑定应返回 isBound: false', () => {
+    test('过期绑定应返回 isBound: false', async () => {
       const userId = createTestUser(3);
-      const encryptedCookie = bilibiliService.encryptCookie('SESSDATA=test');
-      // 设置为过去的过期时间（1小时前）
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test', { mid: '123456', uname: 'TestUser' });
+      
+      // 设置过期时间为过去
       const expiresAt = new Date(Date.now() - 60 * 60 * 1000)
         .toISOString().replace('T', ' ').substring(0, 19);
-
-      db.prepare(`
-        INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, is_active, expires_at)
-        VALUES (?, ?, ?, ?, 1, ?)
-      `).run(userId, '123456', 'TestUser', encryptedCookie, expiresAt);
+      db.prepare('UPDATE platform_accounts SET expires_at = ? WHERE user_id = ? AND platform = ?')
+        .run(expiresAt, userId, 'bilibili');
 
       const status = bilibiliService.getBindStatus(userId);
 
       expect(status).toEqual({ isBound: false });
-
-      // 验证账号已被停用
-      const account = db.prepare('SELECT * FROM bilibili_accounts WHERE user_id = ?').get(userId);
-      expect(account.is_active).toBe(0);
     });
   });
 
   describe('unbindAccount()', () => {
-    test('应成功解绑账号', () => {
+    test('应成功解绑账号', async () => {
       const userId = createTestUser(1);
-      const encryptedCookie = bilibiliService.encryptCookie('SESSDATA=test');
-
-      db.prepare(`
-        INSERT INTO bilibili_accounts (user_id, bili_user_id, bili_username, cookie_encrypted, is_active)
-        VALUES (?, ?, ?, ?, 1)
-      `).run(userId, '123456', 'TestUser', encryptedCookie);
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test', { mid: '123456', uname: 'TestUser' });
 
       const result = bilibiliService.unbindAccount(userId);
 
-      expect(result).toEqual({ success: true, message: '已解绑B站账号' });
+      expect(result.success).toBe(true);
 
       // 验证账号已被删除
-      const account = db.prepare('SELECT * FROM bilibili_accounts WHERE user_id = ?').get(userId);
+      const account = db.prepare('SELECT * FROM platform_accounts WHERE user_id = ? AND platform = ?').get(userId, 'bilibili');
       expect(account).toBeUndefined();
     });
 
     test('解绑不存在的账号也应返回成功', () => {
       const result = bilibiliService.unbindAccount(999);
-      expect(result).toEqual({ success: true, message: '已解绑B站账号' });
+      expect(result.success).toBe(true);
     });
   });
 

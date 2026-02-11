@@ -64,7 +64,8 @@
       "Bash($env:USERNAME = $env:USERNAME)",
       "Bash(ForEach-Object { Get-Content $_FullName -Tail 200 })",
       "Bash(Format-Table Name, LastWriteTime)",
-      "Bash($env:USERNAME = \"23104\")"
+      "Bash($env:USERNAME = \"23104\")",
+      "Bash(sqlite3:*)"
     ]
   }
 }

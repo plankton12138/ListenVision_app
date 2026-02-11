@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'audio.dart';
-import 'download_task.dart';
 import 'local_audio.dart';
 
 /// 音轨来源类型
@@ -67,8 +66,6 @@ class CachedTrack {
   // 本地化状态
   final String? localPath;
   final bool isDownloaded;
-  final DownloadStatus downloadStatus;
-  final int downloadProgress;
 
   // 用户数据
   final bool isFavorite;
@@ -100,8 +97,6 @@ class CachedTrack {
     this.playCount,
     this.localPath,
     this.isDownloaded = false,
-    this.downloadStatus = DownloadStatus.pending,
-    this.downloadProgress = 0,
     this.isFavorite = false,
     this.localPlayCount = 0,
     this.lastPlayedAt,
@@ -151,10 +146,6 @@ class CachedTrack {
       playCount: map['play_count'] as int?,
       localPath: map['local_path'] as String?,
       isDownloaded: map['is_downloaded'] == 1,
-      downloadStatus: DownloadStatusExtension.fromString(
-        map['download_status'] as String?,
-      ),
-      downloadProgress: map['download_progress'] as int? ?? 0,
       isFavorite: map['is_favorite'] == 1,
       localPlayCount: map['local_play_count'] as int? ?? 0,
       lastPlayedAt: map['last_played_at'] != null
@@ -192,8 +183,6 @@ class CachedTrack {
       'play_count': playCount,
       'local_path': localPath,
       'is_downloaded': isDownloaded ? 1 : 0,
-      'download_status': downloadStatus.value,
-      'download_progress': downloadProgress,
       'is_favorite': isFavorite ? 1 : 0,
       'local_play_count': localPlayCount,
       'last_played_at': lastPlayedAt?.toIso8601String(),
@@ -229,8 +218,6 @@ class CachedTrack {
     int? playCount,
     String? localPath,
     bool? isDownloaded,
-    DownloadStatus? downloadStatus,
-    int? downloadProgress,
     bool? isFavorite,
     int? localPlayCount,
     DateTime? lastPlayedAt,
@@ -256,8 +243,6 @@ class CachedTrack {
       playCount: playCount ?? this.playCount,
       localPath: localPath ?? this.localPath,
       isDownloaded: isDownloaded ?? this.isDownloaded,
-      downloadStatus: downloadStatus ?? this.downloadStatus,
-      downloadProgress: downloadProgress ?? this.downloadProgress,
       isFavorite: isFavorite ?? this.isFavorite,
       localPlayCount: localPlayCount ?? this.localPlayCount,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
@@ -325,8 +310,6 @@ class CachedTrack {
       coverBlob: localAudio.albumArt,
       localPath: localAudio.filePath,
       isDownloaded: true,
-      downloadStatus: DownloadStatus.completed,
-      downloadProgress: 100,
       isFavorite: localAudio.isFavorite,
     );
   }

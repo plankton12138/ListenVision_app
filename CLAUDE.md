@@ -212,7 +212,9 @@ Get-Content "A:\Projects\listen-vision-audio-app\listen-vision_api\logs\combined
 
 ---
 
-## B站API文档
+## 第三方平台 API 文档
+
+### B站 API
 
 **优先使用本地文档** `references/bilibili-API-collect/docs/`，而非网页搜索。
 
@@ -220,6 +222,12 @@ Get-Content "A:\Projects\listen-vision-audio-app\listen-vision_api\logs\combined
 - 登录: `references/bilibili-API-collect/docs/login/login_action/QR.md`
 - 视频: `references/bilibili-API-collect/docs/video/video_info.md`
 - 音频: `references/bilibili-API-collect/docs/audio/audio_stream.md`
+
+### QQ音乐 API
+
+**官方文档**: https://developer.y.qq.com/docs/openid#/overview
+
+> 用于未来 QQ 音乐平台接入开发，包含 OpenID 认证、音乐搜索、播放等功能。
 
 ---
 

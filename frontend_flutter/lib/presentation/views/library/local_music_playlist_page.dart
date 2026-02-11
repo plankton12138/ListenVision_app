@@ -1,5 +1,7 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/local_playable.dart';
+import 'package:demo/models/queue_source.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
@@ -134,12 +136,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ElevatedButton.icon(
-            onPressed: () {
-              // 播放全部本地音乐
-              if (audios.isNotEmpty) {
-                _playAudio(context, ref, audios.first);
-              }
-            },
+            onPressed: () => _playAll(context, ref, audios),
             icon: const Icon(Icons.play_arrow),
             label: const Text('播放全部'),
             style: ElevatedButton.styleFrom(
@@ -379,6 +376,26 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 播放全部
+  Future<void> _playAll(BuildContext context, WidgetRef ref, List<LocalAudio> audios) async {
+    if (audios.isEmpty) return;
+
+    final playables = audios.map((audio) => LocalPlayable.fromAudio(audio)).toList();
+    final source = QueueSource.userPlaylist('local_music', '本地音乐');
+
+    await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+      playables,
+      source,
+      initialIndex: 0,
+    );
+
+    await ref.read(queueViewModelProvider.notifier).playAt(0);
+
+    if (context.mounted) {
+      SnackbarHelper.showPlaying(context, audios.first.title, artist: audios.first.artist);
+    }
   }
 
   /// 播放音频

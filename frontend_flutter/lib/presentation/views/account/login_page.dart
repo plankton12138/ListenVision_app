@@ -77,6 +77,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       appBar: AppBar(
         title: const Text('登录'),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

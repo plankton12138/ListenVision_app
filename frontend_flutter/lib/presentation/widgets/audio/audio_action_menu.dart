@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/download_task.dart';
 import 'package:demo/models/playlist.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
+import 'package:demo/presentation/viewmodels/system/download_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
@@ -86,6 +88,8 @@ class AudioActionMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlistState = ref.watch(playlistViewModelProvider);
+    final downloadState = ref.watch(downloadViewModelProvider);
+    final isLoggedIn = ref.watch(isLoggedInProvider);
 
     return playlistState.when(
       data: (state) {
@@ -94,15 +98,30 @@ class AudioActionMenu extends ConsumerWidget {
           loaded: (value) => value.favoritesItems.any((item) => item.bvid == bvid),
           error: (_) => false,
         );
-        return _buildContent(context, ref, isFavorited);
+        // 获取当前 bvid 的下载任务
+        final downloadTask = downloadState.whenOrNull(
+          data: (state) {
+            try {
+              return state.downloads.firstWhere((task) => task.bvid == bvid);
+            } catch (_) {
+              return null;
+            }
+          },
+        );
+        return _buildContent(context, ref, isFavorited, isLoggedIn, downloadTask);
       },
-      loading: () => _buildContent(context, ref, false),
-      error: (_, __) => _buildContent(context, ref, false),
+      loading: () => _buildContent(context, ref, false, false, null),
+      error: (_, __) => _buildContent(context, ref, false, false, null),
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, bool isFavorited) {
-
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    bool isFavorited,
+    bool isLoggedIn,
+    DownloadTask? downloadTask,
+  ) {
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -172,21 +191,45 @@ class AudioActionMenu extends ConsumerWidget {
           const Divider(height: 1),
 
           // 操作列表
-          if (showFavorite)
+          // 收藏（仅登录用户可见）
+          if (showFavorite && isLoggedIn)
             ListTile(
               leading: Icon(
                 isFavorited ? Icons.favorite : Icons.favorite_border,
                 color: isFavorited ? Colors.red : null,
               ),
               title: Text(isFavorited ? '取消收藏' : '收藏'),
-              onTap: () {
-                final navigatorContext = Navigator.of(context);
-                Navigator.pop(context);
-                _toggleFavorite(ref, navigatorContext.context);
+              onTap: () async {
+                try {
+                  AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
+
+                  final token = ref.read(authTokenProvider);
+                  if (token == null) {
+                    Navigator.pop(context);
+                    return;
+                  }
+
+                  final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+
+                  await playlistNotifier.toggleFavorite(
+                    token,
+                    bvid,
+                    title: title,
+                    artist: artist,
+                    duration: duration,
+                    coverUrl: coverUrl,
+                  );
+
+                  // 刷新收藏列表
+                  await playlistNotifier.loadFavorites(token);
+                } catch (e) {
+                  AppLogger.error('AudioActionMenu', '收藏操作失败: $e');
+                }
               },
             ),
 
-          if (showAddToPlaylist)
+          // 加入歌单（仅登录用户可见）
+          if (showAddToPlaylist && isLoggedIn)
             ListTile(
               leading: const Icon(Icons.playlist_add),
               title: const Text('加入歌单'),
@@ -198,15 +241,10 @@ class AudioActionMenu extends ConsumerWidget {
 
           if (showDownload)
             ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text('下载'),
-              onTap: () {
-                // 在关闭 bottom sheet 之前获取 navigator context
-                // 这样可以在 bottom sheet 关闭后仍然显示 SnackBar
-                final navigatorContext = Navigator.of(context);
-                Navigator.pop(context);
-                _downloadAudio(ref, navigatorContext.context);
-              },
+              leading: Icon(_getDownloadIcon(downloadTask), color: _getDownloadColor(downloadTask)),
+              title: Text(_getDownloadTitle(downloadTask)),
+              trailing: _buildDownloadProgress(ref, downloadTask),
+              onTap: () => _handleDownload(context, ref, downloadTask),
             ),
 
           if (showOpenInBrowser)
@@ -215,76 +253,26 @@ class AudioActionMenu extends ConsumerWidget {
               title: const Text('在浏览器中打开'),
               onTap: () {
                 Navigator.pop(context);
-                // 在浏览器中打开不需要显示 SnackBar
                 _openInBrowser(context);
               },
             ),
 
-          // 分享
-          ListTile(
-            leading: const Icon(Icons.share),
-            title: const Text('分享'),
-            onTap: () {
-              final navigatorContext = Navigator.of(context);
-              Navigator.pop(context);
-              _share(navigatorContext.context);
-            },
-          ),
+          // 分享（仅登录用户可见）
+          if (isLoggedIn)
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('分享'),
+              onTap: () {
+                final url = 'https://www.bilibili.com/video/$bvid';
+                AppLogger.info('AudioActionMenu', '分享: $url');
+                Navigator.pop(context);
+              },
+            ),
 
           const SizedBox(height: 8),
         ],
       ),
     );
-  }
-
-  /// 切换收藏状态
-  void _toggleFavorite(WidgetRef ref, BuildContext context) async {
-    try {
-      AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
-
-      final isLoggedIn = ref.read(isLoggedInProvider);
-      if (!isLoggedIn) {
-        if (context.mounted) {
-          _showSnackBar(context, '请先登录', Colors.orange);
-        }
-        return;
-      }
-
-      final token = ref.read(authTokenProvider);
-      if (token == null) {
-        if (context.mounted) {
-          _showSnackBar(context, '请先登录', Colors.orange);
-        }
-        return;
-      }
-
-      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-
-      final added = await playlistNotifier.toggleFavorite(
-            token,
-            bvid,
-            title: title,
-            artist: artist,
-            duration: duration,
-            coverUrl: coverUrl,
-          );
-
-      // 刷新收藏列表
-      await playlistNotifier.loadFavorites(token);
-
-      if (context.mounted) {
-        _showSnackBar(
-          context,
-          added ? '已添加到收藏' : '已取消收藏',
-          added ? Colors.green : Colors.grey,
-        );
-      }
-    } catch (e) {
-      AppLogger.error('AudioActionMenu', '收藏操作失败: $e');
-      if (context.mounted) {
-        _showSnackBar(context, '操作失败: $e', Colors.red);
-      }
-    }
   }
 
   /// 显示歌单选择器
@@ -302,54 +290,6 @@ class AudioActionMenu extends ConsumerWidget {
     );
   }
 
-  /// 下载音频
-  void _downloadAudio(WidgetRef ref, BuildContext context) async {
-    try {
-      AppLogger.info('AudioActionMenu', '下载音频: $bvid');
-
-      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
-
-      // 获取下载目录
-      final downloadDir = await _getDownloadDirectory();
-
-      final sanitizedTitle = _sanitizeTitle(title);
-      final savePath = '$downloadDir$sanitizedTitle.mp3';
-
-      await downloadNotifier.addDownload(
-            bvid: bvid,
-            savePath: savePath,
-            title: title,
-            artist: artist,
-            coverUrl: coverUrl,
-          );
-
-      if (context.mounted) {
-        _showSnackBar(context, '已添加到下载队列', Colors.green);
-      }
-    } catch (e) {
-      AppLogger.error('AudioActionMenu', '下载操作失败: $e');
-
-      // 解析错误消息
-      String message;
-      Color color;
-
-      if (e.toString().contains('任务已完成')) {
-        message = e.toString();
-        color = Colors.orange;
-      } else if (e.toString().contains('任务已在下载队列中')) {
-        message = e.toString();
-        color = Colors.orange;
-      } else {
-        message = '下载失败: $e';
-        color = Colors.red;
-      }
-
-      if (context.mounted) {
-        _showSnackBar(context, message, color);
-      }
-    }
-  }
-
   /// 在浏览器中打开
   void _openInBrowser(BuildContext context) async {
     final url = 'https://www.bilibili.com/video/$bvid';
@@ -358,19 +298,6 @@ class AudioActionMenu extends ConsumerWidget {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        _showSnackBar(context, '无法打开浏览器', Colors.red);
-      }
-    }
-  }
-
-  /// 分享
-  void _share(BuildContext context) {
-    final url = 'https://www.bilibili.com/video/$bvid';
-    AppLogger.info('AudioActionMenu', '分享: $url');
-    if (context.mounted) {
-      _showSnackBar(context, '分享功能开发中\n$url', Colors.orange);
     }
   }
 
@@ -415,15 +342,83 @@ class AudioActionMenu extends ConsumerWidget {
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  /// 显示提示消息
-  void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  /// 获取下载图标
+  IconData _getDownloadIcon(DownloadTask? task) {
+    if (task == null) return Icons.download;
+    return switch (task.status) {
+      DownloadStatus.pending => Icons.downloading,
+      DownloadStatus.downloading => Icons.downloading,
+      DownloadStatus.paused => Icons.pause,
+      DownloadStatus.completed => Icons.check_circle,
+      DownloadStatus.failed => Icons.error,
+      DownloadStatus.stalled => Icons.warning,
+    };
+  }
+
+  /// 获取下载图标颜色
+  Color? _getDownloadColor(DownloadTask? task) {
+    if (task == null) return null;
+    return switch (task.status) {
+      DownloadStatus.completed => Colors.green,
+      DownloadStatus.failed => Colors.red,
+      DownloadStatus.paused => Colors.orange,
+      _ => null,
+    };
+  }
+
+  /// 获取下载标题
+  String _getDownloadTitle(DownloadTask? task) {
+    if (task == null) return '下载';
+    return switch (task.status) {
+      DownloadStatus.pending => '下载中',
+      DownloadStatus.downloading => '下载中',
+      DownloadStatus.paused => '已暂停',
+      DownloadStatus.completed => '已下载',
+      DownloadStatus.failed => '下载失败',
+      DownloadStatus.stalled => '连接中断',
+    };
+  }
+
+  /// 构建下载进度显示
+  Widget? _buildDownloadProgress(WidgetRef ref, DownloadTask? task) {
+    if (task?.status == DownloadStatus.downloading) {
+      final progress = ref.read(downloadViewModelProvider.notifier).getTaskProgress(task!.id!);
+      return Text('$progress%', style: const TextStyle(fontSize: 12, color: Colors.grey));
+    }
+    return null;
+  }
+
+  /// 处理下载操作
+  void _handleDownload(BuildContext context, WidgetRef ref, DownloadTask? task) async {
+    // 如果已完成，不做任何事（按钮显示"已下载"）
+    if (task?.isCompleted == true) {
+      return;
+    }
+
+    // 如果正在下载/排队，不做任何事（按钮显示"下载中"）
+    if (task?.isActive == true) {
+      return;
+    }
+
+    // 开始下载（bottom sheet 保持打开，用户可以看到状态变化）
+    try {
+      AppLogger.info('AudioActionMenu', '下载音频: $bvid');
+
+      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
+      final downloadDir = await _getDownloadDirectory();
+      final sanitizedTitle = _sanitizeTitle(title);
+      final savePath = '$downloadDir$sanitizedTitle.mp3';
+
+      await downloadNotifier.addDownload(
+        bvid: bvid,
+        savePath: savePath,
+        title: title,
+        artist: artist,
+        coverUrl: coverUrl,
+      );
+    } catch (e) {
+      AppLogger.error('AudioActionMenu', '下载操作失败: $e');
+    }
   }
 }
 
@@ -475,7 +470,6 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
   }
 
   Widget _buildContent(BuildContext context, List<Playlist> userPlaylists) {
-
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.3,

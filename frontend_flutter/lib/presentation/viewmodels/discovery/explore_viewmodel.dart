@@ -9,45 +9,28 @@ import '../../../data/api/backend_api_client.dart';
 part 'explore_viewmodel.freezed.dart';
 part 'explore_viewmodel.g.dart';
 
-/// 发现内容类型
 enum ExploreType {
-  /// 热门榜单
   hot,
-
-  /// 个性化推荐
   recommended,
-
-  /// 最新发布
   latest,
 }
 
-/// 发现状态
 @freezed
 abstract class ExploreState with _$ExploreState {
-  /// 初始状态
   const factory ExploreState.initial() = ExploreStateInitial;
-
-  /// 加载中
   const factory ExploreState.loading() = ExploreStateLoading;
-
-  /// 未绑定B站
   const factory ExploreState.notBound() = ExploreStateNotBound;
-
-  /// 内容已加载
   const factory ExploreState.loaded({
     required List<ExploreItem> items,
     required bool hasMore,
     required int currentPage,
     required ExploreType type,
   }) = ExploreStateLoaded;
-
-  /// 错误
   const factory ExploreState.error({
     required String message,
   }) = ExploreStateError;
 }
 
-/// 发现项
 class ExploreItem {
   final String bvid;
   final String title;
@@ -55,7 +38,7 @@ class ExploreItem {
   final int? duration;
   final int? playCount;
   final String? coverUrl;
-  final int? rank; // 排名（仅热门榜单）
+  final int? rank;
 
   ExploreItem({
     required this.bvid,
@@ -67,7 +50,6 @@ class ExploreItem {
     this.rank,
   });
 
-  /// 从JSON创建
   factory ExploreItem.fromJson(Map<String, dynamic> json, {int? rank}) {
     return ExploreItem(
       bvid: json['bvid'] as String,
@@ -80,7 +62,6 @@ class ExploreItem {
     );
   }
 
-  /// 解析时长字符串（如 "03:45" -> 225秒）
   static int? _parseDuration(dynamic duration) {
     if (duration == null) return null;
     if (duration is int) return duration;
@@ -96,17 +77,48 @@ class ExploreItem {
   }
 }
 
-/// 发现页面 ViewModel
-///
-/// 职责：
-/// 1. 加载B站音乐区热门内容
-/// 2. 加载个性化推荐
-/// 3. 加载最新发布
+class NeteasePlaylistItem {
+  final String id;
+  final String name;
+  final String cover;
+  final int trackCount;
+  final int? playCount;
+
+  NeteasePlaylistItem({
+    required this.id,
+    required this.name,
+    required this.cover,
+    required this.trackCount,
+    this.playCount,
+  });
+
+  factory NeteasePlaylistItem.fromJson(Map<String, dynamic> json) {
+    return NeteasePlaylistItem(
+      id: json['id'].toString(),
+      name: json['name'] as String? ?? '',
+      cover: json['cover'] as String? ?? '',
+      trackCount: json['trackCount'] as int? ?? 0,
+      playCount: json['playCount'] as int?,
+    );
+  }
+}
+
+@freezed
+abstract class NeteaseExploreState with _$NeteaseExploreState {
+  const factory NeteaseExploreState.initial() = NeteaseExploreStateInitial;
+  const factory NeteaseExploreState.loading() = NeteaseExploreStateLoading;
+  const factory NeteaseExploreState.notBound() = NeteaseExploreStateNotBound;
+  const factory NeteaseExploreState.loaded({
+    required List<NeteasePlaylistItem> playlists,
+  }) = NeteaseExploreStateLoaded;
+  const factory NeteaseExploreState.error({
+    required String message,
+  }) = NeteaseExploreStateError;
+}
+
 @Riverpod(keepAlive: true)
 class ExploreViewModel extends _$ExploreViewModel {
   BackendApiClient? _apiClient;
-  /// B站推荐 API 限制：ps >= 15 时返回错误
-  /// 使用 10 作为安全值
   static const _pageSize = 10;
 
   @override
@@ -115,7 +127,6 @@ class ExploreViewModel extends _$ExploreViewModel {
 
     try {
       AppLogger.debug('ExploreViewModel', '初始化');
-      // 返回初始状态，等待页面加载
       return const ExploreState.initial();
     } catch (e) {
       AppLogger.error('ExploreViewModel', '初始化失败: $e');
@@ -123,10 +134,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 加载热门榜单
-  ///
-  /// 后端返回歌单列表，每个歌单包含预览音频
-  /// 将歌单的预览音频展开为音频列表
   Future<bool> loadHotRanking({int page = 1}) async {
     try {
       AppLogger.info('ExploreViewModel', '加载热门榜单: page=$page');
@@ -139,11 +146,9 @@ class ExploreViewModel extends _$ExploreViewModel {
         pageSize: _pageSize,
       );
 
-      // 后端返回的是歌单列表，key 为 'playlists'
       final playlistsData = data['playlists'] as List? ?? [];
       final totalCount = data['total'] as int? ?? 0;
 
-      // 将歌单的预览音频展开为音频列表
       final items = <ExploreItem>[];
       int rank = (page - 1) * _pageSize + 1;
 
@@ -151,7 +156,6 @@ class ExploreViewModel extends _$ExploreViewModel {
         final playlistJson = playlist as Map<String, dynamic>;
         final previews = playlistJson['previews'] as List? ?? [];
 
-        // 将每个预览音频转换为 ExploreItem
         for (final preview in previews) {
           final previewJson = preview as Map<String, dynamic>;
           items.add(ExploreItem(
@@ -186,10 +190,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 加载B站音乐区推荐
-  ///
-  /// [page] 页码
-  /// [append] 是否追加到现有列表（用于加载更多）
   Future<bool> loadRecommended({int page = 1, bool append = false}) async {
     try {
       AppLogger.info('ExploreViewModel', '加载B站音乐区: page=$page, append=$append');
@@ -248,7 +248,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 加载最新发布
   Future<bool> loadLatest({int page = 1}) async {
     try {
       AppLogger.info('ExploreViewModel', '加载最新发布: page=$page');
@@ -256,9 +255,8 @@ class ExploreViewModel extends _$ExploreViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      // 使用搜索空关键词获取最新内容（按时间排序）
       final data = await _apiClient!.searchBilibili(
-        '', // 空关键词
+        '',
         page: page,
         pageSize: _pageSize,
       );
@@ -290,7 +288,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 加载下一页
   Future<bool> loadNext() async {
     final currentState = state.valueOrNull;
     if (currentState is! ExploreStateLoaded) {
@@ -305,7 +302,6 @@ class ExploreViewModel extends _$ExploreViewModel {
 
     final nextPage = currentState.currentPage + 1;
 
-    // 根据当前类型加载下一页
     switch (currentState.type) {
       case ExploreType.hot:
         return await loadHotRanking(page: nextPage);
@@ -316,7 +312,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 刷新当前列表
   Future<bool> refresh() async {
     final currentState = state.valueOrNull;
     ExploreType? currentType;
@@ -326,7 +321,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
 
     if (currentType == null) {
-      // 默认加载热门
       return await loadHotRanking();
     }
 
@@ -340,7 +334,6 @@ class ExploreViewModel extends _$ExploreViewModel {
     }
   }
 
-  /// 清除错误状态
   void clearError() {
     if (state.valueOrNull is ExploreStateError) {
       state = const AsyncData(ExploreState.initial());
@@ -348,7 +341,64 @@ class ExploreViewModel extends _$ExploreViewModel {
   }
 }
 
-/// BackendApiClient Provider (复用 SearchViewModel 的)
+@Riverpod(keepAlive: true)
+class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
+  BackendApiClient? _apiClient;
+
+  @override
+  Future<NeteaseExploreState> build() async {
+    _apiClient = BackendApiClient();
+    return const NeteaseExploreState.initial();
+  }
+
+  Future<bool> loadPlaylists(String uid) async {
+    try {
+      AppLogger.info('NeteaseExploreViewModel', '加载网易云歌单: uid=$uid');
+
+      // 验证 uid 有效性
+      if (uid.isEmpty) {
+        AppLogger.error('NeteaseExploreViewModel', 'uid 为空，无法加载歌单');
+        if (!ref.mounted) return false;
+        state = const AsyncData(NeteaseExploreState.error(
+          message: '网易云账号信息不完整，请重新登录',
+        ));
+        return false;
+      }
+
+      if (!ref.mounted) return false;
+      state = const AsyncLoading();
+
+      final data = await _apiClient!.getNeteaseUserPlaylists(uid);
+      final playlistsData = data['playlists'] as List? ?? [];
+
+      final playlists = playlistsData.map((p) {
+        return NeteasePlaylistItem.fromJson(p as Map<String, dynamic>);
+      }).toList();
+
+      if (!ref.mounted) return false;
+      state = AsyncData(NeteaseExploreState.loaded(playlists: playlists));
+
+      AppLogger.info('NeteaseExploreViewModel', '网易云歌单加载成功: ${playlists.length}个');
+      return true;
+    } catch (e) {
+      AppLogger.error('NeteaseExploreViewModel', '加载网易云歌单失败: $e');
+      if (!ref.mounted) return false;
+      state = AsyncError(e, StackTrace.current);
+      return false;
+    }
+  }
+
+  void setNotBound() {
+    state = const AsyncData(NeteaseExploreState.notBound());
+  }
+
+  void clearError() {
+    if (state.valueOrNull is NeteaseExploreStateError) {
+      state = const AsyncData(NeteaseExploreState.initial());
+    }
+  }
+}
+
 @riverpod
 BackendApiClient exploreBackendApiClient(Ref ref) {
   return BackendApiClient();

@@ -109,6 +109,24 @@ router.use('/bilibili', (req, res, next) => {
   next();
 }, require('./bilibili'));
 
+// ==================== 网易云音乐相关 ====================
+
+/**
+ * @route   POST /api/v1/netease/qrcode
+ * @route   POST /api/v1/netease/qrcode/check
+ * @route   POST /api/v1/netease/login/cellphone
+ * @route   GET /api/v1/netease/status
+ * @route   DELETE /api/v1/netease/unbind
+ * @route   GET /api/v1/netease/search
+ * @route   GET /api/v1/netease/song/detail
+ * @route   GET /api/v1/netease/song/url
+ * @route   GET /api/v1/netease/song/lyric/:id
+ * @route   GET /api/v1/netease/playlist/detail/:id
+ * @route   GET /api/v1/netease/user/playlist/:uid
+ * @access  Public/Private (部分需要登录)
+ */
+router.use('/netease', require('./netease'));
+
 // ==================== 音频元数据相关 ====================
 
 /**

@@ -296,7 +296,12 @@ class QueueViewModel extends _$QueueViewModel {
       );
     } else {
       // 本地音频
-      await playerNotifier.playLocalAudio(playable.url);
+      await playerNotifier.playLocalAudio(
+        playable.url,
+        title: playable.title,
+        artist: playable.artist,
+        albumArt: playable.coverData,
+      );
     }
 
     AppLogger.info('QueueViewModel', '播放索引 $index: ${playable.title}');

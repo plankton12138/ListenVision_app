@@ -4,42 +4,47 @@ Guidelines for AI coding agents working in this repository.
 
 ---
 
+## Development Environment
 
-## 日志位置
-
-| 类型 | 位置 |
-|------|------|
-| 前端 | `C:\Users\<用户>\Documents\logs\` |
-| 后端 | `listen-vision_api/logs/` |
-
-```powershell
-# 查看前端日志（获取最新200行）
-$env:USERNAME = "23104"  # 替换为实际用户名
-Get-Content "C:\Users\$env:USERNAME\Documents\logs\app-$(Get-Date -Format 'yyyy-MM-dd').log" -Tail 200
-
-# 或查看今天的日志
-Get-ChildItem "C:\Users\$env:USERNAME\Documents\logs\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content -Tail 100
-
-# 查看后端日志
-Get-Content "A:\Projects\listen-vision-audio-app\listen-vision_api\logs\combined.log" -Tail 100
-```
-
----
-
-## B站API文档
-
-**优先使用本地文档** `references/bilibili-API-collect/docs/`，而非网页搜索。
-
-核心文档：
-- 登录: `references/bilibili-API-collect/docs/login/login_action/QR.md`
-- 视频: `references/bilibili-API-collect/docs/video/video_info.md`
-- 音频: `references/bilibili-API-collect/docs/audio/audio_stream.md`
+- **OS**: Windows 11 24H2
+- **Shell**: PowerShell (preferred)
+- **Node.js**: 24.13.0 (fixed, required by better-sqlite3)
+- **Flutter**: 3.38.5 (Dart 3.10.4)
 
 ---
 
 ## Project Overview
 
-Music streaming app with **Flutter frontend** (`frontend_flutter/`) and **Node.js backend** (`listen-vision_api/`). Platform: Windows 11, PowerShell preferred.
+Music streaming app with **Flutter frontend** (`frontend_flutter/`) and **Node.js backend** (`listen-vision_api/`).
+
+### Project Structure
+
+```
+Projects_ListenVison/
+├── references/                # Reference docs
+│   ├── bilibili-API-collect/ # Bilibili API docs (local clone)
+│   └── riverpod/             # Riverpod docs (local clone)
+├── frontend_flutter/          # Flutter app
+│   └── lib/
+│       ├── core/              # Infrastructure (constants, errors, network)
+│       ├── models/            # Lightweight entities
+│       ├── data/              # Data layer (API clients, Repository)
+│       │   ├── database/       # SQLite DAO
+│       │   ├── repositories/   # Repository implementations
+│       │   └── sync/           # Network sync retry mechanism
+│       ├── services/          # Stateful services (audio, metadata)
+│       └── presentation/      # UI layer
+│           ├── viewmodels/    # StateNotifier state management
+│           ├── views/         # Pages
+│           ├── widgets/       # Components
+│           └── providers.dart # Riverpod providers export
+└── listen-vision_api/        # Node.js backend
+    ├── middleware/           # Auth, rate limiting, error handling
+    ├── routes/               # API routes (v1)
+    ├── controllers/          # Controllers
+    ├── services/             # Business logic
+    └── config/               # Database config
+```
 
 ---
 
@@ -154,14 +159,23 @@ async function getVideoInfo(bvid) { }
 
 ### Backend: `controllers/`, `middleware/`, `routes/`, `services/`, `tests/`
 
+### Tech Stack
+
+**Frontend**: Flutter 3.38.5, Riverpod 3, go_router, sqflite, dio, audioplayers, freezed
+
+**Backend**: Express 5, better-sqlite3, bcrypt, JWT, AES-256-CBC, nodemailer
+
+**API Version**: v1 (`/api/v1` prefix)
+
 ---
 
 ## Key Conventions
 
 ### Local-First Sync
 1. **Writes to local DB first** - UI updates immediately
-2. **Network queued** - SyncWorker retries (max 3 attempts)
+2. **Network queued** - SyncWorker retries (max 3 attempts, 30s interval)
 3. **Sensitive data** - Never log passwords/tokens
+4. **Persistence** - Unfinished sync tasks resume on app restart
 
 ### Logging
 - **Frontend**: `AppLogger` (DEBUG/INFO/WARN/ERROR)
@@ -179,6 +193,58 @@ async function getVideoInfo(bvid) { }
 3. `ref.watch()` for reactive dependencies; `ref.read()` in callbacks
 4. First param of `@riverpod` must be `Ref`
 
+### Planning Rules
+- **File paths must be specific** - Always include full path
+- **Prefer extending existing files** - Avoid creating new directories
+- **Follow existing architecture** - Use `@riverpod` annotation pattern
+
+---
+
+## Log Locations
+
+| Type | Location |
+|------|----------|
+| Frontend | `C:\Users\<user>\Documents\logs\` |
+| Backend | `listen-vision_api/logs/` |
+
+```powershell
+# View frontend logs (last 200 lines)
+Get-Content "C:\Users\$env:USERNAME\Documents\logs\app-$(Get-Date -Format 'yyyy-MM-dd').log" -Tail 200
+
+# View today's frontend log
+Get-ChildItem "C:\Users\$env:USERNAME\Documents\logs\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content -Tail 100
+
+# View backend logs
+Get-Content "A:\Projects\listen-vision-audio-app\listen-vision_api\logs\combined.log" -Tail 100
+```
+
+---
+
+## Third-Party Platform API Docs
+
+### Bilibili API
+
+**Use local docs first**: `references/bilibili-API-collect/docs/`
+
+Key documents:
+- Login: `references/bilibili-API-collect/docs/login/login_action/QR.md`
+- Video: `references/bilibili-API-collect/docs/video/video_info.md`
+- Audio: `references/bilibili-API-collect/docs/audio/audio_stream.md`
+
+### QQ Music API
+
+**Official docs**: https://developer.y.qq.com/docs/openid#/overview
+
+> For future QQ Music platform integration, including OpenID auth, music search, and playback.
+
+---
+
+## Auth Architecture
+
+1. **Main account** (Email/Password + JWT)
+2. **Platform binding** (Bilibili QR code, encrypted cookie storage)
+3. **Guest mode** (Local playback, no login required)
+
 ---
 
 ## References
@@ -187,3 +253,5 @@ async function getVideoInfo(bvid) { }
 - `docs/guides/LOGGING_STANDARDS.md` - Logging standards
 - `docs/guides/CODE_COMMENT_STANDARDS.md` - Comment standards
 - `references/bilibili-API-collect/docs/` - Bilibili API docs
+- `CLAUDE.md` - Detailed development guide
+- `README.md` - Project overview and features

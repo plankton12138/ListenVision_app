@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../config/database');
 const { logger } = require('../utils/logger');
+const platformService = require('./platformService');
 
 /**
  * B站API集成服务
@@ -24,6 +25,8 @@ const keyMaterial = process.env.BILI_COOKIE_KEY || 'ListenVisionBilibiliCookieKe
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(keyMaterial).digest();
 const IV_LENGTH = 16;
 const ALGORITHM = 'aes-256-cbc';
+
+const PLATFORM = 'bilibili';
 
 /**
  * 加密Cookie
@@ -379,38 +382,13 @@ const buildCookieString = (loginData) => {
  * @param {Object} userInfo - B站用户信息
  */
 const saveCookie = async (userId, cookie, userInfo = {}, refreshToken = null) => {
-  const encrypted = encryptCookie(cookie);
-  const biliUserId = userInfo.mid || userInfo.uid || '';
-  const biliUsername = userInfo.uname || '';
-
-  const encryptedRefreshToken = refreshToken ? encryptCookie(refreshToken) : null;
-
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    .toISOString().replace('T', ' ').substring(0, 19);
-
-  const existing = stmt.getActiveBiliAccount.get(userId);
-
-  if (existing) {
-    if (encryptedRefreshToken) {
-      stmt.updateBiliAccountWithRefresh.run(
-        biliUserId, biliUsername, encrypted, encryptedRefreshToken, expiresAt, existing.id
-      );
-    } else {
-      stmt.updateBiliAccount.run(biliUserId, biliUsername, encrypted, existing.id);
-    }
-  } else {
-    if (encryptedRefreshToken) {
-      stmt.insertBiliAccount.run(
-        userId, biliUserId, biliUsername, encrypted, encryptedRefreshToken, expiresAt
-      );
-    } else {
-      stmt.insertBiliAccountWithoutRefresh.run(
-        userId, biliUserId, biliUsername, encrypted, expiresAt
-      );
-    }
-  }
-
-  return { success: true };
+  return platformService.saveAccount(userId, PLATFORM, {
+    platformUserId: userInfo.mid || userInfo.uid || '',
+    platformUsername: userInfo.uname || '',
+    cookie,
+    refreshToken,
+    expiresInDays: 30,
+  });
 };
 
 /**
@@ -420,26 +398,7 @@ const saveCookie = async (userId, cookie, userInfo = {}, refreshToken = null) =>
  * @returns {string|null} Cookie字符串
  */
 const getCookie = (userId) => {
-  const account = stmt.getActiveBiliAccount.get(userId);
-  if (!account) return null;
-
-  // 检查是否过期
-  if (account.expires_at) {
-    const expiresAt = new Date(account.expires_at);
-    if (expiresAt < new Date()) {
-      // 过期则停用
-      stmt.deactivateBiliAccount.run(userId);
-      return null;
-    }
-  }
-
-  const cookie = decryptCookie(account.cookie_encrypted);
-  // 解密失败则停用该账号
-  if (cookie === null) {
-    logger.warn(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
-    stmt.deactivateBiliAccount.run(userId);
-  }
-  return cookie;
+  return platformService.getCookie(userId, PLATFORM);
 };
 
 /**
@@ -450,31 +409,25 @@ const getCookie = (userId) => {
  */
 const refreshCookie = async (userId) => {
   try {
-    const account = stmt.getActiveBiliAccount.get(userId);
+    const account = platformService.getAccount(userId, PLATFORM);
     if (!account) {
       logger.warn('[Cookie刷新] 账号不存在或已停用: userId=%d', userId);
       return false;
     }
 
-    if (!account.refresh_token_encrypted) {
+    if (!account.refreshToken) {
       logger.warn('[Cookie刷新] 无 refresh_token，无法刷新: userId=%d', userId);
       return false;
     }
 
-    const refreshToken = decryptCookie(account.refresh_token_encrypted);
-    if (!refreshToken) {
-      logger.warn('[Cookie刷新] refresh_token 解密失败: userId=%d', userId);
-      return false;
-    }
-
-    const csrf = _extractBiliJct(account.cookie_encrypted);
-    const currentCookie = decryptCookie(account.cookie_encrypted);
+    const csrf = _extractBiliJct(account.cookie);
+    const currentCookie = account.cookie;
 
     const url = 'https://passport.bilibili.com/x/passport-login/web/cookie/refresh';
     const response = await httpPost(
       url,
       {
-        refresh_token: refreshToken,
+        refresh_token: account.refreshToken,
         csrf: csrf,
       },
       {
@@ -489,34 +442,22 @@ const refreshCookie = async (userId) => {
       
       // -101: 账号未登录, -6: refresh_token无效, -7: refresh_token过期
       if (response.code === -101 || response.code === -6 || response.code === -7) {
-        stmt.deactivateBiliAccount.run(userId);
+        platformService.deactivateAccount(userId, PLATFORM);
         logger.warn('[Cookie刷新] 账号已过期，已停用: userId=%d', userId);
       }
       return false;
     }
 
     const newRefreshToken = response.data?.refresh_token;
-    const newCookieParts = [];
-
-    if (response.data?.refresh_csrf) {
-      // 更新 Cookie 中的 bili_jct（如果变了）
-      // B站刷新API返回的是新的 refresh_token，Cookie 可能需要重新构建
-      logger.info('[Cookie刷新] 获取到新的 refresh_token');
-    }
 
     if (newRefreshToken) {
-      const encryptedNewRefreshToken = encryptCookie(newRefreshToken);
-      const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString().replace('T', ' ').substring(0, 19);
-
-      stmt.updateBiliAccountWithRefresh.run(
-        account.bili_user_id,
-        account.bili_username,
-        account.cookie_encrypted,
-        encryptedNewRefreshToken,
-        newExpiresAt,
-        account.id
-      );
+      await platformService.saveAccount(userId, PLATFORM, {
+        platformUserId: account.platform_user_id,
+        platformUsername: account.platform_username,
+        cookie: account.cookie,
+        refreshToken: newRefreshToken,
+        expiresInDays: 30,
+      });
 
       logger.info('[Cookie刷新] 成功: userId=%d', userId);
       return true;
@@ -534,7 +475,9 @@ const refreshCookie = async (userId) => {
  */
 const _extractBiliJct = (cookieEncrypted) => {
   try {
-    const cookie = decryptCookie(cookieEncrypted);
+    const cookie = typeof cookieEncrypted === 'string' && cookieEncrypted.includes(':')
+      ? decryptCookie(cookieEncrypted)
+      : cookieEncrypted;
     if (!cookie) return '';
     const match = cookie.match(/bili_jct=([^;]+)/);
     return match ? match[1] : '';
@@ -550,38 +493,19 @@ const _extractBiliJct = (cookieEncrypted) => {
  * @returns {Object} 绑定信息
  */
 const getBindStatus = (userId) => {
-  const account = stmt.getActiveBiliAccount.get(userId);
-  if (!account) {
-    return { isBound: false };
-  }
-
-  // 检查是否过期
-  if (account.expires_at) {
-    const expiresAt = new Date(account.expires_at);
-    if (expiresAt < new Date()) {
-      // 过期则停用
-      stmt.deactivateBiliAccount.run(userId);
-      return { isBound: false };
-    }
-  }
-
-  // 检查Cookie是否能正常解密
-  const cookie = decryptCookie(account.cookie_encrypted);
-  if (cookie === null) {
-    // 解密失败，停用账号
-    logger.warn(`Cookie解密失败，停用账号 ${userId} 的B站绑定`);
-    stmt.deactivateBiliAccount.run(userId);
-    return { isBound: false };
+  const status = platformService.getBindStatus(userId, PLATFORM);
+  if (!status.isBound) {
+    return status;
   }
 
   return {
     isBound: true,
     userInfo: {
-      mid: account.bili_user_id,
-      uid: account.bili_user_id,
-      uname: account.bili_username,
-      avatar: '' // 头像需要从B站API获取
-    }
+      mid: status.userInfo.id,
+      uid: status.userInfo.id,
+      uname: status.userInfo.username,
+      avatar: '',
+    },
   };
 };
 
@@ -592,8 +516,7 @@ const getBindStatus = (userId) => {
  * @returns {Object} 成功信息
  */
 const unbindAccount = (userId) => {
-  stmt.deleteBiliAccount.run(userId);
-  return { success: true, message: '已解绑B站账号' };
+  return platformService.unbindAccount(userId, PLATFORM);
 };
 
 // ==================== 视频信息获取 ====================
@@ -1060,33 +983,27 @@ const getSearchSuggestions = async (keyword) => {
       return [];
     }
 
-    // B站搜索建议 API
-    const url = `https://api.bilibili.com/x/web-interface/search/suggest?keyword=${encodeURIComponent(keyword)}`;
+    const url = `https://s.search.bilibili.com/main/suggest?term=${encodeURIComponent(keyword)}`;
 
     const data = await httpGet(url, {}, 5000);
 
-    if (data.code !== 0) {
-      logger.warn(`获取搜索建议失败: ${data.message}`);
-      return [];
-    }
-
-    // 解析返回结果
-    // B站返回格式: { code: 0, data: { tag: [{ ... }] } }
     const suggestions = [];
+    const seenValues = new Set();
 
-    if (data.data && data.data.tag) {
-      for (const tag of data.data.tag) {
-        if (tag.keyword) {
-          suggestions.push(tag.keyword);
-        }
-        if (tag.value) {
-          suggestions.push(tag.value);
+    if (data.result && data.result.tag) {
+      for (const tag of data.result.tag) {
+        const value = tag.value || tag.term;
+        if (value && !seenValues.has(value)) {
+          seenValues.add(value);
+          suggestions.push({
+            value: value,
+            name: tag.name || value,
+          });
         }
       }
     }
 
-    // 去重并限制数量
-    return [...new Set(suggestions)].slice(0, 10);
+    return suggestions.slice(0, 10);
   } catch (error) {
     logger.warn(`获取搜索建议失败: ${error.message}`);
     return [];
@@ -1115,15 +1032,14 @@ const insertCachedAudio = (bvid, data, contentType) => {
 // 启动时清理无效的绑定（使用旧密钥加密的数据）
 const cleanupInvalidBindings = () => {
   try {
-    const accounts = stmt.getAllBiliAccounts.all();
+    const db = require('../config/database');
+    const accounts = db.prepare('SELECT * FROM platform_accounts WHERE platform = ? AND is_active = 1').all(PLATFORM);
     let cleanedCount = 0;
 
     accounts.forEach(account => {
-      // 尝试解密Cookie
-      const cookie = decryptCookie(account.cookie_encrypted);
-      if (cookie === null) {
-        // 解密失败，停用该账号
-        db.prepare('UPDATE bilibili_accounts SET is_active = 0 WHERE id = ?').run(account.id);
+      const cookie = platformService.decrypt(account.cookie_encrypted);
+      if (account.cookie_encrypted && cookie === null) {
+        platformService.deactivateAccount(account.user_id, PLATFORM);
         cleanedCount++;
         logger.info(`清理无效绑定: 用户ID ${account.user_id}`);
       }

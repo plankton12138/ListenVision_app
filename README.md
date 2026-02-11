@@ -386,6 +386,32 @@ GET    /api/v1/search/history
 - [日志规范](docs/LOGGING_STANDARDS.md) - 日志记录规范
 - [Claude Code 指导](CLAUDE.md) - AI 开发助手指南
 
+### 第三方平台 API 文档
+
+- **B站 API**: `references/bilibili-API-collect/docs/` (本地克隆)
+- **QQ音乐 API**: https://developer.y.qq.com/docs/openid#/overview (官方文档)
+
+---
+
+## 🙏 致谢与依赖项目
+
+本项目依赖以下开源项目和 API 服务：
+
+### 第三方 API 服务
+
+| 平台 | 项目 | 链接 | 用途 |
+|------|------|------|------|
+| **网易云音乐** | NeteaseCloudMusicApi | https://gitee.com/Hua-lanni/NeteaseCloudMusicApi.git | 网易云音乐 API 服务，用于 QR 登录、歌单获取、搜索等功能 |
+| **Bilibili** | bilibili-API-collect | https://github.com/SocialSisterYi/bilibili-API-collect | B站 API 文档收集项目，用于视频信息、音频流、搜索等接口开发 |
+
+### 特别说明
+
+- **NeteaseCloudMusicApi**: 本项目后端通过调用该 API 服务实现网易云音乐相关功能，包括二维码登录、用户信息获取、歌单管理、歌曲搜索等。该项目由社区维护，提供了网易云音乐 Web API 的封装。
+
+- **bilibili-API-collect**: 这是一个社区维护的 B站 API 文档收集项目，本项目参考该文档实现了 B站 视频信息获取、音频流代理、搜索等功能。文档仓库已作为子模块克隆到 `references/bilibili-API-collect/` 目录。
+
+感谢以上开源项目的作者和社区贡献者！
+
 ---
 
 ## 🤝 贡献指南

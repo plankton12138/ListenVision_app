@@ -2,6 +2,7 @@ import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/state/state_utils.dart';
 import 'package:demo/models/audio.dart';
 import 'package:demo/models/online_playable.dart';
+import 'package:demo/models/search_suggestion.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/discovery/search_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
@@ -367,7 +368,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
 
   /// 空闲状态（搜索历史和搜索建议）
-  Widget _buildIdleState(List<String> history, List<String> suggestions) {
+  Widget _buildIdleState(List<String> history, List<SearchSuggestion> suggestions) {
     return ListView(
       children: [
         // 搜索建议
@@ -381,10 +382,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
           ...suggestions.map((s) => ListTile(
                 leading: const Icon(Icons.search, color: Colors.grey),
-                title: Text(s),
+                title: _buildHighlightedText(s.name, s.value),
                 dense: true,
                 onTap: () {
-                  _searchController.text = s;
+                  _searchController.text = s.value;
                   _performSearch();
                 },
               )),
@@ -441,6 +442,41 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildHighlightedText(String htmlText, String plainText) {
+    final regex = RegExp(r'<em class="suggest_high_light">(.*?)</em>');
+    final spans = <TextSpan>[];
+    var lastEnd = 0;
+
+    for (final match in regex.allMatches(htmlText)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: htmlText.substring(lastEnd, match.start),
+          style: const TextStyle(color: Colors.black87),
+        ));
+      }
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w500),
+      ));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < htmlText.length) {
+      spans.add(TextSpan(
+        text: htmlText.substring(lastEnd),
+        style: const TextStyle(color: Colors.black87),
+      ));
+    }
+
+    if (spans.isEmpty) {
+      return Text(plainText);
+    }
+
+    return RichText(
+      text: TextSpan(children: spans, style: const TextStyle(fontSize: 16)),
     );
   }
 

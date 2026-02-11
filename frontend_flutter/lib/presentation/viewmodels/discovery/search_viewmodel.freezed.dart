@@ -131,7 +131,7 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  loading,TResult Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)?  resultsLoaded,TResult Function( List<String> searchHistory,  List<String> suggestions,  SearchPlatform platform)?  idle,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  loading,TResult Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)?  resultsLoaded,TResult Function( List<String> searchHistory,  List<SearchSuggestion> suggestions,  SearchPlatform platform)?  idle,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case SearchStateInitial() when initial != null:
 return initial();case SearchStateLoading() when loading != null:
@@ -156,7 +156,7 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  loading,required TResult Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)  resultsLoaded,required TResult Function( List<String> searchHistory,  List<String> suggestions,  SearchPlatform platform)  idle,required TResult Function( String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  loading,required TResult Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)  resultsLoaded,required TResult Function( List<String> searchHistory,  List<SearchSuggestion> suggestions,  SearchPlatform platform)  idle,required TResult Function( String message)  error,}) {final _that = this;
 switch (_that) {
 case SearchStateInitial():
 return initial();case SearchStateLoading():
@@ -180,7 +180,7 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  loading,TResult? Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)?  resultsLoaded,TResult? Function( List<String> searchHistory,  List<String> suggestions,  SearchPlatform platform)?  idle,TResult? Function( String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  loading,TResult? Function( List<SearchResultItem> results,  String query,  SearchPlatform platform,  int currentPage,  int pageSize,  int totalCount,  bool hasMore)?  resultsLoaded,TResult? Function( List<String> searchHistory,  List<SearchSuggestion> suggestions,  SearchPlatform platform)?  idle,TResult? Function( String message)?  error,}) {final _that = this;
 switch (_that) {
 case SearchStateInitial() when initial != null:
 return initial();case SearchStateLoading() when loading != null:
@@ -347,7 +347,7 @@ as bool,
 
 
 class SearchStateIdle implements SearchState {
-  const SearchStateIdle({final  List<String> searchHistory = const [], final  List<String> suggestions = const [], this.platform = SearchPlatform.bilibili}): _searchHistory = searchHistory,_suggestions = suggestions;
+  const SearchStateIdle({final  List<String> searchHistory = const [], final  List<SearchSuggestion> suggestions = const [], this.platform = SearchPlatform.bilibili}): _searchHistory = searchHistory,_suggestions = suggestions;
   
 
  final  List<String> _searchHistory;
@@ -357,8 +357,8 @@ class SearchStateIdle implements SearchState {
   return EqualUnmodifiableListView(_searchHistory);
 }
 
- final  List<String> _suggestions;
-@JsonKey() List<String> get suggestions {
+ final  List<SearchSuggestion> _suggestions;
+@JsonKey() List<SearchSuggestion> get suggestions {
   if (_suggestions is EqualUnmodifiableListView) return _suggestions;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_suggestions);
@@ -396,7 +396,7 @@ abstract mixin class $SearchStateIdleCopyWith<$Res> implements $SearchStateCopyW
   factory $SearchStateIdleCopyWith(SearchStateIdle value, $Res Function(SearchStateIdle) _then) = _$SearchStateIdleCopyWithImpl;
 @useResult
 $Res call({
- List<String> searchHistory, List<String> suggestions, SearchPlatform platform
+ List<String> searchHistory, List<SearchSuggestion> suggestions, SearchPlatform platform
 });
 
 
@@ -417,7 +417,7 @@ class _$SearchStateIdleCopyWithImpl<$Res>
   return _then(SearchStateIdle(
 searchHistory: null == searchHistory ? _self._searchHistory : searchHistory // ignore: cast_nullable_to_non_nullable
 as List<String>,suggestions: null == suggestions ? _self._suggestions : suggestions // ignore: cast_nullable_to_non_nullable
-as List<String>,platform: null == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
+as List<SearchSuggestion>,platform: null == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
 as SearchPlatform,
   ));
 }

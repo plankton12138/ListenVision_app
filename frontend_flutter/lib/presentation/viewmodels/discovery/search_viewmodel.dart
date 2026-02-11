@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/api/backend_api_client.dart';
+import '../../../models/search_suggestion.dart';
 
 part 'search_viewmodel.freezed.dart';
 part 'search_viewmodel.g.dart';
@@ -38,7 +39,7 @@ abstract class SearchState with _$SearchState {
   /// 空闲状态
   const factory SearchState.idle({
     @Default([]) List<String> searchHistory,
-    @Default([]) List<String> suggestions,
+    @Default([]) List<SearchSuggestion> suggestions,
     @Default(SearchPlatform.bilibili) SearchPlatform platform,
   }) = SearchStateIdle;
 
@@ -346,7 +347,7 @@ class SearchViewModel extends _$SearchViewModel {
 
   void _updateIdleState({
     List<String>? searchHistory,
-    List<String>? suggestions,
+    List<SearchSuggestion>? suggestions,
   }) {
     final current = state.valueOrNull;
     if (current is SearchStateIdle) {
@@ -356,8 +357,8 @@ class SearchViewModel extends _$SearchViewModel {
       ));
     } else {
       state = AsyncData(SearchState.idle(
-        searchHistory: searchHistory ?? const [],
-        suggestions: suggestions ?? const [],
+        searchHistory: searchHistory ?? const <String>[],
+        suggestions: suggestions ?? const <SearchSuggestion>[],
       ));
     }
   }

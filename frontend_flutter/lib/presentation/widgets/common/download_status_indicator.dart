@@ -1,26 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../models/cached_track.dart';
 import '../../../models/download_task.dart';
 import '../../../data/repositories/repository_providers.dart';
 
-/// 下载状态指示器
-///
-/// 显示音轨的下载状态，包括：
-/// - 未下载（空心下载图标）
-/// - 下载中（进度指示器）
-/// - 已下载（实心下载图标）
-/// - 已暂停（暂停图标）
-/// - 失败（错误图标）
 class DownloadStatusIndicator extends ConsumerWidget {
-  /// BVID
   final String bvid;
-
-  /// 图标大小
   final double size;
-
-  /// 是否显示标签
   final bool showLabel;
 
   const DownloadStatusIndicator({
@@ -36,55 +22,98 @@ class DownloadStatusIndicator extends ConsumerWidget {
 
     return trackAsync.when(
       data: (track) {
-        if (track == null) {
-          return _buildNotDownloaded();
+        if (track != null && track.isDownloaded) {
+          return _buildDownloaded();
         }
 
-        return _buildStatusIcon(context, track);
+        if (track != null) {
+          return ref.watch(downloadTaskByTrackIdProvider(track.id)).when(
+            data: (task) {
+              if (task == null) return _buildNotDownloaded();
+              return _buildFromTask(task);
+            },
+            loading: () => _buildLoading(),
+            error: (_, __) => _buildNotDownloaded(),
+          );
+        }
+
+        return _buildNotDownloaded();
       },
-      loading: () => SizedBox(
-        width: size,
-        height: size,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      error: (_, _) => _buildNotDownloaded(),
+      loading: () => _buildLoading(),
+      error: (_, __) => _buildNotDownloaded(),
     );
   }
 
-  /// 未下载状态
-  Widget _buildNotDownloaded() {
-    return Icon(
-      Icons.download_outlined,
-      size: size,
-      color: Colors.grey[400],
-    );
-  }
+  Widget _buildFromTask(DownloadTask task) {
+    final status = task.status;
+    final progress = (task.progressPercentage * 100).toInt();
 
-  /// 根据状态构建图标
-  Widget _buildStatusIcon(BuildContext context, CachedTrack track) {
-    final isDownloaded = track.isDownloaded;
-    final downloadStatus = track.downloadStatus;
-    final progress = track.downloadProgress;
-
-    if (isDownloaded && downloadStatus == DownloadStatus.completed) {
-      // 已下载
-      return _buildDownloaded();
-    } else if (downloadStatus == DownloadStatus.downloading) {
-      // 下载中
-      return _buildDownloading(progress);
-    } else if (downloadStatus == DownloadStatus.paused) {
-      // 已暂停
-      return _buildPaused();
-    } else if (downloadStatus == DownloadStatus.failed) {
-      // 失败
-      return _buildFailed();
-    } else {
-      // 未下载
-      return _buildNotDownloaded();
+    switch (status) {
+      case DownloadStatus.completed:
+        return _buildDownloaded();
+      case DownloadStatus.downloading:
+        return _buildDownloading(progress);
+      case DownloadStatus.paused:
+        return _buildPaused();
+      case DownloadStatus.failed:
+        return _buildFailed();
+      case DownloadStatus.pending:
+      case DownloadStatus.stalled:
+        return _buildPending();
     }
   }
 
-  /// 已下载
+  Widget _buildDownloading(int progress) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CircularProgressIndicator(
+        value: progress > 0 ? progress / 100 : null,
+        strokeWidth: 2,
+        backgroundColor: Colors.grey[300],
+      ),
+    );
+  }
+
+  Widget _buildPaused() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.pause_circle_outline,
+          size: size,
+          color: Colors.orange,
+        ),
+        if (showLabel) ...[
+          const SizedBox(width: 4),
+          Text(
+            '已暂停',
+            style: TextStyle(
+              fontSize: size * 0.7,
+              color: Colors.orange,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFailed() {
+    return Icon(
+      Icons.error_outline,
+      size: size,
+      color: Colors.red,
+    );
+  }
+
+  Widget _buildPending() {
+    return Icon(
+      Icons.schedule,
+      size: size,
+      color: Colors.orange,
+    );
+  }
+
   Widget _buildDownloaded() {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -108,57 +137,19 @@ class DownloadStatusIndicator extends ConsumerWidget {
     );
   }
 
-  /// 下载中
-  Widget _buildDownloading(int progress) {
-    final progressValue = progress > 0 ? progress / 100 : null;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CircularProgressIndicator(
-        value: progressValue,
-        strokeWidth: 2,
-        backgroundColor: Colors.grey[300],
-      ),
-    );
-  }
-
-  /// 已暂停
-  Widget _buildPaused() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.download_done,
-          size: size,
-          color: Colors.orange,
-        ),
-        if (showLabel) ...[
-          const SizedBox(width: 4),
-          Text(
-            '已暂停',
-            style: TextStyle(
-              fontSize: size * 0.7,
-              color: Colors.orange,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// 失败
-  Widget _buildFailed() {
+  Widget _buildNotDownloaded() {
     return Icon(
-      Icons.error_outline,
+      Icons.download_outlined,
       size: size,
-      color: Colors.red,
+      color: Colors.grey[400],
     );
+  }
+
+  Widget _buildLoading() {
+    return SizedBox(width: size, height: size);
   }
 }
 
-/// 紧凑型下载状态指示器（仅图标，不请求状态）
-///
-/// 用于已经知道下载状态的场景，不需要再次查询
 class CompactDownloadStatusIndicator extends StatelessWidget {
   final DownloadStatus status;
   final int? progress;

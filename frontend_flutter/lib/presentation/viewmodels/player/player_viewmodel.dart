@@ -1,8 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:audio_session/audio_session.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
+import 'package:flutter/services.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -15,10 +14,11 @@ import '../../../models/audio.dart';
 import '../../../models/local_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
+import '../../../models/play_mode.dart';
 import '../../../services/audio_player_service.dart';
-import '../../../services/metadata_service.dart';
 import '../library/history_viewmodel.dart';
 import 'metadata_viewmodel.dart';
+import 'queue_viewmodel.dart';
 
 part 'player_viewmodel.freezed.dart';
 part 'player_viewmodel.g.dart';
@@ -218,6 +218,7 @@ class PlayerViewModel extends _$PlayerViewModel {
         },
         onError: (e) {
           AppLogger.error('PlayerViewModel', '位置监听错误: $e');
+          _handleStreamError(e);
         },
       ),
     );
@@ -234,6 +235,7 @@ class PlayerViewModel extends _$PlayerViewModel {
         },
         onError: (e) {
           AppLogger.error('PlayerViewModel', '时长监听错误: $e');
+          _handleStreamError(e);
         },
       ),
     );
@@ -247,6 +249,7 @@ class PlayerViewModel extends _$PlayerViewModel {
         },
         onError: (e) {
           AppLogger.error('PlayerViewModel', '播放状态监听错误: $e');
+          _handleStreamError(e);
         },
       ),
     );
@@ -259,6 +262,27 @@ class PlayerViewModel extends _$PlayerViewModel {
           _onPlaybackComplete();
         },
       ),
+    );
+  }
+
+  /// 处理流错误，更新 UI 状态
+  void _handleStreamError(dynamic error) {
+    if (_disposed) return;
+    
+    String message = '播放出错';
+    
+    if (error is PlatformException) {
+      if (error.code == '3' || error.message?.contains('C00D2EE2') == true) {
+        message = '音频格式不支持';
+      } else if (error.code == 'WindowsAudioError') {
+        message = '音频加载失败';
+      }
+    }
+    
+    state = state.copyWith(
+      hasError: true,
+      statusMessage: message,
+      isPlaying: false,
     );
   }
 
@@ -325,6 +349,63 @@ class PlayerViewModel extends _$PlayerViewModel {
       isPlaying: false,
       isCompleted: true,
     );
+
+    // 自动播放下一首
+    _playNextAutomatically();
+  }
+
+  /// 自动播放下一首
+  Future<void> _playNextAutomatically() async {
+    try {
+      final queueNotifier = ref.read(queueViewModelProvider.notifier);
+      final queueState = ref.read(queueViewModelProvider);
+
+      // 检查队列是否为空
+      if (queueState.queue.isEmpty) {
+        AppLogger.debug('PlayerViewModel', '队列为空，无法播放下一首');
+        return;
+      }
+
+      // 根据播放模式决定下一首
+      int nextIndex;
+      switch (queueState.playMode) {
+        case PlayMode.loopOne:
+          // 单曲循环：重新播放当前
+          nextIndex = queueState.currentIndex >= 0 ? queueState.currentIndex : 0;
+          break;
+        case PlayMode.shuffle:
+          // 随机播放
+          if (queueState.queue.length <= 1) {
+            nextIndex = queueState.currentIndex;
+          } else {
+            final random = DateTime.now().millisecondsSinceEpoch;
+            nextIndex = random % queueState.queue.length;
+          }
+          break;
+        case PlayMode.loopAll:
+          // 列表循环：回到开头
+          if (queueNotifier.hasNext) {
+            nextIndex = queueState.currentIndex + 1;
+          } else {
+            nextIndex = 0;
+          }
+          break;
+        case PlayMode.sequence:
+          // 顺序播放：下一首
+          if (queueNotifier.hasNext) {
+            nextIndex = queueState.currentIndex + 1;
+          } else {
+            AppLogger.debug('PlayerViewModel', '已是最后一首，停止播放');
+            return;
+          }
+          break;
+      }
+
+      AppLogger.info('PlayerViewModel', '自动播放下一首，索引: $nextIndex');
+      await queueNotifier.playAt(nextIndex);
+    } catch (e) {
+      AppLogger.error('PlayerViewModel', '自动播放下一首失败: $e');
+    }
   }
 
   // ==================== 播放控制 ====================
@@ -618,14 +699,44 @@ class PlayerViewModel extends _$PlayerViewModel {
       _recordPlayHistory(audio);
 
       AppLogger.info('PlayerViewModel', '在线播放开始: ${audio.title}');
+    } on FormatException catch (e) {
+      AppLogger.error('PlayerViewModel', '格式不支持: ${e.message}');
+      state = state.copyWith(
+        statusMessage: e.message.isEmpty ? '音频格式不支持' : e.message,
+        hasError: true,
+        isPlaying: false,
+      );
+    } on PlatformException catch (e) {
+      final message = _getPlatformErrorMessage(e);
+      AppLogger.error('PlayerViewModel', '播放失败: $message');
+      state = state.copyWith(
+        statusMessage: message,
+        hasError: true,
+        isPlaying: false,
+      );
     } catch (e) {
       AppLogger.error('PlayerViewModel', '在线播放失败: $e');
       state = state.copyWith(
-        statusMessage: '在线播放失败: $e',
+        statusMessage: '播放失败，请重试',
         hasError: true,
+        isPlaying: false,
       );
-      rethrow;
     }
+  }
+
+  /// 获取平台错误的友好消息
+  String _getPlatformErrorMessage(PlatformException e) {
+    if (e.code == '3' || e.message?.contains('C00D2EE2') == true) {
+      return '音频格式不支持';
+    }
+    if (e.code == 'WindowsAudioError') {
+      return '音频加载失败';
+    }
+    if (e.message?.contains('NETWORK_ERROR') == true || 
+        e.message?.contains('fetch failed') == true) {
+      return '网络连接不稳定';
+    }
+    return '播放出错，请重试';
   }
 
   /// 播放可播放对象
@@ -661,13 +772,49 @@ class PlayerViewModel extends _$PlayerViewModel {
 
     // 设置并播放
     if (playable.isOnline) {
-      await _audioService!.playUrl(playable.url);
+      await _playOnlineWithFallback(playable);
     } else {
       await _audioService!.playFile(playable.url);
     }
 
     _isSwitchingSource = false;
     AppLogger.info('PlayerViewModel', '播放: ${playable.title}');
+  }
+
+  /// 播放在线音频，遇到格式错误时自动降级到 mp3
+  Future<void> _playOnlineWithFallback(PlayableAudio playable) async {
+    const int maxAttempts = 2;
+    String currentUrl = playable.url;
+    
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await _audioService!.playUrl(currentUrl);
+        return;
+      } on PlatformException catch (e) {
+        final isFormatError = e.code == '3' || 
+            e.code == 'WindowsAudioError' ||
+            e.message?.contains('C00D2EE2') == true ||
+            e.message?.contains('Unsupported format') == true;
+        
+        if (isFormatError && attempt < maxAttempts - 1) {
+          AppLogger.warn('PlayerViewModel', 'm4s 格式不支持，尝试降级到 mp3: ${playable.title}');
+          
+          final mp3Url = currentUrl
+              .replaceAll('format=auto', 'format=mp3')
+              .replaceAll('format=m4s', 'format=mp3');
+          
+          if (mp3Url != currentUrl) {
+            currentUrl = mp3Url;
+            continue;
+          }
+        }
+        
+        if (isFormatError) {
+          throw FormatException('音频格式不支持，请尝试其他视频');
+        }
+        rethrow;
+      }
+    }
   }
 
   /// 准备音频源（不自动播放）

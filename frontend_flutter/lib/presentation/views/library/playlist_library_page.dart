@@ -17,7 +17,6 @@ class PlaylistLibraryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
-    // Riverpod 3.0: watch AsyncValue<PlaylistState>
     final playlistAsync = ref.watch(playlistViewModelProvider);
 
     return Scaffold(
@@ -27,26 +26,27 @@ class PlaylistLibraryPage extends ConsumerWidget {
           style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
         actions: <Widget>[
-          // 创建歌单按钮
-          IconButton(
-            icon: const Icon(Icons.add),
-            iconSize: UIConstants.iconMedium,
-            onPressed: () => _showCreatePlaylistDialog(context, ref),
-            tooltip: '创建歌单',
-          ),
-          // 刷新按钮
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            iconSize: UIConstants.iconMedium,
-            onPressed: () {
-              // Riverpod 3.0: 使用 .notifier 调用方法
-              final storage = ref.read(sharedStorageServiceProvider);
-              final token = storage.getString('auth_token');
-              if (token != null) {
-                ref.read(playlistViewModelProvider.notifier).loadPlaylists(token);
-              }
-            },
-          ),
+          // 创建歌单按钮（仅登录用户）
+          if (isLoggedIn)
+            IconButton(
+              icon: const Icon(Icons.add),
+              iconSize: UIConstants.iconMedium,
+              onPressed: () => _showCreatePlaylistDialog(context, ref),
+              tooltip: '创建歌单',
+            ),
+          // 刷新按钮（仅登录用户）
+          if (isLoggedIn)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              iconSize: UIConstants.iconMedium,
+              onPressed: () {
+                final storage = ref.read(sharedStorageServiceProvider);
+                final token = storage.getString('auth_token');
+                if (token != null) {
+                  ref.read(playlistViewModelProvider.notifier).loadPlaylists(token);
+                }
+              },
+            ),
           // 返回首页按钮
           IconButton(
             icon: const Icon(Icons.home),
@@ -56,27 +56,11 @@ class PlaylistLibraryPage extends ConsumerWidget {
         ],
       ),
       drawer: const MyDrawer(),
-      body: !isLoggedIn
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.login, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('请先登录'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => context.go('/login'),
-                    child: const Text('去登录'),
-                  ),
-                ],
-              ),
-            )
-          : playlistAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('加载失败: $err')),
-              data: (state) => _buildContent(context, ref, state),
-            ),
+      body: playlistAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('加载失败: $err')),
+        data: (state) => _buildContent(context, ref, state, isLoggedIn),
+      ),
     );
   }
 
@@ -131,55 +115,57 @@ class PlaylistLibraryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, PlaylistState state) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, PlaylistState state, bool isLoggedIn) {
     return Column(
       children: [
-        // 本地音乐歌单（系统预设）
+        // 本地音乐歌单（系统预设，所有用户可见）
         _buildLocalMusicPlaylistTile(context, ref),
-        const Divider(),
-        // 在线歌单列表
-        Expanded(
-          child: state.userPlaylists.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.playlist_add, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('暂无歌单，点击 + 创建新歌单'),
-                    ],
+        // 在线歌单列表（仅登录用户可见）
+        if (isLoggedIn) ...[
+          const Divider(),
+          Expanded(
+            child: state.userPlaylists.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.playlist_add, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('暂无歌单，点击 + 创建新歌单'),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: state.userPlaylists.length,
+                    itemBuilder: (context, index) {
+                      final playlist = state.userPlaylists[index];
+                      return ListTile(
+                        leading: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Icon(
+                            Icons.playlist_play,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        title: Text(playlist.name),
+                        subtitle: Text('${playlist.itemCount}首'),
+                        onTap: () {
+                          context.push('/playlists/${playlist.id}');
+                        },
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () => _showPlaylistOptions(context, ref, playlist),
+                        ),
+                      );
+                    },
                   ),
-                )
-              : ListView.builder(
-                  itemCount: state.userPlaylists.length,
-                  itemBuilder: (context, index) {
-                    final playlist = state.userPlaylists[index];
-                    return ListTile(
-                      leading: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(
-                          Icons.playlist_play,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(playlist.name),
-                      subtitle: Text('${playlist.itemCount}首'),
-                      onTap: () {
-                        context.push('/playlists/${playlist.id}');
-                      },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        onPressed: () => _showPlaylistOptions(context, ref, playlist),
-                      ),
-                    );
-                  },
-                ),
-        ),
+          ),
+        ],
       ],
     );
   }

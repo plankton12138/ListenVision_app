@@ -3,6 +3,7 @@ import 'package:demo/presentation/views/account/login_page.dart';
 import 'package:demo/presentation/views/account/register_page.dart';
 import 'package:demo/presentation/views/account/reset_password_page.dart';
 import 'package:demo/presentation/views/discovery/explore_page.dart';
+import 'package:demo/presentation/views/discovery/netease_playlist_detail_page.dart';
 import 'package:demo/presentation/views/discovery/search_page.dart';
 import 'package:demo/presentation/views/library/local_music_playlist_page.dart';
 import 'package:demo/presentation/views/library/playlist_library_page.dart';
@@ -35,6 +36,7 @@ class AppRoutes {
   static const String playlistsName = 'playlists';
   static const String playlistDetailName = 'playlist_detail';
   static const String historyName = 'history';
+  static const String neteasePlaylistDetailName = 'netease_playlist_detail';
 
   // 公开页面（无需登录）
   static const String home = '/';
@@ -48,9 +50,9 @@ class AppRoutes {
   static const String playlist = '/playlist';
   static const String downloads = '/downloads';
   static const String playlists = '/playlists';
+  static const String settings = '/settings';
 
   // 需要登录的页面
-  static const String settings = '/settings';
   static const String history = '/history';
 
   // 带参数的路由
@@ -76,8 +78,8 @@ final GoRouter routerConfig = GoRouter(
   // 全局重定向（登录守卫）
   //
   // 游客模式支持：
-  // - 游客可以访问：搜索、下载、本地播放列表
-  // - 游客不能访问：探索页面、设置、播放历史
+  // - 游客可以访问：搜索、下载、本地播放列表、设置
+  // - 游客不能访问：探索页面、播放历史
   redirect: (context, state) {
     final container = ProviderScope.containerOf(context);
     final isLoggedIn = container.read(isLoggedInProvider);
@@ -86,8 +88,7 @@ final GoRouter routerConfig = GoRouter(
     // 需要登录的路由列表（游客模式不可访问）
     final protectedRoutes = [
       AppRoutes.explore,      // 探索页面需要登录
-      AppRoutes.settings,
-      AppRoutes.history,
+      AppRoutes.history,      // 播放历史需要登录
     ];
 
     final currentPath = state.uri.path;
@@ -156,6 +157,16 @@ final GoRouter routerConfig = GoRouter(
       name: AppRoutes.exploreName,
       path: AppRoutes.explore,
       builder: (context, state) => const ExplorePage(),
+      routes: [
+        GoRoute(
+          name: AppRoutes.neteasePlaylistDetailName,
+          path: 'playlist/:id',
+          builder: (context, state) {
+            final playlistId = state.pathParameters['id'] ?? '0';
+            return NeteasePlaylistDetailPage(playlistId: playlistId);
+          },
+        ),
+      ],
     ),
 
     // 播放列表页（本地播放列表，游客可用）

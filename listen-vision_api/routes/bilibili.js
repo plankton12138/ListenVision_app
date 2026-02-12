@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bilibiliController = require('../controllers/bilibiliController');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { successResponse, errorResponse } = require('../utils/response');
+const { logger } = require('../utils/logger');
 
 // 调试日志
-console.log('[DEBUG] Loading bilibili routes, router stack length:', router.stack.length);
+logger.debug('Loading bilibili routes', { stackLength: router.stack.length });
 
 /**
  * B站API路由
@@ -493,7 +495,10 @@ router.get('/proxy/audio/:bvid', optionalAuthMiddleware, bilibiliController.prox
  *         description: 获取成功
  */
 router.get('/recommend', (req, res, next) => {
-  console.log('[DEBUG] /recommend route hit! query:', req.query, 'user:', req.user);
+  logger.debug('Recommend route hit', {
+    query: req.query,
+    userId: req.user?.id
+  });
   next();
 }, optionalAuthMiddleware, bilibiliController.getRecommendedVideos);
 
@@ -518,21 +523,12 @@ router.post('/refresh-cookie', authMiddleware, async (req, res) => {
     const success = await cookieRefreshScheduler.refreshUser(req.user.id);
 
     if (success) {
-      res.json({
-        success: true,
-        message: 'Cookie刷新成功',
-      });
+      successResponse(res, { success: true }, 'Cookie刷新成功');
     } else {
-      res.status(400).json({
-        success: false,
-        error: 'Cookie刷新失败或无需刷新',
-      });
+      errorResponse(res, 'Cookie刷新失败或无需刷新', 400);
     }
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    errorResponse(res, error.message, 500);
   }
 });
 

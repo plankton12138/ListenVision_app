@@ -51,17 +51,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   }
 
   void _loadNeteaseIfNeed() {
-    final neteaseAuthState = ref.read(neteaseAuthViewModelProvider);
-    neteaseAuthState.whenData((authState) {
-      if (authState is NeteaseAuthStateBound) {
-        final neteaseState = ref.read(neteaseExploreViewModelProvider);
-        neteaseState.whenData((s) {
-          if (s is NeteaseExploreStateInitial) {
-            ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(authState.account.id);
-          }
-        });
-      }
-    });
+    // 网易云功能待开发，暂不加载
   }
 
   @override
@@ -75,24 +65,20 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
     final authState = ref.watch(platformAuthViewModelProvider);
-    final neteaseAuthState = ref.watch(neteaseAuthViewModelProvider);
     final exploreState = ref.watch(exploreViewModelProvider);
 
-    if (authState.isLoading || neteaseAuthState.isLoading) {
+    if (authState.isLoading) {
       return _buildLoadingView();
     }
 
     final authData = authState.value;
     final isBilibiliBound = authData != null && authData is PlatformAuthStateBound;
 
-    final neteaseData = neteaseAuthState.value;
-    final isNeteaseBound = neteaseData != null && neteaseData is NeteaseAuthStateBound;
-
     if (!isLoggedIn) {
       return _buildNotLoggedInPrompt();
     }
 
-    _initLoadIfNeed(isBilibiliBound, isNeteaseBound, neteaseData);
+    _initLoadIfNeed(isBilibiliBound);
 
     return Scaffold(
       appBar: AppBar(
@@ -125,13 +111,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         controller: _tabController,
         children: [
           _buildBilibiliTab(exploreState, isBilibiliBound),
-          _buildNeteaseTab(isNeteaseBound, neteaseData),
+          _buildNeteaseTab(),
         ],
       ),
     );
   }
 
-  void _initLoadIfNeed(bool isBilibiliBound, bool isNeteaseBound, NeteaseAuthState? neteaseData) {
+  void _initLoadIfNeed(bool isBilibiliBound) {
     final exploreState = ref.read(exploreViewModelProvider);
     exploreState.whenData((state) {
       if (state is ExploreStateInitial && isBilibiliBound) {
@@ -142,19 +128,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         });
       }
     });
-
-    if (isNeteaseBound && neteaseData is NeteaseAuthStateBound) {
-      final neteaseState = ref.read(neteaseExploreViewModelProvider);
-      neteaseState.whenData((state) {
-        if (state is NeteaseExploreStateInitial) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_tabController.index == 1) {
-              ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(neteaseData.account.id);
-            }
-          });
-        }
-      });
-    }
   }
 
   Widget _buildBilibiliTab(AsyncValue<ExploreState> exploreState, bool isBound) {
@@ -373,173 +346,52 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     }
   }
 
-  Widget _buildNeteaseTab(bool isBound, NeteaseAuthState? neteaseData) {
-    if (!isBound) {
-      return _buildNotBoundPrompt(
-        platform: '网易云',
-        message: '绑定后可查看你的网易云歌单',
-      );
-    }
-
-    if (neteaseData is! NeteaseAuthStateBound) {
-      return _buildNotBoundPrompt(
-        platform: '网易云',
-        message: '绑定后可查看你的网易云歌单',
-      );
-    }
-
-    final neteaseExploreState = ref.watch(neteaseExploreViewModelProvider);
-
-    return neteaseExploreState.when(
-      loading: () => _buildLoadingView(),
-      error: (e, _) => _buildErrorView(e.toString(), () {
-        ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(neteaseData.account.id);
-      }),
-      data: (state) {
-        return state.when(
-          initial: () {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(neteaseData.account.id);
-            });
-            return _buildLoadingView();
-          },
-          loading: () => _buildLoadingView(),
-          notBound: () => _buildNotBoundPrompt(
-            platform: '网易云',
-            message: '绑定后可查看你的网易云歌单',
+  Widget _buildNeteaseTab() {
+    // 网易云功能待开发
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.music_note,
+            size: 64,
+            color: Colors.grey[400],
           ),
-          loaded: (playlists) => _buildNeteasePlaylistGrid(playlists),
-          error: (message) => _buildErrorView(message, () {
-            ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(neteaseData.account.id);
-          }),
-        );
-      },
-    );
-  }
-
-  Widget _buildNeteasePlaylistGrid(List<NeteasePlaylistItem> playlists) {
-    if (playlists.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.library_music, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text('暂无歌单', style: TextStyle(color: Colors.grey[600])),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        final neteaseData = ref.read(neteaseAuthViewModelProvider).value;
-        if (neteaseData is NeteaseAuthStateBound) {
-          await ref.read(neteaseExploreViewModelProvider.notifier).loadPlaylists(neteaseData.account.id);
-        }
-      },
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: playlists.length,
-        itemBuilder: (context, index) {
-          final playlist = playlists[index];
-          return _buildNeteasePlaylistCard(playlist);
-        },
-      ),
-    );
-  }
-
-  Widget _buildNeteasePlaylistCard(NeteasePlaylistItem playlist) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.go('/explore/playlist/${playlist.id}'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (playlist.cover.isNotEmpty)
-                    Image.network(
-                      playlist.cover,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.library_music, size: 48),
-                        );
-                      },
-                    )
-                  else
-                    Container(
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.library_music, size: 48),
-                    ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.music_note, color: Colors.white, size: 12),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${playlist.trackCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 16),
+          Text(
+            '网易云音乐',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            child: const Text(
+              '待开发',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    playlist.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (playlist.playCount != null)
-                    Text(
-                      _formatPlayCount(playlist.playCount!),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                ],
-              ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '网易云音乐功能正在开发中，敬请期待',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

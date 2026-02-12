@@ -2,19 +2,6 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-// ========== 环境变量校验 ==========
-const requiredEnvVars = ['JWT_SECRET', 'DATABASE_PATH'];
-const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
-
-if (missingEnvVars.length > 0) {
-  console.error('❌ 缺少必需的环境变量:');
-  missingEnvVars.forEach(key => console.error(`   - ${key}`));
-  console.error('\n请在 .env 文件中配置上述变量，参考 .env.example');
-  process.exit(1);
-}
-
-console.log('✅ 环境变量校验通过');
-
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
@@ -23,6 +10,19 @@ const { requestLogger } = require('./middleware/logger');
 const { logger } = require('./utils/logger');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const swaggerSpecs = require('./config/swagger');
+
+// ========== 环境变量校验 ==========
+const requiredEnvVars = ['JWT_SECRET', 'DATABASE_PATH'];
+const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+
+if (missingEnvVars.length > 0) {
+  logger.error('❌ 缺少必需的环境变量:');
+  missingEnvVars.forEach(key => logger.error(`   - ${key}`));
+  logger.error('\n请在 .env 文件中配置上述变量，参考 .env.example');
+  process.exit(1);
+}
+
+logger.info('✅ 环境变量校验通过');
 
 // 创建 Express 应用
 const app = express();
@@ -92,17 +92,17 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, () => {
-  console.log('\n========================================');
-  console.log('  ListenVision API Server');
-  console.log('========================================');
-  console.log(`  Status: Running`);
-  console.log(`  Port: ${PORT}`);
-  console.log(`  Env: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`  Time: ${new Date().toLocaleString('zh-CN')}`);
-  console.log('========================================');
-  console.log(`  API Docs: http://localhost:${PORT}/api-docs`);
-  console.log(`  Health: http://localhost:${PORT}/health`);
-  console.log('========================================\n');
+  logger.info('========================================');
+  logger.info('  ListenVision API Server');
+  logger.info('========================================');
+  logger.info(`  Status: Running`);
+  logger.info(`  Port: ${PORT}`);
+  logger.info(`  Env: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`  Time: ${new Date().toLocaleString('zh-CN')}`);
+  logger.info('========================================');
+  logger.info(`  API Docs: http://localhost:${PORT}/api-docs`);
+  logger.info(`  Health: http://localhost:${PORT}/health`);
+  logger.info('========================================');
   logger.info(`Server started on port ${PORT}`);
 
   const cookieRefreshScheduler = require('./services/cookieRefreshScheduler');
@@ -113,7 +113,7 @@ const server = app.listen(PORT, () => {
 
 const gracefulShutdown = (signal) => {
   logger.info(`${signal} received, shutting down server...`);
-  console.log(`\n⚠️  ${signal} 信号接收，正在关闭服务器...`);
+  logger.warn(`⚠️  ${signal} 信号接收，正在关闭服务器...`);
 
   server.close(() => {
     const db = require('./config/database');
@@ -122,13 +122,13 @@ const gracefulShutdown = (signal) => {
       logger.info('Database connection closed');
     }
     logger.info('Server shut down successfully');
-    console.log('✅ 服务器已关闭');
+    logger.info('✅ 服务器已关闭');
     process.exit(0);
   });
 
   setTimeout(() => {
     logger.error('Server shutdown timeout, forcing exit');
-    console.error('❌ 服务器关闭超时，强制退出');
+    logger.error('❌ 服务器关闭超时，强制退出');
     process.exit(1);
   }, 10000);
 };

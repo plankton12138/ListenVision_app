@@ -27,13 +27,18 @@ class OnlinePlayable extends PlayableAudio {
   /// 动态生成代理 URL，避免硬编码 IP 地址
   factory OnlinePlayable.fromMap(Map<String, dynamic> map) {
     final audio = Audio.fromDto(map);
+    final audioId = audio.id;
+
+    if (audioId.startsWith('netease_')) {
+      // 网易云播放链接使用原始 streamUrl
+      return OnlinePlayable(audio);
+    }
 
     // 动态生成代理 URL，使用当前的 API 基础 URL
     // 不使用保存的旧 proxyUrl（可能包含过期的 IP 地址）
-    final bvid = audio.id;
     // 使用 127.0.0.1 替代 localhost（MPV 兼容性）
     final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
+    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$audioId?format=auto';
 
     return OnlinePlayable(audio, proxyUrl);
   }

@@ -1,10 +1,12 @@
-import 'package:demo/presentation/viewmodels/discovery/search_viewmodel.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/state/state_utils.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/utils/app_logger.dart';
+
+// 保留 BackendApiClient 以向后兼容，新代码应使用 ApiClient
 import '../../../data/api/backend_api_client.dart';
+export '../../../core/network/api_client.dart' show apiClientProvider;
 
 part 'explore_viewmodel.freezed.dart';
 part 'explore_viewmodel.g.dart';
@@ -118,12 +120,12 @@ abstract class NeteaseExploreState with _$NeteaseExploreState {
 
 @Riverpod(keepAlive: true)
 class ExploreViewModel extends _$ExploreViewModel {
-  BackendApiClient? _apiClient;
+  ApiClient? _apiClient;
   static const _pageSize = 10;
 
   @override
   Future<ExploreState> build() async {
-    _apiClient = ref.watch(searchBackendApiClientProvider);
+    _apiClient = ref.watch(apiClientProvider);
 
     try {
       AppLogger.debug('ExploreViewModel', '初始化');
@@ -141,9 +143,13 @@ class ExploreViewModel extends _$ExploreViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      final data = await _apiClient!.getHotRank(
-        page: page,
-        pageSize: _pageSize,
+      // TODO: 迁移到新的 ApiClient 方法
+      // 临时使用通用 get 方法
+      final data = await _apiClient!.get('/api/v1/recommendations/hot-playlists', 
+        queryParameters: {
+          'page': page,
+          'pageSize': _pageSize,
+        },
       );
 
       final playlistsData = data['playlists'] as List? ?? [];
@@ -196,7 +202,7 @@ class ExploreViewModel extends _$ExploreViewModel {
 
       List<ExploreItem> existingItems = [];
       if (append) {
-        final currentState = state.valueOrNull;
+        final currentState = state.value;
         if (currentState is ExploreStateLoaded && currentState.type == ExploreType.recommended) {
           existingItems = currentState.items;
         }
@@ -207,7 +213,8 @@ class ExploreViewModel extends _$ExploreViewModel {
         state = const AsyncLoading();
       }
 
-      final data = await _apiClient!.getRecommend(
+      // 使用新的 ApiClient 方法获取B站推荐
+      final data = await _apiClient!.getBilibiliRecommendations(
         page: page,
         pageSize: _pageSize,
       );
@@ -289,7 +296,7 @@ class ExploreViewModel extends _$ExploreViewModel {
   }
 
   Future<bool> loadNext() async {
-    final currentState = state.valueOrNull;
+    final currentState = state.value;
     if (currentState is! ExploreStateLoaded) {
       AppLogger.warn('ExploreViewModel', '当前非已加载状态，无法加载下一页');
       return false;
@@ -309,11 +316,13 @@ class ExploreViewModel extends _$ExploreViewModel {
         return await loadRecommended(page: nextPage, append: true);
       case ExploreType.latest:
         return await loadLatest(page: nextPage);
+      default:
+        return false;
     }
   }
 
   Future<bool> refresh() async {
-    final currentState = state.valueOrNull;
+    final currentState = state.value;
     ExploreType? currentType;
 
     if (currentState is ExploreStateLoaded) {
@@ -335,7 +344,7 @@ class ExploreViewModel extends _$ExploreViewModel {
   }
 
   void clearError() {
-    if (state.valueOrNull is ExploreStateError) {
+    if (state.value is ExploreStateError) {
       state = const AsyncData(ExploreState.initial());
     }
   }
@@ -351,24 +360,14 @@ class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
     return const NeteaseExploreState.initial();
   }
 
-  Future<bool> loadPlaylists(String uid) async {
+  Future<bool> loadRecommendedPlaylists() async {
     try {
-      AppLogger.info('NeteaseExploreViewModel', '加载网易云歌单: uid=$uid');
-
-      // 验证 uid 有效性
-      if (uid.isEmpty) {
-        AppLogger.error('NeteaseExploreViewModel', 'uid 为空，无法加载歌单');
-        if (!ref.mounted) return false;
-        state = const AsyncData(NeteaseExploreState.error(
-          message: '网易云账号信息不完整，请重新登录',
-        ));
-        return false;
-      }
+      AppLogger.info('NeteaseExploreViewModel', '加载网易云每日推荐歌单');
 
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      final data = await _apiClient!.getNeteaseUserPlaylists(uid);
+      final data = await _apiClient!.getNeteaseRecommendedPlaylists();
       final playlistsData = data['playlists'] as List? ?? [];
 
       final playlists = playlistsData.map((p) {
@@ -378,14 +377,18 @@ class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
       if (!ref.mounted) return false;
       state = AsyncData(NeteaseExploreState.loaded(playlists: playlists));
 
-      AppLogger.info('NeteaseExploreViewModel', '网易云歌单加载成功: ${playlists.length}个');
+      AppLogger.info('NeteaseExploreViewModel', '网易云每日推荐歌单加载成功: ${playlists.length}个');
       return true;
     } catch (e) {
-      AppLogger.error('NeteaseExploreViewModel', '加载网易云歌单失败: $e');
+      AppLogger.error('NeteaseExploreViewModel', '加载网易云每日推荐歌单失败: $e');
       if (!ref.mounted) return false;
       state = AsyncError(e, StackTrace.current);
       return false;
     }
+  }
+
+  Future<bool> loadPlaylists(String uid) async {
+    return loadRecommendedPlaylists();
   }
 
   void setNotBound() {
@@ -393,7 +396,7 @@ class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
   }
 
   void clearError() {
-    if (state.valueOrNull is NeteaseExploreStateError) {
+    if (state.value is NeteaseExploreStateError) {
       state = const AsyncData(NeteaseExploreState.initial());
     }
   }

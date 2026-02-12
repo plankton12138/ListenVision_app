@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/database');
+const { logger } = require('../utils/logger');
 
 // SMTP 邮件服务配置
 const transporter = nodemailer.createTransport({
@@ -35,7 +36,7 @@ const sendResetCode = async (username) => {
   const expiryDate = new Date(Date.now() + 10 * 60 * 1000);
   const expiry = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
 
-  console.log('发送验证码 - 邮箱:', userEmail, '验证码:', code, '有效期:', expiry);
+  logger.info('发送验证码', { email: userEmail, expiry });
 
   // 保存验证码到数据库
   stmt.setResetCode.run(code, expiry, username);
@@ -63,9 +64,9 @@ const sendResetCode = async (username) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`验证码已发送至 ${userEmail}`);
+    logger.info('验证码已发送', { email: userEmail });
   } catch (error) {
-    console.error('邮件发送失败:', error);
+    logger.error('邮件发送失败', { error: error.message });
     // 即使邮件发送失败，也返回成功（防止探测）
   }
 
@@ -83,10 +84,10 @@ const sendEmail = async (to, subject, html) => {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('邮件发送成功:', info.messageId);
+    logger.info('邮件发送成功', { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('邮件发送失败:', error);
+    logger.error('邮件发送失败', { error: error.message });
     throw new Error('邮件发送失败');
   }
 };
@@ -115,10 +116,10 @@ const sendVerificationCode = async (email, code) => {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('注册验证码已发送至:', email);
+    logger.info('注册验证码已发送', { email });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('注册验证码发送失败:', error);
+    logger.error('注册验证码发送失败', { error: error.message });
     throw new Error('邮件发送失败');
   }
 };

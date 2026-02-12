@@ -730,6 +730,17 @@ class BackendApiClient {
     }
   }
 
+  /// 获取网易云每日推荐歌单
+  Future<Map<String, dynamic>> getNeteaseRecommendedPlaylists() async {
+    try {
+      final response = await _dioClient.get(NeteaseEndpoints.recommendPlaylists);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('BackendApiClient', '获取网易云每日推荐歌单失败: $e');
+      rethrow;
+    }
+  }
+
   /// 获取网易云歌单详情
   Future<Map<String, dynamic>> getNeteasePlaylistDetail(String id) async {
     try {

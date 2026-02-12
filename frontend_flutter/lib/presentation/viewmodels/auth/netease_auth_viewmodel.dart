@@ -3,9 +3,8 @@ import 'dart:async';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/state/state_utils.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../data/api/backend_api_client.dart';
 import '../../../models/platform_account.dart' show NeteaseUserInfo;
 
 part 'netease_auth_viewmodel.freezed.dart';
@@ -41,12 +40,12 @@ abstract class NeteaseAuthState with _$NeteaseAuthState {
 
 @Riverpod(keepAlive: true)
 class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
-  BackendApiClient? _apiClient;
+  ApiClient? _apiClient;
   Timer? _qrPollTimer;
 
   @override
   Future<NeteaseAuthState> build() async {
-    _apiClient = BackendApiClient();
+    _apiClient = ref.watch(apiClientProvider);
 
     ref.onDispose(() {
       _stopQRPolling();
@@ -63,7 +62,7 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
 
   Future<NeteaseAuthState> _checkBindStatus() async {
     try {
-      final statusData = await _apiClient!.getNeteaseStatus();
+      final statusData = await _apiClient!.getNeteaseBindStatus();
       final isBound = statusData['isBound'] as bool? ?? false;
 
       if (isBound) {
@@ -98,12 +97,12 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
       if (!ref.mounted) return false;
       state = AsyncData(NeteaseAuthState.qrLogin(
         status: NeteaseQRLoginStatus.pending,
-        qrimg: result['qrimg'],
-        qrurl: result['qrurl'],
-        key: result['key'],
+        qrimg: result.qrimg,
+        qrurl: result.qrurl,
+        key: result.key,
       ));
 
-      _startQRPolling(result['key']);
+      _startQRPolling(result.key);
 
       return true;
     } catch (e) {
@@ -134,8 +133,8 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
 
   Future<void> _checkQRStatus(String key) async {
     try {
-      final result = await _apiClient!.checkNeteaseQRCode(key);
-      final statusStr = result['status'] as String? ?? 'pending';
+      final result = await _apiClient!.checkNeteaseQRStatus(key);
+      final statusStr = result.status as String? ?? 'pending';
 
       final status = switch (statusStr) {
         'scanned' => NeteaseQRLoginStatus.scanned,
@@ -161,7 +160,7 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
 
   void _updateQRStatus(NeteaseQRLoginStatus status) {
     if (!ref.mounted) return;
-    final current = state.valueOrNull;
+    final current = state.value;
     current?.maybeWhen(
       qrLogin: (_, qrimg, qrurl, key) {
         state = AsyncData(NeteaseAuthState.qrLogin(
@@ -178,7 +177,7 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
 
   Future<void> _handleLoginSuccess() async {
     try {
-      final statusData = await _apiClient!.getNeteaseStatus();
+      final statusData = await _apiClient!.getNeteaseBindStatus();
       final userInfo = statusData['userInfo'] as Map<String, dynamic>?;
 
       if (userInfo == null) {
@@ -236,21 +235,21 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
   }
 
   void clearError() {
-    final current = state.valueOrNull;
+    final current = state.value;
     if (current is NeteaseAuthStateError) {
       state = const AsyncData(NeteaseAuthState.unbound());
     }
   }
 
   NeteaseUserInfo? getBoundAccount() {
-    return state.valueOrNull?.maybeWhen(
+    return state.value?.maybeWhen(
       bound: (account) => account,
       orElse: () => null,
     );
   }
 
   bool get isBound {
-    return state.valueOrNull?.maybeWhen(
+    return state.value?.maybeWhen(
       bound: (_) => true,
       orElse: () => false,
     ) ?? false;
@@ -261,6 +260,50 @@ class NeteaseAuthViewModel extends _$NeteaseAuthViewModel {
     if (!ref.mounted) return;
     state = const AsyncData(NeteaseAuthState.unbound());
     AppLogger.info('NeteaseAuthViewModel', '状态已重置');
+  }
+
+  /// 网易云手机号登录
+  Future<void> loginWithCellphone({
+    required String phone,
+    required String password,
+    String countryCode = '86',
+  }) async {
+    try {
+      state = const AsyncData(NeteaseAuthState.loading());
+      AppLogger.info('NeteaseAuthViewModel', '开始手机号登录');
+
+      final result = await _apiClient!.loginNeteaseWithCellphone(
+        phone: phone,
+        password: password,
+        countryCode: countryCode,
+      );
+
+      if (!ref.mounted) return;
+
+      if (result['success'] == true) {
+        final userInfo = result['userInfo'] as Map<String, dynamic>;
+        final account = NeteaseUserInfo.fromJson(userInfo);
+
+        AppLogger.logUserAction(
+          'NeteaseAuth',
+          '手机号绑定成功',
+          parameters: {
+            'id': account.id,
+            'username': account.username,
+          },
+        );
+
+        state = AsyncData(NeteaseAuthState.bound(account: account));
+      } else {
+        final errorMsg = result['error'] as String? ?? '登录失败';
+        AppLogger.error('NeteaseAuthViewModel', '手机号登录失败: $errorMsg');
+        state = AsyncError(errorMsg, StackTrace.current);
+      }
+    } catch (e) {
+      AppLogger.error('NeteaseAuthViewModel', '手机号登录异常: $e');
+      if (!ref.mounted) return;
+      state = AsyncError(e, StackTrace.current);
+    }
   }
 }
 

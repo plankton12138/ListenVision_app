@@ -33,7 +33,7 @@ final class ExploreViewModelProvider
   ExploreViewModel create() => ExploreViewModel();
 }
 
-String _$exploreViewModelHash() => r'722d192888492a9b1fdf703780848b38a2dfca5e';
+String _$exploreViewModelHash() => r'8ca775c0cedc5ad3496de4d3f3f4c1639d0c9456';
 
 abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
   FutureOr<ExploreState> build();
@@ -79,7 +79,7 @@ final class NeteaseExploreViewModelProvider
 }
 
 String _$neteaseExploreViewModelHash() =>
-    r'a56f815c35712989d9f939bfe6ef1d0252b7f119';
+    r'c3d097431645ccebae117a1325735f258a95b2ae';
 
 abstract class _$NeteaseExploreViewModel
     extends $AsyncNotifier<NeteaseExploreState> {

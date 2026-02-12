@@ -124,7 +124,8 @@ const checkQRLoginStatus = async (key) => {
     let cookie = data.cookie || null;
     if (Array.isArray(cookie)) {
       logger.debug('[Netease] Cookie 是数组格式，原始值: %j', cookie);
-      cookie = cookie.map(c => c.split(';')[0]).join('; ');
+      // 修复：直接用分号连接，不要 split（每个元素已经是完整的 cookie）
+      cookie = cookie.join('; ');
       logger.debug('[Netease] Cookie 转换后: %s', cookie);
     } else if (cookie) {
       logger.debug('[Netease] Cookie 是字符串格式: %s', cookie.substring(0, 100) + '...');
@@ -148,37 +149,69 @@ const checkQRLoginStatus = async (key) => {
  */
 const getCurrentUserInfo = async (cookie) => {
   try {
-    logger.debug('[Netease] /user/account 请求 Cookie: %s', cookie ? cookie.substring(0, 100) + '...' : 'null');
+    logger.debug('[Netease] 获取用户信息，Cookie: %s', cookie ? cookie.substring(0, 100) + '...' : 'null');
 
-    const data = await httpGet(buildUrl('/user/account'), {
-      'Cookie': cookie,
-    });
+    let profile = null;
+    let account = null;
 
-    logger.debug('[Netease] /user/account 完整响应: %j', data);
-
-    // 处理不同可能的返回结构
-    // 结构1: { code: 200, profile: {...} }
-    // 结构2: { code: 200, account: {...}, profile: {...} }
-    let profile = data.profile;
-    let account = data.account;
-
-    if (!profile && data.bindings) {
-      // 尝试从其他字段获取
-      profile = data;
+    // 1. 首先尝试 /user/account API
+    try {
+      const data = await httpGet(buildUrl('/user/account'), {
+        'Cookie': cookie,
+      });
+      logger.debug('[Netease] /user/account 响应: %j', data);
+      profile = data.profile;
+      account = data.account;
+    } catch (error) {
+      logger.warn('[Netease] /user/account 请求失败: %s', error.message);
     }
 
+    // 2. 如果 /user/account 返回空，尝试 /login/status API
     if (!profile && !account) {
-      throw new Error(`无法获取用户资料，响应: ${JSON.stringify(data).substring(0, 200)}`);
+      logger.info('[Netease] /user/account 返回空，尝试 /login/status API');
+      try {
+        // /login/status 需要 POST 请求
+        const data = await httpPost(buildUrl('/login/status'), {}, {
+          'Cookie': cookie,
+        });
+        // 使用 info 级别确保日志输出
+        logger.info('[Netease] /login/status 原始响应: %s', JSON.stringify(data));
+
+        // 尝试多种可能的响应结构
+        // 官方格式: { data: { profile, account } }
+        // 第三方 API 格式可能是: { profile, account } 或 { code: 200, data: { profile, account } }
+        if (data.data && data.data.profile) {
+          profile = data.data.profile;
+          account = data.data.account;
+        } else if (data.profile) {
+          profile = data.profile;
+          account = data.account;
+        } else if (data.body && data.body.data) {
+          profile = data.body.data.profile;
+          account = data.body.data.account;
+        } else if (data.body && data.body.profile) {
+          profile = data.body.profile;
+          account = data.body.account;
+        }
+      } catch (error) {
+        logger.warn('[Netease] /login/status 请求失败: %s', error.message);
+      }
     }
 
-    // 优先使用 profile，否则使用 account
+    // 3. 验证是否获取到用户信息
+    if (!profile && !account) {
+      throw new Error(`无法获取用户资料，所有API均返回空值`);
+    }
+
     const userId = profile?.userId || account?.id;
     const nickname = profile?.nickname || profile?.nickName || account?.userName;
-    const avatar = profile?.avatarUrl || profile?.avatarImgUrl;
+    const avatar = profile?.avatarUrl || profile?.avatarImgUrl || profile?.avatar;
 
     if (!userId) {
-      throw new Error(`无法获取用户ID，响应: ${JSON.stringify(data).substring(0, 200)}`);
+      throw new Error(`无法获取用户ID，响应: ${JSON.stringify({ profile, account }).substring(0, 200)}`);
     }
+
+    logger.info('[Netease] 成功获取用户信息', { userId, nickname });
 
     return {
       id: userId.toString(),
@@ -429,6 +462,37 @@ const getUserPlaylist = async (userId, uid) => {
   }
 };
 
+const getRecommendedPlaylists = async (userId) => {
+  const headers = {};
+  const cookie = getCookie(userId);
+  if (cookie) {
+    headers['Cookie'] = cookie;
+  }
+
+  try {
+    const data = await httpGet(buildUrl('/recommend/resource'), headers);
+
+    if (data.code !== 200) {
+      throw new Error(data.message || '获取每日推荐歌单失败');
+    }
+
+    const playlists = data.recommend || [];
+
+    return {
+      playlists: playlists.map(pl => ({
+        id: pl.id,
+        name: pl.name,
+        cover: pl.picUrl || pl.coverImgUrl,
+        description: pl.copywriter || '',
+        playCount: pl.playcount,
+        trackCount: null,
+      })),
+    };
+  } catch (error) {
+    throw new Error(`获取每日推荐歌单失败: ${error.message}`);
+  }
+};
+
 module.exports = {
   PLATFORM,
   getQRCode,
@@ -446,4 +510,5 @@ module.exports = {
   getPlaylistDetail,
   getLyric,
   getUserPlaylist,
+  getRecommendedPlaylists,
 };

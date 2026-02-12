@@ -23,11 +23,19 @@ Projects_ListenVison/
 ├── frontend_flutter/          # Flutter应用
 │   └── lib/
 │       ├── core/              # 基础设施（常量、错误、网络）
-│       ├── models/            # 轻量实体（原 domain/entities）
-│       ├── data/              # 数据层（API客户端、Repository）
-│       │   ├── database/       # SQLite DAO
-│       │   ├── repositories/   # Repository 实现
-│       │   └── sync/           # 网络同步重试机制
+│       │   └── network/       # 网络层
+│       │       ├── api_client.dart      # ✅ 统一 API 客户端
+│       │       ├── dio_client.dart      # Dio 单例
+│       │       └── endpoints.dart       # ✅ API 端点常量
+│       ├── models/            # 轻量实体
+│       │   ├── dto/           # ✅ DTO 层（API 响应/请求）
+│       │   │   └── api_dto.dart
+│       │   └── entities/      # 业务实体
+│       ├── data/              # 数据层
+│       │   ├── api/           # API 客户端（遗留，逐步迁移）
+│       │   ├── database/      # SQLite DAO
+│       │   ├── repositories/  # Repository 实现
+│       │   └── sync/          # 网络同步重试机制
 │       ├── services/          # 有状态服务（音频播放、元数据）
 │       └── presentation/      # UI层
 │           ├── viewmodels/    # StateNotifier 状态管理
@@ -37,8 +45,11 @@ Projects_ListenVison/
 └── listen-vision_api/        # Node.js后端
     ├── middleware/           # 认证、限流、错误处理
     ├── routes/               # API路由
-    ├── controllers/          # 控制器
-    ├── services/             # 业务逻辑
+    ├── controllers/          # 控制器（统一响应格式）
+    ├── services/             # 业务逻辑（使用 logger）
+    ├── utils/                # 工具函数
+    │   ├── logger.js         # Winston 日志
+    │   └── response.js       # 统一响应工具
     └── config/               # 数据库配置
 ```
 
@@ -264,6 +275,95 @@ services/      # 有状态服务（AudioPlayerService, MetadataService）
 viewmodels/    # StateNotifier 状态管理
 views/         # 纯 UI 渲染（ConsumerWidget）
 core/          # 基础设施（常量、网络、存储）
+```
+
+---
+
+## API 标准化与代码质量改进
+
+**实现日期**: 2026-02-12
+
+### 改进内容
+
+| 类别 | 改进项 | 状态 |
+|------|--------|------|
+| **后端** | Console.log → Winston logger | ✅ 完成 |
+| **后端** | 统一响应格式 (successResponse/errorResponse) | ✅ 完成 |
+| **后端** | 移除冗余代码 (conversionTracker 导出) | ✅ 完成 |
+| **前端** | 创建 DTO 层 (`models/dto/`) | ✅ 完成 |
+| **前端** | 统一端点常量 (`core/network/endpoints.dart`) | ✅ 完成 |
+| **前端** | 重构统一 API 客户端 (`core/network/api_client.dart`) | ✅ 完成 |
+| **前端** | ViewModel 使用 Provider 单例 | 🟡 部分完成 |
+
+### 后端改进
+
+**日志标准化**:
+- 所有 `console.log` 替换为 `logger.info/debug/warn/error`
+- 结构化日志输出，包含上下文信息
+- 敏感信息自动脱敏
+
+**响应格式统一**:
+```javascript
+// 成功响应
+successResponse(res, data, '操作成功');
+
+// 错误响应  
+errorResponse(res, '错误信息', 400);
+```
+
+**涉及文件**:
+- `listen-vision_api/index.js`
+- `listen-vision_api/routes/v1.js`
+- `listen-vision_api/routes/bilibili.js`
+- `listen-vision_api/services/emailService.js`
+- `listen-vision_api/controllers/bilibiliController.js`
+- `listen-vision_api/controllers/neteaseController.js`
+
+### 前端改进
+
+**DTO 层** (`models/dto/api_dto.dart`):
+- `ApiResponse<T>` - 统一 API 响应包装
+- `LoginRequestDto/LoginResponseDto` - 认证相关
+- `BilibiliQRCodeDto/BilibiliVideoDto` - B站相关
+- `NeteasePlaylistDto/NeteaseSongDto` - 网易云相关
+
+**端点常量** (`core/network/endpoints.dart`):
+```dart
+// 认证
+Endpoints.Auth.login
+Endpoints.Auth.register
+
+// B站
+Endpoints.Bilibili.video(bvid)
+Endpoints.Bilibili.search
+
+// 网易云
+Endpoints.Netease.playlistDetail(id)
+Endpoints.Netease.search
+```
+
+**统一 API 客户端** (`core/network/api_client.dart`):
+```dart
+// 使用 Provider 获取单例
+final apiClient = ref.watch(apiClientProvider);
+
+// 调用 API
+final data = await apiClient.getBilibiliRecommendations();
+final user = await apiClient.login(request);
+```
+
+### 迁移指南
+
+**旧代码**:
+```dart
+// 不推荐：直接创建 API 客户端实例
+final apiClient = BackendApiClient();
+```
+
+**新代码**:
+```dart
+// 推荐：使用 Provider 单例
+final apiClient = ref.watch(apiClientProvider);
 ```
 
 ---

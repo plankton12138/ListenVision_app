@@ -1,6 +1,5 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/viewmodels/auth/netease_auth_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/auth/platform_auth_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/settings/scan_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
@@ -593,222 +592,72 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  /// 网易云账号绑定卡片
+  /// 网易云账号绑定卡片（待开发）
   Widget _buildNeteaseBindCard(BuildContext context, bool isLoggedIn) {
     const neteaseRed = Color(0xFFC20C0C);
-    
+
     if (!isLoggedIn) {
       return const SizedBox.shrink();
     }
 
-    return Consumer(
-      builder: (context, ref, child) {
-        return ref.watch(neteaseAuthViewModelProvider).when(
-          data: (neteaseAuthState) {
-            final isBound = neteaseAuthState.maybeWhen(
-              bound: (_) => true,
-              orElse: () => false,
-            );
-            final userInfo = neteaseAuthState.maybeWhen(
-              bound: (account) => account,
-              orElse: () => null,
-            );
-            final isLoading = neteaseAuthState.maybeWhen(
-              qrLogin: (_, __, ___, ____) => true,
-              orElse: () => false,
-            );
-
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isBound
-                      ? [neteaseRed.withValues(alpha: 0.2), neteaseRed.withValues(alpha: 0.1)]
-                      : [neteaseRed.withValues(alpha: 0.15), neteaseRed.withValues(alpha: 0.05)],
-                ),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: neteaseRed.withValues(alpha: isBound ? 0.4 : 0.3)),
-              ),
-              padding: const EdgeInsets.all(15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: neteaseRed.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.music_note, size: 20, color: neteaseRed),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '网易云音乐',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isBound ? Colors.green.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          isBound ? '已绑定' : '未绑定',
-                          style: TextStyle(
-                            color: isBound ? Colors.green : Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (isBound && userInfo != null) ...[
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: neteaseRed, width: 2),
-                          ),
-                          child: CircleAvatar(
-                            backgroundColor: neteaseRed.withValues(alpha: 0.15),
-                            child: const Icon(Icons.music_note, color: neteaseRed),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                userInfo.username.isNotEmpty ? userInfo.username : '网易云用户',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'ID: ${userInfo.id}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: isLoading ? null : () => _confirmUnbindNetease(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey[700],
-                          side: BorderSide(color: Colors.grey[400]!),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('解绑账号'),
-                      ),
-                    ),
-                  ] else ...[
-                    Text(
-                      '绑定网易云账号后可查看你的歌单',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : () => _showNeteaseQRCodeDialog(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: neteaseRed,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('绑定账号'),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-          loading: () => Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            padding: const EdgeInsets.all(15),
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-          error: (_, __) => Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            padding: const EdgeInsets.all(15),
-            child: const Text('加载失败'),
-          ),
-        );
-      },
-    );
-  }
-
-  /// 显示网易云QR码登录对话框
-  void _showNeteaseQRCodeDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => _NeteaseQRCodeDialog(
-        ref: ref,
-        onClose: () => Navigator.of(context).pop(),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            neteaseRed.withValues(alpha: 0.08),
+            neteaseRed.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: neteaseRed.withValues(alpha: 0.2)),
       ),
-    );
-  }
-
-  /// 确认解绑网易云对话框
-  Future<void> _confirmUnbindNetease(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认解绑'),
-        content: const Text('解绑后将无法查看你的网易云歌单，确认解绑？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: neteaseRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.music_note, size: 20, color: neteaseRed),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                '网易云音乐',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  '待开发',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('确认解绑'),
+          const SizedBox(height: 12),
+          Text(
+            '网易云音乐功能正在开发中，敬请期待',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && mounted) {
-      final success = await ref.read(neteaseAuthViewModelProvider.notifier).unbind();
-      if (mounted) {
-        if (success) {
-          DialogHelper.showSnackBar(context, '解绑成功', backgroundColor: Colors.green, duration: 1500);
-        } else {
-          DialogHelper.showSnackBar(context, '解绑失败', backgroundColor: Colors.red, duration: 2000);
-        }
-      }
-    }
   }
 
   /// 数据同步状态卡片
@@ -1204,232 +1053,6 @@ class _QRCodeDialogState extends State<_QRCodeDialog> {
           ),
           error: (err, _) => AlertDialog(
             title: const Text('B站账号绑定'),
-            content: Text('加载失败: $err'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('关闭'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// 网易云QR码登录对话框
-class _NeteaseQRCodeDialog extends StatefulWidget {
-  final WidgetRef ref;
-  final VoidCallback onClose;
-
-  const _NeteaseQRCodeDialog({
-    required this.ref,
-    required this.onClose,
-  });
-
-  @override
-  State<_NeteaseQRCodeDialog> createState() => _NeteaseQRCodeDialogState();
-}
-
-class _NeteaseQRCodeDialogState extends State<_NeteaseQRCodeDialog> {
-  bool _dialogClosed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.ref.read(neteaseAuthViewModelProvider.notifier).startQRLogin();
-    });
-  }
-
-  @override
-  void dispose() {
-    final isBound = widget.ref.read(neteaseAuthViewModelProvider).when(
-      data: (state) => state.maybeWhen(
-        bound: (_) => true,
-        orElse: () => false,
-      ),
-      loading: () => false,
-      error: (_, __) => false,
-    );
-    if (!isBound) {
-      widget.ref.read(neteaseAuthViewModelProvider.notifier).cancelQRLogin();
-    }
-    super.dispose();
-  }
-
-  String _getStatusText(NeteaseQRLoginStatus status) {
-    switch (status) {
-      case NeteaseQRLoginStatus.none:
-        return '初始化中...';
-      case NeteaseQRLoginStatus.pending:
-        return '请使用网易云APP扫描二维码';
-      case NeteaseQRLoginStatus.scanned:
-        return '已扫描，请在手机上确认';
-      case NeteaseQRLoginStatus.success:
-        return '登录成功！';
-      case NeteaseQRLoginStatus.expired:
-        return '二维码已过期';
-      case NeteaseQRLoginStatus.failed:
-        return '登录失败';
-    }
-  }
-
-  Color _getStatusColor(NeteaseQRLoginStatus status) {
-    switch (status) {
-      case NeteaseQRLoginStatus.pending:
-        return Colors.red;
-      case NeteaseQRLoginStatus.scanned:
-        return Colors.orange;
-      case NeteaseQRLoginStatus.success:
-        return Colors.green;
-      case NeteaseQRLoginStatus.expired:
-        return Colors.grey;
-      case NeteaseQRLoginStatus.failed:
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) {
-        return ref.watch(neteaseAuthViewModelProvider).when(
-          data: (neteaseAuthState) {
-            final qrUrl = neteaseAuthState.maybeWhen(
-              qrLogin: (_, __, qrurl, ___) => qrurl,
-              orElse: () => null,
-            );
-            final status = neteaseAuthState.maybeWhen(
-              qrLogin: (status, _, __, ___) => status,
-              orElse: () => NeteaseQRLoginStatus.none,
-            );
-            final isBound = neteaseAuthState.maybeWhen(
-              bound: (_) => true,
-              orElse: () => false,
-            );
-            final isExpired = status == NeteaseQRLoginStatus.expired;
-            final isSuccess = status == NeteaseQRLoginStatus.success || isBound;
-
-            if (isSuccess && !_dialogClosed) {
-              _dialogClosed = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && Navigator.of(context).canPop()) {
-                  widget.onClose();
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (context.mounted) {
-                      DialogHelper.showSnackBar(context, '网易云账号绑定成功！', backgroundColor: Colors.green, duration: 2000);
-                    }
-                  });
-                }
-              });
-            }
-
-            return AlertDialog(
-              title: const Text('网易云音乐绑定'),
-              content: SizedBox(
-                width: 280,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (qrUrl != null && !isExpired)
-                      SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: QrImageView(
-                          data: qrUrl,
-                          version: QrVersions.auto,
-                          size: 200,
-                        ),
-                      )
-                    else
-                      SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: Container(
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: Icon(
-                              isExpired ? Icons.qr_code_2 : Icons.hourglass_empty,
-                              size: 80,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (status == NeteaseQRLoginStatus.pending)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          else
-                            Icon(
-                              status == NeteaseQRLoginStatus.scanned
-                                  ? Icons.qr_code_scanner
-                                  : status == NeteaseQRLoginStatus.success
-                                      ? Icons.check_circle
-                                      : status == NeteaseQRLoginStatus.expired || status == NeteaseQRLoginStatus.failed
-                                          ? Icons.error
-                                          : Icons.info,
-                              size: 16,
-                              color: _getStatusColor(status),
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getStatusText(status),
-                            style: TextStyle(
-                              color: _getStatusColor(status),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '打开网易云音乐APP，扫描二维码登录',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
-                ),
-              ],
-            );
-          },
-          loading: () => const AlertDialog(
-            title: Text('网易云音乐绑定'),
-            content: SizedBox(
-              width: 280,
-              height: 300,
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          ),
-          error: (err, _) => AlertDialog(
-            title: const Text('网易云音乐绑定'),
             content: Text('加载失败: $err'),
             actions: [
               TextButton(

@@ -100,4 +100,11 @@ router.get('/playlist/detail/:id', optionalAuthMiddleware, neteaseController.get
  */
 router.get('/user/playlist/:uid', authMiddleware, neteaseController.getUserPlaylist);
 
+/**
+ * @route GET /api/v1/netease/recommend/playlists
+ * @desc 获取每日推荐歌单
+ * @access Private
+ */
+router.get('/recommend/playlists', authMiddleware, neteaseController.getRecommendedPlaylists);
+
 module.exports = router;

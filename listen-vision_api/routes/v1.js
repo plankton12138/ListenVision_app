@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { logger } = require('../utils/logger');
 
 /**
  * API v1 路由
@@ -105,7 +106,11 @@ router.use('/recommendations', require('./recommendations'));
  * @access  Private (需要 B站账号绑定)
  */
 router.use('/bilibili', (req, res, next) => {
-  console.log('[DEBUG] v1.js - /bilibili route accessed:', req.method, req.path, req.originalUrl);
+  logger.debug('Bilibili route accessed', {
+    method: req.method,
+    path: req.path,
+    originalUrl: req.originalUrl
+  });
   next();
 }, require('./bilibili'));
 

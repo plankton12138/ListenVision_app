@@ -34,7 +34,7 @@ final class NeteaseAuthViewModelProvider
 }
 
 String _$neteaseAuthViewModelHash() =>
-    r'8c85a6bf178377f202f84f29eb4d444f45fa2858';
+    r'6dd11752d1cd85d8a3d469ecb7c550edb2445351';
 
 abstract class _$NeteaseAuthViewModel extends $AsyncNotifier<NeteaseAuthState> {
   FutureOr<NeteaseAuthState> build();

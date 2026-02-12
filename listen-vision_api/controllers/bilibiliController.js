@@ -1,6 +1,6 @@
 const bilibiliService = require('../services/bilibiliService');
 const searchHistoryService = require('../services/audio/searchHistoryService');
-const { successResponse } = require('../utils/response');
+const { successResponse, errorResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
 const FETCH_TIMEOUT_MS = 30000;
@@ -143,10 +143,7 @@ const getQRCode = async (req, res) => {
     const result = await bilibiliService.getQRCode();
     successResponse(res, result, '获取QR码成功');
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -158,10 +155,7 @@ const checkQRLoginStatus = async (req, res) => {
     const { qrcodeKey } = req.body;
 
     if (!qrcodeKey) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 qrcodeKey 参数'
-      });
+      return errorResponse(res, '缺少 qrcodeKey 参数', 400);
     }
 
     const result = await bilibiliService.checkQRLoginStatus(qrcodeKey);
@@ -188,10 +182,7 @@ const checkQRLoginStatus = async (req, res) => {
       successResponse(res, { status: 'pending' }, '等待扫码');
     }
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -203,10 +194,7 @@ const getBindStatus = async (req, res) => {
     const status = bilibiliService.getBindStatus(req.user.id);
     successResponse(res, status);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -218,10 +206,7 @@ const unbindAccount = async (req, res) => {
     const result = bilibiliService.unbindAccount(req.user.id);
     successResponse(res, result, '解绑成功');
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -233,19 +218,13 @@ const getVideoInfo = async (req, res) => {
     const { bvid } = req.params;
 
     if (!bvid) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 bvid 参数'
-      });
+      return errorResponse(res, '缺少 bvid 参数', 400);
     }
 
     const info = await bilibiliService.getVideoInfo(bvid);
     successResponse(res, info);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -264,10 +243,7 @@ const getAudioStream = async (req, res) => {
     const { bvid } = req.params;
 
     if (!bvid) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 bvid 参数'
-      });
+      return errorResponse(res, '缺少 bvid 参数', 400);
     }
 
     // 使用登录用户的Cookie获取更高质量的音频
@@ -275,10 +251,7 @@ const getAudioStream = async (req, res) => {
     const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
 
     if (!audioStream || !audioStream.baseUrl) {
-      return res.status(404).json({
-        success: false,
-        error: '无法获取音频流URL'
-      });
+      return errorResponse(res, '无法获取音频流URL', 404);
     }
 
     // 构建响应（向后兼容：保留原有字段在顶层）
@@ -315,10 +288,7 @@ const getAudioStream = async (req, res) => {
 
     successResponse(res, response);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -331,10 +301,7 @@ const getUploaderVideos = async (req, res) => {
     const { page = 1, pageSize = 20 } = req.query;
 
     if (!mid) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 mid 参数'
-      });
+      return errorResponse(res, '缺少 mid 参数', 400);
     }
 
     const result = await bilibiliService.getUploaderVideos(
@@ -345,10 +312,7 @@ const getUploaderVideos = async (req, res) => {
 
     successResponse(res, result);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -361,10 +325,7 @@ const searchBilibili = async (req, res) => {
     const { page = 1, pageSize = 20 } = req.query;
 
     if (!keyword) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 keyword 参数'
-      });
+      return errorResponse(res, '缺少 keyword 参数', 400);
     }
 
     // 使用登录用户的ID（如果有）
@@ -379,10 +340,7 @@ const searchBilibili = async (req, res) => {
 
     successResponse(res, result);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -399,10 +357,7 @@ const getRecentSearches = async (req, res) => {
       keywords: keywords.slice(0, parseInt(limit) || 10)
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -414,10 +369,7 @@ const getSearchSuggestions = async (req, res) => {
     const { keyword } = req.query;
 
     if (!keyword) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 keyword 参数'
-      });
+      return errorResponse(res, '缺少 keyword 参数', 400);
     }
 
     const suggestions = await bilibiliService.getSearchSuggestions(keyword);
@@ -427,10 +379,7 @@ const getSearchSuggestions = async (req, res) => {
       keyword
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -442,10 +391,7 @@ const clearSearchHistory = async (req, res) => {
     const cleared = searchHistoryService.clearSearchHistory(req.user.id);
     successResponse(res, { cleared });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -792,8 +738,7 @@ const getRecommendedVideos = async (req, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const userId = req.user?.id || null;
-    console.log('[DEBUG] getRecommendedVideos called: userId=%s, page=%s, pageSize=%s', userId, page, pageSize);
-    logger.info('[getRecommendedVideos] 请求: userId=%s, page=%s, pageSize=%s', userId, page, pageSize);
+    logger.info('getRecommendedVideos called', { userId, page, pageSize });
 
     const result = await bilibiliService.getRecommendedVideos(
       userId,
@@ -803,12 +748,8 @@ const getRecommendedVideos = async (req, res) => {
 
     successResponse(res, result);
   } catch (error) {
-    console.error('[DEBUG] getRecommendedVideos ERROR:', error.message, error.stack);
-    logger.error('[getRecommendedVideos] 失败: userId=%s, error=%s', req.user?.id, error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    logger.error('getRecommendedVideos failed', { error: error.message, stack: error.stack });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -838,8 +779,5 @@ module.exports = {
   // 代理
   proxyImage,
   proxyAudioStream,
-  proxyAudioStreamByBvid,
-
-  // 测试辅助
-  conversionTracker  // 导出用于测试
+  proxyAudioStreamByBvid
 };

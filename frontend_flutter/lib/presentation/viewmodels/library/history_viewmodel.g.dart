@@ -64,7 +64,7 @@ final class HistoryViewModelProvider
   HistoryViewModel create() => HistoryViewModel();
 }
 
-String _$historyViewModelHash() => r'06afa3a83ba26c320f751db0ab3516dff14b0551';
+String _$historyViewModelHash() => r'1ce0cbcef5106ab38cfb795b952ba53d66c6bd38';
 
 /// 播放历史 ViewModel
 ///

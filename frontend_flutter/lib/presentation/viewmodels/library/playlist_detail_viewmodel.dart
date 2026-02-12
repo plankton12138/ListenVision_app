@@ -169,10 +169,6 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
       // 构建队列（过滤掉本地音乐，只处理在线音频）
       final queueItems = <PlayableAudio>[];
-      final playlist = state.valueOrNull?.maybeWhen(
-        loaded: (playlist, _, __) => playlist,
-        orElse: () => null,
-      );
 
       for (final item in items) {
         final bvid = item.bvid;

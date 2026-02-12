@@ -138,6 +138,7 @@ class HistoryViewModel extends _$HistoryViewModel {
     String? artist,
     int? duration,
     String? coverUrl,
+    String? streamUrl,
     int progress = 0,
   }) async {
     // 确定音频标识符（本地音频使用文件路径作为 ID）
@@ -164,6 +165,7 @@ class HistoryViewModel extends _$HistoryViewModel {
         artist: artist,
         duration: duration,
         coverUrl: coverUrl,
+        streamUrl: streamUrl,
       );
 
       final newItem = PlayHistory(

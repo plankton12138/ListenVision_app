@@ -667,11 +667,18 @@ class PlayerViewModel extends _$PlayerViewModel {
 
       AppLogger.info('PlayerViewModel', '播放在线音频: ${audio.title}');
 
-      // 构建代理 URL
-      proxyUrl ??= _buildProxyUrl(audio.id, preferredFormat ?? 'auto');
+      // 优先使用直接提供的流URL，其次是代理URL
+      String playUrl;
+      if (streamUrl != null && streamUrl.isNotEmpty) {
+        playUrl = streamUrl;
+      } else if (proxyUrl != null && proxyUrl.isNotEmpty) {
+        playUrl = proxyUrl;
+      } else {
+        playUrl = _buildProxyUrl(audio.id, preferredFormat ?? 'auto');
+      }
 
       // 创建可播放对象
-      final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
+      final playable = OnlinePlayable.fromAudio(audio, playUrl);
 
       // 更新状态
       state = state.copyWith(
@@ -912,14 +919,16 @@ class PlayerViewModel extends _$PlayerViewModel {
   /// 记录播放历史（非阻塞）
   void _recordPlayHistory(Audio audio) {
     try {
+      final historyId = _buildHistoryId(audio.id);
       // 使用 ref.read 获取 HistoryViewModel 并记录播放
-      AppLogger.debug('PlayerViewModel', '记录播放历史: id=${audio.id}, title=${audio.title}, artist=${audio.artist}, coverUrl=${audio.coverUrl}');
+      AppLogger.debug('PlayerViewModel', '记录播放历史: id=$historyId, title=${audio.title}, artist=${audio.artist}, coverUrl=${audio.coverUrl}');
       ref.read(historyViewModelProvider.notifier).recordPlay(
-        bvid: audio.id,
+        bvid: historyId,
         title: audio.title,
         artist: audio.artist,
         duration: audio.duration,
         coverUrl: audio.coverUrl,
+        streamUrl: audio.streamUrl,
         progress: 0,
       );
       AppLogger.debug('PlayerViewModel', '已记录播放历史: ${audio.title}');
@@ -927,6 +936,13 @@ class PlayerViewModel extends _$PlayerViewModel {
       // 静默失败，不影响播放
       AppLogger.debug('PlayerViewModel', '记录播放历史失败（不影响播放）: $e');
     }
+  }
+
+  String _buildHistoryId(String id) {
+    if (id.startsWith('netease_') || id.startsWith('local_')) {
+      return id;
+    }
+    return id;
   }
 
   // ==================== 公开状态访问 ====================

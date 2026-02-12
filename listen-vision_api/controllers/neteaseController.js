@@ -1,19 +1,14 @@
 const neteaseService = require('../services/neteaseService');
+const { successResponse, errorResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
 
 const getQRCode = async (req, res) => {
   try {
     const data = await neteaseService.getQRCode();
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data, '获取二维码成功');
   } catch (error) {
-    logger.error('[Netease] 获取二维码失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取二维码失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -21,10 +16,7 @@ const checkQRLoginStatus = async (req, res) => {
   try {
     const { key } = req.body;
     if (!key) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少 key 参数',
-      });
+      return errorResponse(res, '缺少 key 参数', 400);
     }
 
     const data = await neteaseService.checkQRLoginStatus(key);
@@ -37,20 +29,14 @@ const checkQRLoginStatus = async (req, res) => {
       try {
         userInfo = await neteaseService.getCurrentUserInfo(data.cookie);
       } catch (error) {
-        logger.error('[Netease] 获取用户信息失败: %s', error.message);
-        return res.status(400).json({
-          success: false,
-          error: '登录成功但无法获取用户信息，请重试',
-        });
+        logger.error('获取用户信息失败', { error: error.message });
+        return errorResponse(res, '登录成功但无法获取用户信息，请重试', 400);
       }
 
       // 验证用户信息完整性
       if (!userInfo.id || userInfo.id === '') {
-        logger.error('[Netease] 用户信息不完整，缺少 ID: %j', userInfo);
-        return res.status(400).json({
-          success: false,
-          error: '登录成功但无法获取用户ID，请重试',
-        });
+        logger.error('用户信息不完整，缺少 ID', { userInfo });
+        return errorResponse(res, '登录成功但无法获取用户ID，请重试', 400);
       }
 
       // 保存完整的账号信息
@@ -61,32 +47,26 @@ const checkQRLoginStatus = async (req, res) => {
         expiresInDays: 30,
       });
 
-      logger.info('[Netease] 用户 %d 绑定成功 (ID: %s, 用户名: %s)',
-        userId, userInfo.id, userInfo.username);
+      logger.info('用户绑定成功', {
+        userId,
+        platformUserId: userInfo.id,
+        platformUsername: userInfo.username
+      });
 
       // 返回包含用户信息的响应
-      res.json({
-        success: true,
-        data: {
-          status: data.status,
-          userInfo: userInfo,
-        },
-      });
+      successResponse(res, {
+        status: data.status,
+        userInfo: userInfo,
+      }, '绑定成功');
     } else {
-      res.json({
-        success: true,
-        data: {
-          status: data.status,
-          message: data.message,
-        },
+      successResponse(res, {
+        status: data.status,
+        message: data.message,
       });
     }
   } catch (error) {
-    logger.error('[Netease] 检查二维码状态失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('检查二维码状态失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -95,10 +75,7 @@ const loginWithCellphone = async (req, res) => {
     const { phone, password, countrycode } = req.body;
 
     if (!phone || !password) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少手机号或密码',
-      });
+      return errorResponse(res, '缺少手机号或密码', 400);
     }
 
     const data = await neteaseService.loginWithCellphone(phone, password, countrycode);
@@ -108,11 +85,8 @@ const loginWithCellphone = async (req, res) => {
 
       // 验证用户信息完整性
       if (!data.userInfo.id || data.userInfo.id === '') {
-        logger.error('[Netease] 手机号登录用户信息不完整: %j', data.userInfo);
-        return res.status(400).json({
-          success: false,
-          error: '登录成功但无法获取用户ID，请重试',
-        });
+        logger.error('手机号登录用户信息不完整', { userInfo: data.userInfo });
+        return errorResponse(res, '登录成功但无法获取用户ID，请重试', 400);
       }
 
       await neteaseService.saveAccount(userId, {
@@ -122,21 +96,15 @@ const loginWithCellphone = async (req, res) => {
         expiresInDays: 30,
       });
 
-      logger.info('[Netease] 用户 %d 通过手机号绑定成功 (ID: %s)', userId, data.userInfo.id);
+      logger.info('用户通过手机号绑定成功', { userId, platformUserId: data.userInfo.id });
     }
 
-    res.json({
-      success: true,
-      data: {
-        userInfo: data.userInfo,
-      },
-    });
+    successResponse(res, {
+      userInfo: data.userInfo,
+    }, '登录成功');
   } catch (error) {
-    logger.error('[Netease] 手机号登录失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('手机号登录失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -144,16 +112,10 @@ const getBindStatus = async (req, res) => {
   try {
     const userId = req.user.id;
     const data = await neteaseService.getBindStatus(userId);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取绑定状态失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取绑定状态失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -161,17 +123,11 @@ const unbindAccount = async (req, res) => {
   try {
     const userId = req.user.id;
     const data = await neteaseService.unbindAccount(userId);
-    logger.info('[Netease] 用户 %d 解绑成功', userId);
-    res.json({
-      success: true,
-      data,
-    });
+    logger.info('用户解绑成功', { userId });
+    successResponse(res, data, '解绑成功');
   } catch (error) {
-    logger.error('[Netease] 解绑失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('解绑失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -180,24 +136,15 @@ const search = async (req, res) => {
     const { keywords, limit, offset, type } = req.query;
 
     if (!keywords) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少搜索关键词',
-      });
+      return errorResponse(res, '缺少搜索关键词', 400);
     }
 
     const userId = req.user?.id || null;
     const data = await neteaseService.search(keywords, { limit, offset, type }, userId);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 搜索失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('搜索失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -206,24 +153,15 @@ const getSongDetail = async (req, res) => {
     const { ids } = req.query;
 
     if (!ids) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少歌曲ID',
-      });
+      return errorResponse(res, '缺少歌曲ID', 400);
     }
 
     const userId = req.user?.id || null;
     const data = await neteaseService.getSongDetail(ids, userId);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取歌曲详情失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取歌曲详情失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -232,24 +170,15 @@ const getSongUrl = async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少歌曲ID',
-      });
+      return errorResponse(res, '缺少歌曲ID', 400);
     }
 
     const userId = req.user?.id || null;
     const data = await neteaseService.getSongUrl(id, userId);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取歌曲URL失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取歌曲URL失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -258,24 +187,15 @@ const getPlaylistDetail = async (req, res) => {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少歌单ID',
-      });
+      return errorResponse(res, '缺少歌单ID', 400);
     }
 
     const userId = req.user?.id || null;
     const data = await neteaseService.getPlaylistDetail(id, userId);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取歌单详情失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取歌单详情失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -284,23 +204,14 @@ const getLyric = async (req, res) => {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少歌曲ID',
-      });
+      return errorResponse(res, '缺少歌曲ID', 400);
     }
 
     const data = await neteaseService.getLyric(id);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取歌词失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取歌词失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -309,24 +220,26 @@ const getUserPlaylist = async (req, res) => {
     const { uid } = req.params;
 
     if (!uid) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少用户ID',
-      });
+      return errorResponse(res, '缺少用户ID', 400);
     }
 
     const userId = req.user.id;
     const data = await neteaseService.getUserPlaylist(userId, uid);
-    res.json({
-      success: true,
-      data,
-    });
+    successResponse(res, data);
   } catch (error) {
-    logger.error('[Netease] 获取用户歌单失败: %s', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    logger.error('获取用户歌单失败', { error: error.message });
+    errorResponse(res, error.message, 500);
+  }
+};
+
+const getRecommendedPlaylists = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const data = await neteaseService.getRecommendedPlaylists(userId);
+    successResponse(res, data);
+  } catch (error) {
+    logger.error('获取每日推荐歌单失败', { error: error.message });
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -342,4 +255,5 @@ module.exports = {
   getPlaylistDetail,
   getLyric,
   getUserPlaylist,
+  getRecommendedPlaylists,
 };

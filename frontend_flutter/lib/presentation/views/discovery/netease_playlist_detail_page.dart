@@ -1,6 +1,8 @@
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/data/api/backend_api_client.dart';
 import 'package:demo/models/audio.dart';
+import 'package:demo/models/online_playable.dart';
+import 'package:demo/models/queue_source.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
@@ -230,6 +232,12 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
             background: _buildHeader(playlist),
           ),
         ),
+        SliverToBoxAdapter(
+          child: _buildActionButtons(playlist),
+        ),
+        const SliverToBoxAdapter(
+          child: Divider(height: 1),
+        ),
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
@@ -270,7 +278,7 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
                             width: 120,
                             height: 120,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (context, error, stackTrace) => Container(
                               width: 120,
                               height: 120,
                               color: Colors.grey[300],
@@ -340,6 +348,30 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
     );
   }
 
+  Widget _buildActionButtons(NeteasePlaylistDetail playlist) {
+    if (playlist.tracks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('播放全部'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () => _playAll(playlist),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTrackItem(NeteaseTrack track, int index) {
     return ListTile(
       leading: SizedBox(
@@ -354,7 +386,7 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
                   ? Image.network(
                       track.cover,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey[300],
                         child: const Icon(Icons.music_note, size: 24),
                       ),
@@ -390,11 +422,66 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: Colors.grey[600], fontSize: 12),
       ),
-      onTap: () => _playTrack(track),
+      onTap: () => _playTrack(track, index),
     );
   }
 
-  void _playTrack(NeteaseTrack track) async {
+  Future<void> _playAll(NeteasePlaylistDetail playlist) async {
+    if (playlist.tracks.isEmpty) return;
+
+    AppLogger.logUserAction(
+      'NeteasePlaylistDetailPage',
+      '播放全部',
+      parameters: {'id': playlist.id, 'name': playlist.name},
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Text('正在加载播放列表...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    final result = await _buildPlayablesWithUrls(playlist.tracks);
+    final playables = result.playables;
+
+    if (playables.isEmpty) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '没有可播放的歌曲');
+      }
+      return;
+    }
+    final source = QueueSource.neteasePlaylist(
+      playlist.id,
+      playlist.name,
+      coverUrl: playlist.cover,
+    );
+
+    await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+      playables,
+      source,
+      initialIndex: 0,
+    );
+
+    await ref.read(queueViewModelProvider.notifier).playAt(0);
+
+    if (mounted) {
+      final first = playables.first.original;
+      SnackbarHelper.showPlaying(context, first.title, artist: first.artist);
+    }
+  }
+
+  Future<void> _playTrack(NeteaseTrack track, int index) async {
     AppLogger.logUserAction(
       'NeteasePlaylistDetailPage',
       '播放网易云歌曲',
@@ -402,29 +489,45 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
     );
 
     try {
-      final apiClient = BackendApiClient();
-      final urlData = await apiClient.getNeteaseSongUrl(track.id);
-      final url = urlData['url'] as String?;
+      final state = ref.read(neteasePlaylistDetailViewModelProvider(widget.playlistId));
+      final playlist = state.value?.maybeWhen(
+        loaded: (playlist) => playlist,
+        orElse: () => null,
+      );
 
-      if (url == null || url.isEmpty) {
+      if (playlist == null || playlist.tracks.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(context, '歌单数据未就绪');
+        }
+        return;
+      }
+
+      final result = await _buildPlayablesWithUrls(
+        playlist.tracks,
+        selectedId: track.id,
+      );
+      final playables = result.playables;
+      final selectedIndex = result.selectedIndex;
+
+      if (playables.isEmpty || selectedIndex < 0) {
         if (mounted) {
           SnackbarHelper.showError(context, '无法获取播放链接，可能需要VIP');
         }
         return;
       }
-
-      final audio = Audio(
-        id: 'netease_${track.id}',
-        title: track.name,
-        artist: track.artist,
-        duration: track.duration ~/ 1000,
-        coverUrl: track.cover,
+      final source = QueueSource.neteasePlaylist(
+        playlist.id,
+        playlist.name,
+        coverUrl: playlist.cover,
       );
 
-      await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
-        audio: audio,
-        streamUrl: url,
+      await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+        playables,
+        source,
+        initialIndex: selectedIndex,
       );
+
+      await ref.read(queueViewModelProvider.notifier).playAt(selectedIndex);
 
       if (mounted) {
         SnackbarHelper.showPlaying(context, track.name, artist: track.artist);
@@ -435,6 +538,44 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
       }
     }
   }
+
+  Future<({List<OnlinePlayable> playables, int selectedIndex})> _buildPlayablesWithUrls(
+    List<NeteaseTrack> tracks, {
+    String? selectedId,
+  }) async {
+    final playables = <OnlinePlayable>[];
+    var selectedIndex = -1;
+    final apiClient = BackendApiClient();
+
+    for (final track in tracks) {
+      final urlData = await apiClient.getNeteaseSongUrl(track.id);
+      final url = urlData['url'] as String?;
+      if (url == null || url.isEmpty) {
+        AppLogger.warn('NeteasePlaylistDetailPage', '跳过不可播放歌曲: ${track.name}');
+        continue;
+      }
+      playables.add(_buildPlayable(track, streamUrl: url));
+      if (selectedId != null && track.id == selectedId) {
+        selectedIndex = playables.length - 1;
+      }
+    }
+
+    return (playables: playables, selectedIndex: selectedIndex);
+  }
+
+  OnlinePlayable _buildPlayable(NeteaseTrack track, {String? streamUrl}) {
+    final audio = Audio(
+      id: _neteaseHistoryId(track.id),
+      title: track.name,
+      artist: track.artist,
+      duration: track.duration ~/ 1000,
+      coverUrl: track.cover,
+      streamUrl: streamUrl,
+    );
+    return OnlinePlayable.fromAudio(audio, null);
+  }
+
+  String _neteaseHistoryId(String id) => 'netease_$id';
 
   String _formatDuration(int ms) {
     final seconds = ms ~/ 1000;

@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/state/state_utils.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../data/api/bilibili_api_client.dart';
 import '../../../models/platform_account.dart' show BilibiliUserInfo;
 
 part 'platform_auth_viewmodel.freezed.dart';
@@ -69,7 +68,7 @@ abstract class PlatformAuthState with _$PlatformAuthState {
 /// 负责第三方平台（B站）的认证
 @Riverpod(keepAlive: true)
 class PlatformAuthViewModel extends _$PlatformAuthViewModel {
-  BilibiliApiClient? _bilibiliApi;
+  ApiClient? _apiClient;
   SecureStorageService? _secureStorage;
 
   /// QR 码轮询定时器
@@ -77,7 +76,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
 
   @override
   Future<PlatformAuthState> build() async {
-    _bilibiliApi = BilibiliApiClient();
+    _apiClient = ref.watch(apiClientProvider);
     _secureStorage = SecureStorageService.instance;
 
     // 设置清理回调
@@ -99,7 +98,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
     try {
       // 先尝试从后端获取绑定状态
       try {
-        final statusData = await _bilibiliApi!.getBindStatus();
+        final statusData = await _apiClient!.getBilibiliBindStatus();
         final isBound = statusData['isBound'] as bool? ?? false;
         
         if (isBound) {
@@ -154,18 +153,18 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
 
       AppLogger.info('PlatformAuthViewModel', '开始获取B站QR码');
 
-      final result = await _bilibiliApi!.getQRCode();
+      final result = await _apiClient!.getBilibiliQRCode();
 
       if (!ref.mounted) return false;
       state = AsyncData(PlatformAuthState.qrLogin(
         status: QRLoginStatus.pending,
-        qrcodeUrl: result['qrcodeUrl'],
-        qrcodeKey: result['qrcodeKey'],
-        expiresAt: result['expiresAt'],
+        qrcodeUrl: result.qrcodeUrl,
+        qrcodeKey: result.qrcodeKey,
+        expiresAt: result.expiresAt,
       ));
 
       // 开始轮询
-      _startQRPolling(result['qrcodeKey']!, result['expiresAt']!);
+      _startQRPolling(result.qrcodeKey!, result.expiresAt!);
 
       return true;
     } catch (e) {
@@ -206,8 +205,8 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
   /// 检查 QR 码状态
   Future<void> _checkQRStatus(String qrcodeKey) async {
     try {
-      final result = await _bilibiliApi!.checkQRLoginStatus(qrcodeKey);
-      final statusStr = result['status'] as String? ?? 'pending';
+      final result = await _apiClient!.checkBilibiliQRStatus(qrcodeKey);
+      final statusStr = result.status as String? ?? 'pending';
 
       final status = switch (statusStr) {
         'scanned' => QRLoginStatus.scanned,
@@ -217,11 +216,11 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
         _ => QRLoginStatus.pending,
       };
 
-      _updateQRStatus(status, userInfo: result['userInfo']);
+      _updateQRStatus(status, userInfo: result.userInfo);
 
       if (status == QRLoginStatus.success) {
         _stopQRPolling();
-        await _handleLoginSuccess(result['userInfo']);
+        await _handleLoginSuccess(result.userInfo);
       } else if (status == QRLoginStatus.failed ||
           status == QRLoginStatus.expired) {
         _stopQRPolling();
@@ -234,7 +233,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
   /// 更新 QR 状态
   void _updateQRStatus(QRLoginStatus status, {Map<String, dynamic>? userInfo}) {
     if (!ref.mounted) return;
-    final current = state.valueOrNull;
+    final current = state.value;
     current?.maybeWhen(
       qrLogin: (_, qrcodeUrl, qrcodeKey, expiresAt) {
         state = AsyncData(PlatformAuthState.qrLogin(
@@ -296,7 +295,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
       AppLogger.info('PlatformAuthViewModel', '解绑B站账号');
 
       // 调用后端解绑接口
-      await _bilibiliApi!.unbindAccount();
+      await _apiClient!.unbindBilibili();
 
       // 清除本地存储
       await _secureStorage!.clearBilibiliAccount();
@@ -322,7 +321,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
 
   /// 清除错误状态
   void clearError() {
-    final current = state.valueOrNull;
+    final current = state.value;
     if (current is PlatformAuthStateError) {
       state = const AsyncData(PlatformAuthState.unbound());
     }
@@ -330,7 +329,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
 
   /// 获取当前绑定的账号
   BilibiliUserInfo? getBoundAccount() {
-    return state.valueOrNull?.maybeWhen(
+    return state.value?.maybeWhen(
       bound: (account) => account,
       orElse: () => null,
     );
@@ -338,7 +337,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
 
   /// 是否已绑定
   bool get isBound {
-    return state.valueOrNull?.maybeWhen(
+    return state.value?.maybeWhen(
       bound: (_) => true,
       orElse: () => false,
     ) ?? false;

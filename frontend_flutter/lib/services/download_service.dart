@@ -222,14 +222,10 @@ class DownloadService {
     String? currentData;
     final buffer = StringBuffer();
 
-    // 文件接收状态（通过 fileState 回调管理）
-    // ignore: unused_local_variable
-    String? currentFileName;
+    // 文件接收状态
     int? totalChunks;
     int receivedChunks = 0;
     final List<Uint8List> fileChunks = [];
-    // ignore: unused_local_variable
-    bool receivingFile = false;
     int lastProgressReport = 0;
 
     await for (final data in stream) {
@@ -263,10 +259,8 @@ class DownloadService {
               token,
               // 文件状态
               (
-                currentFileName: (v) => currentFileName = v,
                 getTotalChunks: () => totalChunks,
                 setTotalChunks: (v) => totalChunks = v,
-                setReceivingFile: (v) => receivingFile = v,
                 clearChunks: () => fileChunks.clear(),
                 addChunk: (chunk) => fileChunks.add(chunk),
                 incrementReceivedChunks: () => receivedChunks++,
@@ -305,10 +299,8 @@ class DownloadService {
     void Function(DownloadProgress)? onProgress,
     CancellationToken token,
     ({
-      void Function(String?) currentFileName,
       int? Function() getTotalChunks,
       void Function(int?) setTotalChunks,
-      void Function(bool) setReceivingFile,
       void Function() clearChunks,
       void Function(Uint8List) addChunk,
       void Function() incrementReceivedChunks,
@@ -334,10 +326,7 @@ class DownloadService {
         ));
         AppLogger.debug('下载进度', '$percent% - $stage - $message');
       } else if (type == 'fileStart') {
-        // 文件开始传输
-        fileState.currentFileName(json['fileName'] as String?);
         fileState.setTotalChunks(json['totalChunks'] as int?);
-        fileState.setReceivingFile(true);
         fileState.clearChunks();
         AppLogger.info('文件传输', '开始接收: ${json['fileName']}, 分块数: ${json['totalChunks']}');
       } else if (type == 'fileChunk') {

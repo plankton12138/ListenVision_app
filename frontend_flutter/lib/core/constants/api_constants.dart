@@ -131,6 +131,7 @@ class NeteaseEndpoints {
   static String songLyric(String id) => '/netease/song/lyric/$id';
   static String playlistDetail(String id) => '/netease/playlist/detail/$id';
   static String userPlaylist(String uid) => '/netease/user/playlist/$uid';
+  static const String recommendPlaylists = '/netease/recommend/playlists';
 }
 
 /// B站相关常量

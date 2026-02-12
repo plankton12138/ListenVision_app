@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:demo/core/constants/api_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/audio.dart';
 import 'package:demo/models/download_task.dart';
+import 'package:demo/models/online_playable.dart';
 import 'package:demo/models/playlist.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
@@ -239,6 +242,13 @@ class AudioActionMenu extends ConsumerWidget {
               },
             ),
 
+          // 下一首播放
+          ListTile(
+            leading: const Icon(Icons.queue_music),
+            title: const Text('下一首播放'),
+            onTap: () => _handleInsertNext(context, ref),
+          ),
+
           if (showDownload)
             ListTile(
               leading: Icon(_getDownloadIcon(downloadTask), color: _getDownloadColor(downloadTask)),
@@ -299,6 +309,40 @@ class AudioActionMenu extends ConsumerWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  /// 添加到下一首播放
+  void _handleInsertNext(BuildContext context, WidgetRef ref) {
+    AppLogger.info('AudioActionMenu', '添加到下一首播放: $bvid');
+
+    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
+    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
+
+    final audio = Audio(
+      id: bvid,
+      title: title,
+      artist: artist,
+      coverUrl: coverUrl,
+      duration: duration,
+    );
+
+    final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
+
+    ref.read(queueViewModelProvider.notifier).insertNext(playable);
+
+    Navigator.pop(context);
+    _showSnackBar(context, '已添加到下一首播放', Colors.green);
+  }
+
+  /// 显示提示消息
+  void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   /// 获取下载目录

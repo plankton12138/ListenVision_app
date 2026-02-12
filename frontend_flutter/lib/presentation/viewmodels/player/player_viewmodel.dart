@@ -145,6 +145,12 @@ class PlayerViewModel extends _$PlayerViewModel {
   /// 状态更新限流
   DateTime _lastStateUpdateTime = DateTime.now();
 
+  /// 是否初始化完成
+  bool _isInitialized = false;
+
+  /// 初始化完成回调列表
+  final List<void Function()> _onInitializedCallbacks = [];
+
   @override
   PlayerState build() {
     _audioService = ref.watch(audioPlayerServiceProvider);
@@ -201,9 +207,28 @@ class PlayerViewModel extends _$PlayerViewModel {
       // 初始化监听器
       _initListeners();
 
+      // 标记初始化完成
+      _isInitialized = true;
       AppLogger.info('PlayerViewModel', '初始化完成');
+
+      // 执行初始化完成回调
+      for (final callback in _onInitializedCallbacks) {
+        callback();
+      }
+      _onInitializedCallbacks.clear();
     } catch (e) {
       AppLogger.error('PlayerViewModel', '初始化失败: $e');
+    }
+  }
+
+  /// 注册初始化完成回调
+  ///
+  /// 如果已经初始化完成，回调会立即执行
+  void onInitialized(void Function() callback) {
+    if (_isInitialized) {
+      callback();
+    } else {
+      _onInitializedCallbacks.add(callback);
     }
   }
 
@@ -831,6 +856,27 @@ class PlayerViewModel extends _$PlayerViewModel {
     try {
       AppLogger.info('PlayerViewModel', '准备音频源: ${playable.title}');
 
+      // 更新元数据
+      state = state.copyWith(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        albumArt: playable.coverData,
+        coverUrl: playable.coverUrl,
+        isCurrentOnline: playable.isOnline,
+        isIdle: false,
+        isPaused: true,
+        statusMessage: '正在加载...',
+      );
+
+      // 更新特定类型的音频
+      if (playable is OnlinePlayable) {
+        state = state.copyWith(
+          currentOnlineAudio: playable.original,
+          currentBvid: playable.original.id,
+        );
+      }
+
       if (playable.isOnline) {
         await _audioService!.setUrlSource(playable.url);
       } else {
@@ -841,17 +887,18 @@ class PlayerViewModel extends _$PlayerViewModel {
         await _audioService!.seek(Duration(seconds: startPosition));
       }
 
-      // 更新状态
+      // 准备完成，保持暂停状态
       state = state.copyWith(
-        currentPlayable: playable,
-        title: playable.title,
-        artist: playable.artist ?? '未知艺术家',
-        albumArt: playable.coverData,
-        coverUrl: playable.coverUrl,
-        isCurrentOnline: playable.isOnline,
+        statusMessage: '',
       );
+
+      AppLogger.info('PlayerViewModel', '音频源准备完成: ${playable.title}');
     } catch (e) {
       AppLogger.error('PlayerViewModel', '准备音频源失败: $e');
+      state = state.copyWith(
+        statusMessage: '加载失败',
+        hasError: true,
+      );
       rethrow;
     }
   }

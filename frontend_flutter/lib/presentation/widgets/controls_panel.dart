@@ -4,10 +4,8 @@ import 'package:demo/presentation/widgets/volume_slider.dart';
 import 'package:demo/presentation/widgets/speed_button.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/viewmodels/player/queue_viewmodel.dart';
 import 'package:demo/models/playable_audio.dart';
 import 'package:demo/models/online_playable.dart';
-import 'package:demo/models/local_playable.dart';
 
 /// 播放控制面板组件
 ///
@@ -19,6 +17,22 @@ class ControlsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(playerViewModelProvider);
     final playerViewModel = ref.read(playerViewModelProvider.notifier);
+
+    // 无播放内容时显示提示
+    if (playerState.currentPlayable == null && playerState.isIdle) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: Text(
+            '暂无播放内容',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,

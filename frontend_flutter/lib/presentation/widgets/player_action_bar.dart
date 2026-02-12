@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/playlist.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
+import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 
 /// 播放器底部操作栏
 ///
@@ -47,12 +49,12 @@ class PlayerActionBar extends ConsumerWidget {
         _ActionButton(
           icon: Icons.playlist_add,
           label: '添加',
-          onTap: () => _handleAddToPlaylist(context),
+          onTap: () => _handleAddToPlaylist(context, ref),
         ),
         _ActionButton(
           icon: Icons.more_horiz,
           label: '更多',
-          onTap: () => _handleMore(context),
+          onTap: () => _handleMore(context, ref),
         ),
       ],
     );
@@ -123,19 +125,52 @@ class PlayerActionBar extends ConsumerWidget {
   }
 
   /// 处理添加到歌单
-  ///
-  /// 显示开发中的功能提示。
-  void _handleAddToPlaylist(BuildContext context) {
+  void _handleAddToPlaylist(BuildContext context, WidgetRef ref) {
+    final playerState = ref.read(playerViewModelProvider);
+    final currentPlayable = playerState.currentPlayable;
+
+    if (currentPlayable == null) {
+      _showSnackBar(context, '当前没有播放内容', Colors.orange);
+      return;
+    }
+
     AppLogger.logButtonClick('添加到歌单', 'PlayerActionBar');
-    _showSnackBar(context, '添加到歌单功能开发中', Colors.orange);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _PlaylistSelectorForPlayer(
+        bvid: currentPlayable.id,
+        title: currentPlayable.title,
+        artist: currentPlayable.artist,
+        coverUrl: currentPlayable.coverUrl,
+        duration: currentPlayable.duration,
+      ),
+    );
   }
 
   /// 处理更多选项
-  ///
-  /// 显示开发中的功能提示。
-  void _handleMore(BuildContext context) {
+  void _handleMore(BuildContext context, WidgetRef ref) {
+    final playerState = ref.read(playerViewModelProvider);
+    final currentPlayable = playerState.currentPlayable;
+
+    if (currentPlayable == null) {
+      _showSnackBar(context, '当前没有播放内容', Colors.orange);
+      return;
+    }
+
     AppLogger.logButtonClick('更多选项', 'PlayerActionBar');
-    _showSnackBar(context, '更多选项功能开发中', Colors.orange);
+
+    AudioActionMenu.show(
+      context,
+      bvid: currentPlayable.id,
+      title: currentPlayable.title,
+      artist: currentPlayable.artist,
+      coverUrl: currentPlayable.coverUrl,
+      duration: currentPlayable.duration,
+      showDownload: currentPlayable.isOnline,
+      showOpenInBrowser: currentPlayable.isOnline,
+    );
   }
 
   /// 显示提示消息
@@ -189,6 +224,252 @@ class _ActionButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 歌单选择器（用于播放器添加到歌单）
+class _PlaylistSelectorForPlayer extends ConsumerStatefulWidget {
+  final String bvid;
+  final String title;
+  final String? artist;
+  final String? coverUrl;
+  final int? duration;
+
+  const _PlaylistSelectorForPlayer({
+    required this.bvid,
+    required this.title,
+    this.artist,
+    this.coverUrl,
+    this.duration,
+  });
+
+  @override
+  ConsumerState<_PlaylistSelectorForPlayer> createState() => _PlaylistSelectorForPlayerState();
+}
+
+class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorForPlayer> {
+  final TextEditingController _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playlistState = ref.watch(playlistViewModelProvider);
+
+    return playlistState.when(
+      data: (state) {
+        final userPlaylists = state.map(
+          initial: (_) => <Playlist>[],
+          loaded: (value) => value.userPlaylists,
+          error: (_) => <Playlist>[],
+        );
+        return _buildContent(context, userPlaylists);
+      },
+      loading: () => _buildContent(context, <Playlist>[]),
+      error: (_, __) => _buildContent(context, <Playlist>[]),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, List<Playlist> userPlaylists) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      '选择歌单',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: _showCreatePlaylistDialog,
+                      tooltip: '创建新歌单',
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: userPlaylists.isEmpty
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.playlist_add, size: 48, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('暂无歌单，点击 + 创建'),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: userPlaylists.length,
+                        itemBuilder: (context, index) {
+                          final playlist = userPlaylists[index];
+                          return ListTile(
+                            leading: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: playlist.hasCover
+                                    ? null
+                                    : Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: playlist.hasCover
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        playlist.coverUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.playlist_play),
+                                      ),
+                                    )
+                                  : const Icon(Icons.playlist_play),
+                            ),
+                            title: Text(playlist.name),
+                            subtitle: Text('${playlist.itemCount} 首歌曲'),
+                            onTap: () => _addToPlaylist(playlist.id),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCreatePlaylistDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('创建新歌单'),
+        content: TextField(
+          controller: _nameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '歌单名称',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = _nameController.text.trim();
+              if (name.isEmpty) {
+                _showSnackBar('请输入歌单名称', Colors.orange);
+                return;
+              }
+
+              Navigator.pop(context);
+
+              final token = ref.read(authTokenProvider);
+
+              if (token != null) {
+                final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+                final newPlaylist = await playlistNotifier.createPlaylist(
+                      token,
+                      name: name,
+                    );
+
+                if (newPlaylist != null && mounted) {
+                  _addToPlaylist(newPlaylist.id);
+                }
+              } else {
+                if (mounted) {
+                  _showSnackBar('请先登录', Colors.orange);
+                }
+              }
+            },
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addToPlaylist(String playlistId) async {
+    try {
+      AppLogger.info('PlayerActionBar', '添加到歌单: ${widget.bvid} -> $playlistId');
+
+      Navigator.pop(context);
+
+      final token = ref.read(authTokenProvider);
+
+      if (token == null) {
+        if (mounted) {
+          _showSnackBar('请先登录', Colors.orange);
+        }
+        return;
+      }
+
+      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+
+      final success = await playlistNotifier.addItem(
+            token,
+            playlistId,
+            widget.bvid,
+            title: widget.title,
+            artist: widget.artist,
+            duration: widget.duration,
+            coverUrl: widget.coverUrl,
+          );
+
+      if (mounted) {
+        if (success) {
+          _showSnackBar('已添加到歌单', Colors.green);
+        } else {
+          _showSnackBar('添加失败', Colors.red);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('PlayerActionBar', '添加到歌单失败: $e');
+      if (mounted) {
+        _showSnackBar('操作失败: $e', Colors.red);
+      }
+    }
+  }
+
+  void _showSnackBar(String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
       ),
     );
   }

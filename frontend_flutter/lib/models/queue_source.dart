@@ -106,6 +106,15 @@ class QueueSource {
     );
   }
 
+  /// 正在播放
+  factory QueueSource.nowPlaying() {
+    return const QueueSource(
+      id: 'now_playing',
+      name: '正在播放',
+      type: SourceType.userPlaylist,
+    );
+  }
+
   /// 转换为 JSON
   Map<String, dynamic> toJson() {
     return {

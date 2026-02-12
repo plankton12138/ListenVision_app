@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -8,6 +9,9 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../../../models/playlist.dart';
+import '../../../models/online_playable.dart';
+import '../../../models/queue_source.dart';
+import '../player/queue_viewmodel.dart';
 
 part 'playlist_viewmodel.freezed.dart';
 part 'playlist_viewmodel.g.dart';
@@ -191,6 +195,16 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
         if (!ref.mounted) return;
         state = AsyncData(newState);
+
+        if (items.isNotEmpty) {
+          final queue = items.map((item) => OnlinePlayable.fromPlaylistItem(item)).toList();
+          await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+            queue,
+            QueueSource.nowPlaying(),
+            initialIndex: 0,
+          );
+          AppLogger.info('PlaylistViewModel', '已同步播放队列到 QueueViewModel: ${items.length}个');
+        }
       }
 
       AppLogger.info('PlaylistViewModel', '加载播放队列成功: ${items.length}个');

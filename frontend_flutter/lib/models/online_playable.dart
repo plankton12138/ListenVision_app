@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'playable_audio.dart';
 import 'audio.dart';
+import 'playlist.dart';
 import '../core/constants/api_constants.dart';
 
 /// 在线音频的 Playable 实现
@@ -90,4 +91,17 @@ class OnlinePlayable extends PlayableAudio {
 
   /// 获取实际的播放URL
   String? get effectiveUrl => _proxyUrl ?? _audio.streamUrl;
+
+  /// 从 PlaylistItem 创建
+  factory OnlinePlayable.fromPlaylistItem(PlaylistItem item) {
+    final audio = Audio(
+      id: item.bvid,
+      title: item.title ?? '未知标题',
+      artist: item.artist,
+      duration: item.duration,
+      coverUrl: item.coverUrl,
+      streamUrl: null,
+    );
+    return OnlinePlayable.fromAudio(audio, null);
+  }
 }

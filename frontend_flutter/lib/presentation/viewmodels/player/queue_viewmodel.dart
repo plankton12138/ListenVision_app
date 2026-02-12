@@ -553,9 +553,48 @@ class QueueViewModel extends _$QueueViewModel {
 
         AppLogger.info('QueueViewModel',
           '加载播放队列: 索引=$savedIndex, 长度=${queue.length}, 模式=${playMode.name}, 来源=${source?.name ?? "无"}');
+
+        // 如果队列不为空，准备当前索引的音频（不播放）
+        if (queue.isNotEmpty) {
+          // 确保索引有效
+          if (state.currentIndex < 0 || state.currentIndex >= queue.length) {
+            state = state.copyWith(currentIndex: 0);
+          }
+          AppLogger.info('QueueViewModel', '准备音频，索引: ${state.currentIndex}');
+
+          // 等待 PlayerViewModel 初始化完成后再准备音频源
+          final playerNotifier = ref.read(playerViewModelProvider.notifier);
+          playerNotifier.onInitialized(() {
+            if (!ref.mounted) return;
+            _prepareFirstAudio();
+          });
+        }
       }
     } catch (e) {
       AppLogger.error('QueueViewModel', '加载播放队列失败: $e');
+    }
+  }
+
+  /// 准备第一首音频并恢复播放状态
+  Future<void> _prepareFirstAudio() async {
+    if (state.queue.isEmpty || state.currentIndex < 0) return;
+
+    final playable = state.queue[state.currentIndex];
+    final playerNotifier = ref.read(playerViewModelProvider.notifier);
+
+    try {
+      // 恢复播放位置
+      final position = await restorePosition() ?? 0;
+      AppLogger.info('QueueViewModel', '准备第一首音频: $playable, 起始位置: $position秒');
+
+      // 准备音频源并设置起始位置
+      await playerNotifier.prepareSource(playable, startPosition: position);
+
+      // 自动开始播放
+      await playerNotifier.play();
+      AppLogger.info('QueueViewModel', '已自动恢复播放');
+    } catch (e) {
+      AppLogger.error('QueueViewModel', '准备第一首音频失败: $e');
     }
   }
 

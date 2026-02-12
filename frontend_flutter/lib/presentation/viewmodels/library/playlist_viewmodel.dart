@@ -343,6 +343,10 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       await _repository!.addPlaylistItem(
         playlistId: playlistId,
         bvid: bvid,
+        title: title,
+        artist: artist,
+        duration: duration,
+        coverUrl: coverUrl,
         position: position,
       );
 

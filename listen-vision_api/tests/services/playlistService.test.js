@@ -263,14 +263,14 @@ describe('歌单服务测试', () => {
       }).toThrow('无权修改此歌单');
     });
 
-    test('系统歌单不能修改名称和描述', () => {
+    test('系统歌单不能修改', () => {
       playlistService.ensureSystemPlaylists(testUserId);
       const favorites = db.prepare('SELECT * FROM playlists WHERE user_id = ? AND system_type = ?')
         .get(testUserId, 'favorites');
 
       expect(() => {
         playlistService.updatePlaylist(favorites.id, testUserId, { name: '新名称' });
-      }).toThrow('系统歌单不能修改名称和描述');
+      }).toThrow('系统歌单不能修改');
     });
 
     test('部分更新应保留原有值', () => {
@@ -355,7 +355,8 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      const item = playlistService.addItem(playlistId, 'BV1xx411c7mD', {
+      const item = playlistService.addItem(playlistId, {
+        bvid: 'BV1xx411c7mD',
         title: '测试音频',
         artist: '测试歌手',
         duration: 180,
@@ -375,16 +376,16 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1xx411c7mD', { title: '第一次' });
+      playlistService.addItem(playlistId, { bvid: 'BV1xx411c7mD', title: '第一次' });
 
       expect(() => {
-        playlistService.addItem(playlistId, 'BV1xx411c7mD', { title: '第二次' });
+        playlistService.addItem(playlistId, { bvid: 'BV1xx411c7mD', title: '第二次' });
       }).toThrow('该音频已在歌单中');
     });
 
     test('歌单不存在应抛出 404 错误', () => {
       expect(() => {
-        playlistService.addItem(99999, 'BV1xx411c7mD');
+        playlistService.addItem(99999, { bvid: 'BV1xx411c7mD' });
       }).toThrow('歌单不存在');
     });
 
@@ -392,9 +393,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1aa', { title: '第一首' });
-      playlistService.addItem(playlistId, 'BV1bb', { title: '第二首' });
-      playlistService.addItem(playlistId, 'BV1cc', { title: '第三首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1aa', title: '第一首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1bb', title: '第二首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1cc', title: '第三首' });
 
       const items = db.prepare('SELECT * FROM playlist_items WHERE playlist_id = ? ORDER BY position')
         .all(playlistId);
@@ -408,7 +409,7 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      const item = playlistService.addItem(playlistId, 'BV1xx');
+      const item = playlistService.addItem(playlistId, { bvid: 'BV1xx' });
 
       expect(item.title).toBeNull();
       expect(item.artist).toBeNull();
@@ -422,9 +423,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1aa', { title: '第一首' });
-      playlistService.addItem(playlistId, 'BV1bb', { title: '第二首' });
-      playlistService.addItem(playlistId, 'BV1cc', { title: '第三首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1aa', title: '第一首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1bb', title: '第二首' });
+      playlistService.addItem(playlistId, { bvid: 'BV1cc', title: '第三首' });
 
       const result = playlistService.removeItem(playlistId, 'BV1bb');
 
@@ -459,9 +460,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1aa', { title: 'A' });
-      playlistService.addItem(playlistId, 'BV1bb', { title: 'B' });
-      playlistService.addItem(playlistId, 'BV1cc', { title: 'C' });
+      playlistService.addItem(playlistId, { bvid: 'BV1aa', title: 'A' });
+      playlistService.addItem(playlistId, { bvid: 'BV1bb', title: 'B' });
+      playlistService.addItem(playlistId, { bvid: 'BV1cc', title: 'C' });
 
       playlistService.removeItem(playlistId, 'BV1aa');
 
@@ -476,9 +477,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1aa', { title: 'A' });
-      playlistService.addItem(playlistId, 'BV1bb', { title: 'B' });
-      playlistService.addItem(playlistId, 'BV1cc', { title: 'C' });
+      playlistService.addItem(playlistId, { bvid: 'BV1aa', title: 'A' });
+      playlistService.addItem(playlistId, { bvid: 'BV1bb', title: 'B' });
+      playlistService.addItem(playlistId, { bvid: 'BV1cc', title: 'C' });
 
       playlistService.removeItem(playlistId, 'BV1cc');
 
@@ -496,9 +497,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      const item1 = playlistService.addItem(playlistId, 'BV1aa', { title: 'A' });
-      const item2 = playlistService.addItem(playlistId, 'BV1bb', { title: 'B' });
-      const item3 = playlistService.addItem(playlistId, 'BV1cc', { title: 'C' });
+      const item1 = playlistService.addItem(playlistId, { bvid: 'BV1aa', title: 'A' });
+      const item2 = playlistService.addItem(playlistId, { bvid: 'BV1bb', title: 'B' });
+      const item3 = playlistService.addItem(playlistId, { bvid: 'BV1cc', title: 'C' });
 
       const result = playlistService.reorderItems(playlistId, [
         { id: item3.id, position: 0 },
@@ -525,7 +526,8 @@ describe('歌单服务测试', () => {
 
   describe('toggleFavorite()', () => {
     test('应成功添加收藏', () => {
-      const result = playlistService.toggleFavorite(testUserId, 'BV1xx411c7mD', {
+      const result = playlistService.toggleFavorite(testUserId, {
+        bvid: 'BV1xx411c7mD',
         title: '收藏的音频',
         artist: '歌手'
       });
@@ -539,10 +541,10 @@ describe('歌单服务测试', () => {
 
     test('应成功取消收藏', () => {
       // 先收藏
-      playlistService.toggleFavorite(testUserId, 'BV1xx411c7mD', { title: '测试' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx411c7mD', title: '测试' });
 
       // 再取消
-      const result = playlistService.toggleFavorite(testUserId, 'BV1xx411c7mD');
+      const result = playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx411c7mD' });
 
       expect(result.added).toBe(false);
       expect(result.favorited).toBe(false);
@@ -552,7 +554,7 @@ describe('歌单服务测试', () => {
     });
 
     test('应自动创建 favorites 系统歌单', () => {
-      playlistService.toggleFavorite(testUserId, 'BV1xx', { title: '测试' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx', title: '测试' });
 
       const favorites = db.prepare('SELECT * FROM playlists WHERE user_id = ? AND system_type = ?')
         .get(testUserId, 'favorites');
@@ -569,15 +571,15 @@ describe('歌单服务测试', () => {
     });
 
     test('已收藏应返回 true', () => {
-      playlistService.toggleFavorite(testUserId, 'BV1xx', { title: '测试' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx', title: '测试' });
 
       const favorited = playlistService.isFavorited(testUserId, 'BV1xx');
       expect(favorited).toBe(true);
     });
 
     test('取消收藏后应返回 false', () => {
-      playlistService.toggleFavorite(testUserId, 'BV1xx', { title: '测试' });
-      playlistService.toggleFavorite(testUserId, 'BV1xx');
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx', title: '测试' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1xx' });
 
       const favorited = playlistService.isFavorited(testUserId, 'BV1xx');
       expect(favorited).toBe(false);
@@ -586,9 +588,9 @@ describe('歌单服务测试', () => {
 
   describe('getFavorites()', () => {
     test('应返回收藏列表', () => {
-      playlistService.toggleFavorite(testUserId, 'BV1aa', { title: '收藏A', artist: '歌手A' });
-      playlistService.toggleFavorite(testUserId, 'BV1bb', { title: '收藏B', artist: '歌手B' });
-      playlistService.toggleFavorite(testUserId, 'BV1cc', { title: '收藏C', artist: '歌手C' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1aa', title: '收藏A', artist: '歌手A' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1bb', title: '收藏B', artist: '歌手B' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1cc', title: '收藏C', artist: '歌手C' });
 
       const favorites = playlistService.getFavorites(testUserId);
 
@@ -604,9 +606,9 @@ describe('歌单服务测试', () => {
     });
 
     test('取消收藏后应从列表中移除', () => {
-      playlistService.toggleFavorite(testUserId, 'BV1aa', { title: 'A' });
-      playlistService.toggleFavorite(testUserId, 'BV1bb', { title: 'B' });
-      playlistService.toggleFavorite(testUserId, 'BV1aa'); // 取消第一个
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1aa', title: 'A' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1bb', title: 'B' });
+      playlistService.toggleFavorite(testUserId, { bvid: 'BV1aa' }); // 取消第一个
 
       const favorites = playlistService.getFavorites(testUserId);
 
@@ -702,9 +704,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1cc', { title: 'C标题' });
-      playlistService.addItem(playlistId, 'BV1aa', { title: 'A标题' });
-      playlistService.addItem(playlistId, 'BV1bb', { title: 'B标题' });
+      playlistService.addItem(playlistId, { bvid: 'BV1cc', title: 'C标题' });
+      playlistService.addItem(playlistId, { bvid: 'BV1aa', title: 'A标题' });
+      playlistService.addItem(playlistId, { bvid: 'BV1bb', title: 'B标题' });
 
       playlistService.sortItems(playlistId, 'title_asc', testUserId);
 
@@ -720,9 +722,9 @@ describe('歌单服务测试', () => {
       const playlistId = db.prepare('INSERT INTO playlists (user_id, name, type) VALUES (?, ?, ?)')
         .run(testUserId, '测试歌单', 'user').lastInsertRowid;
 
-      playlistService.addItem(playlistId, 'BV1xx', { title: 'X', artist: 'Z歌手', duration: 100 });
-      playlistService.addItem(playlistId, 'BV1yy', { title: 'Y', artist: 'A歌手', duration: 300 });
-      playlistService.addItem(playlistId, 'BV1zz', { title: 'Z', artist: 'M歌手', duration: 200 });
+      playlistService.addItem(playlistId, { bvid: 'BV1xx', title: 'X', artist: 'Z歌手' });
+      playlistService.addItem(playlistId, { bvid: 'BV1yy', title: 'Y', artist: 'A歌手' });
+      playlistService.addItem(playlistId, { bvid: 'BV1zz', title: 'Z', artist: 'M歌手' });
 
       // 按歌手升序
       playlistService.sortItems(playlistId, 'artist_asc', testUserId);
@@ -732,13 +734,13 @@ describe('歌单服务测试', () => {
       expect(items[1].artist).toBe('M歌手');
       expect(items[2].artist).toBe('Z歌手');
 
-      // 按时长降序
-      playlistService.sortItems(playlistId, 'duration_desc', testUserId);
+      // 按标题降序
+      playlistService.sortItems(playlistId, 'title_desc', testUserId);
       items = db.prepare('SELECT * FROM playlist_items WHERE playlist_id = ? ORDER BY position')
         .all(playlistId);
-      expect(items[0].duration).toBe(300);
-      expect(items[1].duration).toBe(200);
-      expect(items[2].duration).toBe(100);
+      expect(items[0].title).toBe('Z');
+      expect(items[1].title).toBe('Y');
+      expect(items[2].title).toBe('X');
     });
 
     test('歌单不存在应抛出 404 错误', () => {

@@ -283,6 +283,10 @@ class BackendApiClient {
   Future<Map<String, dynamic>> addPlaylistItem({
     required String playlistId,
     required String bvid,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
     int? position,
   }) async {
     try {
@@ -290,6 +294,10 @@ class BackendApiClient {
         PlaylistEndpoints.playlistItems(playlistId),
         data: {
           'bvid': bvid,
+          if (title != null) 'title': title,
+          if (artist != null) 'artist': artist,
+          if (duration != null) 'duration': duration,
+          if (coverUrl != null) 'coverUrl': coverUrl,
           if (position != null) 'position': position,
         },
       );

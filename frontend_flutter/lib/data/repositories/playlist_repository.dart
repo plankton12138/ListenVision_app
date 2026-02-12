@@ -193,12 +193,20 @@ class PlaylistRepository {
   Future<bool> addPlaylistItem({
     required String playlistId,
     required String bvid,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
     int? position,
   }) async {
     try {
       await _apiClient.addPlaylistItem(
         playlistId: playlistId,
         bvid: bvid,
+        title: title,
+        artist: artist,
+        duration: duration,
+        coverUrl: coverUrl,
         position: position,
       );
       AppLogger.info('PlaylistRepository', '添加歌单项成功: $bvid -> $playlistId');

@@ -253,6 +253,12 @@ const addItem = (playlistId, itemData) => {
     duration || null, coverUrl || null, nextPosition
   );
 
+  // 如果歌单没有封面，使用当前音频的封面
+  if (!playlist.cover_url && coverUrl) {
+    db.prepare('UPDATE playlists SET cover_url = ? WHERE id = ?').run(coverUrl, playlistId);
+    logger.info('歌单封面已自动设置', { playlistId, coverUrl });
+  }
+
   return stmt.getItemById.get(result.lastInsertRowid);
 };
 
@@ -272,6 +278,10 @@ const removeItem = (playlistId, bvid) => {
     throw new AppError('歌单不存在', 404);
   }
 
+  // 获取被删除项的封面（用于判断是否需要更新歌单封面）
+  const itemToDelete = db.prepare('SELECT cover_url FROM playlist_items WHERE playlist_id = ? AND bvid = ?').get(playlistId, bvid.trim());
+  const deletedItemCover = itemToDelete?.cover_url;
+
   stmt.deleteItem.run(playlistId, bvid.trim());
 
   // 重新排序剩余项
@@ -283,6 +293,18 @@ const removeItem = (playlistId, bvid) => {
     });
   });
   transaction(items);
+
+  // 更新歌单封面逻辑
+  if (items.length === 0) {
+    // 歌单为空，清空封面
+    db.prepare('UPDATE playlists SET cover_url = NULL WHERE id = ?').run(playlistId);
+    logger.info('歌单已清空，封面已移除', { playlistId });
+  } else if (deletedItemCover && deletedItemCover === playlist.cover_url) {
+    // 被删除的歌曲是封面来源，更新为新的第一首的封面
+    const newCover = items[0]?.cover_url;
+    db.prepare('UPDATE playlists SET cover_url = ? WHERE id = ?').run(newCover, playlistId);
+    logger.info('歌单封面已更新', { playlistId, newCover });
+  }
 
   return true;
 };

@@ -12,6 +12,7 @@ import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
+import '../library/playlist_viewmodel.dart' show playlistViewModelProvider;
 import 'player_viewmodel.dart' show sharedStorageServiceProvider, playerViewModelProvider;
 
 part 'queue_viewmodel.freezed.dart';
@@ -55,6 +56,7 @@ abstract class QueueState with _$QueueState {
 @Riverpod(keepAlive: true)
 class QueueViewModel extends _$QueueViewModel {
   SharedStorageService? _storage;
+  Timer? _syncDebounceTimer;
 
   @override
   QueueState build() {
@@ -118,6 +120,7 @@ class QueueViewModel extends _$QueueViewModel {
     );
 
     await _saveToStorage();
+    _scheduleSyncToServer(); // 同步到后端
     AppLogger.debug('QueueViewModel', '设置播放队列，长度: ${queue.length}');
   }
 
@@ -136,6 +139,7 @@ class QueueViewModel extends _$QueueViewModel {
     );
 
     await _saveToStorage();
+    _scheduleSyncToServer(); // 同步到后端
     AppLogger.info('QueueViewModel',
       '设置播放队列: ${queue.length}首, 来源: ${source.name}');
   }
@@ -190,6 +194,7 @@ class QueueViewModel extends _$QueueViewModel {
     );
 
     await _saveToStorage();
+    _scheduleSyncToServer(); // 同步到后端
     AppLogger.info('QueueViewModel', '添加音频: ${playable.title}, 总数: ${newQueue.length}');
   }
 
@@ -237,6 +242,7 @@ class QueueViewModel extends _$QueueViewModel {
     );
 
     await _saveToStorage();
+    _scheduleSyncToServer(); // 同步到后端
     AppLogger.info('QueueViewModel', '移除索引 $index 的音频');
   }
 
@@ -617,6 +623,48 @@ class QueueViewModel extends _$QueueViewModel {
     } catch (e) {
       AppLogger.error('QueueViewModel', '恢复播放位置失败: $e');
       return null;
+    }
+  }
+
+  // ==================== 播放队列同步 ====================
+
+  /// 安排同步到服务器（防抖 500ms）
+  void _scheduleSyncToServer() {
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _syncNowPlayingToServer();
+    });
+  }
+
+  /// 同步播放队列到后端
+  Future<void> _syncNowPlayingToServer() async {
+    if (state.queue.isEmpty) return;
+
+    try {
+      // 需要导入 PlaylistItem 模型
+      final items = <Map<String, dynamic>>[];
+
+      for (final playable in state.queue) {
+        if (playable is OnlinePlayable) {
+          items.add({
+            'bvid': playable.original.id,
+            'title': playable.title,
+            'artist': playable.artist,
+            'duration': playable.original.duration,
+            'coverUrl': playable.original.coverUrl,
+          });
+        }
+      }
+
+      if (items.isEmpty) return;
+
+      // 调用 PlaylistViewModel 的 saveNowPlayingQueue 方法
+      final playlistViewModel = ref.read(playlistViewModelProvider.notifier);
+      await playlistViewModel.saveNowPlayingQueueFromItems(items);
+
+      AppLogger.info('QueueViewModel', '播放队列已同步到后端: ${items.length}个');
+    } catch (e) {
+      AppLogger.error('QueueViewModel', '同步播放队列失败: $e');
     }
   }
 }

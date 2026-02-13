@@ -213,6 +213,43 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     }
   }
 
+  /// 保存播放队列到后端
+  ///
+  /// 由 QueueViewModel 在队列变更时调用
+  Future<void> saveNowPlayingQueue(List<PlaylistItem> items) async {
+    try {
+      AppLogger.info('PlaylistViewModel', '保存播放队列: ${items.length}个');
+      await _repository!.saveNowPlaying(items);
+    } catch (e) {
+      AppLogger.error('PlaylistViewModel', '保存播放队列失败: $e');
+      // 不抛出错误，避免影响 UI
+    }
+  }
+
+  /// 保存播放队列到后端（接受 Map 列表）
+  ///
+  /// 由 QueueViewModel 在队列变更时调用
+  Future<void> saveNowPlayingQueueFromItems(List<Map<String, dynamic>> items) async {
+    try {
+      AppLogger.info('PlaylistViewModel', '保存播放队列: ${items.length}个');
+
+      // 转换为 PlaylistItem 列表
+      final playlistItems = items.map((item) => PlaylistItem(
+        bvid: item['bvid'] as String,
+        title: item['title'] as String?,
+        artist: item['artist'] as String?,
+        duration: item['duration'] as int?,
+        coverUrl: item['coverUrl'] as String?,
+        position: 0,
+      )).toList();
+
+      await _repository!.saveNowPlaying(playlistItems);
+    } catch (e) {
+      AppLogger.error('PlaylistViewModel', '保存播放队列失败: $e');
+      // 不抛出错误，避免影响 UI
+    }
+  }
+
   /// 创建新歌单
   Future<Playlist?> createPlaylist(
     String token, {
@@ -487,30 +524,29 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     try {
       AppLogger.info('PlaylistViewModel', '切换收藏状态: $bvid');
 
+      // 乐观更新缓存（快速响应 UI）
+      final wasAlreadyFavorited = _favoritedBvids.contains(bvid);
+      if (wasAlreadyFavorited) {
+        _favoritedBvids.remove(bvid);
+      } else {
+        _favoritedBvids.add(bvid);
+      }
+
+      // 调用 Repository
       final added = await _repository!.toggleFavorite(bvid);
 
-      if (added) {
-        _favoritedBvids.add(bvid);
+      // 统一处理：总是重新加载完整列表
+      try {
         await loadFavorites(token);
-      } else {
-        _favoritedBvids.remove(bvid);
-
-        final currentState = state.valueOrNull;
-        if (currentState != null) {
-          final updatedItems = currentState.favoritesItems.where((item) => item.bvid != bvid).toList();
-          final newState = PlaylistState.loaded(
-            playlists: currentState.playlists,
-            userPlaylists: currentState.userPlaylists,
-            systemPlaylists: currentState.systemPlaylists,
-            favoritesPlaylist: currentState.favoritesPlaylist,
-            nowPlayingPlaylist: currentState.nowPlayingPlaylist,
-            favoritesItems: updatedItems,
-            nowPlayingItems: currentState.nowPlayingItems,
-          );
-
-          if (!ref.mounted) return added;
-          state = AsyncData(newState);
+      } catch (loadError) {
+        // 加载失败时回滚缓存
+        AppLogger.error('PlaylistViewModel', '重新加载收藏列表失败，回滚缓存: $loadError');
+        if (wasAlreadyFavorited) {
+          _favoritedBvids.add(bvid);
+        } else {
+          _favoritedBvids.remove(bvid);
         }
+        rethrow;
       }
 
       await _saveFavoritesToLocal();
@@ -518,6 +554,13 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       AppLogger.info('PlaylistViewModel', '切换收藏状态成功: $bvid, added=$added');
       return added;
     } catch (e) {
+      // 操作失败时回滚缓存
+      if (_favoritedBvids.contains(bvid)) {
+        _favoritedBvids.remove(bvid);
+      } else {
+        _favoritedBvids.add(bvid);
+      }
+
       AppLogger.error('PlaylistViewModel', '切换收藏状态失败: $e');
       return false;
     }

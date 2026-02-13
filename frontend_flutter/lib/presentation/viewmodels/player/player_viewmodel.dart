@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math';
+
 import 'package:audio_session/audio_session.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/services.dart';
@@ -145,6 +147,9 @@ class PlayerViewModel extends _$PlayerViewModel {
   /// 状态更新限流
   DateTime _lastStateUpdateTime = DateTime.now();
 
+  /// 位置更新限流
+  DateTime _lastPositionUpdateTime = DateTime.now();
+
   /// 是否初始化完成
   bool _isInitialized = false;
 
@@ -234,18 +239,36 @@ class PlayerViewModel extends _$PlayerViewModel {
 
   /// 初始化监听器
   void _initListeners() {
-    // 位置变化监听
+    // 位置变化监听（带节流 100ms）
+    final throttledPositionStream = _audioService!.positionStream
+        .transform(StreamTransformer.fromHandlers(
+          handleData: (Duration data, EventSink<Duration> sink) {
+            // 保留原有数据，但限制发送频率
+            sink.add(data);
+          },
+        ))
+        .where((_) {
+          // 使用时间戳过滤，确保最小更新间隔
+          final now = DateTime.now();
+          if (now.difference(_lastPositionUpdateTime) >= const Duration(milliseconds: 100)) {
+            _lastPositionUpdateTime = now;
+            return true;
+          }
+          return false;
+        });
+
+    // 节流后的位置监听
     _subscriptions.add(
-      _audioService!.positionStream.listen(
-        (position) {
-          if (_disposed) return;
-          state = state.copyWith(position: position);
-        },
-        onError: (e) {
-          AppLogger.error('PlayerViewModel', '位置监听错误: $e');
-          _handleStreamError(e);
-        },
-      ),
+      throttledPositionStream.listen(
+          (position) {
+            if (_disposed) return;
+            state = state.copyWith(position: position);
+          },
+          onError: (e) {
+            AppLogger.error('PlayerViewModel', '位置监听错误: $e');
+            _handleStreamError(e);
+          },
+        ),
     );
 
     // 时长变化监听
@@ -399,12 +422,15 @@ class PlayerViewModel extends _$PlayerViewModel {
           nextIndex = queueState.currentIndex >= 0 ? queueState.currentIndex : 0;
           break;
         case PlayMode.shuffle:
-          // 随机播放
+          // 随机播放：排除当前正在播放的歌曲
           if (queueState.queue.length <= 1) {
             nextIndex = queueState.currentIndex;
           } else {
-            final random = DateTime.now().millisecondsSinceEpoch;
-            nextIndex = random % queueState.queue.length;
+            final randomIndex = Random().nextInt(queueState.queue.length - 1);
+            // 如果随机索引 >= 当前索引，跳过当前歌曲
+            nextIndex = randomIndex >= queueState.currentIndex
+                ? randomIndex + 1
+                : randomIndex;
           }
           break;
         case PlayMode.loopAll:

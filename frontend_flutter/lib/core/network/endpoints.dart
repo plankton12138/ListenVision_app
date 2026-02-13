@@ -24,6 +24,7 @@ class Endpoints {
       '/playlists/favorites/toggle';
   static String playlistsFavoritesCheck(String bvid) =>
       '/playlists/favorites/check/$bvid';
+  static const String playlistsNowPlaying = '/playlists/now-playing';
 
   // ==================== B站相关 ====================
   static const String bilibiliQrcode = '/bilibili/qrcode';

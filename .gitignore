@@ -88,6 +88,7 @@ test/reports/
 # ---------- 数据库 ----------
 
 data/
+!frontend_flutter/lib/data/
 *.db
 *.db-shm
 *.db-wal

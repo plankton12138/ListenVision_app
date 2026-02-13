@@ -334,6 +334,222 @@ class ApiClient {
     }
   }
 
+  // ==================== 歌单 API ====================
+
+  /// 获取用户歌单列表
+  Future<Map<String, dynamic>> getUserPlaylists({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.playlistsList,
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取歌单列表失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取歌单详情
+  Future<Map<String, dynamic>> getPlaylistDetail(String id) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取歌单详情失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取歌单项
+  Future<Map<String, dynamic>> getPlaylistItems(String id) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.playlistsItems(int.tryParse(id) ?? int.parse(id)),
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取歌单项失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 创建歌单
+  Future<Map<String, dynamic>> createPlaylist({
+    required String name,
+    String? description,
+    String? coverUrl,
+  }) async {
+    try {
+      final response = await _dioClient.post(
+        Endpoints.playlistsList,
+        data: {
+          'name': name,
+          if (description != null) 'description': description,
+          if (coverUrl != null) 'cover_url': coverUrl,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '创建歌单失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 更新歌单
+  Future<Map<String, dynamic>> updatePlaylist({
+    required String id,
+    String? name,
+    String? description,
+    String? coverUrl,
+  }) async {
+    try {
+      final response = await _dioClient.put(
+        Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
+        data: {
+          if (name != null) 'name': name,
+          if (description != null) 'description': description,
+          if (coverUrl != null) 'cover_url': coverUrl,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '更新歌单失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 删除歌单
+  Future<void> deletePlaylist(String id) async {
+    try {
+      await _dioClient.delete(
+        Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
+      );
+      AppLogger.info('ApiClient', '删除歌单成功: $id');
+    } catch (e) {
+      AppLogger.error('ApiClient', '删除歌单失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 添加歌单项
+  Future<void> addPlaylistItem({
+    required String playlistId,
+    required String bvid,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
+    int? position,
+  }) async {
+    try {
+      await _dioClient.post(
+        Endpoints.playlistsItems(int.tryParse(playlistId) ?? int.parse(playlistId)),
+        data: {
+          'bvid': bvid,
+          if (title != null) 'title': title,
+          if (artist != null) 'artist': artist,
+          if (duration != null) 'duration': duration,
+          if (coverUrl != null) 'coverUrl': coverUrl,
+          if (position != null) 'position': position,
+        },
+      );
+      AppLogger.info('ApiClient', '添加歌单项成功: $bvid -> $playlistId');
+    } catch (e) {
+      AppLogger.error('ApiClient', '添加歌单项失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 删除歌单项
+  Future<void> removePlaylistItem({
+    required String playlistId,
+    required String bvid,
+  }) async {
+    try {
+      final playlistIdInt = int.tryParse(playlistId) ?? int.parse(playlistId);
+      await _dioClient.delete(
+        '${Endpoints.playlistsItems(playlistIdInt)}/$bvid',
+      );
+      AppLogger.info('ApiClient', '删除歌单项成功: $bvid from $playlistId');
+    } catch (e) {
+      AppLogger.error('ApiClient', '删除歌单项失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取收藏列表
+  Future<Map<String, dynamic>> getFavorites({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.playlistsFavorites,
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取收藏列表失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 保存播放队列到后端
+  Future<void> saveNowPlaying(List<Map<String, dynamic>> items) async {
+    try {
+      await _dioClient.post(
+        Endpoints.playlistsNowPlaying,
+        data: {'items': items},
+      );
+      AppLogger.info('ApiClient', '保存播放队列成功: ${items.length}个');
+    } catch (e) {
+      AppLogger.error('ApiClient', '保存播放队列失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 切换收藏状态（返回操作结果）
+  Future<Map<String, dynamic>> toggleFavorite(String bvid) async {
+    try {
+      final response = await _dioClient.post(
+        Endpoints.playlistsFavoritesToggle,
+        data: {'bvid': bvid},
+      );
+      final data = _handleResponse(response) as Map<String, dynamic>;
+      AppLogger.info('ApiClient', '切换收藏: $bvid, 结果: ${data['added']}');
+      return data;
+    } catch (e) {
+      AppLogger.error('ApiClient', '切换收藏失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 检查收藏状态
+  Future<bool> checkFavorite(String bvid) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.playlistsFavoritesCheck(bvid),
+      );
+      final data = _handleResponse(response) as Map<String, dynamic>;
+      return data['favorited'] as bool? ?? false;
+    } catch (e) {
+      AppLogger.error('ApiClient', '检查收藏状态失败: $e');
+      rethrow;
+    }
+  }
+
   // ==================== 通用请求方法（向后兼容） ====================
 
   /// 通用 GET 请求

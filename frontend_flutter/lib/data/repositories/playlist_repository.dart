@@ -3,8 +3,9 @@ import 'dart:convert';
 import '../../core/utils/app_logger.dart';
 import '../../models/playlist.dart';
 import '../../models/sync_queue.dart';
-import '../api/backend_api_client.dart';
+import '../../core/network/api_client.dart';
 import '../database/app_database.dart';
+import '../database/playlist_dao.dart';
 import '../database/sync_queue_dao.dart';
 
 /// 歌单仓库
@@ -12,18 +13,21 @@ import '../database/sync_queue_dao.dart';
 /// 负责歌单相关的数据操作
 /// 支持本地优先模式：网络操作失败时加入同步队列
 class PlaylistRepository {
-  final BackendApiClient _apiClient;
+  final ApiClient _apiClient;
   final SyncQueueDao _syncDao;
+  final PlaylistDao _playlistDao;
 
   /// 本地优先模式：true = 仅网络操作失败时加入队列，false = 直接抛出错误
   final bool localOnlyMode;
 
   PlaylistRepository({
-    BackendApiClient? apiClient,
+    ApiClient? apiClient,
     SyncQueueDao? syncDao,
+    PlaylistDao? playlistDao,
     this.localOnlyMode = false,
-  })  : _apiClient = apiClient ?? BackendApiClient(),
-        _syncDao = syncDao ?? SyncQueueDao(AppDatabase.instance);
+  })  : _apiClient = apiClient ?? ApiClient(),
+        _syncDao = syncDao ?? SyncQueueDao(AppDatabase.instance),
+        _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
 
   // ==================== 歌单操作 ====================
 
@@ -291,42 +295,33 @@ class PlaylistRepository {
     }
   }
 
-  /// 切换收藏状态（带同步重试）
+  /// 切换收藏状态（移除预检查）
   ///
   /// 返回 true 表示添加收藏，false 表示取消收藏
-  /// 本地优先模式：网络失败时加入同步队列，根据当前状态决定操作类型
+  /// 本地优先模式：网络失败时加入同步队列
   Future<bool> toggleFavorite(String bvid) async {
-    // 先检查当前状态
-    bool isCurrentlyFavorited = false;
     try {
-      isCurrentlyFavorited = await _apiClient.checkFavorite(bvid);
-    } catch (_) {
-      // 检查失败时假设未收藏
-      isCurrentlyFavorited = false;
-    }
+      // 直接调用后端，后端返回操作结果
+      final result = await _apiClient.toggleFavorite(bvid);
+      final added = result['added'] as bool? ?? false;
 
-    try {
-      await _apiClient.toggleFavorite(bvid);
-      AppLogger.info('PlaylistRepository', '切换收藏状态: $bvid, 之前已收藏: $isCurrentlyFavorited');
-      return !isCurrentlyFavorited; // 返回新状态
+      AppLogger.info('PlaylistRepository', '切换收藏状态: $bvid, added=$added');
+      return added;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '切换收藏失败: $e');
 
-      // 本地优先模式：加入同步队列
+      // 本地优先模式：加入同步队列（默认假设为收藏操作）
       if (localOnlyMode) {
         try {
-          // 根据当前状态决定同步类型：如果已收藏则取消，否则收藏
-          final syncType = isCurrentlyFavorited ? SyncType.unfavorite : SyncType.favorite;
-
           final syncTask = SyncTask(
-            type: syncType,
+            type: SyncType.favorite,
             bvid: bvid,
             status: SyncStatus.pending,
             createdAt: DateTime.now(),
           );
           await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '切换收藏已加入同步队列: $bvid, 类型: $syncType');
-          return !isCurrentlyFavorited; // 返回乐观更新的状态
+          AppLogger.info('PlaylistRepository', '切换收藏已加入同步队列: $bvid');
+          return true; // 乐观更新
         } catch (syncError) {
           AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
         }
@@ -342,6 +337,81 @@ class PlaylistRepository {
     } catch (e) {
       AppLogger.error('PlaylistRepository', '检查收藏状态失败: $e');
       return false;
+    }
+  }
+
+  // ==================== 本地歌单读取 ====================
+
+  /// 获取本地歌单列表（离线支持）
+  Future<List<Playlist>> getLocalPlaylists() async {
+    try {
+      final maps = await _playlistDao.getAllPlaylists();
+      return maps.map((m) => Playlist.fromDto(m)).toList();
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '获取本地歌单失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取本地用户歌单
+  Future<List<Playlist>> getLocalUserPlaylists() async {
+    try {
+      final maps = await _playlistDao.getUserPlaylists();
+      return maps.map((m) => Playlist.fromDto(m)).toList();
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '获取本地用户歌单失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取本地系统歌单
+  Future<List<Playlist>> getLocalSystemPlaylists() async {
+    try {
+      final maps = await _playlistDao.getSystemPlaylists();
+      return maps.map((m) => Playlist.fromDto(m)).toList();
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '获取本地系统歌单失败: $e');
+      return [];
+    }
+  }
+
+  /// 同步歌单列表到本地
+  Future<void> syncPlaylistsToLocal(List<Playlist> playlists) async {
+    try {
+      for (final playlist in playlists) {
+        await _playlistDao.upsertPlaylistFromServer(playlist.toDto());
+      }
+      AppLogger.info('PlaylistRepository', '同步 ${playlists.length} 个歌单到本地');
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '同步歌单到本地失败: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== 播放队列同步 ====================
+
+  /// 保存播放队列到后端
+  Future<void> saveNowPlaying(List<PlaylistItem> items) async {
+    try {
+      final itemsData = items.map((item) => {
+        'bvid': item.bvid,
+        'title': item.title,
+        'artist': item.artist,
+        'duration': item.duration,
+        'coverUrl': item.coverUrl,
+      }).toList();
+
+      await _apiClient.saveNowPlaying(itemsData);
+      AppLogger.info('PlaylistRepository', '保存播放队列成功: ${items.length}个');
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '保存播放队列失败: $e');
+
+      // 本地优先模式：静默处理失败
+      if (localOnlyMode) {
+        AppLogger.warn('PlaylistRepository', '播放队列同步失败，本地优先模式已忽略');
+      } else {
+        rethrow;
+      }
     }
   }
 

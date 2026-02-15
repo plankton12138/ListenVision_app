@@ -10,7 +10,7 @@ abstract class Audio with _$Audio {
   const Audio._();
 
   const factory Audio({
-    required String id, // BV号
+    required String id, // BV号或 local_{hash}
     required String title,
     String? artist,
     String? album,
@@ -24,6 +24,7 @@ abstract class Audio with _$Audio {
     DateTime? publishedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? localPath, // 本地音频文件路径（仅本地音频使用）
   }) = _Audio;
 
   /// 从 JSON 创建
@@ -84,6 +85,7 @@ abstract class Audio with _$Audio {
       publishedAt: _parseDateTime(json['pubdate'] ?? json['published_at'] ?? json['publishedAt']),
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
+      localPath: safeString(json['local_path'] ?? json['localPath']),
     );
   }
 
@@ -121,9 +123,6 @@ abstract class Audio with _$Audio {
   /// 是否有上传者
   bool get hasUploader => uploader != null && uploader!.isNotEmpty;
 
-  /// 获取分享URL
-  String get shareUrl => 'https://www.bilibili.com/video/$id';
-
   /// 判断是否为新发布（7天内）
   bool get isNew {
     if (publishedAt == null) return false;
@@ -145,6 +144,7 @@ abstract class Audio with _$Audio {
       if (playCount != null) 'play': playCount,
       if (uploader != null) 'uploader': uploader,
       if (uploaderMid != null) 'mid': int.tryParse(uploaderMid!) ?? uploaderMid,
+      if (localPath != null) 'local_path': localPath,
     };
   }
 

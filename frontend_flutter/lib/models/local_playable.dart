@@ -1,6 +1,8 @@
 import 'dart:typed_data';
-import 'playable_audio.dart';
+
+import '../core/utils/local_track_id.dart';
 import 'local_audio.dart';
+import 'playable_audio.dart';
 
 /// 本地音频的 Playable 实现
 ///
@@ -27,7 +29,7 @@ class LocalPlayable extends PlayableAudio {
   }
 
   @override
-  String get id => 'local_${_audio.id ?? _audio.filePath.hashCode}';
+  String get id => localIdFromPath(_audio.filePath);
 
   @override
   String get title => _audio.title;
@@ -36,7 +38,7 @@ class LocalPlayable extends PlayableAudio {
   String? get artist => _audio.artist;
 
   @override
-  String? get coverUrl => _audio.url; // 来源URL（如B站）
+  String? get coverUrl => null; // 本地音频不使用在线封面
 
   @override
   Uint8List? get coverData => _audio.albumArt;
@@ -49,9 +51,6 @@ class LocalPlayable extends PlayableAudio {
 
   @override
   String get url => _audio.filePath;
-
-  @override
-  String get shareableUrl => _audio.filePath;
 
   @override
   Map<String, dynamic> toMap() {

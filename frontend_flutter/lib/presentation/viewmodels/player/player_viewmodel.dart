@@ -12,8 +12,10 @@ import '../../../core/constants/playback_config.dart';
 import '../../../core/constants/storage_constants.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/local_track_id.dart';
 import '../../../models/audio.dart';
 import '../../../models/local_audio.dart';
+import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/play_mode.dart';
@@ -657,11 +659,26 @@ class PlayerViewModel extends _$PlayerViewModel {
         }
       }
 
-      // 更新元数据
+      final localPlayable = LocalPlayable(
+        LocalAudio(
+          filePath: filePath,
+          title: finalTitle,
+          artist: finalArtist,
+          duration: duration ?? 0,
+          albumArt: albumArt,
+        ),
+      );
+
+      // 更新元数据 + 当前可播放对象（避免切歌后收藏状态串台）
       state = state.copyWith(
+        currentPlayable: localPlayable,
+        currentOnlineAudio: null,
+        currentAudio: localPlayable.original,
+        currentBvid: localPlayable.id,
         title: finalTitle,
         artist: finalArtist,
         albumArt: albumArt,
+        coverUrl: null,
         isCurrentOnline: false,
         isSeekable: true,
       );
@@ -676,13 +693,14 @@ class PlayerViewModel extends _$PlayerViewModel {
 
       _startPositionSaveTimer();
 
-      // 记录播放历史（使用本地路径作为标识）
+      // 记录播放历史（统一 local_* 标识）
       final audio = Audio(
-        id: 'local_${filePath.hashCode}',
+        id: localIdFromPath(filePath),
         title: finalTitle,
         artist: finalArtist,
         duration: duration,
         coverUrl: null, // 本地音频暂不支持在线封面
+        localPath: filePath, // 保存本地文件路径，供历史记录播放使用
       );
       _recordPlayHistory(audio);
     } catch (e) {
@@ -839,40 +857,61 @@ class PlayerViewModel extends _$PlayerViewModel {
     AppLogger.info('PlayerViewModel', '播放: ${playable.title}');
   }
 
-  /// 播放在线音频，遇到格式错误时自动降级到 mp3
+  /// 播放在线音频，遇到格式错误时自动降级
+  ///
+  /// 改进点：
+  /// - 支持多格式降级：auto -> mp3 -> m4a
+  /// - 添加延迟避免快速重试导致的问题
+  /// - 使用正则表达式确保 URL 参数正确替换
   Future<void> _playOnlineWithFallback(PlayableAudio playable) async {
-    const int maxAttempts = 2;
-    String currentUrl = playable.url;
-    
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+    final formats = ['auto', 'mp3', 'm4a'];
+    final originalUrl = playable.url;
+
+    for (int i = 0; i < formats.length; i++) {
+      final format = formats[i];
+      final url = _replaceFormatInUrl(originalUrl, format);
+
       try {
-        await _audioService!.playUrl(currentUrl);
-        return;
+        AppLogger.debug('PlayerViewModel', '尝试播放格式 $format: ${playable.title}');
+        await _audioService!.playUrl(url);
+        AppLogger.info('PlayerViewModel', '格式 $format 播放成功: ${playable.title}');
+        return; // 播放成功
       } on PlatformException catch (e) {
-        final isFormatError = e.code == '3' || 
+        final isFormatError = e.code == '3' ||
             e.code == 'WindowsAudioError' ||
             e.message?.contains('C00D2EE2') == true ||
-            e.message?.contains('Unsupported format') == true;
-        
-        if (isFormatError && attempt < maxAttempts - 1) {
-          AppLogger.warn('PlayerViewModel', 'm4s 格式不支持，尝试降级到 mp3: ${playable.title}');
-          
-          final mp3Url = currentUrl
-              .replaceAll('format=auto', 'format=mp3')
-              .replaceAll('format=m4s', 'format=mp3');
-          
-          if (mp3Url != currentUrl) {
-            currentUrl = mp3Url;
-            continue;
-          }
+            e.message?.contains('Unsupported format') == true ||
+            e.message?.contains('Failed to set source') == true;
+
+        if (isFormatError && i < formats.length - 1) {
+          AppLogger.warn('PlayerViewModel', '格式 $format 不支持(${e.code})，尝试下一个格式');
+          await Future.delayed(const Duration(milliseconds: 300)); // 避免快速重试
+          continue;
         }
-        
-        if (isFormatError) {
-          throw FormatException('音频格式不支持，请尝试其他视频');
-        }
-        rethrow;
+
+        // 所有格式都失败
+        AppLogger.error('PlayerViewModel', '所有格式都播放失败: ${playable.title}');
+        throw FormatException('音频格式不支持，请尝试其他视频');
       }
     }
+  }
+
+  /// 替换 URL 中的 format 参数
+  String _replaceFormatInUrl(String url, String format) {
+    // 使用正则表达式替换 format 参数值
+    var result = url.replaceAllMapped(
+      RegExp(r'format=([^&]+)'),
+      (match) => 'format=$format',
+    );
+
+    // 如果 URL 中没有 format 参数，添加它
+    if (!result.contains('format=')) {
+      result = result.contains('?')
+          ? '$result&format=$format'
+          : '$result?format=$format';
+    }
+
+    return result;
   }
 
   /// 准备音频源（不自动播放）

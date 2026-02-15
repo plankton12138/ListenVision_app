@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,8 @@ import '../../../models/history_group.dart';
 import '../../../models/play_history.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/online_playable.dart';
+import '../../../models/local_audio.dart';
+import '../../../models/local_playable.dart';
 import '../../viewmodels/library/history_viewmodel.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
 
@@ -157,16 +161,64 @@ class HistoryTabView extends ConsumerWidget {
           );
         },
       ),
-      onTap: () {
+      onTap: () async {
         AppLogger.logButtonClick('播放历史项', 'HistoryTabView',
           parameters: {'title': audio.title});
-        // 播放该音频（替换当前队列）
-        ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
-          [playable],
-          QueueSource.manual(),
-          initialIndex: 0,
-        );
-        ref.read(queueViewModelProvider.notifier).playAt(0);
+
+        // 检测是否为本地音频（通过 local_ 前缀ID和 localPath）
+        if (audio.id.startsWith('local_') && audio.localPath != null) {
+          final file = File(audio.localPath!);
+          if (await file.exists()) {
+            // 创建 LocalPlayable 并使用本地播放路径
+            final localAudio = LocalAudio(
+              filePath: audio.localPath!,
+              title: audio.title,
+              artist: audio.artist ?? '未知艺术家',
+              duration: audio.duration ?? 0,
+            );
+            final localPlayable = LocalPlayable(localAudio);
+
+            ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+              [localPlayable],
+              QueueSource.manual(),
+              initialIndex: 0,
+            );
+            ref.read(queueViewModelProvider.notifier).playAt(0);
+          } else {
+            // 文件不存在，显示提示并提供移除选项
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('本地文件已删除或移动: ${audio.title}'),
+                  action: SnackBarAction(
+                    label: '移除',
+                    onPressed: () {
+                      // 从历史中移除该项
+                      ref.read(historyViewModelProvider.notifier).removeHistoryItem(item.id);
+                    },
+                  ),
+                ),
+              );
+            }
+          }
+        } else if (audio.id.startsWith('local_') && audio.localPath == null) {
+          // 旧版本历史记录，没有保存 localPath
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('无法播放旧版本记录的本地音频: ${audio.title}\n请重新导入并播放该文件'),
+              ),
+            );
+          }
+        } else {
+          // 在线音频，使用原有逻辑
+          ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+            [playable],
+            QueueSource.manual(),
+            initialIndex: 0,
+          );
+          ref.read(queueViewModelProvider.notifier).playAt(0);
+        }
       },
     );
   }

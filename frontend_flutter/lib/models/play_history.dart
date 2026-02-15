@@ -113,6 +113,7 @@ abstract class PlayHistory with _$PlayHistory {
       'cover_url': audio.coverUrl,
       'played_at': playedAt.toIso8601String(),
       'progress': progress,
+      if (audio.localPath != null) 'local_path': audio.localPath,
     };
   }
 

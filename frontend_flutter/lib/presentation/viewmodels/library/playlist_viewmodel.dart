@@ -1,13 +1,19 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:path/path.dart' as path;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../data/repositories/playlist_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../models/audio.dart';
+import '../../../models/cached_track.dart';
+import '../../../models/local_audio.dart';
+import '../../../models/local_playable.dart';
+import '../../../models/playable_audio.dart';
 import '../../../models/playlist.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
@@ -34,9 +40,8 @@ abstract class PlaylistState with _$PlaylistState {
   }) = PlaylistStateLoaded;
 
   /// 错误
-  const factory PlaylistState.error({
-    required String message,
-  }) = PlaylistStateError;
+  const factory PlaylistState.error({required String message}) =
+      PlaylistStateError;
 }
 
 /// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
@@ -65,7 +70,22 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       return await _initialize(token);
     }
 
-    return const PlaylistState.initial();
+    // 未登录：仍然提供系统歌单（我喜欢/正在播放），并从本地 tracks.is_favorite 构建我喜欢列表
+    final baseState = PlaylistState.loaded(
+      playlists: const [Playlist.favorites, Playlist.nowPlaying],
+      userPlaylists: const [],
+      systemPlaylists: const [Playlist.favorites, Playlist.nowPlaying],
+      favoritesPlaylist: Playlist.favorites,
+      nowPlayingPlaylist: Playlist.nowPlaying,
+      favoritesItems: const [],
+      nowPlayingItems: const [],
+    );
+
+    if (!ref.mounted) return baseState;
+    state = AsyncData(baseState);
+    await _loadFavoritesFromLocal();
+
+    return state.valueOrNull ?? baseState;
   }
 
   /// 初始化（用户登录后调用）
@@ -141,36 +161,22 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   }
 
   /// 加载收藏列表
+  /// 
+  /// 优先从本地 tracks.is_favorite 加载，确保与详情页数据一致
   Future<void> loadFavorites(String token) async {
+    // 直接使用本地数据，避免后端 playlist_items 与本地 tracks 数据不一致
+    await _loadFavoritesFromLocal();
+
+    // 可选：在后台尝试同步到后端（但不影响本地显示）
+    // 这部分可以根据需要启用，用于将本地收藏同步到服务器
+    /*
     try {
-      final favoritesId = state.valueOrNull?.favoritesPlaylist?.id;
-      if (favoritesId == null) return;
-
       final items = await _repository!.getFavorites();
-
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final newState = PlaylistState.loaded(
-          playlists: currentState.playlists,
-          userPlaylists: currentState.userPlaylists,
-          systemPlaylists: currentState.systemPlaylists,
-          favoritesPlaylist: currentState.favoritesPlaylist,
-          nowPlayingPlaylist: currentState.nowPlayingPlaylist,
-          favoritesItems: items,
-          nowPlayingItems: currentState.nowPlayingItems,
-        );
-
-        if (!ref.mounted) return;
-        state = AsyncData(newState);
-      }
-
-      _updateFavoritedCache();
-
-      AppLogger.info('PlaylistViewModel', '加载收藏成功: ${items.length}个');
+      AppLogger.info('PlaylistViewModel', '从后端加载收藏: ${items.length}个');
     } catch (e) {
-      AppLogger.error('PlaylistViewModel', '加载收藏失败: $e');
-      await _loadFavoritesFromLocal();
+      AppLogger.warn('PlaylistViewModel', '从后端加载收藏失败（使用本地数据）: $e');
     }
+    */
   }
 
   /// 加载播放队列
@@ -197,13 +203,41 @@ class PlaylistViewModel extends _$PlaylistViewModel {
         state = AsyncData(newState);
 
         if (items.isNotEmpty) {
-          final queue = items.map((item) => OnlinePlayable.fromPlaylistItem(item)).toList();
-          await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
-            queue,
-            QueueSource.nowPlaying(),
-            initialIndex: 0,
-          );
-          AppLogger.info('PlaylistViewModel', '已同步播放队列到 QueueViewModel: ${items.length}个');
+          final queue = <PlayableAudio>[];
+          for (final item in items) {
+            if (item.bvid.startsWith('local_')) {
+              if (item.localPath != null && item.localPath!.isNotEmpty) {
+                final localAudio = LocalAudio(
+                  filePath: item.localPath!,
+                  title: item.title ?? '未知标题',
+                  artist: item.artist ?? '未知艺术家',
+                  duration: item.duration ?? 0,
+                );
+                queue.add(LocalPlayable(localAudio));
+              } else {
+                AppLogger.warn(
+                  'PlaylistViewModel',
+                  '跳过无本地路径的播放队列项: ${item.bvid}',
+                );
+              }
+            } else {
+              queue.add(OnlinePlayable.fromPlaylistItem(item));
+            }
+          }
+
+          if (queue.isNotEmpty) {
+            await ref
+                .read(queueViewModelProvider.notifier)
+                .setQueueFromPlaylist(
+                  queue,
+                  QueueSource.nowPlaying(),
+                  initialIndex: 0,
+                );
+            AppLogger.info(
+              'PlaylistViewModel',
+              '已同步播放队列到 QueueViewModel: ${queue.length}个',
+            );
+          }
         }
       }
 
@@ -229,19 +263,25 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   /// 保存播放队列到后端（接受 Map 列表）
   ///
   /// 由 QueueViewModel 在队列变更时调用
-  Future<void> saveNowPlayingQueueFromItems(List<Map<String, dynamic>> items) async {
+  Future<void> saveNowPlayingQueueFromItems(
+    List<Map<String, dynamic>> items,
+  ) async {
     try {
       AppLogger.info('PlaylistViewModel', '保存播放队列: ${items.length}个');
 
       // 转换为 PlaylistItem 列表
-      final playlistItems = items.map((item) => PlaylistItem(
-        bvid: item['bvid'] as String,
-        title: item['title'] as String?,
-        artist: item['artist'] as String?,
-        duration: item['duration'] as int?,
-        coverUrl: item['coverUrl'] as String?,
-        position: 0,
-      )).toList();
+      final playlistItems = items
+          .map(
+            (item) => PlaylistItem(
+              bvid: item['bvid'] as String,
+              title: item['title'] as String?,
+              artist: item['artist'] as String?,
+              duration: item['duration'] as int?,
+              coverUrl: item['coverUrl'] as String?,
+              position: 0,
+            ),
+          )
+          .toList();
 
       await _repository!.saveNowPlaying(playlistItems);
     } catch (e) {
@@ -270,7 +310,10 @@ class PlaylistViewModel extends _$PlaylistViewModel {
       if (currentState is PlaylistStateLoaded && newPlaylist != null) {
         final newState = currentState.copyWith(
           playlists: [...currentState.playlists, newPlaylist],
-          userPlaylists: [...currentState.userPlaylists.whereType<Playlist>(), newPlaylist],
+          userPlaylists: [
+            ...currentState.userPlaylists.whereType<Playlist>(),
+            newPlaylist,
+          ],
         );
 
         if (!ref.mounted) return newPlaylist;
@@ -352,15 +395,23 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
       final currentState = state.valueOrNull;
       if (currentState != null) {
-        final updatedPlaylists = currentState.playlists.where((p) => p.id != id).toList();
-        final updatedUserPlaylists = currentState.userPlaylists.where((p) => p.id != id).toList();
+        final updatedPlaylists = currentState.playlists
+            .where((p) => p.id != id)
+            .toList();
+        final updatedUserPlaylists = currentState.userPlaylists
+            .where((p) => p.id != id)
+            .toList();
 
         final newState = PlaylistState.loaded(
           playlists: updatedPlaylists,
           userPlaylists: updatedUserPlaylists,
           systemPlaylists: currentState.systemPlaylists,
-          favoritesPlaylist: currentState.favoritesPlaylist?.id == id ? null : currentState.favoritesPlaylist,
-          nowPlayingPlaylist: currentState.nowPlayingPlaylist?.id == id ? null : currentState.nowPlayingPlaylist,
+          favoritesPlaylist: currentState.favoritesPlaylist?.id == id
+              ? null
+              : currentState.favoritesPlaylist,
+          nowPlayingPlaylist: currentState.nowPlayingPlaylist?.id == id
+              ? null
+              : currentState.nowPlayingPlaylist,
           favoritesItems: currentState.favoritesItems,
           nowPlayingItems: currentState.nowPlayingItems,
         );
@@ -419,6 +470,9 @@ class PlaylistViewModel extends _$PlaylistViewModel {
         }).toList();
 
         List<PlaylistItem> updatedFavorites = currentState.favoritesItems;
+        Playlist? updatedFavoritesPlaylist = currentState.favoritesPlaylist;
+        List<Playlist> updatedSystemPlaylists = currentState.systemPlaylists;
+
         if (playlistId == currentState.favoritesPlaylist?.id) {
           final newItem = PlaylistItem(
             bvid: bvid,
@@ -432,13 +486,27 @@ class PlaylistViewModel extends _$PlaylistViewModel {
           updatedFavorites = [...currentState.favoritesItems, newItem];
           _favoritedBvids.add(bvid);
           _saveFavoritesToLocal();
+
+          // 同步更新 favoritesPlaylist 的 itemCount
+          updatedFavoritesPlaylist = currentState.favoritesPlaylist?.copyWith(
+                itemCount: updatedFavorites.length,
+              ) ??
+              Playlist.favorites.copyWith(itemCount: updatedFavorites.length);
+
+          // 更新 systemPlaylists 中的 favorites playlist
+          updatedSystemPlaylists = currentState.systemPlaylists.map((p) {
+            if (p.isFavorites) {
+              return updatedFavoritesPlaylist!;
+            }
+            return p;
+          }).toList();
         }
 
         final newState = PlaylistState.loaded(
           playlists: updatedPlaylists,
           userPlaylists: updatedUserPlaylists,
-          systemPlaylists: currentState.systemPlaylists,
-          favoritesPlaylist: currentState.favoritesPlaylist,
+          systemPlaylists: updatedSystemPlaylists,
+          favoritesPlaylist: updatedFavoritesPlaylist,
           nowPlayingPlaylist: currentState.nowPlayingPlaylist,
           favoritesItems: updatedFavorites,
           nowPlayingItems: currentState.nowPlayingItems,
@@ -461,10 +529,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     try {
       AppLogger.info('PlaylistViewModel', '从歌单移除音频: $bvid from $playlistId');
 
-      await _repository!.removePlaylistItem(
-        playlistId: playlistId,
-        bvid: bvid,
-      );
+      await _repository!.removePlaylistItem(playlistId: playlistId, bvid: bvid);
 
       final currentState = state.valueOrNull;
       if (currentState != null) {
@@ -484,17 +549,36 @@ class PlaylistViewModel extends _$PlaylistViewModel {
         }).toList();
 
         List<PlaylistItem> updatedFavorites = currentState.favoritesItems;
+        Playlist? updatedFavoritesPlaylist = currentState.favoritesPlaylist;
+        List<Playlist> updatedSystemPlaylists = currentState.systemPlaylists;
+
         if (playlistId == currentState.favoritesPlaylist?.id) {
-          updatedFavorites = currentState.favoritesItems.where((item) => item.bvid != bvid).toList();
+          updatedFavorites = currentState.favoritesItems
+              .where((item) => item.bvid != bvid)
+              .toList();
           _favoritedBvids.remove(bvid);
           _saveFavoritesToLocal();
+
+          // 同步更新 favoritesPlaylist 的 itemCount
+          updatedFavoritesPlaylist = currentState.favoritesPlaylist?.copyWith(
+                itemCount: updatedFavorites.length,
+              ) ??
+              Playlist.favorites.copyWith(itemCount: updatedFavorites.length);
+
+          // 更新 systemPlaylists 中的 favorites playlist
+          updatedSystemPlaylists = currentState.systemPlaylists.map((p) {
+            if (p.isFavorites) {
+              return updatedFavoritesPlaylist!;
+            }
+            return p;
+          }).toList();
         }
 
         final newState = PlaylistState.loaded(
           playlists: updatedPlaylists,
           userPlaylists: updatedUserPlaylists,
-          systemPlaylists: currentState.systemPlaylists,
-          favoritesPlaylist: currentState.favoritesPlaylist,
+          systemPlaylists: updatedSystemPlaylists,
+          favoritesPlaylist: updatedFavoritesPlaylist,
           nowPlayingPlaylist: currentState.nowPlayingPlaylist,
           favoritesItems: updatedFavorites,
           nowPlayingItems: currentState.nowPlayingItems,
@@ -520,47 +604,122 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     String? artist,
     int? duration,
     String? coverUrl,
-  }) async {
+    String? localPath,
+  }) async { 
     try {
       AppLogger.info('PlaylistViewModel', '切换收藏状态: $bvid');
 
-      // 乐观更新缓存（快速响应 UI）
-      final wasAlreadyFavorited = _favoritedBvids.contains(bvid);
-      if (wasAlreadyFavorited) {
-        _favoritedBvids.remove(bvid);
-      } else {
-        _favoritedBvids.add(bvid);
-      }
+      final wasAlreadyFavorited = isFavorited(bvid);
+      final target = !wasAlreadyFavorited;
+      final incomingTitle = title?.trim();
+      final incomingArtist = artist?.trim();
 
-      // 调用 Repository
-      final added = await _repository!.toggleFavorite(bvid);
+      // 1) 确保 Track 存在（离线可用：使用传入的基础信息写入本地）
+      final trackDao = ref.read(trackDaoProvider);
+      final isLocal = bvid.startsWith('local_');
 
-      // 统一处理：总是重新加载完整列表
-      try {
-        await loadFavorites(token);
-      } catch (loadError) {
-        // 加载失败时回滚缓存
-        AppLogger.error('PlaylistViewModel', '重新加载收藏列表失败，回滚缓存: $loadError');
-        if (wasAlreadyFavorited) {
-          _favoritedBvids.add(bvid);
-        } else {
-          _favoritedBvids.remove(bvid);
+      var track = await trackDao.getBySourceId(bvid);
+      if (track == null) {
+        if (isLocal) {
+          final resolvedPath = (localPath != null && localPath.trim().isNotEmpty)
+              ? localPath.trim()
+              : '';
+
+          if (resolvedPath.isNotEmpty) {
+            track = await trackDao.saveFromLocalAudio(
+              LocalAudio(
+                filePath: resolvedPath,
+                title: (incomingTitle != null && incomingTitle.isNotEmpty)
+                    ? incomingTitle
+                    : '未知标题',
+                artist: (incomingArtist != null && incomingArtist.isNotEmpty)
+                    ? incomingArtist
+                    : '未知艺术家',
+                duration: duration ?? 0,
+              ),
+            );
+          }
         }
-        rethrow;
+
+        // 在线音频 / 或无法解析本地路径时的兜底写入
+        track ??= await trackDao.saveFromAudio(
+          Audio(
+            id: bvid,
+            title: (incomingTitle != null && incomingTitle.isNotEmpty)
+                ? incomingTitle
+                : '未知标题',
+            artist: (incomingArtist != null && incomingArtist.isNotEmpty)
+                ? incomingArtist
+                : null,
+            duration: duration,
+            coverUrl: coverUrl,
+          ),
+        );
+      } else if (isLocal) {
+        // 修复历史脏数据：本地 track 可能缺 local_path / source_type
+        final shouldFixLocalPath =
+            (track.localPath == null || track.localPath!.isEmpty) &&
+                (localPath != null && localPath.trim().isNotEmpty);
+        final shouldFixSourceType = track.sourceType != TrackSource.local;
+        final shouldFixBvid = track.bvid != bvid;
+
+        if (shouldFixLocalPath || shouldFixSourceType || shouldFixBvid) {
+          final updatedTrack = track.copyWith(
+            localPath: shouldFixLocalPath ? localPath!.trim() : track.localPath,
+            sourceType: shouldFixSourceType ? TrackSource.local : track.sourceType,
+            bvid: shouldFixBvid ? bvid : track.bvid,
+            isDownloaded: true,
+          );
+          await trackDao.update(updatedTrack);
+          track = updatedTrack;
+        }
       }
 
-      await _saveFavoritesToLocal();
+      // 优先补写默认元数据，避免收藏列表长期显示“未知标题/未知艺术家”
+      final shouldBackfillTitle = (track.title == '未知标题') &&
+          (incomingTitle != null && incomingTitle.isNotEmpty);
+      final shouldBackfillArtist =
+          ((track.artist == null ||
+                  track.artist!.isEmpty ||
+                  track.artist == '未知艺术家') &&
+              (incomingArtist != null && incomingArtist.isNotEmpty));
+      final shouldBackfillDuration =
+          (track.duration == null && duration != null && duration > 0);
+      final shouldBackfillCover =
+          ((track.coverUrl == null || track.coverUrl!.isEmpty) &&
+              (coverUrl != null && coverUrl.isNotEmpty));
 
-      AppLogger.info('PlaylistViewModel', '切换收藏状态成功: $bvid, added=$added');
-      return added;
+      if (shouldBackfillTitle ||
+          shouldBackfillArtist ||
+          shouldBackfillDuration ||
+          shouldBackfillCover) {
+        final updatedTrack = track.copyWith(
+          title: shouldBackfillTitle ? incomingTitle : track.title,
+          artist: shouldBackfillArtist ? incomingArtist : track.artist,
+          duration: shouldBackfillDuration ? duration : track.duration,
+          coverUrl: shouldBackfillCover ? coverUrl : track.coverUrl,
+        );
+        await trackDao.update(updatedTrack);
+        track = updatedTrack;
+      }
+
+      // 2) 本地优先：写入 tracks.is_favorite，并入队同步任务
+      final trackRepo = ref.read(trackRepositoryProvider);
+      await trackRepo.toggleFavorite(
+        track.id,
+        target,
+        title: incomingTitle ?? track.title,
+        artist: incomingArtist ?? track.artist,
+        duration: duration ?? track.duration,
+        coverUrl: coverUrl ?? track.coverUrl,
+      );
+
+      // 3) 刷新本地“我喜欢”列表（以本地 DB 为真值）
+      await _loadFavoritesFromLocal();
+
+      AppLogger.info('PlaylistViewModel', '切换收藏状态成功: $bvid, target=$target');
+      return target;
     } catch (e) {
-      // 操作失败时回滚缓存
-      if (_favoritedBvids.contains(bvid)) {
-        _favoritedBvids.remove(bvid);
-      } else {
-        _favoritedBvids.add(bvid);
-      }
-
       AppLogger.error('PlaylistViewModel', '切换收藏状态失败: $e');
       return false;
     }
@@ -569,7 +728,8 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   /// 检查是否已收藏
   bool isFavorited(String bvid) {
     return _favoritedBvids.contains(bvid) ||
-        (state.valueOrNull?.favoritesItems.any((item) => item.bvid == bvid) ?? false);
+        (state.valueOrNull?.favoritesItems.any((item) => item.bvid == bvid) ??
+            false);
   }
 
   /// 设置当前正在查看的歌单ID
@@ -635,33 +795,87 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   Future<void> _loadFavoritesFromLocal() async {
     try {
-      final favoritesJson = await _storage!.getString('favorites_cache');
-      if (favoritesJson != null) {
-        final data = jsonDecode(favoritesJson) as List;
-        final items = data
-            .map((json) => PlaylistItem.fromJson(json as Map<String, dynamic>))
-            .toList();
+      // 以本地 tracks.is_favorite 为真值来源
+      final trackDao = ref.read(trackDaoProvider);
+      final tracks = await trackDao.getFavoriteTracks();
 
-        final currentState = state.valueOrNull;
-        if (currentState != null) {
-          final newState = PlaylistState.loaded(
-            playlists: currentState.playlists,
-            userPlaylists: currentState.userPlaylists,
-            systemPlaylists: currentState.systemPlaylists,
-            favoritesPlaylist: currentState.favoritesPlaylist,
-            nowPlayingPlaylist: currentState.nowPlayingPlaylist,
-            favoritesItems: items,
-            nowPlayingItems: currentState.nowPlayingItems,
-          );
+      final favoritesPlaylistId = state.valueOrNull?.favoritesPlaylist?.id ?? Playlist.favorites.id;
+      final items = <PlaylistItem>[];
+      for (var i = 0; i < tracks.length; i++) {
+        final t = tracks[i];
+        final bvid = t.bvid ?? t.sourceId;
 
-          if (!ref.mounted) return;
-          state = AsyncData(newState);
+        // 改进本地音频的元数据显示：如果标题是默认值，尝试从文件名提取
+        var title = t.title;
+        var artist = t.artist;
+        if (t.localPath != null && t.localPath!.isNotEmpty) {
+          if (title == '未知标题' || title.isEmpty) {
+            // 从文件路径提取文件名（不含扩展名）作为标题
+            final fileName = path.basenameWithoutExtension(t.localPath!);
+            title = fileName.isNotEmpty ? fileName : '未知标题';
+          }
+          if (artist == null || artist.isEmpty || artist == '未知艺术家') {
+            artist = '未知艺术家';
+          }
         }
 
-        _updateFavoritedCache();
-
-        AppLogger.info('PlaylistViewModel', '从本地加载收藏成功');
+        items.add(
+          PlaylistItem(
+            playlistId: favoritesPlaylistId,
+            bvid: bvid,
+            title: title,
+            artist: artist,
+            duration: t.duration,
+            coverUrl: t.coverUrl,
+            localPath: t.localPath,
+            position: i,
+            addedAt: t.addedAt,
+          ),
+        );
       }
+
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        // 同步更新 favoritesPlaylist 的 itemCount 为实际 items 数量
+        final updatedFavoritesPlaylist = currentState.favoritesPlaylist?.copyWith(
+              itemCount: items.length,
+            ) ??
+            Playlist.favorites.copyWith(itemCount: items.length);
+
+        // 更新 systemPlaylists 中的 favorites playlist
+        final updatedSystemPlaylists = currentState.systemPlaylists.map((p) {
+          if (p.isFavorites) {
+            return updatedFavoritesPlaylist;
+          }
+          return p;
+        }).toList();
+
+        // 更新 playlists 中的 favorites playlist
+        final updatedPlaylists = currentState.playlists.map((p) {
+          if (p.isFavorites) {
+            return updatedFavoritesPlaylist;
+          }
+          return p;
+        }).toList();
+
+        final newState = PlaylistState.loaded(
+          playlists: updatedPlaylists,
+          userPlaylists: currentState.userPlaylists,
+          systemPlaylists: updatedSystemPlaylists,
+          favoritesPlaylist: updatedFavoritesPlaylist,
+          nowPlayingPlaylist: currentState.nowPlayingPlaylist,
+          favoritesItems: items,
+          nowPlayingItems: currentState.nowPlayingItems,
+        );
+
+        if (!ref.mounted) return;
+        state = AsyncData(newState);
+      }
+
+      _updateFavoritedCache();
+      await _saveFavoritesToLocal();
+
+      AppLogger.info('PlaylistViewModel', '从本地 tracks 加载收藏成功: ${items.length}个');
     } catch (e) {
       AppLogger.error('PlaylistViewModel', '从本地加载收藏失败: $e');
     }
@@ -669,7 +883,9 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   Future<void> _saveFavoritesToLocal() async {
     try {
-      final json = jsonEncode(state.valueOrNull?.favoritesItems.map((f) => f.toJson()).toList() ?? []);
+      final json = jsonEncode(
+        state.valueOrNull?.favoritesItems.map((f) => f.toJson()).toList() ?? [],
+      );
       await _storage!.setString('favorites_cache', json);
     } catch (e) {
       AppLogger.error('PlaylistViewModel', '保存本地收藏失败: $e');
@@ -687,39 +903,41 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 /// PlaylistState 扩展方法，方便访问属性
 extension PlaylistStateX on PlaylistState {
   List<Playlist> get playlists => maybeWhen(
-        loaded: (playlists, _, __, ___, ____, _____, ______) => playlists,
-        orElse: () => const [],
-      );
+    loaded: (playlists, _, __, ___, ____, _____, ______) => playlists,
+    orElse: () => const [],
+  );
 
   List<Playlist> get userPlaylists => maybeWhen(
-        loaded: (_, userPlaylists, __, ___, ____, _____, ______) => userPlaylists,
-        orElse: () => const [],
-      );
+    loaded: (_, userPlaylists, __, ___, ____, _____, ______) => userPlaylists,
+    orElse: () => const [],
+  );
 
   List<Playlist> get systemPlaylists => maybeWhen(
-        loaded: (_, __, systemPlaylists, ___, ____, _____, ______) => systemPlaylists,
-        orElse: () => const [],
-      );
+    loaded: (_, __, systemPlaylists, ___, ____, _____, ______) =>
+        systemPlaylists,
+    orElse: () => const [],
+  );
 
   Playlist? get favoritesPlaylist => maybeWhen(
-        loaded: (_, __, ___, favorites, ____, _____, ______) => favorites,
-        orElse: () => null,
+    loaded: (_, __, ___, favorites, ____, _____, ______) => favorites,
+    orElse: () => null,
   );
 
   Playlist? get nowPlayingPlaylist => maybeWhen(
-        loaded: (_, __, ___, ____, nowPlaying, _____, ______) => nowPlaying,
-        orElse: () => null,
-      );
+    loaded: (_, __, ___, ____, nowPlaying, _____, ______) => nowPlaying,
+    orElse: () => null,
+  );
 
   List<PlaylistItem> get favoritesItems => maybeWhen(
-        loaded: (_, __, ___, ____, _____, favoritesItems, ______) => favoritesItems,
-        orElse: () => const [],
-      );
+    loaded: (_, __, ___, ____, _____, favoritesItems, ______) => favoritesItems,
+    orElse: () => const [],
+  );
 
   List<PlaylistItem> get nowPlayingItems => maybeWhen(
-        loaded: (_, __, ___, ____, _____, ______, nowPlayingItems) => nowPlayingItems,
-        orElse: () => const [],
-      );
+    loaded: (_, __, ___, ____, _____, ______, nowPlayingItems) =>
+        nowPlayingItems,
+    orElse: () => const [],
+  );
 }
 
 /// Provider定义

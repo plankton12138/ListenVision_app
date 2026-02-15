@@ -1,6 +1,8 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/models/audio.dart';
+import 'package:demo/models/local_audio.dart';
+import 'package:demo/models/local_playable.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/widgets/audio_info.dart';
@@ -11,6 +13,8 @@ import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:demo/services/metadata_service.dart';
+import 'package:demo/presentation/viewmodels/player/queue_viewmodel.dart';
 
 /// 首页
 ///
@@ -30,21 +34,82 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 处理文件选择器
   Future<void> _handleFilePicker(BuildContext context, WidgetRef ref) async {
     try {
-      // 调用 LocalMusicViewModel 导入音频到本地音乐歌单
-      await ref.read(localMusicViewModelProvider.notifier).importAudioFiles();
+      // 1. 使用 FilePickerService 选择文件
+      final filePickerService = ref.read(filePickerServiceProvider);
+      final filePath = await filePickerService.pickAudioFile();
 
+      if (filePath == null) {
+        AppLogger.debug('HomePage', '用户取消文件选择');
+        return; // 用户取消，静默返回
+      }
+
+      AppLogger.info('HomePage', '选择本地音频: $filePath');
+
+      // 2. 提取元数据
+      final metadataService = MetadataService();
+      final metadata = await metadataService.extractFromFile(filePath);
+
+      // 3. 创建 LocalAudio 对象
+      final localAudio = LocalAudio(
+        filePath: filePath,
+        title: metadata.title.isNotEmpty ? metadata.title : _getFileName(filePath),
+        artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
+        duration: metadata.duration ?? 0,
+        albumArt: metadata.cover,
+      );
+
+      // 4. 保存到"本地音乐"歌单（如果未导入）
+      final localMusicRepo = ref.read(localMusicRepositoryProvider);
+      final isImported = await localMusicRepo.isFileImported(filePath);
+
+      if (!isImported) {
+        await localMusicRepo.addLocalMusic(localAudio);
+        AppLogger.info('HomePage', '已保存到本地音乐歌单');
+      } else {
+        AppLogger.info('HomePage', '音频已存在于本地音乐歌单，跳过保存');
+      }
+
+      // 5. 创建 PlayableAudio 并添加到队列末尾
+      final playable = LocalPlayable(localAudio);
+      await ref.read(queueViewModelProvider.notifier).add(
+        playable,
+        playImmediately: false, // 添加到末尾，不清空队列
+      );
+
+      // 6. 开始播放（播放刚添加的最后一首）
+      final queueState = ref.read(queueViewModelProvider);
+      final newIndex = queueState.queue.length - 1;
+      await ref.read(queueViewModelProvider.notifier).playAt(newIndex);
+
+      AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引: $newIndex');
+
+      // 7. 用户反馈
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已导入到"本地音乐"歌单')),
+          SnackBar(
+            content: Text('已添加到播放列表: ${localAudio.title}'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('HomePage', '导入失败: $e', stackTrace: stackTrace);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('导入失败: ${e.toString()}')),
         );
       }
     }
+  }
+
+  /// 辅助方法：从文件路径提取文件名（不含扩展名）
+  String _getFileName(String filePath) {
+    final fileName = filePath.split(RegExp(r'[\/\\]')).last;
+    final lastDotIndex = fileName.lastIndexOf('.');
+    if (lastDotIndex > 0) {
+      return fileName.substring(0, lastDotIndex);
+    }
+    return fileName;
   }
 
   /// 处理 URL 参数，自动播放音频
@@ -156,6 +221,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         localAudio.filePath,
         title: localAudio.title,
         artist: localAudio.artist,
+        albumArt: localAudio.albumArt,
       );
 
       AppLogger.info('HomePage', '本地音频播放成功: ${localAudio.title}');

@@ -98,22 +98,23 @@ class PlayerActionBar extends ConsumerWidget {
     );
 
     try {
-      await playlistNotifier.toggleFavorite(
+      final added = await playlistNotifier.toggleFavorite(
         token,
         bvid,
         title: currentPlayable.title,
         artist: currentPlayable.artist,
         duration: currentPlayable.duration,
         coverUrl: currentPlayable.coverUrl,
+        localPath: currentPlayable.isOnline ? null : currentPlayable.url,
       );
 
       if (!context.mounted) return;
 
-      // 刷新收藏列表
-      await playlistNotifier.loadFavorites(token);
+      // toggleFavorite已内部调用_loadFavoritesFromLocal()更新本地状态
+      // 无需再次调用loadFavorites，避免服务器同步延迟导致的状态闪烁
       _showSnackBar(
         context,
-        '已添加到我喜欢',
+        added ? '已添加到我喜欢' : '已从我喜欢移除',
         Colors.green,
       );
     } catch (e) {

@@ -275,14 +275,18 @@ void main() {
 
   group('QueueBottomSheet 静态方法测试', () {
     testWidgets('show 方法应创建有效的 Widget', (tester) async {
-      // Arrange: 这是一个简单的编译检查测试
+      // Arrange: 创建测试容器
+      final container = createTestContainer();
       const queueBottomSheet = QueueBottomSheet();
 
       // Act
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: queueBottomSheet,
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: queueBottomSheet,
+            ),
           ),
         ),
       );
@@ -290,6 +294,8 @@ void main() {
       // Assert: 验证没有错误
       expect(tester.takeException(), isNull);
       expect(find.byType(QueueBottomSheet), findsOneWidget);
+
+      container.dispose();
     });
   });
 

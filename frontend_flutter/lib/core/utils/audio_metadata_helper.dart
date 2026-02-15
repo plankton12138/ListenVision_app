@@ -94,6 +94,11 @@ class AudioMetadataHelper {
   /// [fetchCover] 是否提取封面图片（默认 true，设为 false 可提升性能）
   ///
   /// 返回统一格式的元数据结果
+  /// 
+  /// 改进点：
+  /// - 文件不存在或过小立即回退到路径提取
+  /// - 解析失败（MetadataParserException）立即回退，不返回空对象
+  /// - 提供更详细的日志和错误分类
   AudioMetadataResult readMetadata({
     required String filePath,
     bool fetchCover = true,
@@ -101,32 +106,54 @@ class AudioMetadataHelper {
     final file = File(filePath);
     if (!file.existsSync()) {
       AppLogger.error('AudioMetadataHelper', '文件不存在: $filePath');
-      return const AudioMetadataResult();
+      return _extractFromPath(filePath);
+    }
+
+    // 检查文件大小（小于1KB可能是损坏的）
+    final fileSize = file.lengthSync();
+    if (fileSize < 1024) {
+      AppLogger.warn('AudioMetadataHelper', '文件过小(${_formatFileSize(fileSize)})，可能已损坏: $filePath');
+      return _extractFromPath(filePath);
+    }
+
+    // 检测是否是 m4s 格式（B站分离音频流），直接回退
+    if (isM4sFormat(filePath)) {
+      AppLogger.debug('AudioMetadataHelper', '检测到 m4s 格式，使用路径提取: $filePath');
+      return _extractFromPath(filePath);
     }
 
     try {
-      AppLogger.debug('AudioMetadataHelper', '读取元数据: $filePath');
+      AppLogger.debug('AudioMetadataHelper', '读取元数据: ${_getFileName(filePath)} (${_formatFileSize(fileSize)})');
 
       // 使用 audio_metadata_reader 读取元数据（同步）
-      // readMetadata 返回 AudioMetadata（统一格式）
       final metadata = meta.readMetadata(
         file,
         getImage: fetchCover,
       );
 
+      // 验证解析结果：如果标题和艺术家都为空，回退到路径提取
+      if (metadata.title?.trim().isEmpty != false &&
+          metadata.artist?.trim().isEmpty != false) {
+        AppLogger.debug('AudioMetadataHelper', '元数据字段为空，使用路径提取: ${_getFileName(filePath)}');
+        return _extractFromPath(filePath);
+      }
+
       return _parseAudioMetadata(metadata, filePath);
+    } on MetadataParserException catch (e) {
+      // 解析异常 - 文件格式不兼容，立即回退到路径提取
+      AppLogger.warn('AudioMetadataHelper', '元数据解析失败，使用路径提取: ${_getFileName(filePath)} - ${e.message}');
+      return _extractFromPath(filePath);
     } catch (e, stackTrace) {
+      // 其他异常也回退到路径提取
       final errorStr = e.toString();
-      final truncatedError = errorStr.length > 200
-          ? '${errorStr.substring(0, 200)}...'
+      final truncatedError = errorStr.length > 150
+          ? '${errorStr.substring(0, 150)}...'
           : errorStr;
-      AppLogger.error(
+      AppLogger.warn(
         'AudioMetadataHelper',
-        '读取元数据失败: $truncatedError',
-        error: e,
-        stackTrace: stackTrace,
+        '读取元数据失败，使用路径提取: ${_getFileName(filePath)} - $truncatedError',
       );
-      return const AudioMetadataResult();
+      return _extractFromPath(filePath);
     }
   }
 
@@ -141,6 +168,30 @@ class AudioMetadataHelper {
     return Future.microtask(() {
       return readMetadata(filePath: filePath, fetchCover: fetchCover);
     });
+  }
+
+  /// 从文件路径提取元数据（实例方法，返回 AudioMetadataResult）
+  AudioMetadataResult _extractFromPath(String filePath) {
+    final map = extractFromPath(filePath);
+    return AudioMetadataResult(
+      title: map['title'] as String,
+      artist: map['artist'] as String,
+      album: map['album'] as String,
+      cover: map['cover'] as Uint8List?,
+      format: _detectFormat(filePath),
+    );
+  }
+
+  /// 获取文件名（不含路径）
+  String _getFileName(String filePath) {
+    return filePath.split(RegExp(r'[\/]')).last;
+  }
+
+  /// 格式化文件大小
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    return '${(bytes / 1024 / 1024).toStringAsFixed(1)}MB';
   }
 
   /// 解析 AudioMetadata 为统一格式

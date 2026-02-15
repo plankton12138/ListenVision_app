@@ -18,7 +18,7 @@ class VolumeSlider extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // 音量减小图标
-        const Icon(Icons.volume_down, size: 20),
+        const Icon(Icons.remove, size: 20),
         const SizedBox(width: 8),
 
         // 音量滑块
@@ -40,7 +40,7 @@ class VolumeSlider extends ConsumerWidget {
         const SizedBox(width: 8),
 
         // 音量增大图标
-        const Icon(Icons.volume_up, size: 20),
+        const Icon(Icons.add, size: 20),
         const SizedBox(width: 4),
 
         // 音量百分比文本

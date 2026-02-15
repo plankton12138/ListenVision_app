@@ -345,11 +345,23 @@ class BackendApiClient {
   }
 
   /// 切换收藏状态
-  Future<Map<String, dynamic>> toggleFavorite(String bvid) async {
+  Future<Map<String, dynamic>> toggleFavorite(
+    String bvid, {
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
+  }) async {
     try {
       final response = await _dioClient.post(
         PlaylistEndpoints.favoritesToggle,
-        data: {'bvid': bvid},
+        data: {
+          'bvid': bvid,
+          if (title != null) 'title': title,
+          if (artist != null) 'artist': artist,
+          if (duration != null) 'duration': duration,
+          if (coverUrl != null) 'coverUrl': coverUrl,
+        },
       );
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
@@ -366,7 +378,7 @@ class BackendApiClient {
       return data['isFavorite'] ?? false;
     } catch (e) {
       AppLogger.error('BackendApiClient', '检查收藏状态失败: $e');
-      return false;
+      rethrow;
     }
   }
 

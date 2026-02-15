@@ -76,7 +76,6 @@ _BiliPlaylistStats _$BiliPlaylistStatsFromJson(Map<String, dynamic> json) =>
       play: (json['play'] as num?)?.toInt() ?? 0,
       collect: (json['collect'] as num?)?.toInt() ?? 0,
       comment: (json['comment'] as num?)?.toInt() ?? 0,
-      share: (json['share'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$BiliPlaylistStatsToJson(_BiliPlaylistStats instance) =>
@@ -84,7 +83,6 @@ Map<String, dynamic> _$BiliPlaylistStatsToJson(_BiliPlaylistStats instance) =>
       'play': instance.play,
       'collect': instance.collect,
       'comment': instance.comment,
-      'share': instance.share,
     };
 
 _BiliAudioPreview _$BiliAudioPreviewFromJson(Map<String, dynamic> json) =>

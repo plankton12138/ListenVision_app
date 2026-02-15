@@ -1,5 +1,7 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:demo/models/online_playable.dart';
+import 'package:demo/models/queue_source.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/history_viewmodel.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
@@ -254,10 +256,17 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   Future<void> _playHistoryItem(PlayHistory item, WidgetRef ref) async {
     final audio = item.audio;
+    final playable = OnlinePlayable(audio);
 
-    ref.read(playerViewModelProvider.notifier).playOnlineAudio(
-      audio: audio,
+    // 更新播放队列（替换为单个音频）
+    await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+      [playable],
+      QueueSource.manual(),
+      initialIndex: 0,
     );
+
+    // 播放音频
+    await ref.read(queueViewModelProvider.notifier).playAt(0);
 
     if (mounted) {
       context.go('/');

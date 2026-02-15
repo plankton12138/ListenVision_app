@@ -12,11 +12,17 @@ part of 'playlist_detail_viewmodel.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$PlaylistDetailState {
+mixin _$PlaylistDetailState implements DiagnosticableTreeMixin {
 
 
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'PlaylistDetailState'))
+    ;
+}
 
 @override
 bool operator ==(Object other) {
@@ -28,7 +34,7 @@ bool operator ==(Object other) {
 int get hashCode => runtimeType.hashCode;
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'PlaylistDetailState()';
 }
 
@@ -192,7 +198,7 @@ return error(_that.message);case _:
 /// @nodoc
 
 
-class PlaylistDetailStateInitial implements PlaylistDetailState {
+class PlaylistDetailStateInitial with DiagnosticableTreeMixin implements PlaylistDetailState {
   const PlaylistDetailStateInitial();
   
 
@@ -200,6 +206,12 @@ class PlaylistDetailStateInitial implements PlaylistDetailState {
 
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'PlaylistDetailState.initial'))
+    ;
+}
 
 @override
 bool operator ==(Object other) {
@@ -211,7 +223,7 @@ bool operator ==(Object other) {
 int get hashCode => runtimeType.hashCode;
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'PlaylistDetailState.initial()';
 }
 
@@ -224,7 +236,7 @@ String toString() {
 /// @nodoc
 
 
-class PlaylistDetailStateLoading implements PlaylistDetailState {
+class PlaylistDetailStateLoading with DiagnosticableTreeMixin implements PlaylistDetailState {
   const PlaylistDetailStateLoading();
   
 
@@ -232,6 +244,12 @@ class PlaylistDetailStateLoading implements PlaylistDetailState {
 
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'PlaylistDetailState.loading'))
+    ;
+}
 
 @override
 bool operator ==(Object other) {
@@ -243,7 +261,7 @@ bool operator ==(Object other) {
 int get hashCode => runtimeType.hashCode;
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'PlaylistDetailState.loading()';
 }
 
@@ -256,7 +274,7 @@ String toString() {
 /// @nodoc
 
 
-class PlaylistDetailStateLoaded implements PlaylistDetailState {
+class PlaylistDetailStateLoaded with DiagnosticableTreeMixin implements PlaylistDetailState {
   const PlaylistDetailStateLoaded({required this.playlist, required final  List<PlaylistItem> items, this.isOwner = false}): _items = items;
   
 
@@ -277,6 +295,12 @@ class PlaylistDetailStateLoaded implements PlaylistDetailState {
 $PlaylistDetailStateLoadedCopyWith<PlaylistDetailStateLoaded> get copyWith => _$PlaylistDetailStateLoadedCopyWithImpl<PlaylistDetailStateLoaded>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'PlaylistDetailState.loaded'))
+    ..add(DiagnosticsProperty('playlist', playlist))..add(DiagnosticsProperty('items', items))..add(DiagnosticsProperty('isOwner', isOwner));
+}
 
 @override
 bool operator ==(Object other) {
@@ -288,7 +312,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,playlist,const DeepCollectionEquality().hash(_items),isOwner);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'PlaylistDetailState.loaded(playlist: $playlist, items: $items, isOwner: $isOwner)';
 }
 
@@ -341,7 +365,7 @@ $PlaylistCopyWith<$Res> get playlist {
 /// @nodoc
 
 
-class PlaylistDetailStateError implements PlaylistDetailState {
+class PlaylistDetailStateError with DiagnosticableTreeMixin implements PlaylistDetailState {
   const PlaylistDetailStateError({required this.message});
   
 
@@ -354,6 +378,12 @@ class PlaylistDetailStateError implements PlaylistDetailState {
 $PlaylistDetailStateErrorCopyWith<PlaylistDetailStateError> get copyWith => _$PlaylistDetailStateErrorCopyWithImpl<PlaylistDetailStateError>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'PlaylistDetailState.error'))
+    ..add(DiagnosticsProperty('message', message));
+}
 
 @override
 bool operator ==(Object other) {
@@ -365,7 +395,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,message);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'PlaylistDetailState.error(message: $message)';
 }
 
@@ -398,6 +428,568 @@ class _$PlaylistDetailStateErrorCopyWithImpl<$Res>
   return _then(PlaylistDetailStateError(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+mixin _$BatchOperationState implements DiagnosticableTreeMixin {
+
+ bool get isInBatchMode; Set<String> get selectedBvids; int get totalItems;
+/// Create a copy of BatchOperationState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$BatchOperationStateCopyWith<BatchOperationState> get copyWith => _$BatchOperationStateCopyWithImpl<BatchOperationState>(this as BatchOperationState, _$identity);
+
+
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'BatchOperationState'))
+    ..add(DiagnosticsProperty('isInBatchMode', isInBatchMode))..add(DiagnosticsProperty('selectedBvids', selectedBvids))..add(DiagnosticsProperty('totalItems', totalItems));
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BatchOperationState&&(identical(other.isInBatchMode, isInBatchMode) || other.isInBatchMode == isInBatchMode)&&const DeepCollectionEquality().equals(other.selectedBvids, selectedBvids)&&(identical(other.totalItems, totalItems) || other.totalItems == totalItems));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,isInBatchMode,const DeepCollectionEquality().hash(selectedBvids),totalItems);
+
+@override
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+  return 'BatchOperationState(isInBatchMode: $isInBatchMode, selectedBvids: $selectedBvids, totalItems: $totalItems)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $BatchOperationStateCopyWith<$Res>  {
+  factory $BatchOperationStateCopyWith(BatchOperationState value, $Res Function(BatchOperationState) _then) = _$BatchOperationStateCopyWithImpl;
+@useResult
+$Res call({
+ bool isInBatchMode, Set<String> selectedBvids, int totalItems
+});
+
+
+
+
+}
+/// @nodoc
+class _$BatchOperationStateCopyWithImpl<$Res>
+    implements $BatchOperationStateCopyWith<$Res> {
+  _$BatchOperationStateCopyWithImpl(this._self, this._then);
+
+  final BatchOperationState _self;
+  final $Res Function(BatchOperationState) _then;
+
+/// Create a copy of BatchOperationState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? isInBatchMode = null,Object? selectedBvids = null,Object? totalItems = null,}) {
+  return _then(_self.copyWith(
+isInBatchMode: null == isInBatchMode ? _self.isInBatchMode : isInBatchMode // ignore: cast_nullable_to_non_nullable
+as bool,selectedBvids: null == selectedBvids ? _self.selectedBvids : selectedBvids // ignore: cast_nullable_to_non_nullable
+as Set<String>,totalItems: null == totalItems ? _self.totalItems : totalItems // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [BatchOperationState].
+extension BatchOperationStatePatterns on BatchOperationState {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _BatchOperationState value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _BatchOperationState() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _BatchOperationState value)  $default,){
+final _that = this;
+switch (_that) {
+case _BatchOperationState():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _BatchOperationState value)?  $default,){
+final _that = this;
+switch (_that) {
+case _BatchOperationState() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool isInBatchMode,  Set<String> selectedBvids,  int totalItems)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _BatchOperationState() when $default != null:
+return $default(_that.isInBatchMode,_that.selectedBvids,_that.totalItems);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool isInBatchMode,  Set<String> selectedBvids,  int totalItems)  $default,) {final _that = this;
+switch (_that) {
+case _BatchOperationState():
+return $default(_that.isInBatchMode,_that.selectedBvids,_that.totalItems);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool isInBatchMode,  Set<String> selectedBvids,  int totalItems)?  $default,) {final _that = this;
+switch (_that) {
+case _BatchOperationState() when $default != null:
+return $default(_that.isInBatchMode,_that.selectedBvids,_that.totalItems);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _BatchOperationState extends BatchOperationState with DiagnosticableTreeMixin {
+  const _BatchOperationState({this.isInBatchMode = false, final  Set<String> selectedBvids = const {}, this.totalItems = 0}): _selectedBvids = selectedBvids,super._();
+  
+
+@override@JsonKey() final  bool isInBatchMode;
+ final  Set<String> _selectedBvids;
+@override@JsonKey() Set<String> get selectedBvids {
+  if (_selectedBvids is EqualUnmodifiableSetView) return _selectedBvids;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_selectedBvids);
+}
+
+@override@JsonKey() final  int totalItems;
+
+/// Create a copy of BatchOperationState
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$BatchOperationStateCopyWith<_BatchOperationState> get copyWith => __$BatchOperationStateCopyWithImpl<_BatchOperationState>(this, _$identity);
+
+
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'BatchOperationState'))
+    ..add(DiagnosticsProperty('isInBatchMode', isInBatchMode))..add(DiagnosticsProperty('selectedBvids', selectedBvids))..add(DiagnosticsProperty('totalItems', totalItems));
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BatchOperationState&&(identical(other.isInBatchMode, isInBatchMode) || other.isInBatchMode == isInBatchMode)&&const DeepCollectionEquality().equals(other._selectedBvids, _selectedBvids)&&(identical(other.totalItems, totalItems) || other.totalItems == totalItems));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,isInBatchMode,const DeepCollectionEquality().hash(_selectedBvids),totalItems);
+
+@override
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+  return 'BatchOperationState(isInBatchMode: $isInBatchMode, selectedBvids: $selectedBvids, totalItems: $totalItems)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$BatchOperationStateCopyWith<$Res> implements $BatchOperationStateCopyWith<$Res> {
+  factory _$BatchOperationStateCopyWith(_BatchOperationState value, $Res Function(_BatchOperationState) _then) = __$BatchOperationStateCopyWithImpl;
+@override @useResult
+$Res call({
+ bool isInBatchMode, Set<String> selectedBvids, int totalItems
+});
+
+
+
+
+}
+/// @nodoc
+class __$BatchOperationStateCopyWithImpl<$Res>
+    implements _$BatchOperationStateCopyWith<$Res> {
+  __$BatchOperationStateCopyWithImpl(this._self, this._then);
+
+  final _BatchOperationState _self;
+  final $Res Function(_BatchOperationState) _then;
+
+/// Create a copy of BatchOperationState
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? isInBatchMode = null,Object? selectedBvids = null,Object? totalItems = null,}) {
+  return _then(_BatchOperationState(
+isInBatchMode: null == isInBatchMode ? _self.isInBatchMode : isInBatchMode // ignore: cast_nullable_to_non_nullable
+as bool,selectedBvids: null == selectedBvids ? _self._selectedBvids : selectedBvids // ignore: cast_nullable_to_non_nullable
+as Set<String>,totalItems: null == totalItems ? _self.totalItems : totalItems // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
+/// @nodoc
+mixin _$BatchOperationResult implements DiagnosticableTreeMixin {
+
+ int get success; int get failed; List<String> get failedItems;
+/// Create a copy of BatchOperationResult
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$BatchOperationResultCopyWith<BatchOperationResult> get copyWith => _$BatchOperationResultCopyWithImpl<BatchOperationResult>(this as BatchOperationResult, _$identity);
+
+
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'BatchOperationResult'))
+    ..add(DiagnosticsProperty('success', success))..add(DiagnosticsProperty('failed', failed))..add(DiagnosticsProperty('failedItems', failedItems));
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BatchOperationResult&&(identical(other.success, success) || other.success == success)&&(identical(other.failed, failed) || other.failed == failed)&&const DeepCollectionEquality().equals(other.failedItems, failedItems));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,success,failed,const DeepCollectionEquality().hash(failedItems));
+
+@override
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+  return 'BatchOperationResult(success: $success, failed: $failed, failedItems: $failedItems)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $BatchOperationResultCopyWith<$Res>  {
+  factory $BatchOperationResultCopyWith(BatchOperationResult value, $Res Function(BatchOperationResult) _then) = _$BatchOperationResultCopyWithImpl;
+@useResult
+$Res call({
+ int success, int failed, List<String> failedItems
+});
+
+
+
+
+}
+/// @nodoc
+class _$BatchOperationResultCopyWithImpl<$Res>
+    implements $BatchOperationResultCopyWith<$Res> {
+  _$BatchOperationResultCopyWithImpl(this._self, this._then);
+
+  final BatchOperationResult _self;
+  final $Res Function(BatchOperationResult) _then;
+
+/// Create a copy of BatchOperationResult
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? success = null,Object? failed = null,Object? failedItems = null,}) {
+  return _then(_self.copyWith(
+success: null == success ? _self.success : success // ignore: cast_nullable_to_non_nullable
+as int,failed: null == failed ? _self.failed : failed // ignore: cast_nullable_to_non_nullable
+as int,failedItems: null == failedItems ? _self.failedItems : failedItems // ignore: cast_nullable_to_non_nullable
+as List<String>,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [BatchOperationResult].
+extension BatchOperationResultPatterns on BatchOperationResult {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _BatchOperationResult value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _BatchOperationResult() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _BatchOperationResult value)  $default,){
+final _that = this;
+switch (_that) {
+case _BatchOperationResult():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _BatchOperationResult value)?  $default,){
+final _that = this;
+switch (_that) {
+case _BatchOperationResult() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int success,  int failed,  List<String> failedItems)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _BatchOperationResult() when $default != null:
+return $default(_that.success,_that.failed,_that.failedItems);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int success,  int failed,  List<String> failedItems)  $default,) {final _that = this;
+switch (_that) {
+case _BatchOperationResult():
+return $default(_that.success,_that.failed,_that.failedItems);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int success,  int failed,  List<String> failedItems)?  $default,) {final _that = this;
+switch (_that) {
+case _BatchOperationResult() when $default != null:
+return $default(_that.success,_that.failed,_that.failedItems);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _BatchOperationResult extends BatchOperationResult with DiagnosticableTreeMixin {
+  const _BatchOperationResult({required this.success, required this.failed, final  List<String> failedItems = const []}): _failedItems = failedItems,super._();
+  
+
+@override final  int success;
+@override final  int failed;
+ final  List<String> _failedItems;
+@override@JsonKey() List<String> get failedItems {
+  if (_failedItems is EqualUnmodifiableListView) return _failedItems;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_failedItems);
+}
+
+
+/// Create a copy of BatchOperationResult
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$BatchOperationResultCopyWith<_BatchOperationResult> get copyWith => __$BatchOperationResultCopyWithImpl<_BatchOperationResult>(this, _$identity);
+
+
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'BatchOperationResult'))
+    ..add(DiagnosticsProperty('success', success))..add(DiagnosticsProperty('failed', failed))..add(DiagnosticsProperty('failedItems', failedItems));
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BatchOperationResult&&(identical(other.success, success) || other.success == success)&&(identical(other.failed, failed) || other.failed == failed)&&const DeepCollectionEquality().equals(other._failedItems, _failedItems));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,success,failed,const DeepCollectionEquality().hash(_failedItems));
+
+@override
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+  return 'BatchOperationResult(success: $success, failed: $failed, failedItems: $failedItems)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$BatchOperationResultCopyWith<$Res> implements $BatchOperationResultCopyWith<$Res> {
+  factory _$BatchOperationResultCopyWith(_BatchOperationResult value, $Res Function(_BatchOperationResult) _then) = __$BatchOperationResultCopyWithImpl;
+@override @useResult
+$Res call({
+ int success, int failed, List<String> failedItems
+});
+
+
+
+
+}
+/// @nodoc
+class __$BatchOperationResultCopyWithImpl<$Res>
+    implements _$BatchOperationResultCopyWith<$Res> {
+  __$BatchOperationResultCopyWithImpl(this._self, this._then);
+
+  final _BatchOperationResult _self;
+  final $Res Function(_BatchOperationResult) _then;
+
+/// Create a copy of BatchOperationResult
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? success = null,Object? failed = null,Object? failedItems = null,}) {
+  return _then(_BatchOperationResult(
+success: null == success ? _self.success : success // ignore: cast_nullable_to_non_nullable
+as int,failed: null == failed ? _self.failed : failed // ignore: cast_nullable_to_non_nullable
+as int,failedItems: null == failedItems ? _self._failedItems : failedItems // ignore: cast_nullable_to_non_nullable
+as List<String>,
   ));
 }
 

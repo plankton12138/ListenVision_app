@@ -74,6 +74,7 @@ class AudioActionMenu extends ConsumerWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => AudioActionMenu(
         bvid: bvid,
         title: title,
@@ -194,8 +195,8 @@ class AudioActionMenu extends ConsumerWidget {
           const Divider(height: 1),
 
           // 操作列表
-          // 收藏（仅登录用户可见）
-          if (showFavorite && isLoggedIn)
+          // 收藏（本地优先，离线可用）
+          if (showFavorite)
             ListTile(
               leading: Icon(
                 isFavorited ? Icons.favorite : Icons.favorite_border,
@@ -206,11 +207,7 @@ class AudioActionMenu extends ConsumerWidget {
                 try {
                   AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
 
-                  final token = ref.read(authTokenProvider);
-                  if (token == null) {
-                    Navigator.pop(context);
-                    return;
-                  }
+                  final token = ref.read(authTokenProvider) ?? '';
 
                   final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
@@ -223,8 +220,6 @@ class AudioActionMenu extends ConsumerWidget {
                     coverUrl: coverUrl,
                   );
 
-                  // 刷新收藏列表
-                  await playlistNotifier.loadFavorites(token);
                 } catch (e) {
                   AppLogger.error('AudioActionMenu', '收藏操作失败: $e');
                 }
@@ -267,17 +262,6 @@ class AudioActionMenu extends ConsumerWidget {
               },
             ),
 
-          // 分享（仅登录用户可见）
-          if (isLoggedIn)
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('分享'),
-              onTap: () {
-                final url = 'https://www.bilibili.com/video/$bvid';
-                AppLogger.info('AudioActionMenu', '分享: $url');
-                Navigator.pop(context);
-              },
-            ),
 
           const SizedBox(height: 8),
         ],

@@ -581,7 +581,6 @@ const getVideoInfo = async (bvid) => {
         like: stat.like || 0,      // 点赞
         coin: stat.coin || 0,      // 投币
         favorite: stat.favorite || 0, // 收藏
-        share: stat.share || 0,    // 分享
         danmaku: stat.danmaku || 0 // 弹幕
       },
       pages: info.pages?.map(p => ({

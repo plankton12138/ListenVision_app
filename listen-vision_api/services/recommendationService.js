@@ -13,7 +13,7 @@ const { AppError } = require('../middleware/errorHandler');
  * 4. 分区推荐（音乐区、翻唱、演奏等）
  *
  * Phase 3.2 新增：
- * - 记录用户行为日志（播放、收藏、跳过、分享）
+ * - 记录用户行为日志（播放、收藏、跳过）
  * - 基于用户行为的协同过滤推荐
  * - 内容相似度推荐
  *
@@ -128,7 +128,6 @@ const getHotPlaylists = async (page = 1, pageSize = 10) => {
         play: p.statistic?.play || 0,
         collect: p.statistic?.collect || 0,
         comment: p.statistic?.comment || 0,
-        share: p.statistic?.share || 0
       },
       // 部分歌单包含预览音频
       previews: (p.audios || []).map(a => ({
@@ -181,7 +180,6 @@ const getHotRank = async (page = 1, pageSize = 10) => {
         play: p.statistic?.play || 0,
         collect: p.statistic?.collect || 0,
         comment: p.statistic?.comment || 0,
-        share: p.statistic?.share || 0
       },
       // 榜单通常包含预览音频
       previews: (p.audios || []).map(a => ({
@@ -446,7 +444,7 @@ const extractBvid = (url) => {
  *
  * @param {number} userId - 用户ID
  * @param {string} bvid - 视频 ID
- * @param {string} action - 行为类型 (play, like, skip, share)
+ * @param {string} action - 行为类型 (play, like, skip)
  */
 const logBehavior = (userId, bvid, action) => {
   try {

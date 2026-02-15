@@ -89,8 +89,13 @@ class ControlsPanel extends ConsumerWidget {
         );
       }
     } else {
-      // 本地音频 - 使用 url 属性获取文件路径
-      playerViewModel.playLocalAudio(playable.url);
+      // 本地音频 - 使用 url 属性获取文件路径，传递已保存的元数据
+      playerViewModel.playLocalAudio(
+        playable.url,
+        title: playable.title,
+        artist: playable.artist,
+        albumArt: playable.coverData,
+      );
     }
   }
 

@@ -1,5 +1,29 @@
+// Mock 数据库模块 - 必须在 require auth 之前定义
+jest.mock('../../config/database', () => {
+  const Database = require('better-sqlite3');
+
+  // 创建内存数据库用于测试
+  const db = new Database(':memory:');
+
+  // 创建测试表结构
+  db.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  return db;
+});
+
 const { authMiddleware, optionalAuthMiddleware } = require('../../middleware/auth');
 const { generateToken } = require('../../config/jwt');
+
+// 获取 mock 的数据库实例
+const db = require('../../config/database');
 
 // 模拟请求和响应对象
 const mockRequest = (headers = {}) => ({
@@ -23,6 +47,10 @@ describe('认证中间件测试', () => {
   beforeEach(() => {
     // 每个测试前重置 mock
     mockNext.mockClear();
+    // 确保测试用户存在（ID = 123）
+    db.exec('DELETE FROM users');
+    db.prepare('INSERT INTO users (id, username, email, password) VALUES (?, ?, ?, ?)')
+      .run(123, 'testuser', 'test@example.com', 'hashedpassword');
   });
 
   describe('authMiddleware - 必须认证', () => {

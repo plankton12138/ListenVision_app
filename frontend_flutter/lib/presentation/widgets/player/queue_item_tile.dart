@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/online_playable.dart';
+import '../../../models/local_playable.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
 import '../../viewmodels/library/playlist_viewmodel.dart';
 import '../../viewmodels/auth/auth_viewmodel.dart';
@@ -82,6 +84,11 @@ class QueueItemTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 状态标识（来源 + 本地/在线）
+            _buildStatusBadge(context, ref),
+
+            const SizedBox(width: 8),
+
             // 收藏按钮（仅在线音频）
             if (isOnline && bvid != null)
               IconButton(
@@ -170,7 +177,15 @@ class QueueItemTile extends ConsumerWidget {
     }
 
     final notifier = ref.read(playlistViewModelProvider.notifier);
-    final added = await notifier.toggleFavorite(token, bvid);
+    final added = await notifier.toggleFavorite(
+      token,
+      bvid,
+      title: playable.title,
+      artist: playable.artist,
+      duration: playable.duration,
+      coverUrl: playable.coverUrl,
+      localPath: playable.isOnline ? null : playable.url,
+    );
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,6 +250,127 @@ class QueueItemTile extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 获取音频来源标签
+  String? _getSourceLabel(PlayableAudio playable) {
+    if (playable is LocalPlayable) {
+      return '本地'; // 本地导入的音频
+    } else if (playable is OnlinePlayable) {
+      // Dart 已经知道 playable 是 OnlinePlayable 类型，不需要转换
+      final audio = playable.original;
+
+      // 根据音频 ID 前缀判断来源
+      if (audio.id.startsWith('netease_')) {
+        return '网易云';
+      } else if (audio.id.startsWith('BV') || audio.id.startsWith('bv')) {
+        return 'B站';
+      }
+    }
+    return null;
+  }
+
+  /// 获取来源标签颜色
+  Color _getSourceColor(String? source) {
+    switch (source) {
+      case 'B站':
+        return const Color(0xFF00A1D6); // B站蓝
+      case '网易云':
+        return const Color(0xFFC20C0C); // 网易云红
+      case '本地':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  /// 构建状态标识组件
+  Widget _buildStatusBadge(BuildContext context, WidgetRef ref) {
+    final sourceLabel = _getSourceLabel(playable);
+    final isLocalAudio = !playable.isOnline;
+
+    // 本地音频：直接显示"本地"标签
+    if (isLocalAudio) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: _getSourceColor(sourceLabel),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          sourceLabel ?? '本地',
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    // 在线音频：判断是否已下载
+    final bvid = playable.id;
+    final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(bvid));
+
+    return isDownloadedAsync.when(
+      data: (isDownloaded) {
+        // 构建标签行
+        final badges = <Widget>[];
+
+        // 来源标签（B站/网易云）
+        if (sourceLabel != null) {
+          badges.add(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getSourceColor(sourceLabel),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                sourceLabel,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
+        }
+
+        // 本地标签（已下载的在线音频）
+        if (isDownloaded) {
+          if (badges.isNotEmpty) {
+            badges.add(const SizedBox(width: 4));
+          }
+          badges.add(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                '本地',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (badges.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: badges,
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

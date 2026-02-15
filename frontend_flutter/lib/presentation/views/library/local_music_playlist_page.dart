@@ -150,7 +150,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
             itemCount: audios.length,
             itemBuilder: (context, index) {
               final audio = audios[index];
-              return _buildAudioListTile(context, audio, index, ref);
+              return _buildAudioListTile(context, audio, index, ref, audios);
             },
           ),
         ),
@@ -188,7 +188,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
 
   /// 构建音频列表项
   Widget _buildAudioListTile(
-      BuildContext context, LocalAudio audio, int index, WidgetRef ref) {
+      BuildContext context, LocalAudio audio, int index, WidgetRef ref, List<LocalAudio> audios) {
     return ListTile(
       leading: SizedBox(
         width: 40,
@@ -234,7 +234,7 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: () => _playAudio(context, ref, audio),
+      onTap: () => _playAudio(context, ref, audio, audios),
     );
   }
 
@@ -321,8 +321,14 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
               leading: const Icon(Icons.play_arrow),
               title: const Text('播放'),
               onTap: () {
+                final audios = ref.read(localMusicViewModelProvider).whenOrNull(
+                  data: (state) => state.maybeWhen(
+                    loaded: (audios) => audios,
+                    orElse: () => <LocalAudio>[],
+                  ),
+                ) ?? <LocalAudio>[];
                 Navigator.pop(context);
-                _playAudio(context, ref, audio);
+                _playAudio(context, ref, audio, audios);
               },
             ),
             ListTile(
@@ -399,16 +405,26 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
   }
 
   /// 播放音频
-  void _playAudio(BuildContext context, WidgetRef ref, LocalAudio audio) async {
+  void _playAudio(BuildContext context, WidgetRef ref, LocalAudio audio, List<LocalAudio> allAudios) async {
     AppLogger.info('LocalMusicPlaylistPage', '点击播放: id=${audio.id}, title=${audio.title}, filePath=${audio.filePath}');
 
     try {
-      await ref.read(playerViewModelProvider.notifier).playLocalAudio(
-        audio.filePath,
-        title: audio.title,
-        artist: audio.artist,
-        albumArt: audio.albumArt,
+      // 找到当前音频在列表中的索引
+      final index = allAudios.indexWhere((a) => a.id == audio.id);
+
+      // 将所有音频转换为 PlayableAudio
+      final playables = allAudios.map((a) => LocalPlayable.fromAudio(a)).toList();
+      final source = QueueSource.userPlaylist('local_music', '本地音乐');
+
+      // 设置完整播放列表
+      await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
+        playables,
+        source,
+        initialIndex: index,
       );
+
+      // 播放指定索引
+      await ref.read(queueViewModelProvider.notifier).playAt(index);
 
       if (context.mounted) {
         SnackbarHelper.showPlaying(context, audio.title, artist: audio.artist);

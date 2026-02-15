@@ -164,7 +164,6 @@ abstract class BiliPlaylistStats with _$BiliPlaylistStats {
     @Default(0) int play,
     @Default(0) int collect,
     @Default(0) int comment,
-    @Default(0) int share,
   }) = _BiliPlaylistStats;
 
   /// 从 JSON 创建
@@ -176,7 +175,6 @@ abstract class BiliPlaylistStats with _$BiliPlaylistStats {
       play: json['play'] as int? ?? 0,
       collect: json['collect'] as int? ?? 0,
       comment: json['comment'] as int? ?? 0,
-      share: json['share'] as int? ?? 0,
     );
   }
 }

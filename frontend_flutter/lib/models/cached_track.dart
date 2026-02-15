@@ -1,14 +1,11 @@
 import 'dart:typed_data';
 
+import '../core/utils/local_track_id.dart';
 import 'audio.dart';
 import 'local_audio.dart';
 
 /// 音轨来源类型
-enum TrackSource {
-  bilibili,
-  local,
-  network,
-}
+enum TrackSource { bilibili, local, network }
 
 /// 音轨来源类型扩展
 extension TrackSourceExtension on TrackSource {
@@ -133,7 +130,9 @@ class CachedTrack {
     return CachedTrack(
       id: map['id'] as int,
       sourceId: map['source_id'] as String,
-      sourceType: TrackSourceExtension.fromString(map['source_type'] as String?),
+      sourceType: TrackSourceExtension.fromString(
+        map['source_type'] as String?,
+      ),
       title: map['title'] as String,
       artist: map['artist'] as String?,
       album: map['album'] as String?,
@@ -186,8 +185,6 @@ class CachedTrack {
       'is_favorite': isFavorite ? 1 : 0,
       'local_play_count': localPlayCount,
       'last_played_at': lastPlayedAt?.toIso8601String(),
-      'position': position,
-      'playlist_id': playlistId,
       'added_at': addedAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'synced_at': syncedAt?.toIso8601String(),
@@ -300,14 +297,16 @@ class CachedTrack {
 
   /// 从 LocalAudio 创建（用于本地音乐导入）
   factory CachedTrack.fromLocalAudio(LocalAudio localAudio) {
+    final localId = localIdFromPath(localAudio.filePath);
     return CachedTrack(
       id: localAudio.id ?? 0,
-      sourceId: localAudio.filePath,
+      sourceId: localId,
       sourceType: TrackSource.local,
       title: localAudio.title,
       artist: localAudio.artist,
       duration: localAudio.duration,
       coverBlob: localAudio.albumArt,
+      bvid: localId,
       localPath: localAudio.filePath,
       isDownloaded: true,
       isFavorite: localAudio.isFavorite,
@@ -332,7 +331,9 @@ class CachedTrack {
     if (playCount == null || playCount == 0) return '0';
     if (playCount! < 1000) return playCount.toString();
     if (playCount! < 10000) return '${(playCount! / 1000).toStringAsFixed(1)}k';
-    if (playCount! < 100000000) return '${(playCount! / 10000).toStringAsFixed(1)}w';
+    if (playCount! < 100000000) {
+      return '${(playCount! / 10000).toStringAsFixed(1)}w';
+    }
     return '${(playCount! / 100000000).toStringAsFixed(1)}亿';
   }
 
@@ -344,9 +345,7 @@ class CachedTrack {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CachedTrack &&
-        other.id == id &&
-        other.sourceId == sourceId;
+    return other is CachedTrack && other.id == id && other.sourceId == sourceId;
   }
 
   @override

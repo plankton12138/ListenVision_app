@@ -72,9 +72,6 @@ class OnlinePlayable extends PlayableAudio {
   }
 
   @override
-  String get shareableUrl => _audio.shareUrl;
-
-  @override
   Map<String, dynamic> toMap() {
     return {
       ..._audio.toDto(),

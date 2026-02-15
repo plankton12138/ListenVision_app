@@ -121,6 +121,19 @@ class PlaylistLibraryPage extends ConsumerWidget {
       children: [
         // 本地音乐歌单（系统预设，所有用户可见）
         _buildLocalMusicPlaylistTile(context, ref),
+
+        const Divider(),
+        // 系统歌单：我喜欢（离线也可用）
+        ListTile(
+          leading: const Icon(Icons.favorite, color: Colors.red),
+          title: const Text('我喜欢'),
+          subtitle: Text('${state.favoritesItems.length}首'),
+          onTap: () {
+            final id = state.favoritesPlaylist?.id ?? '1';
+            context.push('/playlists/$id');
+          },
+        ),
+
         // 在线歌单列表（仅登录用户可见）
         if (isLoggedIn) ...[
           const Divider(),

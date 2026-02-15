@@ -421,7 +421,6 @@ describe('B站服务测试', () => {
             like: 500,
             coin: 200,
             favorite: 100,
-            share: 50,
             danmaku: 300
           },
           pages: [

@@ -616,7 +616,7 @@ $BiliPlaylistStatsCopyWith<$Res> get stats {
 /// @nodoc
 mixin _$BiliPlaylistStats {
 
- int get play; int get collect; int get comment; int get share;
+ int get play; int get collect; int get comment;
 /// Create a copy of BiliPlaylistStats
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -629,16 +629,16 @@ $BiliPlaylistStatsCopyWith<BiliPlaylistStats> get copyWith => _$BiliPlaylistStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BiliPlaylistStats&&(identical(other.play, play) || other.play == play)&&(identical(other.collect, collect) || other.collect == collect)&&(identical(other.comment, comment) || other.comment == comment)&&(identical(other.share, share) || other.share == share));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BiliPlaylistStats&&(identical(other.play, play) || other.play == play)&&(identical(other.collect, collect) || other.collect == collect)&&(identical(other.comment, comment) || other.comment == comment));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,play,collect,comment,share);
+int get hashCode => Object.hash(runtimeType,play,collect,comment);
 
 @override
 String toString() {
-  return 'BiliPlaylistStats(play: $play, collect: $collect, comment: $comment, share: $share)';
+  return 'BiliPlaylistStats(play: $play, collect: $collect, comment: $comment)';
 }
 
 
@@ -649,7 +649,7 @@ abstract mixin class $BiliPlaylistStatsCopyWith<$Res>  {
   factory $BiliPlaylistStatsCopyWith(BiliPlaylistStats value, $Res Function(BiliPlaylistStats) _then) = _$BiliPlaylistStatsCopyWithImpl;
 @useResult
 $Res call({
- int play, int collect, int comment, int share
+ int play, int collect, int comment
 });
 
 
@@ -666,12 +666,11 @@ class _$BiliPlaylistStatsCopyWithImpl<$Res>
 
 /// Create a copy of BiliPlaylistStats
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? play = null,Object? collect = null,Object? comment = null,Object? share = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? play = null,Object? collect = null,Object? comment = null,}) {
   return _then(_self.copyWith(
 play: null == play ? _self.play : play // ignore: cast_nullable_to_non_nullable
 as int,collect: null == collect ? _self.collect : collect // ignore: cast_nullable_to_non_nullable
 as int,comment: null == comment ? _self.comment : comment // ignore: cast_nullable_to_non_nullable
-as int,share: null == share ? _self.share : share // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -757,10 +756,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int play,  int collect,  int comment,  int share)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int play,  int collect,  int comment)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BiliPlaylistStats() when $default != null:
-return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
+return $default(_that.play,_that.collect,_that.comment);case _:
   return orElse();
 
 }
@@ -778,10 +777,10 @@ return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int play,  int collect,  int comment,  int share)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int play,  int collect,  int comment)  $default,) {final _that = this;
 switch (_that) {
 case _BiliPlaylistStats():
-return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
+return $default(_that.play,_that.collect,_that.comment);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -798,10 +797,10 @@ return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int play,  int collect,  int comment,  int share)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int play,  int collect,  int comment)?  $default,) {final _that = this;
 switch (_that) {
 case _BiliPlaylistStats() when $default != null:
-return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
+return $default(_that.play,_that.collect,_that.comment);case _:
   return null;
 
 }
@@ -813,13 +812,12 @@ return $default(_that.play,_that.collect,_that.comment,_that.share);case _:
 @JsonSerializable()
 
 class _BiliPlaylistStats implements BiliPlaylistStats {
-  const _BiliPlaylistStats({this.play = 0, this.collect = 0, this.comment = 0, this.share = 0});
+  const _BiliPlaylistStats({this.play = 0, this.collect = 0, this.comment = 0});
   factory _BiliPlaylistStats.fromJson(Map<String, dynamic> json) => _$BiliPlaylistStatsFromJson(json);
 
 @override@JsonKey() final  int play;
 @override@JsonKey() final  int collect;
 @override@JsonKey() final  int comment;
-@override@JsonKey() final  int share;
 
 /// Create a copy of BiliPlaylistStats
 /// with the given fields replaced by the non-null parameter values.
@@ -834,16 +832,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BiliPlaylistStats&&(identical(other.play, play) || other.play == play)&&(identical(other.collect, collect) || other.collect == collect)&&(identical(other.comment, comment) || other.comment == comment)&&(identical(other.share, share) || other.share == share));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BiliPlaylistStats&&(identical(other.play, play) || other.play == play)&&(identical(other.collect, collect) || other.collect == collect)&&(identical(other.comment, comment) || other.comment == comment));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,play,collect,comment,share);
+int get hashCode => Object.hash(runtimeType,play,collect,comment);
 
 @override
 String toString() {
-  return 'BiliPlaylistStats(play: $play, collect: $collect, comment: $comment, share: $share)';
+  return 'BiliPlaylistStats(play: $play, collect: $collect, comment: $comment)';
 }
 
 
@@ -854,7 +852,7 @@ abstract mixin class _$BiliPlaylistStatsCopyWith<$Res> implements $BiliPlaylistS
   factory _$BiliPlaylistStatsCopyWith(_BiliPlaylistStats value, $Res Function(_BiliPlaylistStats) _then) = __$BiliPlaylistStatsCopyWithImpl;
 @override @useResult
 $Res call({
- int play, int collect, int comment, int share
+ int play, int collect, int comment
 });
 
 
@@ -871,12 +869,11 @@ class __$BiliPlaylistStatsCopyWithImpl<$Res>
 
 /// Create a copy of BiliPlaylistStats
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? play = null,Object? collect = null,Object? comment = null,Object? share = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? play = null,Object? collect = null,Object? comment = null,}) {
   return _then(_BiliPlaylistStats(
 play: null == play ? _self.play : play // ignore: cast_nullable_to_non_nullable
 as int,collect: null == collect ? _self.collect : collect // ignore: cast_nullable_to_non_nullable
 as int,comment: null == comment ? _self.comment : comment // ignore: cast_nullable_to_non_nullable
-as int,share: null == share ? _self.share : share // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }

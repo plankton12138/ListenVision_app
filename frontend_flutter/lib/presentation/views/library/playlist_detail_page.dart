@@ -21,10 +21,7 @@ import '../../../core/state/state_utils.dart';
 class PlaylistDetailPage extends ConsumerStatefulWidget {
   final String playlistId;
 
-  const PlaylistDetailPage({
-    super.key,
-    required this.playlistId,
-  });
+  const PlaylistDetailPage({super.key, required this.playlistId});
 
   @override
   ConsumerState<PlaylistDetailPage> createState() => _PlaylistDetailPageState();
@@ -39,93 +36,193 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final detailState = ref.watch(playlistDetailViewModelProvider(widget.playlistId));
+    final detailState = ref.watch(
+      playlistDetailViewModelProvider(widget.playlistId),
+    );
+    final viewModel = ref.read(
+      playlistDetailViewModelProvider(widget.playlistId).notifier,
+    );
 
-    return Scaffold(
-      appBar: AppBar(
-        // 返回上一级按钮
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        title: detailState.valueOrNull?.maybeWhen(
-          loaded: (playlist, _, __) => Text(
-            playlist.name,
-            style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-          ),
-          orElse: () => Text(
-            '歌单详情',
-            style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-          ),
-        ),
-        actions: <Widget>[
-          ...?detailState.valueOrNull?.maybeWhen(
-            loaded: (_, __, isOwner) => isOwner
-                ? [
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert),
-                      onSelected: (action) => _onMenuAction(action, ref),
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'edit', child: Text('编辑歌单')),
-                        PopupMenuItem(value: 'delete', child: Text('删除歌单')),
-                      ],
-                    ),
-                  ]
-                : [],
-            orElse: () => [],
-          ),
-          IconButton(
-            icon: const Icon(Icons.home),
-            iconSize: UIConstants.iconMedium,
-            onPressed: () => context.go('/'),
-          ),
-        ],
-      ),
-      drawer: const MyDrawer(),
-      body: detailState.when(
-        data: (state) {
-          return state.when(
-            initial: () => const Center(child: CircularProgressIndicator()),
+    // 使用 ValueListenableBuilder 监听批量操作状态
+    return ValueListenableBuilder<BatchOperationState>(
+      valueListenable: viewModel.batchStateNotifier,
+      builder: (context, batchState, child) {
+        final isBatchMode = batchState.isInBatchMode;
+
+        return Scaffold(
+          appBar: isBatchMode
+              ? _buildBatchAppBar(batchState, viewModel)
+              : _buildNormalAppBar(detailState, ref),
+          drawer: isBatchMode ? null : const MyDrawer(),
+          body: detailState.when(
+            data: (state) {
+              return state.when(
+                initial: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                loaded: (playlist, items, isOwner) =>
+                    _buildContent(playlist, items, ref, batchState, viewModel),
+                error: (message) => _buildErrorState(message),
+              );
+            },
             loading: () => const Center(child: CircularProgressIndicator()),
-            loaded: (playlist, items, isOwner) => _buildContent(playlist, items, ref),
-            error: (message) => _buildErrorState(message),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text('加载失败')),
-      ),
+            error: (_, __) => const Center(child: Text('加载失败')),
+          ),
+          bottomNavigationBar: isBatchMode
+              ? _buildBatchActionBar(batchState, viewModel)
+              : null,
+        );
+      },
     );
   }
 
-  Widget _buildContent(dynamic playlist, List<dynamic> items, WidgetRef ref) {
-    return RefreshIndicator(
-      onRefresh: () => ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier).refresh(),
-      child: CustomScrollView(
-        slivers: [
-          // 歌单头部信息
-          SliverToBoxAdapter(
-            child: _buildPlaylistHeader(playlist, items.length),
-          ),
-          // 操作按钮
-          SliverToBoxAdapter(
-            child: _buildActionButtons(ref, items),
-          ),
-          // 分割线
-          const SliverToBoxAdapter(
-            child: Divider(height: 1),
-          ),
-          // 音频列表
-          items.isEmpty
-              ? SliverFillRemaining(
-                  child: _buildEmptyState(),
+  /// 构建正常模式 AppBar
+  AppBar _buildNormalAppBar(AsyncValue<PlaylistDetailState> detailState, WidgetRef ref) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => context.pop(),
+      ),
+      title: detailState.valueOrNull?.maybeWhen(
+        loaded: (playlist, _, __) => Text(
+          playlist.name,
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+        ),
+        orElse: () => Text(
+          '歌单详情',
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
+        ),
+      ),
+      actions: <Widget>[
+        // 批量操作入口按钮
+        detailState.valueOrNull?.maybeWhen(
+          loaded: (_, items, __) => items.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.checklist),
+                  tooltip: '批量操作',
+                  onPressed: () {
+                    final viewModel = ref.read(
+                      playlistDetailViewModelProvider(widget.playlistId).notifier,
+                    );
+                    viewModel.enterBatchMode();
+                  },
                 )
-              : _buildItemsList(items, ref),
-        ],
-      ),
+              : null,
+          orElse: () => null,
+        ) ?? const SizedBox.shrink(),
+        ...?detailState.valueOrNull?.maybeWhen(
+          loaded: (_, __, isOwner) => isOwner
+              ? [
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (action) => _onMenuAction(action, ref),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'edit', child: Text('编辑歌单')),
+                      PopupMenuItem(value: 'delete', child: Text('删除歌单')),
+                    ],
+                  ),
+                ]
+              : [],
+          orElse: () => [],
+        ),
+        IconButton(
+          icon: const Icon(Icons.home),
+          iconSize: UIConstants.iconMedium,
+          onPressed: () => context.go('/'),
+        ),
+      ],
     );
   }
 
-  Widget _buildPlaylistHeader(dynamic playlist, int itemCount) {
+  /// 构建批量模式 AppBar
+  AppBar _buildBatchAppBar(BatchOperationState batchState, PlaylistDetailViewModel viewModel) {
+    return AppBar(
+      leading: TextButton(
+        onPressed: () => viewModel.exitBatchMode(),
+        child: const Text('取消', style: TextStyle(color: Colors.white)),
+      ),
+      title: const Text('批量操作'),
+      centerTitle: true,
+      actions: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Text(
+              '已选 ${batchState.selectedCount} 项',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(
+    dynamic playlist,
+    List<dynamic> items,
+    WidgetRef ref,
+    BatchOperationState batchState,
+    PlaylistDetailViewModel viewModel,
+  ) {
+    return Column(
+      children: [
+        _buildPlaylistHeader(playlist, items.length, batchState),
+        const Divider(height: 1),
+        if (!batchState.isInBatchMode) _buildActionButtons(ref, items),
+        Expanded(
+          child: items.isEmpty
+              ? RefreshIndicator(
+                  onRefresh: () => viewModel.refresh(),
+                  child: ListView(
+                    children: [
+                      SizedBox(height: 320, child: _buildEmptyState()),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => viewModel.refresh(),
+                  child: _buildItemsList(items, ref, batchState, viewModel),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaylistHeader(
+    dynamic playlist,
+    int itemCount,
+    BatchOperationState batchState,
+  ) {
+    // 批量模式下显示选择提示信息
+    if (batchState.isInBatchMode) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+        child: Row(
+          children: [
+            Icon(
+              batchState.isAllSelected
+                  ? Icons.check_box
+                  : Icons.check_box_outline_blank,
+              color: Theme.of(context).primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              batchState.isAllSelected ? '已全选' : '点击选择项目',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${batchState.selectedCount}/${batchState.totalItems}',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
     final coverUrl = playlist.coverUrl as String?;
     final name = playlist.name as String;
     final description = playlist.description as String?;
@@ -136,8 +233,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         children: [
           // 封面
           Container(
-            width: 120,
-            height: 120,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(8),
@@ -149,11 +246,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                       coverUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.playlist_play, size: 48);
+                        return const Icon(Icons.playlist_play, size: 40);
                       },
                     ),
                   )
-                : const Icon(Icons.playlist_play, size: 48, color: Colors.grey),
+                : const Icon(Icons.playlist_play, size: 40, color: Colors.grey),
           ),
           const SizedBox(width: 16),
           // 信息
@@ -163,7 +260,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -190,79 +290,61 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Widget _buildActionButtons(WidgetRef ref, List items) {
-    if (items.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('播放全部'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () => _playAll(ref, items),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text('下载全部'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () => _downloadAll(ref, items),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.play_arrow),
+        label: Text(items.isEmpty ? '暂无可播放歌曲' : '播放全部'),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 48),
+        ),
+        onPressed: items.isEmpty ? null : () => _playAll(ref, items),
       ),
     );
   }
 
-  Widget _buildItemsList(List items, WidgetRef ref) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final item = items[index];
-          return _buildItemTile(item, index, ref);
-        },
-        childCount: items.length,
-      ),
+  Widget _buildItemsList(
+    List items,
+    WidgetRef ref,
+    BatchOperationState batchState,
+    PlaylistDetailViewModel viewModel,
+  ) {
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _buildItemTile(
+          item,
+          index,
+          ref,
+          batchState,
+          viewModel,
+        );
+      },
     );
   }
 
-  Widget _buildItemTile(dynamic item, int index, WidgetRef ref) {
+  Widget _buildItemTile(
+    dynamic item,
+    int index,
+    WidgetRef ref,
+    BatchOperationState batchState,
+    PlaylistDetailViewModel viewModel,
+  ) {
     final localPath = item.localPath as String?;
     final title = item.title as String?;
     final artist = item.artist as String?;
     final duration = item.duration as int?;
+    final bvid = item.bvid as String?;
 
     final isLocalMusic = localPath != null && localPath.isNotEmpty;
+    final isBatchMode = batchState.isInBatchMode;
+    final isSelected = bvid != null && batchState.selectedBvids.contains(bvid);
 
     return ListTile(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '${index + 1}',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          if (isLocalMusic)
-            Icon(Icons.folder_open, size: 14, color: Colors.green),
-        ],
-      ),
+      leading: isBatchMode
+          ? _buildBatchLeading(isSelected, bvid, viewModel)
+          : _buildNormalLeading(index, isLocalMusic),
       title: Text(
         title ?? '未知标题',
         maxLines: 1,
@@ -273,8 +355,51 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: _buildItemTrailing(item, ref),
-      onTap: () => _playItem(item, ref),
+      trailing: isBatchMode ? null : _buildItemTrailing(item, ref),
+      onTap: isBatchMode && bvid != null
+          ? () => viewModel.toggleSelection(bvid)
+          : () => _playItem(item, ref),
+      onLongPress: !isBatchMode && bvid != null
+          ? () {
+              // 长按进入批量模式并选中当前项
+              viewModel.enterBatchMode();
+              viewModel.toggleSelection(bvid);
+            }
+          : null,
+    );
+  }
+
+  /// 构建正常模式的 leading（序号+本地图标）
+  Widget _buildNormalLeading(int index, bool isLocalMusic) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 24,
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (isLocalMusic)
+          const Icon(Icons.folder_open, size: 14, color: Colors.green),
+      ],
+    );
+  }
+
+  /// 构建批量模式的 leading（复选框）
+  Widget _buildBatchLeading(
+    bool isSelected,
+    String? bvid,
+    PlaylistDetailViewModel viewModel,
+  ) {
+    return Checkbox(
+      value: isSelected,
+      onChanged: bvid != null ? (_) => viewModel.toggleSelection(bvid) : null,
     );
   }
 
@@ -328,16 +453,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               ],
             ),
           ),
-          const PopupMenuItem(
-            value: 'share',
-            child: Row(
-              children: [
-                Icon(Icons.share, size: 18),
-                SizedBox(width: 8),
-                Text('分享'),
-              ],
-            ),
-          ),
         ],
         const PopupMenuDivider(),
         PopupMenuItem(
@@ -385,9 +500,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       case 'favorite':
         _handleFavorite(item, ref);
         break;
-      case 'share':
-        _handleShare(bvid);
-        break;
       case 'remove':
         _showRemoveConfirmDialog(item, ref);
         break;
@@ -403,13 +515,15 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       final sanitizedTitle = _sanitizeTitle(item.title as String? ?? '未知');
       final savePath = '$downloadDir$sanitizedTitle.mp3';
 
-      await ref.read(downloadViewModelProvider.notifier).addDownload(
-        bvid: bvid,
-        savePath: savePath,
-        title: item.title,
-        artist: item.artist,
-        coverUrl: item.coverUrl,
-      );
+      await ref
+          .read(downloadViewModelProvider.notifier)
+          .addDownload(
+            bvid: bvid,
+            savePath: savePath,
+            title: item.title,
+            artist: item.artist,
+            coverUrl: item.coverUrl,
+          );
       if (mounted) {
         SnackbarHelper.showSuccess(context, '已添加到下载队列');
       }
@@ -428,7 +542,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         throw Exception('系统下载目录不可用');
       }
 
-      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      final appDownloadDir = Directory(
+        '${downloadDir.path}${path.separator}ListenVision',
+      );
       if (!await appDownloadDir.exists()) {
         await appDownloadDir.create(recursive: true);
       }
@@ -438,7 +554,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       AppLogger.error('PlaylistDetailPage', '获取下载目录失败: $e');
       try {
         final docDir = await getApplicationDocumentsDirectory();
-        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        final fallbackDir = Directory(
+          '${docDir.path}${path.separator}Downloads',
+        );
         if (!await fallbackDir.exists()) {
           await fallbackDir.create(recursive: true);
         }
@@ -451,7 +569,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   String _sanitizeTitle(String input) {
-    const pattern = r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+    const pattern =
+        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""'
+        '·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -460,38 +580,25 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final bvid = item.bvid as String?;
     if (bvid == null) return;
 
-    final token = ref.read(authTokenProvider);
-    if (token == null) {
-      if (mounted) {
-        SnackbarHelper.showWarning(context, '请先登录');
-      }
-      return;
-    }
+    final token = ref.read(authTokenProvider) ?? '';
 
     try {
       final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-      await playlistNotifier.toggleFavorite(
+      final added = await playlistNotifier.toggleFavorite(
         token,
         bvid,
         title: item.title,
         artist: item.artist,
         duration: item.duration,
         coverUrl: item.coverUrl,
+        localPath: item.localPath,
       );
-      await playlistNotifier.loadFavorites(token);
+
       if (mounted) {
-        SnackbarHelper.showSuccess(context, '已添加到收藏');
+        SnackbarHelper.showSuccess(context, added ? '已添加到我喜欢' : '已从我喜欢移除');
       }
     } catch (e) {
       AppLogger.error('PlaylistDetailPage', '收藏失败: $e');
-    }
-  }
-
-  void _handleShare(String? bvid) {
-    if (bvid == null) return;
-    final url = 'https://www.bilibili.com/video/$bvid';
-    if (mounted) {
-      SnackbarHelper.showInfo(context, '分享链接:\n$url', duration: 4000);
     }
   }
 
@@ -517,7 +624,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       if (confirmed == true) {
         final bvid = item.bvid as String?;
         if (bvid != null) {
-          ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier)
+          ref
+              .read(playlistDetailViewModelProvider(widget.playlistId).notifier)
               .removeItem(bvid);
         }
       }
@@ -538,11 +646,17 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     // 否则使用 bvid 播放在线音乐
     if (bvid != null) {
       // 调用 ViewModel 的 playItem 方法
-      final success = await ref.read(
-        playlistDetailViewModelProvider(widget.playlistId).notifier,
-      ).playItem(bvid);
+      final success = await ref
+          .read(playlistDetailViewModelProvider(widget.playlistId).notifier)
+          .playItem(bvid);
 
-      if (!success && mounted) {
+      if (success && mounted) {
+        SnackbarHelper.showPlaying(
+          context,
+          item.title as String? ?? '未知标题',
+          artist: item.artist as String?,
+        );
+      } else if (!success && mounted) {
         SnackbarHelper.showError(context, '播放失败，请重试');
       }
     }
@@ -562,12 +676,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             initial: (_) => null,
             loading: (_) => null,
             loaded: (data) {
-              AppLogger.debug('PlaylistDetailPage', '本地音乐列表数量: ${data.audios.length}');
+              AppLogger.debug(
+                'PlaylistDetailPage',
+                '本地音乐列表数量: ${data.audios.length}',
+              );
               try {
                 final found = data.audios.firstWhere(
                   (audio) => audio.filePath == localPath,
                 );
-                AppLogger.debug('PlaylistDetailPage', '找到本地音频: ${found.title}, id: ${found.id}');
+                AppLogger.debug(
+                  'PlaylistDetailPage',
+                  '找到本地音频: ${found.title}, id: ${found.id}',
+                );
                 return found;
               } catch (_) {
                 AppLogger.warn('PlaylistDetailPage', '未找到匹配的本地音频');
@@ -583,24 +703,30 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       if (localAudio == null) {
         AppLogger.warn('PlaylistDetailPage', '本地音乐未找到: $localPath');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('本地音乐未找到，请重新导入')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('本地音乐未找到，请重新导入')));
         }
         return false;
       }
 
       // 直接播放本地音频
-      await ref.read(playerViewModelProvider.notifier).playLocalAudio(
-        localAudio.filePath,
-        title: localAudio.title,
-        artist: localAudio.artist,
-        albumArt: localAudio.albumArt,
-      );
+      await ref
+          .read(playerViewModelProvider.notifier)
+          .playLocalAudio(
+            localAudio.filePath,
+            title: localAudio.title,
+            artist: localAudio.artist,
+            albumArt: localAudio.albumArt,
+          );
 
       // 显示播放提示
       if (mounted) {
-        SnackbarHelper.showPlaying(context, localAudio.title, artist: localAudio.artist);
+        SnackbarHelper.showPlaying(
+          context,
+          localAudio.title,
+          artist: localAudio.artist,
+        );
       }
       return true;
     } catch (e) {
@@ -638,7 +764,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           Text('加载失败: $message'),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier).refresh(),
+            onPressed: () => ref
+                .read(
+                  playlistDetailViewModelProvider(widget.playlistId).notifier,
+                )
+                .refresh(),
             child: const Text('重试'),
           ),
         ],
@@ -669,61 +799,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
 
     // 调用 ViewModel 的 playAll 方法
-    final success = await ref.read(
-      playlistDetailViewModelProvider(widget.playlistId).notifier,
-    ).playAll();
+    final success = await ref
+        .read(playlistDetailViewModelProvider(widget.playlistId).notifier)
+        .playAll();
 
     if (!success && mounted) {
       SnackbarHelper.showError(context, '播放失败，请重试');
     }
-  }
-
-  void _downloadAll(WidgetRef ref, List items) async {
-    if (items.isEmpty) return;
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 16),
-              Text('正在添加到下载队列...'),
-            ],
-          ),
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-
-    final addedCount = await ref.read(
-      playlistDetailViewModelProvider(widget.playlistId).notifier,
-    ).downloadAllItems();
-
-    if (!mounted) return;
-
-    String message;
-    if (addedCount > 0) {
-      message = '已添加 $addedCount 首到下载队列';
-    } else {
-      message = '没有需要下载的歌曲';
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        action: addedCount > 0
-            ? SnackBarAction(
-                label: '查看下载',
-                onPressed: () => context.push('/downloads'),
-              )
-            : null,
-      ),
-    );
   }
 
   void _onMenuAction(String action, WidgetRef ref) {
@@ -738,14 +820,16 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   void _showEditDialog(WidgetRef ref) {
-    final playlist = ref.read(playlistDetailViewModelProvider(widget.playlistId)).valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist,
-      orElse: () => null,
-    );
+    final playlist = ref
+        .read(playlistDetailViewModelProvider(widget.playlistId))
+        .valueOrNull
+        ?.maybeWhen(loaded: (playlist, _, __) => playlist, orElse: () => null);
     if (playlist == null) return;
 
     final nameController = TextEditingController(text: playlist.name);
-    final descController = TextEditingController(text: playlist.description ?? '');
+    final descController = TextEditingController(
+      text: playlist.description ?? '',
+    );
 
     showDialog(
       context: context,
@@ -773,9 +857,15 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           ),
           TextButton(
             onPressed: () async {
-              final success = await ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier).updatePlaylist(
+              final success = await ref
+                  .read(
+                    playlistDetailViewModelProvider(widget.playlistId).notifier,
+                  )
+                  .updatePlaylist(
                     name: nameController.text,
-                    description: descController.text.isEmpty ? null : descController.text,
+                    description: descController.text.isEmpty
+                        ? null
+                        : descController.text,
                   );
               if (mounted) {
                 Navigator.pop(context);
@@ -806,7 +896,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           ),
           TextButton(
             onPressed: () async {
-              final success = await ref.read(playlistDetailViewModelProvider(widget.playlistId).notifier).deletePlaylist();
+              final success = await ref
+                  .read(
+                    playlistDetailViewModelProvider(widget.playlistId).notifier,
+                  )
+                  .deletePlaylist();
               if (mounted) {
                 if (success) {
                   Navigator.pop(context); // 关闭对话框
@@ -828,5 +922,128 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
     return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  // ==================== 批量操作功能 ====================
+
+  /// 构建批量操作底部栏
+  Widget _buildBatchActionBar(
+    BatchOperationState batchState,
+    PlaylistDetailViewModel viewModel,
+  ) {
+    final hasSelection = batchState.hasSelection;
+    final isAllSelected = batchState.isAllSelected;
+
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // 全选/取消全选按钮
+            TextButton.icon(
+              onPressed: () => viewModel.toggleSelectAll(),
+              icon: Icon(
+                isAllSelected
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+              ),
+              label: Text(isAllSelected ? '取消全选' : '全选'),
+            ),
+            const Spacer(),
+            // 删除按钮
+            ElevatedButton.icon(
+              onPressed: hasSelection
+                  ? () => _showBatchRemoveConfirmDialog(batchState, viewModel)
+                  : null,
+              icon: const Icon(Icons.delete, color: Colors.white),
+              label: Text('删除(${batchState.selectedCount})'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.red.withValues(alpha: 0.3),
+                disabledForegroundColor: Colors.white70,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示批量移除确认对话框
+  void _showBatchRemoveConfirmDialog(
+    BatchOperationState batchState,
+    PlaylistDetailViewModel viewModel,
+  ) {
+    final selectedCount = batchState.selectedCount;
+    final selectedBvids = batchState.selectedBvids.toList();
+
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('批量移除'),
+        content: Text('确定要从歌单中移除选中的 $selectedCount 首歌曲吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    ).then((confirmed) async {
+      if (confirmed == true && mounted) {
+        // 显示进度对话框
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+
+        final result = await viewModel.batchRemoveItems(selectedBvids);
+
+        if (mounted) {
+          Navigator.pop(context); // 关闭进度对话框
+
+          // 显示结果提示
+          if (result.isAllSuccess) {
+            SnackbarHelper.showSuccess(
+              context,
+              '成功移除 ${result.success} 首歌曲',
+            );
+            viewModel.exitBatchMode();
+          } else if (result.isPartialSuccess) {
+            SnackbarHelper.showWarning(
+              context,
+              '移除完成：成功 ${result.success} 首，失败 ${result.failed} 首',
+            );
+          } else {
+            SnackbarHelper.showError(
+              context,
+              '移除失败：${result.failedItems.length} 首歌曲未能移除',
+            );
+          }
+        }
+      }
+    });
   }
 }

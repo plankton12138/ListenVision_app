@@ -37,9 +37,6 @@ abstract class PlayableAudio {
   /// - OnlinePlayable 返回网络 URL
   String get url;
 
-  /// 可分享的URL或文件路径
-  String get shareableUrl;
-
   /// 转换为 Map（用于序列化）
   Map<String, dynamic> toMap();
 

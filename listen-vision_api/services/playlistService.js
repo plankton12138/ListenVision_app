@@ -352,17 +352,31 @@ const toggleFavorite = (userId, itemData) => {
     throw new AppError('BVID不能为空', 400);
   }
 
+  const normalizedBvid = bvid.trim();
+  const normalizedTitle = (typeof title === 'string' && title.trim() !== '')
+    ? title.trim()
+    : normalizedBvid;
+  const normalizedArtist = (typeof artist === 'string' && artist.trim() !== '')
+    ? artist.trim()
+    : null;
+
   ensureSystemPlaylists(userId);
   const favoritesPlaylist = stmt.playlistBySystemType.get(userId, SYSTEM_TYPES.FAVORITES);
 
-  const existing = stmt.itemExists.get(favoritesPlaylist.id, bvid);
+  const existing = stmt.itemExists.get(favoritesPlaylist.id, normalizedBvid);
   if (existing) {
     // 已收藏，移除
-    removeItem(favoritesPlaylist.id, bvid);
+    removeItem(favoritesPlaylist.id, normalizedBvid);
     return { added: false, favorited: false };
   } else {
     // 未收藏，添加
-    addItem(favoritesPlaylist.id, { bvid, title, artist, duration, coverUrl });
+    addItem(favoritesPlaylist.id, {
+      bvid: normalizedBvid,
+      title: normalizedTitle,
+      artist: normalizedArtist,
+      duration,
+      coverUrl
+    });
     return { added: true, favorited: true };
   }
 };

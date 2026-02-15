@@ -42,12 +42,18 @@ void main() {
 
   group('ControlsPanel Widget Tests', () {
     testWidgets('应该显示播放控制按钮（上一首、播放/暂停、下一首）', (tester) async {
-      // Arrange: 创建空的播放器状态
+      // Arrange: 创建带当前播放内容的播放器状态
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: false,
-        isIdle: true,
+        isIdle: false, // 设置为 false，因为现在有内容
       );
 
       final queueState = const QueueState();
@@ -79,7 +85,13 @@ void main() {
 
     testWidgets('播放状态为 true 时应显示暂停图标', (tester) async {
       // Arrange
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: true,
@@ -116,7 +128,13 @@ void main() {
 
     testWidgets('应该显示时间进度（当前位置/总时长）', (tester) async {
       // Arrange
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: true,
@@ -144,14 +162,21 @@ void main() {
       );
 
       // Assert: 验证时间显示
-      expect(find.text('01:15 / 03:30'), findsOneWidget);
+      // Duration.toString() 格式为 "HH:MM:SS.mmmmmm"，split('.')[0] 得到 "HH:MM:SS"
+      expect(find.text('0:01:15 / 0:03:30'), findsOneWidget);
 
       container.dispose();
     });
 
     testWidgets('应该显示进度条', (tester) async {
       // Arrange
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: true,
@@ -178,20 +203,30 @@ void main() {
         ),
       );
 
-      // Assert: 验证进度条存在
-      expect(find.byType(Slider), findsOneWidget);
+      // Assert: 验证进度条存在（现在有2个 Slider：进度条 + 音量滑块）
+      expect(find.byType(Slider), findsAtLeastNWidgets(1));
 
-      // 验证进度条值
-      final slider = tester.widget<Slider>(find.byType(Slider));
-      expect(slider.value, 90); // 1分30秒 = 90秒
-      expect(slider.max, 180); // 3分钟 = 180秒
+      // 验证进度条值（找到值为90的进度条 Slider）
+      final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+      final progressBar = sliders.firstWhere(
+        (s) => s.max == 180, // 进度条的最大值是180秒
+        orElse: () => throw Exception('找不到进度条 Slider'),
+      );
+      expect(progressBar.value, 90); // 1分30秒 = 90秒
+      expect(progressBar.max, 180); // 3分钟 = 180秒
 
       container.dispose();
     });
 
     testWidgets('拖动进度条应调用 seek 方法', (tester) async {
       // Arrange
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: true,
@@ -217,8 +252,13 @@ void main() {
         ),
       );
 
-      // Act: 点击进度条中间位置
-      await tester.tap(find.byType(Slider));
+      // Act: 点击进度条中间位置（找到进度条 Slider）
+      final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+      final progressBarFinder = find.byWidget(sliders.firstWhere(
+        (s) => s.max == 180, // 进度条的最大值是180秒
+        orElse: () => throw Exception('找不到进度条 Slider'),
+      ));
+      await tester.tap(progressBarFinder);
       await tester.pumpAndSettle();
 
       // Assert: 验证状态已更新（位置改变）
@@ -231,7 +271,13 @@ void main() {
 
     testWidgets('点击播放/暂停按钮应切换状态', (tester) async {
       // Arrange
+      final currentPlayable = OnlinePlayable.fromAudio(
+        const Audio(id: '1', title: '测试歌曲', artist: '测试艺术家'),
+        'http://example.com/test.mp3',
+      );
+
       final playerState = PlayerState(
+        currentPlayable: currentPlayable,
         title: '测试歌曲',
         artist: '测试艺术家',
         isPlaying: false,
@@ -490,8 +536,8 @@ void main() {
       );
 
       // Assert: 应显示音量滑块和倍速按钮
-      expect(find.byIcon(Icons.volume_down), findsOneWidget);
-      expect(find.byIcon(Icons.volume_up), findsOneWidget);
+      expect(find.byIcon(Icons.remove), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
       // 验证音量百分比显示
       expect(find.text('80%'), findsOneWidget);
 

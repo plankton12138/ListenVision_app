@@ -225,7 +225,7 @@ const createTables = () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       bvid TEXT NOT NULL,
-      action TEXT CHECK(action IN ('play', 'like', 'skip', 'share')),
+      action TEXT CHECK(action IN ('play', 'like', 'skip')),
       timestamp TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
@@ -364,6 +364,57 @@ const migratePlayHistory = () => {
   }
 };
 
+// 迁移：移除 user_behavior_logs 中的 share 行为类型约束
+// 旧版本约束: (play, like, skip, share)
+// 新版本约束: (play, like, skip)
+// 迁移策略：重建表并过滤 action='share' 记录（按需求允许丢弃）
+const migrateUserBehaviorLogsRemoveShare = () => {
+  try {
+    const row = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='user_behavior_logs'")
+      .get();
+    const createSql = row?.sql ?? '';
+
+    if (!createSql.includes("'share'")) {
+      logger.info('user_behavior_logs table is already up to date');
+      return;
+    }
+
+    logger.info('Detected old user_behavior_logs table, starting migration...');
+
+    db.exec(`
+      BEGIN TRANSACTION;
+
+      ALTER TABLE user_behavior_logs RENAME TO user_behavior_logs_old;
+
+      CREATE TABLE user_behavior_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        bvid TEXT NOT NULL,
+        action TEXT CHECK(action IN ('play', 'like', 'skip')),
+        timestamp TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO user_behavior_logs (id, user_id, bvid, action, timestamp)
+      SELECT id, user_id, bvid, action, timestamp
+      FROM user_behavior_logs_old
+      WHERE action != 'share';
+
+      DROP TABLE user_behavior_logs_old;
+
+      CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_user_action ON user_behavior_logs(user_id, action, timestamp);
+      CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_bvid ON user_behavior_logs(bvid);
+
+      COMMIT;
+    `);
+
+    logger.info('user_behavior_logs table migration completed (share removed)');
+  } catch (e) {
+    logger.error('user_behavior_logs table migration failed:', e.message);
+  }
+};
+
 // 迁移：为 bilibili_accounts 表添加 refresh_token_encrypted 字段
 // 用于 Cookie 自动刷新机制
 const migrateBilibiliAccountsRefreshToken = () => {
@@ -470,6 +521,7 @@ const migratePlatformAccounts = () => {
 createTables();
 migratePlaylistItems();
 migratePlayHistory();
+migrateUserBehaviorLogsRemoveShare();
 migrateBilibiliAccountsRefreshToken();
 migrateUsersEmailVerified();
 migratePlatformAccounts();

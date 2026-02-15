@@ -291,10 +291,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           value: 'download',
           child: Text('下载'),
         ),
-        const PopupMenuItem(
-          value: 'share',
-          child: Text('分享'),
-        ),
+
       ],
     );
   }
@@ -337,12 +334,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           showAddToPlaylist: false,
         );
         break;
-      case 'share':
-        final url = 'https://www.bilibili.com/video/${item.bvid}';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享链接:\n$url')),
-        );
-        break;
+
     }
   }
 

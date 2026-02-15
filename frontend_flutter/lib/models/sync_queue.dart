@@ -2,6 +2,7 @@
 ///
 /// 用于本地优先架构的网络同步重试机制
 library;
+import 'dart:convert';
 
 /// 同步操作类型
 enum SyncType {
@@ -219,11 +220,23 @@ class SyncTaskFactory {
     required int trackId,
     required String bvid,
     required bool isFavorite,
+    String? title,
+    String? artist,
+    int? duration,
+    String? coverUrl,
   }) {
+    final payload = <String, dynamic>{
+      if (title != null && title.isNotEmpty) 'title': title,
+      if (artist != null && artist.isNotEmpty) 'artist': artist,
+      if (duration != null) 'duration': duration,
+      if (coverUrl != null && coverUrl.isNotEmpty) 'coverUrl': coverUrl,
+    };
+
     return SyncTask(
       type: isFavorite ? SyncType.favorite : SyncType.unfavorite,
       trackId: trackId,
       bvid: bvid,
+      data: payload.isEmpty ? null : jsonEncode(payload),
       status: SyncStatus.pending,
       createdAt: DateTime.now(),
     );

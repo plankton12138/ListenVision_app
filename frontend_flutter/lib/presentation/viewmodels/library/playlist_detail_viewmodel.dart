@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -9,13 +10,17 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/playlist_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../models/audio.dart';
+import '../../../models/local_audio.dart';
+import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/playlist.dart';
 import '../player/player_viewmodel.dart';
 import '../player/queue_viewmodel.dart';
 import '../system/download_viewmodel.dart';
+import 'local_music_viewmodel.dart';
 import 'playlist_viewmodel.dart';
 
 part 'playlist_detail_viewmodel.freezed.dart';
@@ -43,12 +48,55 @@ abstract class PlaylistDetailState with _$PlaylistDetailState {
   }) = PlaylistDetailStateError;
 }
 
+/// 批量操作状态
+@freezed
+abstract class BatchOperationState with _$BatchOperationState {
+  const factory BatchOperationState({
+    @Default(false) bool isInBatchMode,
+    @Default({}) Set<String> selectedBvids,
+    @Default(0) int totalItems,
+  }) = _BatchOperationState;
+
+  const BatchOperationState._();
+
+  bool get hasSelection => selectedBvids.isNotEmpty;
+  int get selectedCount => selectedBvids.length;
+  bool get isAllSelected => selectedCount == totalItems && totalItems > 0;
+}
+
+/// 批量操作结果
+@freezed
+abstract class BatchOperationResult with _$BatchOperationResult {
+  const factory BatchOperationResult({
+    required int success,
+    required int failed,
+    @Default([]) List<String> failedItems,
+  }) = _BatchOperationResult;
+
+  const BatchOperationResult._();
+
+  bool get isAllSuccess => failed == 0;
+  bool get isPartialSuccess => success > 0 && failed > 0;
+  bool get isAllFailed => success == 0 && failed > 0;
+}
+
 /// 歌单详情 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
 ///
 /// 负责单个歌单的详情展示和管理
 @riverpod
 class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   PlaylistRepository? _repository;
+
+  // 批量操作状态
+  final _batchState = ValueNotifier<BatchOperationState>(
+    const BatchOperationState(),
+  );
+
+  /// 获取批量操作状态监听器
+  ValueNotifier<BatchOperationState> get batchStateNotifier => _batchState;
+
+  /// 获取当前批量操作状态
+  BatchOperationState get batchState => _batchState.value;
 
   @override
   Future<PlaylistDetailState> build(String playlistId) async {
@@ -60,11 +108,70 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 加载歌单详情
   Future<void> _loadDetail(String playlistId) async {
     state = const AsyncLoading();
+
+    // favorites 系统歌单：优先使用本地 tracks.is_favorite 数据
+    // 因为收藏是本地优先的，后端 playlist_items 表可能与本地不一致
+    if (playlistId == Playlist.favorites.id) {
+      try {
+        AppLogger.info('PlaylistDetailViewModel', '加载我喜欢歌单（本地优先）: $playlistId');
+        final trackDao = ref.read(trackDaoProvider);
+        final tracks = await trackDao.getFavoriteTracks();
+        final items = <PlaylistItem>[];
+        for (var i = 0; i < tracks.length; i++) {
+          final t = tracks[i];
+          final bvid = t.bvid ?? t.sourceId;
+
+          // 改进本地音频的元数据显示：如果标题是默认值，尝试从文件名提取
+          var title = t.title;
+          var artist = t.artist;
+          if (t.localPath != null && t.localPath!.isNotEmpty) {
+            if (title == '未知标题' || title.isEmpty) {
+              // 从文件路径提取文件名（不含扩展名）作为标题
+              final fileName = path.basenameWithoutExtension(t.localPath!);
+              title = fileName.isNotEmpty ? fileName : '未知标题';
+            }
+            if (artist == null || artist.isEmpty || artist == '未知艺术家') {
+              artist = '未知艺术家';
+            }
+          }
+
+          items.add(
+            PlaylistItem(
+              playlistId: playlistId,
+              bvid: bvid,
+              title: title,
+              artist: artist,
+              duration: t.duration,
+              coverUrl: t.coverUrl,
+              localPath: t.localPath,
+              position: i,
+              addedAt: t.addedAt,
+            ),
+          );
+        }
+
+        final newState = PlaylistDetailState.loaded(
+          playlist: Playlist.favorites.copyWith(itemCount: items.length),
+          items: items,
+          isOwner: false,
+        );
+
+        if (!ref.mounted) return;
+        state = AsyncData(newState);
+        AppLogger.info('PlaylistDetailViewModel', '加载我喜欢成功: ${items.length}首');
+        return;
+      } catch (e) {
+        AppLogger.error('PlaylistDetailViewModel', '加载我喜欢失败: $e');
+        if (!ref.mounted) return;
+        state = AsyncData(PlaylistDetailState.error(message: e.toString()));
+        return;
+      }
+    }
+
+    // 其他歌单：从 API 获取
     try {
       AppLogger.info('PlaylistDetailViewModel', '加载歌单详情: $playlistId');
 
-      // 直接从 API 获取歌单详情，确保数据是最新的
-      // 这样即使歌单不在 PlaylistViewModel 缓存中也能正确加载
       final playlistDetail = await _repository!.getPlaylistDetail(playlistId);
       final playlist = playlistDetail.playlist;
       final items = playlistDetail.items;
@@ -266,18 +373,44 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     try {
       AppLogger.info('PlaylistDetailViewModel', '播放歌曲: bvid=$bvid, 索引=$startIndex');
 
-      // 构建队列（从当前歌曲开始）
+      // 获取本地音乐列表（用于匹配本地路径）
+      final localMusicState = ref.read(localMusicViewModelProvider);
+
+      // 构建完整队列（包含所有歌曲）
       final queueItems = <PlayableAudio>[];
-      for (int i = startIndex; i < items.length; i++) {
+      for (int i = 0; i < items.length; i++) {
         final item = items[i];
         final itemBvid = item.bvid;
         final localPath = item.localPath;
 
-        // 跳过本地音乐
+        // 本地音乐：转换为 LocalPlayable
         if (localPath != null && localPath.isNotEmpty) {
+          // 从本地音乐库查找对应的 LocalAudio
+          final localAudio = localMusicState.whenOrNull(
+            data: (data) => data.map(
+              initial: (_) => null as LocalAudio?,
+              loading: (_) => null as LocalAudio?,
+              loaded: (data) {
+                // 手动查找匹配的音频
+                for (final audio in data.audios) {
+                  if (audio.filePath == localPath) {
+                    return audio;
+                  }
+                }
+                return null as LocalAudio?;
+              },
+              importing: (_) => null as LocalAudio?,
+              error: (_) => null as LocalAudio?,
+            ),
+          );
+
+          if (localAudio != null) {
+            queueItems.add(LocalPlayable.fromAudio(localAudio));
+          }
           continue;
         }
 
+        // 在线音乐：创建 OnlinePlayable
         if (itemBvid != null && itemBvid.isNotEmpty) {
           final audio = Audio(
             id: itemBvid,
@@ -296,22 +429,29 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       }
 
       if (queueItems.isEmpty) {
-        AppLogger.warn('PlaylistDetailViewModel', '没有可播放的在线音频');
+        AppLogger.warn('PlaylistDetailViewModel', '没有可播放的音频');
         return false;
       }
 
-      // 替换队列
+      // 替换队列（从点击的歌曲索引开始）
       await ref.read(queueViewModelProvider.notifier).setQueue(
         queueItems,
-        initialIndex: 0,
+        initialIndex: startIndex,
       );
 
-      // 开始播放第一首（即用户点击的歌曲）
-      final firstItem = queueItems.first;
-      if (firstItem is OnlinePlayable) {
+      // 播放点击的歌曲（使用 startIndex）
+      final clickedPlayable = queueItems[startIndex];
+      if (clickedPlayable is OnlinePlayable) {
         await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
-          audio: firstItem.original,
-          proxyUrl: firstItem.proxyUrl,
+          audio: clickedPlayable.original,
+          proxyUrl: clickedPlayable.proxyUrl,
+        );
+      } else if (clickedPlayable is LocalPlayable) {
+        await ref.read(playerViewModelProvider.notifier).playLocalAudio(
+          clickedPlayable.original.filePath,
+          title: clickedPlayable.original.title,
+          artist: clickedPlayable.original.artist,
+          albumArt: clickedPlayable.original.albumArt,
         );
       }
 
@@ -484,6 +624,140 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       AppLogger.error('PlaylistDetailViewModel', '删除歌单失败: $e');
       return false;
     }
+  }
+
+  // ==================== 批量操作功能 ====================
+
+  /// 进入批量操作模式
+  void enterBatchMode() {
+    final items = state.valueOrNull?.maybeWhen(
+      loaded: (_, items, __) => items,
+      orElse: () => <PlaylistItem>[],
+    ) ?? [];
+
+    _batchState.value = BatchOperationState(
+      isInBatchMode: true,
+      totalItems: items.length,
+    );
+    AppLogger.info('PlaylistDetailViewModel', '进入批量模式: ${items.length}项');
+  }
+
+  /// 退出批量操作模式
+  void exitBatchMode() {
+    _batchState.value = const BatchOperationState();
+    AppLogger.info('PlaylistDetailViewModel', '退出批量模式');
+  }
+
+  /// 切换项目的选中状态
+  void toggleSelection(String bvid) {
+    final current = _batchState.value;
+    final selected = Set<String>.from(current.selectedBvids);
+
+    if (selected.contains(bvid)) {
+      selected.remove(bvid);
+    } else {
+      selected.add(bvid);
+    }
+
+    _batchState.value = current.copyWith(selectedBvids: selected);
+  }
+
+  /// 全选/取消全选
+  void toggleSelectAll() {
+    final current = _batchState.value;
+
+    if (current.isAllSelected) {
+      // 取消全选
+      _batchState.value = current.copyWith(selectedBvids: {});
+    } else {
+      // 全选
+      final items = state.valueOrNull?.maybeWhen(
+        loaded: (_, items, __) => items,
+        orElse: () => <PlaylistItem>[],
+      ) ?? [];
+      final allBvids = items.map((i) => i.bvid).toSet();
+      _batchState.value = current.copyWith(selectedBvids: allBvids);
+    }
+  }
+
+  /// 批量移除选中的项目
+  Future<BatchOperationResult> batchRemoveItems(List<String> bvids) async {
+    final playlistId = state.valueOrNull?.maybeWhen(
+      loaded: (playlist, _, __) => playlist.id,
+      orElse: () => null,
+    );
+
+    if (playlistId == null) {
+      return BatchOperationResult(
+        success: 0,
+        failed: bvids.length,
+        failedItems: bvids,
+      );
+    }
+
+    int success = 0;
+    int failed = 0;
+    final failedItems = <String>[];
+
+    AppLogger.info('PlaylistDetailViewModel', '开始批量移除: ${bvids.length}项');
+
+    // 逐个移除（后端暂不支持批量删除接口）
+    for (final bvid in bvids) {
+      try {
+        final result = await _repository!.removePlaylistItem(
+          playlistId: playlistId,
+          bvid: bvid,
+        );
+        if (result) {
+          success++;
+        } else {
+          failed++;
+          failedItems.add(bvid);
+        }
+      } catch (e) {
+        failed++;
+        failedItems.add(bvid);
+        AppLogger.error('PlaylistDetailViewModel', '批量移除失败: $bvid, $e');
+      }
+    }
+
+    // 更新本地状态 - 移除成功的项目
+    if (success > 0) {
+      final currentState = state.valueOrNull;
+      if (currentState is PlaylistDetailStateLoaded) {
+        final updatedItems = currentState.items
+            .where((item) => !bvids.contains(item.bvid))
+            .toList();
+        final updatedPlaylist = currentState.playlist.copyWith(
+          itemCount: updatedItems.length,
+        );
+
+        state = AsyncData(currentState.copyWith(
+          playlist: updatedPlaylist,
+          items: updatedItems,
+        ));
+      }
+
+      // 同步更新批量状态中的总数和清空选中
+      _batchState.value = _batchState.value.copyWith(
+        totalItems: _batchState.value.totalItems - success,
+        selectedBvids: {},
+      );
+
+      // 触发 PlaylistViewModel 刷新
+      ref.invalidate(playlistViewModelProvider);
+    }
+
+    AppLogger.info(
+      'PlaylistDetailViewModel',
+      '批量移除完成: 成功$success, 失败$failed',
+    );
+
+    return BatchOperationResult(
+      success: success,
+      failed: failed,
+      failedItems: failedItems,
+    );
   }
 }
 

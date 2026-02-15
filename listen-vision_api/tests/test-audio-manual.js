@@ -257,7 +257,6 @@ async function step3_GetVideoInfo(bvid) {
     console.log(`    点赞    : ${formatNumber(video.stat?.like)}`);
     console.log(`    投币    : ${formatNumber(video.stat?.coin)}`);
     console.log(`    收藏    : ${formatNumber(video.stat?.favorite)}`);
-    console.log(`    分享    : ${formatNumber(video.stat?.share)}`);
     console.log(`    弹幕    : ${formatNumber(video.stat?.danmaku)}`);
     console.log('');
 

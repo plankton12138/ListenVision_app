@@ -164,7 +164,7 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
       ));
 
       // 开始轮询
-      _startQRPolling(result.qrcodeKey!, result.expiresAt!);
+      _startQRPolling(result.qrcodeKey, result.expiresAt);
 
       return true;
     } catch (e) {

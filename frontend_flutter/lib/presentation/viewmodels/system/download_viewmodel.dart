@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:demo/core/state/state_utils.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/download_repository.dart';

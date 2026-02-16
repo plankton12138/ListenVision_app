@@ -287,7 +287,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
 
         // 如果有 bvid，创建在线可播放对象
-        if (bvid != null && bvid.isNotEmpty) {
+        if (bvid.isNotEmpty) {
           // 创建 Audio 对象
           final audio = Audio(
             id: bvid,
@@ -411,7 +411,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
 
         // 在线音乐：创建 OnlinePlayable
-        if (itemBvid != null && itemBvid.isNotEmpty) {
+        if (itemBvid.isNotEmpty) {
           final audio = Audio(
             id: itemBvid,
             title: item.title ?? '未知标题',
@@ -490,7 +490,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
 
         // 跳过没有 bvid 的项
-        if (item.bvid == null || item.bvid!.isEmpty) {
+        if (item.bvid.isEmpty) {
           skippedNoBvid++;
           continue;
         }
@@ -501,7 +501,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
           final savePath = '$downloadDir$sanitizedTitle.mp3';
 
           await downloadNotifier.addDownload(
-            bvid: item.bvid!,
+            bvid: item.bvid,
             savePath: savePath,
             title: item.title,
             artist: item.artist,

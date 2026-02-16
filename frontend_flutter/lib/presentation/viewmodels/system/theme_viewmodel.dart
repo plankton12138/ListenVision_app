@@ -56,7 +56,7 @@ class ThemeViewModel extends _$ThemeViewModel {
   /// 从本地存储加载主题偏好
   Future<void> _loadThemePreference() async {
     try {
-      final savedMode = await _storage.getString(_themeKey);
+      final savedMode = _storage.getString(_themeKey);
       if (savedMode != null) {
         state = AppThemeMode.values.byName(savedMode);
         AppLogger.info('ThemeViewModel', '主题加载: $savedMode');

@@ -436,3 +436,98 @@ final apiClient = ref.watch(apiClientProvider);
 - 📄 [Riverpod 使用指南](./docs/RIVERPOD_GUIDE.md)
 - 📄 [日志记录规范](./docs/LOGGING_STANDARDS.md)
 - 📄 [代码注释规范](./docs/CODE_COMMENT_STANDARDS.md)
+
+---
+
+## 长期记忆
+
+### 项目决策记录
+
+- **[2026-02-16]** 文件系统监听方案变更：放弃 `FileSystemEntity.watch()` 方案，改用启动扫描 + 定期轮询 + 播放前验证的三层检测机制。
+  - **原因**: `FileSystemEntity.watch()` 在移动端支持不完整，不可靠。
+  - **新方案**: `DownloadIntegrityService` 提供启动全量扫描、30分钟轮询、播放前验证的三层保障。
+  - **相关文件**: `docs/plans/file-system-watcher-implementation.md`
+
+### 架构合规性修复 - 第一阶段完成
+
+**完成日期**: 2026-02-16
+
+#### 已完成功能
+
+1. **文件系统完整性验证** (P0)
+   - ✅ 实现 `DownloadIntegrityService` 服务
+   - ✅ 启动时全量扫描（验证所有已下载文件）
+   - ✅ 30分钟定期增量检查
+   - ✅ 自动标记缺失文件为未下载状态
+   - ✅ 通过 Provider 集成到应用启动流程
+
+2. **本地优先播放策略** (P0)
+   - ✅ 修改 `QueueViewModel.playAt()` 方法
+   - ✅ 播放前检查本地文件存在性
+   - ✅ 本地可用时优先使用本地文件
+   - ✅ 本地不可用时自动回退到网络播放
+   - ✅ 增强 `TrackRepository` 支持文件验证方法
+
+#### 新增文件
+
+- `lib/services/download_integrity_service.dart` - 下载完整性服务
+- `lib/data/sync/download_integrity_provider.dart` - 下载完整性 Provider
+
+#### 修改文件
+
+- `lib/data/database/track_dao.dart` - 添加 `markAsNotDownloaded`, `batchUpdateDownloadStatus`, `getRecentlyDownloadedTracks` 方法
+- `lib/data/repositories/track_repository.dart` - 添加 `getLocalPath`, `validateLocalFile`, `batchMarkAsNotDownloaded` 方法
+- `lib/presentation/viewmodels/player/queue_viewmodel.dart` - 修改 `playAt()` 实现本地优先播放逻辑
+- `lib/app.dart` - 集成 `downloadIntegrityServiceProvider`
+
+### 架构合规性修复 - 第二阶段完成
+
+**完成日期**: 2026-02-16
+
+#### 已完成功能
+
+1. **增强 ErrorUIHandler** (P1)
+   - ✅ 新增 `showSuccess` - 成功提示（绿色）
+   - ✅ 新增 `showWarning` - 警告提示（橙色）
+   - ✅ 新增 `showInfo` - 信息提示（蓝色）
+   - ✅ 新增 `showToast` - 轻量级提示
+   - ✅ 新增 `showErrorDialog` - 错误对话框
+   - ✅ 新增 `showConfirmDialog` - 确认对话框
+   - ✅ 新增 `showInputDialog` - 输入对话框
+   - ✅ 新增 `tryAsync`/`trySync` - 安全执行封装
+   - ✅ 新增网络错误/权限错误专用提示方法
+   - ✅ 添加 `ValidationException` 到异常体系
+
+2. **网络状态监测** (P1)
+   - ✅ 添加 `connectivity_plus` 依赖
+   - ✅ 实现 `NetworkStatusNotifier` 状态管理
+   - ✅ 支持 WiFi/移动数据/以太网/VPN 等多种连接类型
+   - ✅ 创建 `NetworkStatusListener` 全局监听组件
+   - ✅ 网络断开时显示错误提示
+   - ✅ 网络恢复时显示成功提示
+   - ✅ 网络类型变化时显示信息提示
+   - ✅ 集成到 App 顶层监听
+
+#### 新增文件
+
+- `lib/core/models/network_status.dart` - 网络状态模型
+- `lib/core/network/network_status_provider.dart` - 网络状态 Provider
+- `lib/presentation/widgets/common/network_status_listener.dart` - 网络状态监听组件
+- `lib/core/errors/exceptions.dart` - 添加 `ValidationException`
+
+#### 修改文件
+
+- `lib/presentation/utils/error_ui_handler.dart` - 全面增强，支持多种提示类型
+- `lib/core/utils/error_handler.dart` - 添加 `isValidationError` 方法
+- `lib/app.dart` - 集成 `NetworkStatusListener`
+- `pubspec.yaml` - 添加 `connectivity_plus: ^6.1.3`
+
+#### 当前架构合规性状态
+
+| 需求 | 状态 | 说明 |
+|------|------|------|
+| 本地优先播放策略 | ✅ 已完成 | 播放时优先检查本地文件 |
+| 数据变化感知（文件监听） | ✅ 已完成 | 三层检测机制：启动扫描+轮询+播放验证 |
+| 统一错误提示风格 | ✅ 已完成 | ErrorUIHandler 已全面增强，可逐步迁移现有 93 处调用 |
+| 网络断链提示 | ✅ 已完成 | 实时监测网络状态，自动提示断连/恢复 |
+| 双向数据同步 | ⏳ P2 | 待实现 |

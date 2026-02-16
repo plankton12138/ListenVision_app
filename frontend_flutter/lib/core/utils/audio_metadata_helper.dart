@@ -143,7 +143,7 @@ class AudioMetadataHelper {
       // 解析异常 - 文件格式不兼容，立即回退到路径提取
       AppLogger.warn('AudioMetadataHelper', '元数据解析失败，使用路径提取: ${_getFileName(filePath)} - ${e.message}');
       return _extractFromPath(filePath);
-    } catch (e, stackTrace) {
+    } catch (e) {
       // 其他异常也回退到路径提取
       final errorStr = e.toString();
       final truncatedError = errorStr.length > 150

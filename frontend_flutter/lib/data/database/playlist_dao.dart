@@ -119,8 +119,6 @@ class PlaylistDao {
 
   /// 从服务器数据插入或更新歌单（UPSERT）
   Future<int> upsertPlaylistFromServer(Map<String, dynamic> serverData) async {
-    final db = await _db.database;
-
     final serverId = serverData['server_id'] as String?;
     if (serverId == null) {
       throw ArgumentError('server_id 不能为空');

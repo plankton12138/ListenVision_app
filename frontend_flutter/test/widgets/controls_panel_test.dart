@@ -262,7 +262,6 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: 验证状态已更新（位置改变）
-      final updatedState = container.read(playerViewModelProvider);
       // 位置应该已经改变（通过 seek 被调用）
       // 注意：这里我们主要验证没有崩溃，实际 seek 由 AudioPlayerService 处理
 

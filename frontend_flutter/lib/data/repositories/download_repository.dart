@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:sqflite/sqflite.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../../services/resumable_download_service.dart';

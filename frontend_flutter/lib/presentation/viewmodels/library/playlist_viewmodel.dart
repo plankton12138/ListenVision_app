@@ -65,7 +65,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     _repository = ref.watch(playlistRepositoryProvider);
     _storage = ref.watch(sharedStorageServiceProvider);
 
-    final token = await _storage!.getString('auth_token');
+    final token = _storage!.getString('auth_token');
     if (token != null) {
       return await _initialize(token);
     }
@@ -665,7 +665,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
         if (shouldFixLocalPath || shouldFixSourceType || shouldFixBvid) {
           final updatedTrack = track.copyWith(
-            localPath: shouldFixLocalPath ? localPath!.trim() : track.localPath,
+            localPath: shouldFixLocalPath ? localPath.trim() : track.localPath,
             sourceType: shouldFixSourceType ? TrackSource.local : track.sourceType,
             bvid: shouldFixBvid ? bvid : track.bvid,
             isDownloaded: true,
@@ -755,7 +755,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   Future<PlaylistState> _loadPlaylistsFromLocal() async {
     try {
-      final playlistsJson = await _storage!.getString('playlists_cache');
+      final playlistsJson = _storage!.getString('playlists_cache');
       if (playlistsJson != null) {
         final data = jsonDecode(playlistsJson) as List;
         final playlists = data

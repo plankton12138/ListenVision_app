@@ -13,8 +13,6 @@ import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/services/metadata_service.dart';
-import 'package:demo/presentation/viewmodels/player/queue_viewmodel.dart';
 
 /// 首页
 ///
@@ -45,9 +43,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       AppLogger.info('HomePage', '选择本地音频: $filePath');
 
-      // 2. 提取元数据
-      final metadataService = MetadataService();
-      final metadata = await metadataService.extractFromFile(filePath);
+    // 2. 提取元数据
+    final metadataService = ref.read(metadataServiceProvider);
+    final metadata = await metadataService.extractFromFile(filePath);
 
       // 3. 创建 LocalAudio 对象
       final localAudio = LocalAudio(

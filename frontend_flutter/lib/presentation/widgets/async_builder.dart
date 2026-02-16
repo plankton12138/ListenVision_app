@@ -61,7 +61,7 @@ class AsyncBuilder<T> extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          final data = snapshot.data!;
+          final data = snapshot.data as T;
           // 检查是否为空集合
           if (data is Iterable && data.isEmpty) {
             return emptyBuilder?.call() ?? _defaultEmpty(context);

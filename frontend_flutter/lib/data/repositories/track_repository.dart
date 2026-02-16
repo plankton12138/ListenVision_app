@@ -328,17 +328,72 @@ class TrackRepository {
 
   // ==================== 已下载 ====================
 
-  /// 获取已下载列表
-  Future<List<CachedTrack>> getDownloadedTracks() async {
-    return await _trackDao.getDownloadedTracks();
+/// 获取已下载列表
+Future<List<CachedTrack>> getDownloadedTracks() async {
+  return await _trackDao.getDownloadedTracks();
+}
+
+/// 获取最近下载的轨道
+Future<List<CachedTrack>> getRecentlyDownloadedTracks({
+  required DateTime since,
+}) async {
+  return await _trackDao.getRecentlyDownloadedTracks(since: since);
+}
+
+/// 检查是否已下载
+Future<bool> isDownloaded(String bvid) async {
+  return await _trackDao.isDownloaded(bvid);
+}
+
+/// 根据 sourceId 获取本地文件路径（如果文件有效）
+///
+/// 返回本地文件路径，如果文件不存在或无效则返回 null
+Future<String?> getLocalPath(String sourceId) async {
+  final track = await _trackDao.getBySourceId(sourceId);
+  if (track == null || track.localPath == null) return null;
+
+  // 验证文件存在性
+  final file = File(track.localPath!);
+  final exists = await file.exists();
+  final isValid = exists && await file.length() > 0;
+
+  if (!isValid && track.isDownloaded) {
+    // 文件被删除，更新状态
+    await _trackDao.markAsNotDownloaded(sourceId);
+    return null;
   }
 
-  /// 检查是否已下载
-  Future<bool> isDownloaded(String bvid) async {
-    return await _trackDao.isDownloaded(bvid);
+  return isValid ? track.localPath : null;
+}
+
+/// 验证本地文件是否有效
+Future<bool> validateLocalFile(String sourceId) async {
+  final track = await _trackDao.getBySourceId(sourceId);
+  if (track?.localPath == null) return false;
+
+  final file = File(track!.localPath!);
+  final exists = await file.exists();
+  final isValid = exists && await file.length() > 0;
+
+  if (!isValid && track.isDownloaded) {
+    // 更新状态为未下载
+    await _trackDao.markAsNotDownloaded(sourceId);
   }
 
-  // ==================== 资源释放 ====================
+  return isValid;
+}
+
+/// 标记为未下载
+Future<void> markAsNotDownloaded(String sourceId) async {
+  await _trackDao.markAsNotDownloaded(sourceId);
+}
+
+/// 批量标记为未下载
+Future<void> batchMarkAsNotDownloaded(List<String> sourceIds) async {
+  await _trackDao.batchUpdateDownloadStatus(sourceIds, false);
+}
+
+// ==================== 资源释放 ====================
 
   /// 释放资源
   void dispose() {

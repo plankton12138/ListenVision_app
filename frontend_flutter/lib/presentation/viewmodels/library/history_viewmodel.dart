@@ -210,7 +210,7 @@ class HistoryViewModel extends _$HistoryViewModel {
       await _saveHistoryToLocal();
 
       // 异步同步到服务器（非阻塞）
-      final token = await _storage!.getString('auth_token');
+      final token = _storage!.getString('auth_token');
       if (token != null && token.isNotEmpty && bvid != null) {
         _syncPlayToServer(
           token,
@@ -283,7 +283,7 @@ class HistoryViewModel extends _$HistoryViewModel {
       await _saveHistoryToLocal();
 
       // 尝试从服务器删除
-      final token = await _storage!.getString('auth_token');
+      final token = _storage!.getString('auth_token');
       if (token != null && token.isNotEmpty) {
         await _repository!.deletePlayHistory(bvid);
       }
@@ -341,7 +341,7 @@ class HistoryViewModel extends _$HistoryViewModel {
       await _storage!.remove('play_history_cache');
 
       // 尝试从服务器清空
-      final token = await _storage!.getString('auth_token');
+      final token = _storage!.getString('auth_token');
       if (token != null && token.isNotEmpty) {
         await _repository!.clearAllHistory();
       }
@@ -396,7 +396,7 @@ class HistoryViewModel extends _$HistoryViewModel {
 
   Future<HistoryState> _loadHistoryFromLocal() async {
     try {
-      final historyJson = await _storage!.getString('play_history_cache');
+      final historyJson = _storage!.getString('play_history_cache');
       if (historyJson != null) {
         final data = jsonDecode(historyJson) as List;
         final history = data

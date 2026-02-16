@@ -5,7 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/local_music_repository.dart';
 import '../../../models/local_audio.dart';
-import '../../../services/metadata_service.dart';
+import '../player/metadata_viewmodel.dart';
 
 part 'local_music_viewmodel.freezed.dart';
 part 'local_music_viewmodel.g.dart';
@@ -34,12 +34,12 @@ abstract class LocalMusicState with _$LocalMusicState {
 @Riverpod(keepAlive: true)
 class LocalMusicViewModel extends _$LocalMusicViewModel {
   LocalMusicRepository? _repository;
-  MetadataService? _metadataService;
+  MetadataViewModel? _metadataViewModel;
 
   @override
   Future<LocalMusicState> build() async {
     _repository = ref.watch(localMusicRepositoryProvider);
-    _metadataService = MetadataService();
+    _metadataViewModel = ref.read(metadataViewModelProvider.notifier);
 
     return await _loadPlaylist();
   }
@@ -95,7 +95,7 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
       ));
 
       // 提取元数据
-      final metadata = await _metadataService!.extractFromFile(filePath);
+      final metadata = await _metadataViewModel!.extractFromFile(filePath);
 
       // 创建本地音频对象
       final localAudio = LocalAudio(
@@ -155,8 +155,8 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
             continue;
           }
 
-          // 提取元数据
-          final metadata = await _metadataService!.extractFromFile(filePath);
+        // 提取元数据
+        final metadata = await _metadataViewModel!.extractFromFile(filePath);
 
           // 创建并保存
           final localAudio = LocalAudio(

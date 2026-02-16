@@ -209,6 +209,45 @@ class BusinessException extends AppException {
   }
 }
 
+// ==================== 验证异常 ====================
+
+/// 参数验证异常
+///
+/// 输入参数验证失败、格式错误等
+class ValidationException extends AppException {
+  const ValidationException(super.message, [super.code]);
+
+  factory ValidationException.invalidInput() {
+    return const ValidationException('输入无效', 'INVALID_INPUT');
+  }
+
+  factory ValidationException.invalidEmail() {
+    return const ValidationException('邮箱格式不正确', 'INVALID_EMAIL');
+  }
+
+  factory ValidationException.invalidPassword() {
+    return const ValidationException('密码不符合要求', 'INVALID_PASSWORD');
+  }
+
+  factory ValidationException.fieldRequired(String fieldName) {
+    return ValidationException('$fieldName 不能为空', 'FIELD_REQUIRED');
+  }
+
+  factory ValidationException.fieldTooLong(String fieldName, int maxLength) {
+    return ValidationException(
+      '$fieldName 长度不能超过 $maxLength 个字符',
+      'FIELD_TOO_LONG',
+    );
+  }
+
+  factory ValidationException.invalidFormat(String fieldName) {
+    return ValidationException(
+      '$fieldName 格式不正确',
+      'INVALID_FORMAT',
+    );
+  }
+}
+
 // ==================== B站相关异常 ====================
 
 /// B站 API 异常

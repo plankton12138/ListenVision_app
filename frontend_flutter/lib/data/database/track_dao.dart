@@ -137,7 +137,59 @@ class TrackDao {
     });
   }
 
-  // ==================== 删除 ====================
+  /// 标记轨道为未下载状态
+Future<void> markAsNotDownloaded(String sourceId) async {
+  final track = await getBySourceId(sourceId);
+  if (track == null) return;
+
+  await _db.updateTrack(track.id, {
+    'is_downloaded': 0,
+    'local_path': null,
+    'updated_at': DateTime.now().toIso8601String(),
+  });
+
+  AppLogger.info('TrackDao', '标记为未下载: $sourceId');
+}
+
+/// 批量更新下载状态
+Future<void> batchUpdateDownloadStatus(
+  List<String> sourceIds,
+  bool downloaded,
+) async {
+  if (sourceIds.isEmpty) return;
+
+  for (final sourceId in sourceIds) {
+    final track = await getBySourceId(sourceId);
+    if (track != null) {
+      await _db.updateTrack(track.id, {
+        'is_downloaded': downloaded ? 1 : 0,
+        'local_path': downloaded ? track.localPath : null,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  AppLogger.info(
+      'TrackDao', '批量更新下载状态: ${sourceIds.length} 个轨道, downloaded=$downloaded');
+}
+
+/// 获取最近下载的轨道
+///
+/// [since] 指定时间之后的下载记录
+Future<List<CachedTrack>> getRecentlyDownloadedTracks({
+  required DateTime since,
+}) async {
+  final db = await _db.database;
+  final maps = await db.query(
+    'tracks',
+    where: 'is_downloaded = ? AND updated_at >= ?',
+    whereArgs: [1, since.toIso8601String()],
+    orderBy: 'updated_at DESC',
+  );
+  return maps.map((m) => CachedTrack.fromMap(m)).toList();
+}
+
+// ==================== 删除 ====================
 
   /// 删除 Track
   Future<void> delete(int id) async {

@@ -2,7 +2,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/app_logger.dart';
-import '../../models/sync_queue.dart';
 import '../database/app_database.dart';
 import '../database/sync_queue_dao.dart';
 import '../sync/sync_worker.dart';

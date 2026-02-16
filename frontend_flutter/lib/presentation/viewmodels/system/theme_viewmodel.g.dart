@@ -50,7 +50,7 @@ final class ThemeViewModelProvider
   }
 }
 
-String _$themeViewModelHash() => r'eeb191a2599489f2d1995edd62af3009dd14f79c';
+String _$themeViewModelHash() => r'0152df9cbce00c5482a057094f685a75bbcdbd6c';
 
 /// 主题 ViewModel
 ///

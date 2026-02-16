@@ -1,18 +1,34 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 
 import '../errors/exceptions.dart';
-import '../../presentation/widgets/error_banner.dart';
-import 'dialog_helper.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'app_logger.dart';
 
 /// 统一错误处理器
 ///
 /// 提供统一的错误处理机制，将各种异常转换为用户友好的中文消息
-/// 并提供多种显示方式（SnackBar、Dialog、Banner）
+///
+/// 【架构说明】
+/// 此类位于 Core 层，只包含纯逻辑（错误解析、判断等），不涉及 UI
+/// 如需显示错误到 UI，请使用 presentation/utils/error_ui_handler.dart 中的 ErrorUIHandler
+///
+/// 【使用方式】
+/// ```dart
+/// // 1. 解析错误消息
+/// final message = ErrorHandler.parseErrorMessage(error);
+///
+/// // 2. 判断是否可重试
+/// if (ErrorHandler.isRetryable(error)) { ... }
+///
+/// // 3. 记录错误日志
+/// ErrorHandler.logError(error, stackTrace: stackTrace);
+///
+/// // 4. 显示错误（在 UI 层）
+/// ErrorUIHandler.showError(context, error); // 在 View/ViewModel 中调用
+/// ```
 class ErrorHandler {
   /// 解析异常并返回用户友好的错误消息
   ///
@@ -208,56 +224,6 @@ class ErrorHandler {
     return error.toString();
   }
 
-  /// 显示错误（SnackBar）
-  ///
-  /// 默认使用 SnackBar 显示错误，适合大多数场景
-  static void showError(
-    BuildContext context,
-    dynamic error, {
-    VoidCallback? onRetry,
-    Duration duration = const Duration(seconds: 3),
-  }) {
-    final message = parseErrorMessage(error);
-
-    if (onRetry != null) {
-      // 带重试按钮的 SnackBar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: duration,
-          backgroundColor: Colors.red,
-          action: SnackBarAction(
-            label: '重试',
-            textColor: Colors.white,
-            onPressed: onRetry,
-          ),
-        ),
-      );
-    } else {
-      DialogHelper.showError(context, message);
-    }
-  }
-
-  /// 显示错误对话框
-  ///
-  /// 适用于需要用户确认的重要错误
-  static Future<void> showErrorDialog(
-    BuildContext context,
-    dynamic error, {
-    String? title,
-    VoidCallback? onRetry,
-  }) async {
-    final message = parseErrorMessage(error);
-
-    if (!context.mounted) return;
-    await ErrorDialog.show(
-      context,
-      title: title ?? '操作失败',
-      message: message,
-      onRetry: onRetry,
-    );
-  }
-
   /// 在开发模式下打印详细错误日志
   ///
   /// 用于调试，生产环境下只打印简要信息
@@ -278,54 +244,6 @@ class ErrorHandler {
     } else {
       // 生产模式：只打印简要信息
       AppLogger.error('ErrorHandler', '$prefix${parseErrorMessage(error)}');
-    }
-  }
-
-  /// 安全地执行异步操作，自动处理错误
-  ///
-  /// 返回 true 表示成功，false 表示失败
-  static Future<bool> tryAsync(
-    Future<void> Function() operation, {
-    BuildContext? context,
-    String? errorMessage,
-    VoidCallback? onError,
-  }) async {
-    try {
-      await operation();
-      return true;
-    } catch (e, stackTrace) {
-      logError(e, stackTrace: stackTrace);
-
-      if (context != null && context.mounted) {
-        showError(context, e);
-      }
-
-      onError?.call();
-      return false;
-    }
-  }
-
-  /// 安全地执行同步操作，自动处理错误
-  ///
-  /// 返回 true 表示成功，false 表示失败
-  static bool trySync(
-    void Function() operation, {
-    BuildContext? context,
-    String? errorMessage,
-    VoidCallback? onError,
-  }) {
-    try {
-      operation();
-      return true;
-    } catch (e, stackTrace) {
-      logError(e, stackTrace: stackTrace);
-
-      if (context != null && context.mounted) {
-        showError(context, e);
-      }
-
-      onError?.call();
-      return false;
     }
   }
 
@@ -389,15 +307,18 @@ class ErrorHandler {
 
     return false;
   }
-}
 
-/// SocketException 占位类
-///
-/// 用于 DioException 错误类型检测
-/// 注：dart:io 的 SocketException 在平台间可能有差异
-class SocketException implements Exception {
-  final String message;
-  SocketException(this.message);
-  @override
-  String toString() => 'SocketException: $message';
+  /// 判断是否为验证错误
+  static bool isValidationError(dynamic error) {
+    if (error is ValidationException) {
+      return true;
+    }
+
+    if (error is DioException) {
+      return error.response?.statusCode == 400 ||
+          error.response?.statusCode == 422;
+    }
+
+    return false;
+  }
 }

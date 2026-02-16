@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/constants/storage_constants.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../models/local_audio.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/local_playable.dart';
@@ -276,44 +277,61 @@ class QueueViewModel extends _$QueueViewModel {
     AppLogger.debug('QueueViewModel', '设置当前索引: $index');
   }
 
-  /// 播放指定索引的音频
-  ///
-  /// [index] 要播放的索引
-  Future<void> playAt(int index) async {
-    if (index < 0 || index >= state.queue.length) {
-      AppLogger.warn(
-        'QueueViewModel',
-        '无效的索引: $index, 队列长度: ${state.queue.length}',
-      );
-      return;
-    }
+/// 播放指定索引的音频
+///
+/// [index] 要播放的索引
+Future<void> playAt(int index) async {
+  if (index < 0 || index >= state.queue.length) {
+    AppLogger.warn(
+      'QueueViewModel',
+      '无效的索引: $index, 队列长度: ${state.queue.length}',
+    );
+    return;
+  }
 
-    final playable = state.queue[index];
+  final playable = state.queue[index];
 
-    // 更新索引
-    state = state.copyWith(currentIndex: index);
+  // 更新索引
+  state = state.copyWith(currentIndex: index);
 
-    // 通知播放器播放
-    final playerNotifier = ref.read(playerViewModelProvider.notifier);
+  // 通知播放器播放
+  final playerNotifier = ref.read(playerViewModelProvider.notifier);
 
     if (playable.isOnline && playable is OnlinePlayable) {
-      // 在线音频：从 OnlinePlayable 获取原始 Audio
-      await playerNotifier.playOnlineAudio(
-        audio: playable.original,
-        streamUrl: playable.url,
-      );
+      final sourceId = playable.original.id;
+
+      // 本地优先播放策略：先检查本地是否已下载且文件有效
+      final trackRepository = ref.read(trackRepositoryProvider);
+      final localPath = await trackRepository.getLocalPath(sourceId);
+
+      if (localPath != null) {
+        // 使用本地文件播放
+        await playerNotifier.playLocalAudio(
+          localPath,
+          title: playable.original.title,
+          artist: playable.original.artist,
+        );
+        AppLogger.info(
+            'QueueViewModel', '本地优先播放: $sourceId (路径: $localPath)');
+      } else {
+        // 本地不存在或文件无效，使用网络流播放
+        await playerNotifier.playOnlineAudio(
+          audio: playable.original,
+          streamUrl: playable.url,
+        );
+        AppLogger.info('QueueViewModel', '网络播放: $sourceId');
+      }
     } else {
-      // 本地音频
+      // 本地音频（非B站音频）直接播放
       await playerNotifier.playLocalAudio(
         playable.url,
         title: playable.title,
         artist: playable.artist,
-        albumArt: playable.coverData,
       );
     }
 
-    AppLogger.info('QueueViewModel', '播放索引 $index: ${playable.title}');
-  }
+  AppLogger.info('QueueViewModel', '播放索引 $index: ${playable.title}');
+}
 
   /// 播放下一首
   ///

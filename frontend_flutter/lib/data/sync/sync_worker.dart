@@ -30,6 +30,15 @@ class SyncWorker {
   /// 统计变化流
   Stream<SyncQueueStats> get statsStream => _statsController.stream;
 
+  /// 获取 API 客户端（供子类使用）
+  BackendApiClient get apiClient => _apiClient;
+
+  /// 获取同步 DAO（供子类使用）
+  SyncQueueDao get syncDao => _syncDao;
+
+  /// 检查是否已释放
+  bool get isDisposed => _isDisposed;
+
   SyncWorker({
     SyncQueueDao? syncDao,
     BackendApiClient? apiClient,

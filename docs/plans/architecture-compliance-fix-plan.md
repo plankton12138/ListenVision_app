@@ -19,16 +19,20 @@
 | 网络断链提示 | 未使用已定义的网络检测方法 | 🟡 中等 | P1 | 4小时 | ✅ 已完成 |
 | 双向数据同步 | 只实现单向同步 | 🟢 低 | P2 | 6小时 | ⏳ 待实现 |
 
-## 三、Phase 1: 核心功能修复 (P0级问题)
+## 三、Phase 1: 核心功能修复 (P0级问题) ✅ 已完成
+
+**完成日期**: 2026-02-16
+**实际工时**: 4小时
+**完成报告**: [Phase 1 完成报告](../reports/phase1-completion-report.md)
 
 ### 3.1 实现播放时的本地优先策略
 
 #### 3.1.1 修改播放逻辑
-**目标文件**: `lib/presentation/viewmodels/player/queue_viewmodel.dart`
-**修改内容**:
-1. 在播放前检查本地文件是否存在
-2. 如果本地文件存在且有效，则优先使用本地文件
-3. 只有在本地文件不可用时才使用网络流
+**目标文件**: `lib/presentation/viewmodels/player/queue_viewmodel.dart` ✅ 已完成
+**修改内容**: 
+1. ✅ 在播放前检查本地文件是否存在
+2. ✅ 如果本地文件存在且有效，则优先使用本地文件
+3. ✅ 只有在本地文件不可用时才使用网络流
 
 #### 3.1.2 更新控制面板逻辑
 **目标文件**: `lib/presentation/widgets/controls_panel.dart`
@@ -46,11 +50,13 @@
 ### 3.2 实现文件系统监听机制
 
 #### 3.2.1 创建文件监听服务
-**新建文件**: `lib/services/download_file_watcher.dart`
+**新建文件**: `lib/services/download_integrity_service.dart` ✅ 已完成  
+**方案变更**: 放弃 `FileSystemEntity.watch()`，改用启动扫描 + 定期轮询方案  
 **功能**:
-1. 监听下载目录的文件变化
-2. 检测文件删除事件
-3. 自动更新数据库状态
+1. ✅ 启动时全量扫描验证
+2. ✅ 30分钟定期增量检查
+3. ✅ 播放前验证文件存在性
+4. ✅ 自动更新数据库状态
 
 #### 3.2.2 集成到应用启动流程
 **目标文件**: `lib/main.dart`
@@ -64,7 +70,11 @@
 1. `Future<void> markAsNotDownloaded(String sourceId)` - 标记为未下载
 2. `Future<void> batchUpdateDownloadStatus(List<String> sourceIds, bool downloaded)` - 批量更新下载状态
 
-## 四、Phase 2: 用户体验优化 (P1级问题)
+## 四、Phase 2: 用户体验优化 (P1级问题) ✅ 已完成
+
+**完成日期**: 2026-02-16  
+**实际工时**: 6小时  
+**完成报告**: [Phase 2 完成报告](../reports/phase2-completion-report.md)
 
 ### 4.1 统一错误提示风格
 

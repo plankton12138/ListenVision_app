@@ -3,6 +3,9 @@
 **方案制定日期**: 2026-02-16
 **关联主计划**: architecture-compliance-fix-plan.md
 **优先级**: P2
+**状态**: ⏳ 待实现
+
+**依赖**: Phase 1 和 Phase 2 完成后实施
 
 ---
 ## 一、目标

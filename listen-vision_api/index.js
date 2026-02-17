@@ -79,6 +79,15 @@ try {
   logger.error('Stack trace:', e.stack);
 }
 
+// 同步路由（独立注册）
+try {
+  const syncRouter = require('./routes/sync');
+  app.use('/api/v1/sync', syncRouter);
+  logger.info('Sync API routes registered (/api/v1/sync/*)');
+} catch (e) {
+  logger.error('Failed to load sync routes:', e.message);
+}
+
 // ========== 错误处理 ==========
 
 // 404 处理

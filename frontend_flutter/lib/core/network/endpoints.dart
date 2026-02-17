@@ -90,4 +90,11 @@ class Endpoints {
   static const String audioSearchRecent = '/audio/search/recent';
   static const String audioStats = '/audio/stats';
   static const String audioClean = '/audio/clean';
+
+  // ==================== 同步相关 ====================
+  static const String syncFavorites = '/sync/favorites';
+  static const String syncPlaylists = '/sync/playlists';
+  static const String syncHistory = '/sync/history';
+  static const String syncChanges = '/sync/changes';
+  static const String syncStatus = '/sync/status';
 }

@@ -14,6 +14,7 @@ jest.mock('../../config/database', () => {
       password TEXT NOT NULL,
       reset_code TEXT,
       code_expire TEXT,
+      email_verified INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
@@ -79,11 +80,32 @@ jest.mock('../../config/database', () => {
       bili_user_id TEXT,
       bili_username TEXT,
       cookie_encrypted TEXT,
+      refresh_token_encrypted TEXT,
       is_active INTEGER DEFAULT 1,
       expires_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 平台账号表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS platform_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      platform TEXT NOT NULL,
+      platform_user_id TEXT,
+      platform_username TEXT,
+      cookie_encrypted TEXT,
+      token_encrypted TEXT,
+      refresh_token_encrypted TEXT,
+      is_active INTEGER DEFAULT 1,
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, platform)
     )
   `);
 

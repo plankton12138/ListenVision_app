@@ -14,6 +14,20 @@ jest.mock('../../config/database', () => {
       password TEXT NOT NULL,
       reset_code TEXT,
       code_expire TEXT,
+      email_verified INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // 待注册表
+  db.exec(`
+    CREATE TABLE pending_registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      verify_code TEXT NOT NULL,
+      code_expire TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
@@ -141,6 +155,7 @@ describe('用户服务测试', () => {
         id: info.lastInsertRowid,
         username: 'testuser',
         email: 'test@example.com',
+        email_verified: 0,
         created_at: expect.any(String)
       });
     });

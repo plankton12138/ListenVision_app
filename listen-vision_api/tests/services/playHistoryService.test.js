@@ -14,6 +14,7 @@ jest.mock('../../config/database', () => {
       password TEXT NOT NULL,
       reset_code TEXT,
       code_expire TEXT,
+      email_verified INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
@@ -217,7 +218,7 @@ describe('播放历史服务测试', () => {
           playHistoryService.recordPlay(testUserId, {
             title: '无标识符音频'
           });
-        }).toThrow('缺少音频标识符');
+        }).toThrow('Either bvid or localPath must be provided');
       });
 
       test('null 用户也应支持记录播放（游客模式）', () => {

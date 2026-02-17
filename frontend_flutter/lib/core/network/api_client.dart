@@ -550,6 +550,68 @@ class ApiClient {
     }
   }
 
+  // ==================== 同步 API ====================
+
+  /// 获取云端收藏列表（带时间戳）
+  Future<Map<String, dynamic>> getCloudFavorites() async {
+    try {
+      final response = await _dioClient.get(Endpoints.syncFavorites);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取云端收藏列表失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取云端歌单列表（带时间戳）
+  Future<Map<String, dynamic>> getCloudPlaylists() async {
+    try {
+      final response = await _dioClient.get(Endpoints.syncPlaylists);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取云端歌单列表失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取云端播放历史（带时间戳）
+  Future<Map<String, dynamic>> getCloudHistory() async {
+    try {
+      final response = await _dioClient.get(Endpoints.syncHistory);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取云端播放历史失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取增量变更
+  Future<Map<String, dynamic>> getCloudChanges({DateTime? since}) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.syncChanges,
+        queryParameters: since != null
+            ? {'since': since.toIso8601String()}
+            : null,
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取增量变更失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取同步状态
+  Future<Map<String, dynamic>> getSyncStatus() async {
+    try {
+      final response = await _dioClient.get(Endpoints.syncStatus);
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取同步状态失败: $e');
+      rethrow;
+    }
+  }
+
   // ==================== 通用请求方法（向后兼容） ====================
 
   /// 通用 GET 请求

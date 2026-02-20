@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,7 +21,10 @@ class App extends ConsumerWidget {
     final themeMode = ref.watch(themeViewModelProvider);
 
     // 启动下载完整性服务（本地优先播放策略的基础）
-    ref.watch(downloadIntegrityServiceProvider);
+    // Web 平台不支持本地文件系统下载目录校验，且 IndexedDB/worker 资源可能未配置，跳过避免启动报错。
+    if (!kIsWeb) {
+      ref.watch(downloadIntegrityServiceProvider);
+    }
 
     // 监听 token 变化，同步到 DioClient
     ref.listen<String?>(

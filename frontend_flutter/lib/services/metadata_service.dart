@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show mustCallSuper, visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb, mustCallSuper, visibleForTesting;
 
 import '../core/utils/app_logger.dart';
 import '../core/utils/audio_metadata_helper.dart';
@@ -106,10 +106,16 @@ class MetadataService {
     AppLogger.debug('MetadataService', '========== 开始提取元数据: $fileName ==========');
 
     // Android 11+ 需要权限（调用方负责）
-    // 文件存在性检查
-    if (!File(filePath).existsSync()) {
-      AppLogger.error('MetadataService', '文件不存在: $filePath');
-      return _extractFromPath(filePath);
+    // Web 平台不支持 dart:io 的 File.existsSync()，需要特殊处理
+    if (!kIsWeb) {
+      // 非 Web 平台：检查文件是否存在
+      if (!File(filePath).existsSync()) {
+        AppLogger.error('MetadataService', '文件不存在: $filePath');
+        return _extractFromPath(filePath);
+      }
+    } else {
+      // Web 平台：blob URL 无法用 dart:io 检查，直接尝试读取
+      AppLogger.debug('MetadataService', 'Web 平台，跳过文件存在性检查: $filePath');
     }
 
     try {

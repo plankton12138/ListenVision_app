@@ -33,12 +33,11 @@ class FilePickerService {
 
   /// 从设备存储选择音频文件
   ///
-  /// 返回所选文件的路径，取消选择时返回 null
-  Future<String?> pickAudioFile() async {
+  /// Web 平台上无法获得真实可读的本地路径，因此返回 XFile，调用方可 readAsBytes()。
+  Future<XFile?> pickAudioFile() async {
     const typeGroup = audioTypeGroup;
-    final XFile? result = await openFile(
+    return await openFile(
       acceptedTypeGroups: <XTypeGroup>[typeGroup],
     );
-    return result?.path;
   }
 }

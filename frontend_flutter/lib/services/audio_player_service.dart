@@ -152,13 +152,24 @@ class AudioPlayerService {
 
   // ==================== 音频源管理 ====================
 
+  Source _buildLocalSource(String pathOrUrl) {
+    // Web 平台无法直接访问本地文件路径，使用 blob URL / http(s) URL
+    if (kIsWeb ||
+        pathOrUrl.startsWith('blob:') ||
+        pathOrUrl.startsWith('http://') ||
+        pathOrUrl.startsWith('https://')) {
+      return UrlSource(pathOrUrl);
+    }
+    return DeviceFileSource(pathOrUrl);
+  }
+
   /// 设置本地音频源
   ///
-  /// [filePath] 本地音频文件的完整路径
+  /// [filePath] 本地音频文件的完整路径（Web 端可传 blob URL）
   Future<void> setSource(String filePath) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '设置本地音频源: $filePath');
-    await _player.setSource(DeviceFileSource(filePath));
+    await _player.setSource(_buildLocalSource(filePath));
     _currentSourceUrl = filePath;
   }
 
@@ -174,11 +185,11 @@ class AudioPlayerService {
 
   /// 播放本地文件
   ///
-  /// [filePath] 本地音频文件的完整路径
+  /// [filePath] 本地音频文件的完整路径（Web 端可传 blob URL）
   Future<void> playFile(String filePath) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '播放本地文件: $filePath');
-    await _player.play(DeviceFileSource(filePath));
+    await _player.play(_buildLocalSource(filePath));
     _currentSourceUrl = filePath;
   }
 
@@ -204,11 +215,11 @@ class AudioPlayerService {
 
   /// 设置音频源并播放（本地文件）
   ///
-  /// [filePath] 本地音频文件的完整路径
+  /// [filePath] 本地音频文件的完整路径（Web 端可传 blob URL）
   Future<void> setSourceAndPlayFile(String filePath) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '设置并播放本地文件: $filePath');
-    await _player.play(DeviceFileSource(filePath));
+    await _player.play(_buildLocalSource(filePath));
     _currentSourceUrl = filePath;
   }
 
@@ -232,7 +243,7 @@ class AudioPlayerService {
     if (isOnline) {
       await _player.setSource(UrlSource(url));
     } else {
-      await _player.setSource(DeviceFileSource(url));
+      await _player.setSource(_buildLocalSource(url));
     }
     _currentSourceUrl = url;
   }

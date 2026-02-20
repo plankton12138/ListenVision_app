@@ -1,5 +1,6 @@
 import 'package:demo/core/constants/app_constants.dart';
 import 'package:demo/core/state/state_utils.dart';
+import 'package:demo/core/utils/app_logger.dart';
 import 'package:demo/models/audio.dart';
 import 'package:demo/models/online_playable.dart';
 import 'package:demo/models/search_suggestion.dart';
@@ -148,13 +149,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               data: (state) => state.map(
                 initial: (_) => _buildInitialState(),
                 loading: (_) => const Center(child: CircularProgressIndicator()),
-                resultsLoaded: (data) => _buildResultsList(
-                  data.results,
-                  data.currentPage,
-                  data.pageSize,
-                  data.totalCount,
-                  data.hasMore,
-                ),
+                resultsLoaded: (data) {
+                  // DEBUG: 打印搜索结果变化
+                  AppLogger.debug('SearchPage', '渲染结果: page=${data.currentPage}, results.length=${data.results.length}, first bvid=${data.results.isNotEmpty ? data.results.first.bvid : "empty"}');
+                  return _buildResultsList(
+                    data.results,
+                    data.currentPage,
+                    data.pageSize,
+                    data.totalCount,
+                    data.hasMore,
+                  );
+                },
                 idle: (data) => _buildIdleState(
                   data.searchHistory,
                   data.suggestions,
@@ -353,6 +358,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 加载指定页
   void _loadPage(int page) {
+    AppLogger.debug('SearchPage', '_loadPage called: page=$page');
     final currentState = ref.read(searchViewModelProvider);
     final query = currentState.valueOrNull?.map(
       initial: (_) => '',
@@ -361,7 +367,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       idle: (_) => '',
       error: (_) => '',
     ) ?? '';
+    AppLogger.debug('SearchPage', 'query=$query');
     if (query.isNotEmpty) {
+      AppLogger.debug('SearchPage', '调用 search with page=$page');
       ref.read(searchViewModelProvider.notifier).search(query, page: page);
     }
   }

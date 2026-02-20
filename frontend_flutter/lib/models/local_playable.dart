@@ -50,7 +50,7 @@ class LocalPlayable extends PlayableAudio {
   bool get isOnline => false;
 
   @override
-  String get url => _audio.filePath;
+  String get url => _audio.url ?? _audio.filePath;
 
   @override
   Map<String, dynamic> toMap() {

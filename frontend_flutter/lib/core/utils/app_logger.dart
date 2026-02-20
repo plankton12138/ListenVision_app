@@ -105,6 +105,15 @@ class AppLogger {
     if (_isInitialized) return;
 
     try {
+      // Web 平台：跳过文件日志，仅使用控制台输出
+      if (kIsWeb) {
+        if (kDebugMode) {
+          print('📁 AppLogger: Web 平台，仅使用控制台输出');
+        }
+        _isInitialized = true;
+        return;
+      }
+
       // 获取应用文档目录
       final appDocDir = await getApplicationDocumentsDirectory();
 

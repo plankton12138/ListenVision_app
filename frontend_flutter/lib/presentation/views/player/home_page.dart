@@ -12,7 +12,10 @@ import 'package:demo/presentation/widgets/my_drawer.dart';
 import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/utils/blob_url.dart';
 
 /// 首页
 ///
@@ -34,37 +37,57 @@ class _HomePageState extends ConsumerState<HomePage> {
     try {
       // 1. 使用 FilePickerService 选择文件
       final filePickerService = ref.read(filePickerServiceProvider);
-      final filePath = await filePickerService.pickAudioFile();
+      final file = await filePickerService.pickAudioFile();
 
-      if (filePath == null) {
+      if (file == null) {
         AppLogger.debug('HomePage', '用户取消文件选择');
         return; // 用户取消，静默返回
       }
 
-      AppLogger.info('HomePage', '选择本地音频: $filePath');
+      // Web 平台不能依赖本地路径，使用 bytes -> blob URL 播放
+      final metadataService = ref.read(metadataServiceProvider);
 
-    // 2. 提取元数据
-    final metadataService = ref.read(metadataServiceProvider);
-    final metadata = await metadataService.extractFromFile(filePath);
+      late final String storageKey;
+      String? playableUrl;
+
+      if (kIsWeb) {
+        final bytes = await file.readAsBytes();
+        playableUrl = createBlobUrl(bytes, mimeType: 'audio/mpeg');
+        storageKey = file.name;
+        AppLogger.info('HomePage', 'Web 选择本地音频: ${file.name}, blobUrl=$playableUrl');
+      } else {
+        storageKey = file.path;
+        AppLogger.info('HomePage', '选择本地音频: $storageKey');
+      }
+
+      // 2. 提取元数据（Web 端仅从文件名推断）
+      final metadata = kIsWeb
+          ? metadataService.extractMetadataFromPath(storageKey)
+          : await metadataService.extractFromFile(storageKey);
 
       // 3. 创建 LocalAudio 对象
       final localAudio = LocalAudio(
-        filePath: filePath,
-        title: metadata.title.isNotEmpty ? metadata.title : _getFileName(filePath),
+        filePath: storageKey,
+        url: playableUrl,
+        title: metadata.title.isNotEmpty ? metadata.title : _getFileName(storageKey),
         artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
         duration: metadata.duration ?? 0,
         albumArt: metadata.cover,
       );
 
-      // 4. 保存到"本地音乐"歌单（如果未导入）
-      final localMusicRepo = ref.read(localMusicRepositoryProvider);
-      final isImported = await localMusicRepo.isFileImported(filePath);
+      // 4. 非 Web：保存到"本地音乐"歌单（如果未导入）
+      if (!kIsWeb) {
+        final localMusicRepo = ref.read(localMusicRepositoryProvider);
+        final isImported = await localMusicRepo.isFileImported(storageKey);
 
-      if (!isImported) {
-        await localMusicRepo.addLocalMusic(localAudio);
-        AppLogger.info('HomePage', '已保存到本地音乐歌单');
+        if (!isImported) {
+          await localMusicRepo.addLocalMusic(localAudio);
+          AppLogger.info('HomePage', '已保存到本地音乐歌单');
+        } else {
+          AppLogger.info('HomePage', '音频已存在于本地音乐歌单，跳过保存');
+        }
       } else {
-        AppLogger.info('HomePage', '音频已存在于本地音乐歌单，跳过保存');
+        AppLogger.warn('HomePage', 'Web 平台：仅支持会话内播放，不持久化导入到本地音乐歌单');
       }
 
       // 5. 创建 PlayableAudio 并添加到队列末尾

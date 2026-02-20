@@ -1,4 +1,9 @@
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../../../core/utils/blob_url.dart';
+import '../../../models/local_playable.dart';
+import '../../providers.dart' show queueViewModelProvider;
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -76,6 +81,28 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
       final XFile? file = await openFile(acceptedTypeGroups: [audioType]);
       if (file == null) return;
 
+      // Web：仅会话内播放，不写入数据库（避免刷新后遗留不可播放记录）
+      if (kIsWeb) {
+        final bytes = await file.readAsBytes();
+        final blobUrl = createBlobUrl(bytes, mimeType: 'audio/mpeg');
+
+        final metadata = _metadataViewModel!.extractFromPath(file.name);
+        final playable = LocalPlayable(
+          LocalAudio(
+            filePath: file.name,
+            url: blobUrl,
+            title: metadata.title.isNotEmpty ? metadata.title : _getFileName(file.name),
+            artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
+            duration: 0,
+            albumArt: metadata.cover,
+          ),
+        );
+
+        await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
+        AppLogger.info('LocalMusicViewModel', 'Web 导入：已加入队列并播放: ${file.name}');
+        return;
+      }
+
       final filePath = file.path;
 
       // 检查文件是否已导入
@@ -132,6 +159,37 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
       final List<XFile> files = await openFiles(acceptedTypeGroups: [audioType]);
       if (files.isEmpty) return;
 
+      // Web：批量也只做会话内播放（依次加入队列）
+      if (kIsWeb) {
+        for (final file in files) {
+          final bytes = await file.readAsBytes();
+          final blobUrl = createBlobUrl(bytes, mimeType: 'audio/mpeg');
+          final metadata = _metadataViewModel!.extractFromPath(file.name);
+
+          final playable = LocalPlayable(
+            LocalAudio(
+              filePath: file.name,
+              url: blobUrl,
+              title: metadata.title.isNotEmpty ? metadata.title : _getFileName(file.name),
+              artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
+              duration: 0,
+              albumArt: metadata.cover,
+            ),
+          );
+
+          await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: false);
+        }
+
+        // 播放第一首
+        final queueState = ref.read(queueViewModelProvider);
+        if (queueState.queue.isNotEmpty) {
+          await ref.read(queueViewModelProvider.notifier).playAt(queueState.queue.length - files.length);
+        }
+
+        AppLogger.info('LocalMusicViewModel', 'Web 批量导入：已加入队列 ${files.length} 首');
+        return;
+      }
+
       int successCount = 0;
       int skipCount = 0;
       int failCount = 0;
@@ -155,8 +213,8 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
             continue;
           }
 
-        // 提取元数据
-        final metadata = await _metadataViewModel!.extractFromFile(filePath);
+          // 提取元数据
+          final metadata = await _metadataViewModel!.extractFromFile(filePath);
 
           // 创建并保存
           final localAudio = LocalAudio(

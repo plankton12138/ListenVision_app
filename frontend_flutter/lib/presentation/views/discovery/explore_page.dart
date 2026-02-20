@@ -88,6 +88,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            iconSize: UIConstants.iconMedium,
+            onPressed: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+            tooltip: '刷新',
+          ),
+          IconButton(
             icon: const Icon(Icons.home),
             iconSize: UIConstants.iconMedium,
             onPressed: () => context.go('/'),

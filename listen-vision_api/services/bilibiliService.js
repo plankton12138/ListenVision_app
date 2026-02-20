@@ -877,17 +877,17 @@ const searchBilibili = async (keyword, page = 1, pageSize = 20, userId = null) =
       }, 0);
     }
 
-    // 获取WBI签名
+    // 获取WBI签名 - 使用 v2 搜索 API
     const wbiKey = await getWbiKey();
     const params = {
       search_type: 'video',
       keyword,
-      pn: page,
+      page,
       page_size: pageSize
     };
     const signedParams = signWbi(params, wbiKey);
 
-    const url = `https://api.bilibili.com/x/web-interface/wbi/search/type?${new URLSearchParams(signedParams).toString()}`;
+    const url = `https://api.bilibili.com/x/web-interface/wbi/search/all/v2?${new URLSearchParams(signedParams).toString()}`;
 
     const headers = {};
     // 如果有Cookie，添加到请求头
@@ -904,9 +904,27 @@ const searchBilibili = async (keyword, page = 1, pageSize = 20, userId = null) =
       throw new Error(data.message || '搜索失败');
     }
 
+    // DEBUG: 打印 B站 API 返回的原始结果
+    logger.info('[searchBilibili] B站API原始返回: page=%d, numResults=%d, result.length=%d',
+      page, data.data?.numResults, (data.data?.result || []).length);
+
+    // v2 API 返回格式: result 数组中每个元素是 { result_type, data: [...] }
+    // 视频结果在 result_type === 'video' 的元素中
     const results = data.data?.result || [];
-    const videos = results
-      .filter(r => r.type === 'video')
+    let videoResults = [];
+
+    // 查找 video 类型的结果
+    const videoResult = results.find(r => r.result_type === 'video');
+    if (videoResult && videoResult.data) {
+      videoResults = videoResult.data;
+      logger.info('[searchBilibili] 找到视频结果: %d 条', videoResults.length);
+      if (videoResults.length > 0) {
+        const first3 = videoResults.slice(0, 3).map(r => ({ bvid: r.bvid, title: r.title?.substring(0, 20) }));
+        logger.info('[searchBilibili] 前3个结果: %o', first3);
+      }
+    }
+
+    const videos = videoResults
       .map(r => ({
         bvid: r.bvid || extractBvid(r.arcurl),
         title: cleanHtml(r.title),
@@ -930,11 +948,12 @@ const searchBilibili = async (keyword, page = 1, pageSize = 20, userId = null) =
       }, 0);
     }
 
+    // v2 API 固定返回 20 条，实际返回数量可能与请求的 pageSize 不同
     return {
       keyword,
       videos,
       page,
-      pageSize,
+      pageSize: videos.length,
       total: data.data?.numResults || videos.length
     };
   } catch (error) {
@@ -1053,37 +1072,23 @@ const cleanupInvalidBindings = () => {
 };
 
 /**
- * 获取B站音乐区排行榜
+ * 获取B站音乐区推荐视频（最新发布）
  *
- * API: GET https://api.bilibili.com/x/web-interface/ranking/v2?rid=3
+ * API: GET https://api.bilibili.com/x/web-interface/dynamic/region?rid=3&pn=1&ps=20
  *
- * rid=3 为音乐主分区，参考: docs/video/video_zone.md
+ * 使用动态分区 API，返回音乐区的最新发布内容（非固定排名）
+ * rid=3 为音乐主分区，无需WBI签名
  *
  * @param {number} userId - 用户ID（用于获取Cookie）
- * @param {number} page - 页码（暂不支持，API返回固定100个）
- * @param {number} pageSize - 每页数量（用于限制返回数量）
+ * @param {number} page - 页码
+ * @param {number} pageSize - 每页数量
  * @returns {Object} 推荐视频列表
  */
 const getRecommendedVideos = async (userId = null, page = 1, pageSize = 20) => {
   try {
     logger.info('[getRecommendedVideos] 开始: userId=%s, page=%d, pageSize=%d', userId, page, pageSize);
 
-    const wbiKey = await getWbiKey(userId);
-
-    if (!wbiKey.imgKey || !wbiKey.subKey) {
-      logger.error('[getRecommendedVideos] WBI Key 获取失败');
-      throw new Error('WBI签名密钥获取失败');
-    }
-
-    // 使用分区排行榜 API，rid=3 为音乐主分区
-    const params = {
-      rid: 3,           // 音乐主分区
-      type: 'all',      // 全部类型
-    };
-    const signedParams = signWbi(params, wbiKey);
-
-    const url = `https://api.bilibili.com/x/web-interface/ranking/v2?${new URLSearchParams(signedParams).toString()}`;
-
+    // 构建请求头（使用用户Cookie提升稳定性）
     const headers = {};
     if (userId) {
       const cookie = getCookie(userId);
@@ -1093,26 +1098,25 @@ const getRecommendedVideos = async (userId = null, page = 1, pageSize = 20) => {
       }
     }
 
+    // 使用动态分区 API，返回音乐区的最新发布内容
+    // rid=3 为音乐主分区，pn=页码，ps=每页数量
+    const url = `https://api.bilibili.com/x/web-interface/dynamic/region?rid=3&pn=${page}&ps=${pageSize}`;
+
     const data = await httpGet(url, headers);
     logger.info('[getRecommendedVideos] B站API响应: code=%d', data.code);
 
     if (data.code !== 0) {
-      throw new Error(data.message || '获取音乐区排行榜失败');
+      throw new Error(data.message || '获取音乐区推荐失败');
     }
 
-    // ranking/v2 返回 data.list 数组
-    const list = data.data?.list || [];
-
-    // 根据 pageSize 截取返回结果
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedList = list.slice(startIndex, endIndex);
+    // dynamic/region 返回 data.archives 数组
+    const archives = data.data?.archives || [];
 
     logger.info('[getRecommendedVideos] 成功: 返回 %d 个视频（第 %d 页，每页 %d）',
-                paginatedList.length, page, pageSize);
+                archives.length, page, pageSize);
 
     return {
-      videos: paginatedList.map(item => ({
+      videos: archives.map(item => ({
         bvid: item.bvid,
         title: item.title,
         cover: item.pic,
@@ -1124,7 +1128,7 @@ const getRecommendedVideos = async (userId = null, page = 1, pageSize = 20) => {
       })),
       page,
       pageSize,
-      total: list.length,
+      total: archives.length,
     };
   } catch (error) {
     logger.error('[getRecommendedVideos] 异常: %s', error.message);

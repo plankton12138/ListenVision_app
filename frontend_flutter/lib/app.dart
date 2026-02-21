@@ -40,15 +40,16 @@ class App extends ConsumerWidget {
       AppLogger.debug('App', 'Theme changed: ${previous?.name} -> ${next.name}');
     });
 
-    return NetworkStatusListener(
-      child: MaterialApp.router(
-        title: 'ListenVision',
-        debugShowCheckedModeBanner: false,
-        themeMode: themeMode.flutterThemeMode,
-        theme: lightMode,
-        darkTheme: darkMode,
-        routerConfig: routerConfig,
-      ),
+    return MaterialApp.router(
+      title: 'ListenVision',
+      debugShowCheckedModeBanner: false,
+      themeMode: themeMode.flutterThemeMode,
+      theme: lightMode,
+      darkTheme: darkMode,
+      routerConfig: routerConfig,
+      builder: (context, child) {
+        return NetworkStatusListener(child: child ?? const SizedBox());
+      },
     );
   }
 }

@@ -8,7 +8,7 @@ import '../../../presentation/utils/error_ui_handler.dart';
 
 /// 网络状态监听器
 ///
-/// 监听网络状态变化，并在状态变化时显示提示
+/// 监听网络状态变化，并在状态变化时显示 SnackBar 提示
 /// 应该在应用的顶层包裹，确保全局监听
 class NetworkStatusListener extends ConsumerStatefulWidget {
   final Widget child;
@@ -28,7 +28,7 @@ class _NetworkStatusListenerState extends ConsumerState<NetworkStatusListener> {
 
   @override
   Widget build(BuildContext context) {
-    // 监听网络状态变化
+    // 监听网络状态变化（用于显示 SnackBar 提示）
     ref.listen<AsyncValue<NetworkStatus>>(
       networkStatusProvider,
       (previous, next) {
@@ -36,9 +36,7 @@ class _NetworkStatusListenerState extends ConsumerState<NetworkStatusListener> {
           data: (status) {
             _handleNetworkStatusChange(status);
           },
-          loading: () {
-            // 加载中，不处理
-          },
+          loading: () {},
           error: (error, stackTrace) {
             AppLogger.error(
                 'NetworkStatusListener', '网络状态监听错误', error: error);
@@ -91,6 +89,78 @@ class _NetworkStatusListenerState extends ConsumerState<NetworkStatusListener> {
         context,
         '网络切换到 ${currentStatus.connectionDescription}',
       );
+    }
+  }
+}
+
+/// 网络状态图标
+///
+/// 显示在 AppBar 中的网络状态图标，根据连接类型和状态显示不同图标和颜色
+class NetworkStatusIcon extends ConsumerWidget {
+  const NetworkStatusIcon({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final networkStatusAsync = ref.watch(networkStatusProvider);
+
+    return networkStatusAsync.when(
+      data: (status) => Tooltip(
+        message: status.isConnected
+            ? status.connectionDescription
+            : '无网络连接',
+        child: Icon(
+          _getIcon(status),
+          color: _getColor(status),
+          size: 20,
+        ),
+      ),
+      loading: () => const SizedBox(width: 20),
+      error: (_, _) => const Tooltip(
+        message: '网络状态未知',
+        child: Icon(Icons.wifi_find, size: 20),
+      ),
+    );
+  }
+
+  /// 根据网络状态获取图标
+  IconData _getIcon(NetworkStatus status) {
+    if (!status.isConnected) return Icons.wifi_off;
+
+    switch (status.connectionType) {
+      case NetworkConnectionType.wifi:
+        return Icons.wifi;
+      case NetworkConnectionType.mobile:
+        return Icons.signal_cellular_alt;
+      case NetworkConnectionType.ethernet:
+        return Icons.lan;
+      case NetworkConnectionType.vpn:
+        return Icons.vpn_key;
+      case NetworkConnectionType.bluetooth:
+        return Icons.bluetooth;
+      case NetworkConnectionType.other:
+      case NetworkConnectionType.none:
+        return Icons.wifi_off;
+    }
+  }
+
+  /// 根据网络状态获取颜色
+  Color _getColor(NetworkStatus status) {
+    if (!status.isConnected) return const Color(0xFFE53935);
+
+    switch (status.connectionType) {
+      case NetworkConnectionType.wifi:
+        return const Color(0xFF43A047);
+      case NetworkConnectionType.mobile:
+        return const Color(0xFF1E88E5);
+      case NetworkConnectionType.ethernet:
+        return const Color(0xFF7B1FA2);
+      case NetworkConnectionType.vpn:
+        return const Color(0xFFFF9800);
+      case NetworkConnectionType.bluetooth:
+        return const Color(0xFF00ACC1);
+      case NetworkConnectionType.other:
+      case NetworkConnectionType.none:
+        return const Color(0xFFE53935);
     }
   }
 }

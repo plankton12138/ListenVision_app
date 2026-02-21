@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/blob_url.dart';
+import '../../widgets/common/network_status_listener.dart';
 
 /// 首页
 ///
@@ -304,6 +305,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         actions: <Widget>[
+          // 网络状态图标
+          const NetworkStatusIcon(),
           // 文件选择按钮
           IconButton(
             icon: const Icon(Icons.file_upload),

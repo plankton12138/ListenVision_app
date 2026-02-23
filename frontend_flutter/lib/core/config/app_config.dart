@@ -22,7 +22,7 @@ import 'package:demo/core/utils/app_logger.dart';
 enum AppEnvironment {
   dev('开发环境', 'http://127.0.0.1:3000'),
   test('测试环境', 'http://192.168.0.197:3000'),
-  staging('预发布环境', 'http://123.56.225.108:3000'),
+  staging('预发布环境', 'https://app.phytoplankton.cn'),
   prod('生产环境', 'https://api.listenvision.com');
 
   final String description;

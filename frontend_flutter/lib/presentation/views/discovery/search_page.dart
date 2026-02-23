@@ -10,6 +10,7 @@ import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:demo/presentation/widgets/common/download_status_indicator.dart';
 import 'package:demo/presentation/widgets/common/snackbar_helper.dart';
 import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:demo/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -262,12 +263,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 leading: item.coverUrl != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
+                        child: ImageHelper.cachedNetworkImage(
                           item.coverUrl!,
                           width: 80,
                           height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorWidget: Container(
                             width: 80,
                             height: 60,
                             color: Colors.grey[300],

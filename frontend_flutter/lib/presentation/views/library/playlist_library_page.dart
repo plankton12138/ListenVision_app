@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:demo/core/constants/app_constants.dart';
+import 'package:demo/core/utils/image_helper.dart';
 import 'package:demo/presentation/providers.dart';
 import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
@@ -162,20 +162,10 @@ class PlaylistLibraryPage extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: playlist.hasCover
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: CachedNetworkImage(
-                                    imageUrl: playlist.coverUrl!,
-                                    fit: BoxFit.cover,
-                                    placeholder: (context, url) => Icon(
-                                      Icons.playlist_play,
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                    ),
-                                    errorWidget: (context, url, error) => Icon(
-                                      Icons.playlist_play,
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                    ),
-                                  ),
+                              ? ImageHelper.cachedNetworkImageWithRadius(
+                                  playlist.coverUrl!,
+                                  fit: BoxFit.cover,
+                                  borderRadius: 4,
                                 )
                               : Icon(
                                   Icons.playlist_play,

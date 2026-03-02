@@ -638,22 +638,38 @@ class PlayerViewModel extends _$PlayerViewModel {
 
       AppLogger.info('PlayerViewModel', '播放本地音频: $filePath');
 
-      // 如果没有提供元数据，尝试从文件提取
-      String finalTitle = title ?? '未知标题';
-      String finalArtist = artist ?? '未知艺术家';
+      // 元数据：优先使用调用方传入的数据；当封面缺失时，从文件兜底提取
+      var finalTitle = (title != null && title.isNotEmpty) ? title : '未知标题';
+      var finalArtist = (artist != null && artist.isNotEmpty) ? artist : '未知艺术家';
+      Uint8List? finalAlbumArt = albumArt;
       int? duration;
+      var extractedCover = false;
 
-      if (title == null || artist == null) {
+      final shouldExtract = (title == null || title.isEmpty) ||
+          (artist == null || artist.isEmpty) ||
+          finalAlbumArt == null;
+
+      if (shouldExtract) {
         try {
           final metadataService = ref.read(metadataServiceProvider);
           final metadata = await metadataService.extractFromFile(filePath);
-          if (metadata.title.isNotEmpty) {
+
+          if ((title == null || title.isEmpty) && metadata.title.isNotEmpty) {
             finalTitle = metadata.title;
           }
-          if (metadata.artist.isNotEmpty) {
+          if ((artist == null || artist.isEmpty) && metadata.artist.isNotEmpty) {
             finalArtist = metadata.artist;
           }
+          if (finalAlbumArt == null && metadata.cover != null) {
+            finalAlbumArt = metadata.cover;
+            extractedCover = true;
+          }
           duration = metadata.duration;
+
+          AppLogger.debug(
+            'PlayerViewModel',
+            '本地音频元数据: hasCover=${finalAlbumArt != null}, coverBytes=${finalAlbumArt?.length ?? 0}, extractedCover=$extractedCover',
+          );
         } catch (e) {
           AppLogger.debug('PlayerViewModel', '提取本地音频元数据失败: $e');
         }
@@ -665,7 +681,7 @@ class PlayerViewModel extends _$PlayerViewModel {
           title: finalTitle,
           artist: finalArtist,
           duration: duration ?? 0,
-          albumArt: albumArt,
+          albumArt: finalAlbumArt,
         ),
       );
 
@@ -677,7 +693,7 @@ class PlayerViewModel extends _$PlayerViewModel {
         currentBvid: localPlayable.id,
         title: finalTitle,
         artist: finalArtist,
-        albumArt: albumArt,
+        albumArt: finalAlbumArt,
         coverUrl: null,
         isCurrentOnline: false,
         isSeekable: true,

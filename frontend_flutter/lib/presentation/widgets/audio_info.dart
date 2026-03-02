@@ -52,14 +52,20 @@ class AudioInfo extends ConsumerWidget {
   Widget _buildAlbumArtContent(BuildContext context, playerState) {
     // 优先级1: 本地音频封面 (Uint8List)
     if (playerState.albumArt != null) {
-      return Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: MemoryImage(playerState.albumArt!),
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-          ),
-        ),
+      return Image.memory(
+        playerState.albumArt!,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          AppLogger.error('AudioInfo', '本地封面解析失败: $error');
+          return Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/default_album_art.png'),
+                fit: BoxFit.contain,
+              ),
+            ),
+          );
+        },
       );
     }
 
@@ -74,9 +80,13 @@ class AudioInfo extends ConsumerWidget {
         errorBuilder: (context, error, stackTrace) {
           // 网络加载失败时使用默认图片
           AppLogger.error('AudioInfo', '封面加载失败: $error');
-          return Image.asset(
-            'assets/images/default_album_art.png',
-            fit: BoxFit.contain,
+          return Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/default_album_art.png'),
+                fit: BoxFit.contain,
+              ),
+            ),
           );
         },
       );
@@ -92,6 +102,14 @@ class AudioInfo extends ConsumerWidget {
   /// 构建图片代理URL
   String _buildProxyImageUrl(String originalUrl) {
     if (originalUrl.contains('/proxy/image')) return originalUrl;
+
+    final uri = Uri.tryParse(originalUrl);
+    final host = uri?.host.toLowerCase() ?? '';
+
+    // 仅对 B 站图片做代理（防盗链），避免对普通站点/测试用例造成不必要依赖。
+    final isBilibiliImageHost = host.contains('hdslb.com') || host.contains('bilibili.com');
+    if (!isBilibiliImageHost) return originalUrl;
+
     return '${ApiConstants.fullBaseUrl}${BilibiliEndpoints.proxyImage}?url=${Uri.encodeComponent(originalUrl)}';
   }
 

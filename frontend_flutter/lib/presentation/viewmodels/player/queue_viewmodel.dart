@@ -327,6 +327,7 @@ Future<void> playAt(int index) async {
         playable.url,
         title: playable.title,
         artist: playable.artist,
+        albumArt: playable.coverData,
       );
     }
 

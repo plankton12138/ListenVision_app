@@ -71,7 +71,8 @@ dependencies:
   # 文件校验和计算
   crypto: ^3.0.3
   # 元数据写入（纯 Dart，零依赖，支持 M4A/MP3）
-  metadata_god: ^0.5.0+1
+  # 升级到 1.1.0 修复 Android namespace 问题（AGP 8.0+）
+  metadata_god: ^1.1.0
   mime: ^2.0.0
   # 设备音频扫描（访问 MediaStore/MPMediaQuery）
   on_audio_query: ^2.9.0

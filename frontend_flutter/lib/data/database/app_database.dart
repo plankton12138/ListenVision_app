@@ -37,10 +37,11 @@ class AppDatabase {
 
     // 启用 WAL 模式（Write-Ahead Logging）
     // 允许读写并发，减少数据库锁定问题
-    await db.execute('PRAGMA journal_mode=WAL');
-    await db.execute('PRAGMA synchronous=NORMAL');
-    await db.execute('PRAGMA cache_size=-64000');  // 64MB 缓存
-    await db.execute('PRAGMA temp_store=MEMORY');
+    // 使用 rawQuery 而不是 execute 来执行 PRAGMA 语句
+    await db.rawQuery('PRAGMA journal_mode=WAL');
+    await db.rawQuery('PRAGMA synchronous=NORMAL');
+    await db.rawQuery('PRAGMA cache_size=-64000');  // 64MB 缓存
+    await db.rawQuery('PRAGMA temp_store=MEMORY');
 
     AppLogger.info('AppDatabase', 'WAL 模式已启用');
 

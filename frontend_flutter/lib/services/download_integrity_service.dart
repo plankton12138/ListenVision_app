@@ -3,7 +3,6 @@ import 'dart:io';
 
 import '../../core/utils/app_logger.dart';
 import '../../data/database/track_dao.dart';
-import '../../models/cached_track.dart';
 
 /// 下载完整性服务
 /// 负责验证已下载文件的完整性，检测外部删除的文件

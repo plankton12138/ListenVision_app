@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io' show Platform;
 
 import '../../../core/utils/blob_url.dart';
 import '../../widgets/common/network_status_listener.dart';
@@ -45,20 +46,89 @@ class _HomePageState extends ConsumerState<HomePage> {
         return; // 用户取消，静默返回
       }
 
-      // Web 平台不能依赖本地路径，使用 bytes -> blob URL 播放
       final metadataService = ref.read(metadataServiceProvider);
 
       late final String storageKey;
+      late final String fileName;
       String? playableUrl;
 
+      // Web 平台不能依赖本地路径，使用 bytes -> blob URL 播放
       if (kIsWeb) {
         final bytes = await file.readAsBytes();
         playableUrl = createBlobUrl(bytes, mimeType: 'audio/mpeg');
         storageKey = file.name;
-        AppLogger.info('HomePage', 'Web 选择本地音频: ${file.name}, blobUrl=$playableUrl');
+        fileName = file.name;
+        AppLogger.info('HomePage', 'Web 选择本地音频：${file.name}, blobUrl=$playableUrl');
       } else {
-        storageKey = file.path;
-        AppLogger.info('HomePage', '选择本地音频: $storageKey');
+        // Android 平台：XFile.path 可能是 content:// URI，需要使用 readAsBytes() 读取
+        // 其他平台（Windows/macOS/Linux）：使用文件路径
+        final isAndroid = !kIsWeb && Platform.isAndroid;
+        
+        if (isAndroid) {
+          // Android: 使用 bytes 方式处理 content:// URI
+          fileName = file.name;
+          storageKey = file.path; // 仍使用 path 作为存储键（用于数据库去重）
+          
+          AppLogger.info('HomePage', 'Android 选择本地音频：${file.name}, path=${file.path}');
+          
+          // 从 bytes 读取元数据
+          final bytes = await file.readAsBytes();
+          final metadata = await metadataService.extractFromBytes(
+            bytes: bytes,
+            fileName: fileName,
+          );
+          
+          // 创建 LocalAudio 对象
+          final localAudio = LocalAudio(
+            filePath: storageKey,
+            url: playableUrl,
+            title: metadata.title.isNotEmpty ? metadata.title : _getFileName(storageKey),
+            artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
+            duration: metadata.duration ?? 0,
+            albumArt: metadata.cover,
+          );
+          
+          // 保存到"本地音乐"歌单（如果未导入）
+          final localMusicRepo = ref.read(localMusicRepositoryProvider);
+          final isImported = await localMusicRepo.isFileImported(storageKey);
+          
+          if (!isImported) {
+            await localMusicRepo.addLocalMusic(localAudio);
+            AppLogger.info('HomePage', '已保存到本地音乐歌单');
+          } else {
+            AppLogger.info('HomePage', '音频已存在于本地音乐歌单，跳过保存');
+          }
+          
+          // 创建 PlayableAudio 并添加到队列末尾
+          final playable = LocalPlayable(localAudio);
+          await ref.read(queueViewModelProvider.notifier).add(
+            playable,
+            playImmediately: false,
+          );
+          
+          // 开始播放（播放刚添加的最后一首）
+          final queueState = ref.read(queueViewModelProvider);
+          final newIndex = queueState.queue.length - 1;
+          await ref.read(queueViewModelProvider.notifier).playAt(newIndex);
+          
+          AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
+          
+          // 用户反馈
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('已添加到播放列表：${localAudio.title}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+          return;
+        } else {
+          // 桌面平台：使用文件路径
+          storageKey = file.path;
+          fileName = file.name;
+          AppLogger.info('HomePage', '选择本地音频：$storageKey');
+        }
       }
 
       // 2. 提取元数据（Web 端仅从文件名推断）
@@ -103,22 +173,22 @@ class _HomePageState extends ConsumerState<HomePage> {
       final newIndex = queueState.queue.length - 1;
       await ref.read(queueViewModelProvider.notifier).playAt(newIndex);
 
-      AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引: $newIndex');
+      AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
 
       // 7. 用户反馈
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已添加到播放列表: ${localAudio.title}'),
+            content: Text('已添加到播放列表：${localAudio.title}'),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e, stackTrace) {
-      AppLogger.error('HomePage', '导入失败: $e', stackTrace: stackTrace);
+      AppLogger.error('HomePage', '导入失败：$e', stackTrace: stackTrace);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: ${e.toString()}')),
+          SnackBar(content: Text('导入失败：${e.toString()}')),
         );
       }
     }
@@ -141,7 +211,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       final goRouter = GoRouter.of(context);
       final uri = goRouter.state.uri;
 
-      AppLogger.debug('HomePage', '处理 URL 参数: $uri');
+      AppLogger.debug('HomePage', '处理 URL 参数：$uri');
 
       final bvid = uri.queryParameters['bvid'];
       final localId = uri.queryParameters['localId'];
@@ -157,12 +227,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 检查是否已经处理过相同的参数
       final currentParam = bvid != null ? 'bvid:$bvid' : 'localId:$localId';
       if (_processedParam == currentParam) {
-        AppLogger.debug('HomePage', '参数已处理过: $currentParam');
+        AppLogger.debug('HomePage', '参数已处理过：$currentParam');
         return;
       }
       _processedParam = currentParam;
 
-      AppLogger.info('HomePage', '开始播放 - 参数: $currentParam');
+      AppLogger.info('HomePage', '开始播放 - 参数：$currentParam');
 
       if (bvid != null) {
         await _playOnlineAudio(bvid);
@@ -170,14 +240,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         await _playLocalAudio(localId);
       }
     } catch (e) {
-      AppLogger.error('HomePage', '处理 URL 参数失败: $e');
+      AppLogger.error('HomePage', '处理 URL 参数失败：$e');
     }
   }
 
   /// 播放在线音频
   Future<void> _playOnlineAudio(String bvid) async {
     try {
-      AppLogger.info('HomePage', '根据 URL 参数播放在线音频: $bvid');
+      AppLogger.info('HomePage', '根据 URL 参数播放在线音频：$bvid');
 
       // 获取音频信息
       final trackRepo = ref.read(trackRepositoryProvider);
@@ -196,12 +266,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       final playerNotifier = ref.read(playerViewModelProvider.notifier);
       await playerNotifier.playOnlineAudio(audio: audio);
 
-      AppLogger.info('HomePage', '在线音频播放成功: ${audio.title}');
+      AppLogger.info('HomePage', '在线音频播放成功：${audio.title}');
     } catch (e) {
-      AppLogger.error('HomePage', '播放在线音频失败: $e');
+      AppLogger.error('HomePage', '播放在线音频失败：$e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
+          SnackBar(content: Text('播放失败：$e')),
         );
       }
     }
@@ -210,7 +280,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 播放本地音频
   Future<void> _playLocalAudio(String localId) async {
     try {
-      AppLogger.info('HomePage', '根据 URL 参数播放本地音频: $localId');
+      AppLogger.info('HomePage', '根据 URL 参数播放本地音频：$localId');
 
       // 从本地音乐 ViewModel 获取音频
       final localMusicAsync = ref.read(localMusicViewModelProvider);
@@ -234,7 +304,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
 
       if (localAudio == null) {
-        throw Exception('本地音频不存在或尚未加载: $localId');
+        throw Exception('本地音频不存在或尚未加载：$localId');
       }
 
       // 开始播放
@@ -246,12 +316,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         albumArt: localAudio.albumArt,
       );
 
-      AppLogger.info('HomePage', '本地音频播放成功: ${localAudio.title}');
+      AppLogger.info('HomePage', '本地音频播放成功：${localAudio.title}');
     } catch (e) {
-      AppLogger.error('HomePage', '播放本地音频失败: $e');
+      AppLogger.error('HomePage', '播放本地音频失败：$e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
+          SnackBar(content: Text('播放失败：$e')),
         );
       }
     }

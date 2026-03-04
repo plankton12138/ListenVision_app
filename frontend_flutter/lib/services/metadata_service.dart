@@ -173,6 +173,53 @@ class MetadataService {
     return _extractFromPath(filePath);
   }
 
+  /// 从字节数据提取元数据（用于 Android content:// URI 场景）
+  ///
+  /// [bytes] 音频文件字节数据
+  /// [fileName] 文件名
+  /// [fetchCover] 是否提取封面图片（默认 true）
+  ///
+  /// 返回 MetadataResult 对象
+  Future<MetadataResult> extractFromBytes({
+    required Uint8List bytes,
+    required String fileName,
+    bool fetchCover = true,
+  }) async {
+    AppLogger.debug('MetadataService', '========== 开始从 bytes 提取元数据：$fileName ==========');
+
+    try {
+      // 使用 AudioMetadataHelper 从 bytes 读取
+      final helper = AudioMetadataHelper();
+      final result = await helper.readMetadataFromBytes(
+        bytes: bytes,
+        fileName: fileName,
+        fetchCover: fetchCover,
+      );
+
+      AppLogger.debug('MetadataService', '元数据提取完成：${result.title} - ${result.artist}, hasCover=${result.cover != null}');
+
+      // 如果元数据为空，使用路径提取
+      if (result.title.isEmpty && result.artist.isEmpty) {
+        AppLogger.debug('MetadataService', '元数据为空，使用路径提取');
+        return _extractFromPath(fileName);
+      }
+
+      return MetadataResult(
+        title: result.title,
+        artist: result.artist,
+        album: result.album,
+        cover: result.cover,
+        duration: result.duration,
+      );
+    } catch (e) {
+      final errorStr = e.toString().length > 150
+          ? '${e.toString().substring(0, 150)}...'
+          : e.toString();
+      AppLogger.warn('MetadataService', '从 bytes 提取失败，使用路径提取：$errorStr');
+      return _extractFromPath(fileName);
+    }
+  }
+
   // ==================== 在线封面加载 ====================
 
   /// 从 URL 加载封面图片

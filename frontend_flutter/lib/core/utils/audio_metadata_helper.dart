@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart' hide readMetadata, updateMetadata;
 import 'package:audio_metadata_reader/audio_metadata_reader.dart' as meta;
 import 'package:demo/core/utils/app_logger.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// 音频元数据结果
 ///
@@ -168,6 +169,59 @@ class AudioMetadataHelper {
     return Future.microtask(() {
       return readMetadata(filePath: filePath, fetchCover: fetchCover);
     });
+  }
+
+  /// 从字节数据读取元数据（用于 Android content:// URI 场景）
+  ///
+  /// [bytes] 音频文件字节数据
+  /// [fileName] 文件名（用于格式检测和后备提取）
+  /// [fetchCover] 是否提取封面图片（默认 true）
+  ///
+  /// 此方法会将 bytes 写入临时文件后读取，适用于无法直接访问文件路径的场景
+  Future<AudioMetadataResult> readMetadataFromBytes({
+    required Uint8List bytes,
+    required String fileName,
+    bool fetchCover = true,
+  }) async {
+    AppLogger.debug('AudioMetadataHelper', '从 bytes 读取元数据：$fileName (${_formatFileSize(bytes.length)})');
+
+    // 检测是否是 m4s 格式（B 站分离音频流），直接回退到路径提取
+    if (isM4sFormat(fileName)) {
+      AppLogger.debug('AudioMetadataHelper', '检测到 m4s 格式，使用路径提取');
+      return _extractFromPath(fileName);
+    }
+
+    File? tempFile;
+    try {
+      // 创建临时文件
+      final tempDir = await getTemporaryDirectory();
+      final tempFileName = 'temp_${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      tempFile = File('${tempDir.path}/$tempFileName');
+
+      // 写入 bytes
+      await tempFile.writeAsBytes(bytes);
+
+      // 使用现有方法读取
+      return readMetadata(filePath: tempFile.path, fetchCover: fetchCover);
+    } catch (e) {
+      final errorStr = e.toString().length > 150
+          ? '${e.toString().substring(0, 150)}...'
+          : e.toString();
+      AppLogger.warn(
+        'AudioMetadataHelper',
+        '从 bytes 读取失败，使用路径提取：$errorStr',
+      );
+      return _extractFromPath(fileName);
+    } finally {
+      // 清理临时文件
+      try {
+        if (tempFile != null && await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (e) {
+        AppLogger.warn('AudioMetadataHelper', '清理临时文件失败：$e');
+      }
+    }
   }
 
   /// 从文件路径提取元数据（实例方法，返回 AudioMetadataResult）

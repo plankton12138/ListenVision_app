@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 收藏按钮组件
 ///

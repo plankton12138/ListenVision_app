@@ -143,7 +143,7 @@ class ExploreViewModel extends _$ExploreViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      // TODO: 迁移到新的 ApiClient 方法
+      // 热门歌单接口暂通过通用 GET 调用，后续可补充专用封装
       // 临时使用通用 get 方法
       final data = await _apiClient!.get('/api/v1/recommendations/hot-playlists', 
         queryParameters: {

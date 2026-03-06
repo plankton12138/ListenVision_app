@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/core/constants/app_constants.dart';
+import 'package:listenvision/core/constants/app_constants.dart';
 
 /// 歌单排序选项对话框
 ///

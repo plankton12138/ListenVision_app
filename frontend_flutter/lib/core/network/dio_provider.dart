@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/core/network/adaptive_network_manager.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/core/network/adaptive_network_manager.dart';
 
 import '../constants/api_constants.dart';
 import '../errors/exceptions.dart';

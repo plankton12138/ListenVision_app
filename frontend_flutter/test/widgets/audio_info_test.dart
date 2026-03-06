@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:demo/presentation/viewmodels/player/player_viewmodel.dart';
-import 'package:demo/presentation/widgets/audio_info.dart';
+import 'package:listenvision/presentation/viewmodels/player/player_viewmodel.dart';
+import 'package:listenvision/presentation/widgets/audio_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

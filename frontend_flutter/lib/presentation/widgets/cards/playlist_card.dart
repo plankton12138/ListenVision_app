@@ -1,4 +1,4 @@
-import 'package:demo/models/models_export.dart';
+import 'package:listenvision/models/models_export.dart';
 import 'package:flutter/material.dart';
 
 /// 歌单卡片变体类型

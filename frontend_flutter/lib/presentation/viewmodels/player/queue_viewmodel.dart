@@ -490,7 +490,7 @@ Future<void> playAt(int index) async {
   /// 从本地数据库同步
   Future<void> syncFromLocal() async {
     AppLogger.debug('QueueViewModel', '从本地数据库同步（暂未实现）');
-    // TODO: 实现 PlaylistManager 集成
+    // 后续可接入 PlaylistManager 统一管理队列来源
   }
 
   // ==================== 持久化 ====================

@@ -4,7 +4,6 @@
 
 # ---------- 依赖 ----------
 
-# Node.js (保留 node_modules/ 用于 better-sqlite3 原生模块)
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
@@ -63,7 +62,6 @@ Desktop.ini
 
 # ---------- 构建输出 ----------
 
-# Flutter
 build/
 .android/
 .ios/
@@ -71,12 +69,11 @@ build/
 linux/
 windows/
 macos/
-
-# Node.js
 dist/
 out/
-build/
 *.tgz
+frontend_flutter/release/
+frontend_flutter/build_log.txt
 
 # ---------- 测试覆盖率 ----------
 
@@ -106,6 +103,7 @@ cache/
 .cache/
 
 # ---------- 其他 ----------
+
 references/
 .sisyphus/
 nul
@@ -117,5 +115,3 @@ better-sqlite3.tar.gz
 # 备份文件
 *.bak
 *.backup
-*~
-```

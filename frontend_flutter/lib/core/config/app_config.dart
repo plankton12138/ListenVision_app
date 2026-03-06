@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 应用环境配置
 ///

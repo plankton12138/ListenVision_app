@@ -217,7 +217,7 @@ class BidirectionalSyncWorker extends SyncWorker {
 
     // 检查是否在 WiFi 下
     if (_config.syncOnWifiOnly) {
-      // TODO: 检查网络类型
+      // 后续可根据网络类型细化同步策略
       // 如果不是 WiFi，跳过
     }
 

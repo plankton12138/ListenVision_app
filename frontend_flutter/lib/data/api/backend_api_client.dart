@@ -1,4 +1,5 @@
 import '../../core/constants/api_constants.dart';
+import '../../core/network/api_client.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/network/endpoints.dart';
 import '../../core/utils/app_logger.dart';
@@ -41,12 +42,15 @@ class RegisterRequest {
 
 /// 后端 API 客户端
 ///
-/// 封装所有后端 API 调用
+/// 封装所有后端 API 调用。
+/// 新代码应优先直接使用 ApiClient，本类仅作为兼容层保留。
 class BackendApiClient {
   final DioClient _dioClient;
+  final ApiClient _apiClient;
 
   BackendApiClient({DioClient? dioClient})
-      : _dioClient = dioClient ?? DioClient.instance;
+      : _dioClient = dioClient ?? DioClient.instance,
+        _apiClient = ApiClient();
 
   // ==================== 响应处理 ====================
 
@@ -594,14 +598,10 @@ class BackendApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _dioClient.get(
-        BilibiliEndpoints.recommend,
-        queryParameters: {
-          'page': page,
-          'pageSize': pageSize,
-        },
+      return await _apiClient.getBilibiliRecommendations(
+        page: page,
+        pageSize: pageSize,
       );
-      return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取B站推荐失败: $e');
       rethrow;
@@ -622,15 +622,11 @@ class BackendApiClient {
   }) async {
     try {
       AppLogger.debug('BackendApiClient', 'B站搜索: $keyword, page=$page, pageSize=$pageSize');
-      final response = await _dioClient.get(
-        BilibiliEndpoints.search,
-        queryParameters: {
-          'keyword': keyword,
-          'page': page,
-          'pageSize': pageSize,
-        },
+      return await _apiClient.searchBilibili(
+        keyword,
+        page: page,
+        pageSize: pageSize,
       );
-      return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('BackendApiClient', 'B站搜索失败: $e');
       rethrow;
@@ -640,16 +636,7 @@ class BackendApiClient {
   /// 获取B站搜索建议
   Future<List<SearchSuggestion>> getBilibiliSearchSuggestions(String keyword) async {
     try {
-      final response = await _dioClient.get(
-        BilibiliEndpoints.searchSuggest,
-        queryParameters: {'keyword': keyword},
-      );
-      final data = _handleResponse(response);
-      final suggestions = data['suggestions'] as List?;
-      return suggestions
-              ?.map((e) => SearchSuggestion.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [];
+      return await _apiClient.getBilibiliSearchSuggestions(keyword);
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取B站搜索建议失败: $e');
       return [];
@@ -754,8 +741,7 @@ class BackendApiClient {
   /// 获取网易云每日推荐歌单
   Future<Map<String, dynamic>> getNeteaseRecommendedPlaylists() async {
     try {
-      final response = await _dioClient.get(NeteaseEndpoints.recommendPlaylists);
-      return _handleResponse(response) as Map<String, dynamic>;
+      return await _apiClient.getNeteaseRecommendedPlaylists();
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取网易云每日推荐歌单失败: $e');
       rethrow;
@@ -765,8 +751,7 @@ class BackendApiClient {
   /// 获取网易云歌单详情
   Future<Map<String, dynamic>> getNeteasePlaylistDetail(String id) async {
     try {
-      final response = await _dioClient.get(NeteaseEndpoints.playlistDetail(id));
-      return _handleResponse(response) as Map<String, dynamic>;
+      return await _apiClient.getNeteasePlaylistDetail(id);
     } catch (e) {
       AppLogger.error('BackendApiClient', '获取网易云歌单详情失败: $e');
       rethrow;

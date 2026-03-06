@@ -1,10 +1,10 @@
 import 'dart:io';
 
 // ========== Core Imports ==========
-import 'package:demo/core/network/dio_client.dart';
-import 'package:demo/core/storage/shared_storage_service.dart';
-import 'package:demo/core/utils/permission_helper.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/network/dio_client.dart';
+import 'package:listenvision/core/storage/shared_storage_service.dart';
+import 'package:listenvision/core/utils/permission_helper.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 // ========== Framework Imports ==========
 import 'package:flutter/foundation.dart';

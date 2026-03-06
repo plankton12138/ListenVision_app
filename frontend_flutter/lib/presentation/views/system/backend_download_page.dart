@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/core/state/state_utils.dart';
-import 'package:demo/models/download_task.dart';
-import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/core/state/state_utils.dart';
+import 'package:listenvision/models/download_task.dart';
+import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -543,7 +543,7 @@ class _DownloadTaskTile extends ConsumerWidget {
               action: SnackBarAction(
                 label: '复制',
                 onPressed: () {
-                  // TODO: 复制路径到剪贴板
+                  // 后续可接入剪贴板能力以提升桌面端体验
                 },
               ),
             ),

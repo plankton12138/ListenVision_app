@@ -4,13 +4,21 @@ const path = require('path');
 const { logger } = require('../utils/logger');
 
 // 数据库文件路径
-const dataDir = path.join(__dirname, '../data');
-const dbPath = path.join(dataDir, 'listenvision.db');
+const defaultDbPath = path.join(__dirname, '../data/listenvision.db');
+const configuredDbPath = process.env.DATABASE_PATH;
+const dbPath = configuredDbPath
+  ? (path.isAbsolute(configuredDbPath)
+      ? configuredDbPath
+      : path.resolve(__dirname, '..', configuredDbPath))
+  : defaultDbPath;
+const dataDir = path.dirname(dbPath);
 
 // 确保 data 目录存在
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
+
+logger.info('Using SQLite database', { dbPath });
 
 // 创建数据库实例（verbose 用于开发环境 SQL 日志）
 // 使用 logger.debug 记录 SQL 执行日志

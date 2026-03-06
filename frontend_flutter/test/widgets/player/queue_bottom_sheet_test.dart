@@ -1,7 +1,7 @@
-import 'package:demo/models/audio.dart';
-import 'package:demo/models/online_playable.dart';
-import 'package:demo/presentation/viewmodels/player/queue_viewmodel.dart';
-import 'package:demo/presentation/widgets/player/queue_bottom_sheet.dart';
+import 'package:listenvision/models/audio.dart';
+import 'package:listenvision/models/online_playable.dart';
+import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
+import 'package:listenvision/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

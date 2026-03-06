@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/presentation/providers.dart';
+import 'package:listenvision/presentation/providers.dart';
 
 /// 音量滑块组件
 ///

@@ -89,6 +89,19 @@ jest.mock('../../config/database', () => {
     )
   `);
 
+  db.exec(`
+    CREATE TABLE subtitle_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bvid TEXT NOT NULL,
+      cid INTEGER,
+      lan TEXT NOT NULL,
+      lan_doc TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(bvid, lan)
+    )
+  `);
+
   return db;
 });
 
@@ -107,6 +120,7 @@ describe('B站服务测试', () => {
     db.exec('DELETE FROM bilibili_accounts');
     db.exec('DELETE FROM platform_accounts');
     db.exec('DELETE FROM search_history');
+    db.exec('DELETE FROM subtitle_cache');
     jest.clearAllMocks();
   });
 
@@ -602,6 +616,147 @@ describe('B站服务测试', () => {
       expect(result1.w_rid).not.toBe(result2.w_rid);
 
       jest.restoreAllMocks();
+    });
+  });
+
+  describe('getVideoSubtitles()', () => {
+    const mockVideoInfoResponse = {
+      code: 0,
+      data: {
+        bvid: 'BV1test123', title: '测试视频', desc: '', pic: '',
+        duration: 100, pubdate: 1234567890, cid: 99999,
+        owner: { mid: 123, name: 'UP主', face: '' }, stat: {}, pages: []
+      }
+    };
+    const mockAudioUrlResponse = { code: 0, data: { dash: { audio: [] } } };
+    const mockNavResponse = {
+      code: 0,
+      data: {
+        wbi_img: {
+          img_url: 'https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png',
+          sub_url: 'https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png'
+        }
+      }
+    };
+
+    /**
+     * Setup URL-based fetch mock for subtitle tests
+     * Avoids WBI key cache interference by matching URL patterns
+     */
+    const setupFetchMock = (playerResponse, subtitleResponse = null) => {
+      global.fetch.mockImplementation(async (url) => {
+        const urlStr = typeof url === 'string' ? url : url.toString();
+        if (urlStr.includes('x/web-interface/view')) {
+          return { ok: true, json: async () => mockVideoInfoResponse };
+        }
+        if (urlStr.includes('x/player/playurl')) {
+          return { ok: true, json: async () => mockAudioUrlResponse };
+        }
+        if (urlStr.includes('x/web-interface/nav')) {
+          return { ok: true, json: async () => mockNavResponse };
+        }
+        if (urlStr.includes('x/player/wbi/v2')) {
+          return { ok: true, json: async () => playerResponse };
+        }
+        if (urlStr.includes('aisubtitle.hdslb.com') && subtitleResponse) {
+          return { ok: true, json: async () => subtitleResponse };
+        }
+        throw new Error(`Unexpected fetch URL: ${urlStr}`);
+      });
+    };
+
+    test('应返回字幕列表（有字幕的视频）', async () => {
+      const userId = createTestUser(1);
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test; bili_jct=xxx', { mid: '123456', uname: 'TestUser' });
+
+      const playerData = {
+        code: 0,
+        data: {
+          subtitle: {
+            subtitles: [
+              {
+                lan: 'zh-Hans',
+                lan_doc: '中文（简体）',
+                subtitle_url: '//aisubtitle.hdslb.com/bfs/subtitle/test.json?auth_key=abc'
+              }
+            ]
+          }
+        }
+      };
+      const subtitleContent = {
+        body: [
+          { from: 0.0, to: 3.5, content: '大家好' },
+          { from: 3.5, to: 7.2, content: '今天我们来聊一聊' }
+        ]
+      };
+
+      setupFetchMock(playerData, subtitleContent);
+
+      const result = await bilibiliService.getVideoSubtitles('BV1test123', userId);
+
+      expect(result.bvid).toBe('BV1test123');
+      expect(result.subtitles).toHaveLength(1);
+      expect(result.subtitles[0].lan).toBe('zh-Hans');
+      expect(result.subtitles[0].lan_doc).toBe('中文（简体）');
+      expect(result.subtitles[0].lines).toHaveLength(2);
+      expect(result.subtitles[0].lines[0].content).toBe('大家好');
+      expect(result.subtitles[0].lines[1].from).toBe(3.5);
+    });
+
+    test('应返回空数组（无字幕的视频）', async () => {
+      const userId = createTestUser(1);
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test; bili_jct=xxx', { mid: '123456', uname: 'TestUser' });
+
+      const playerData = {
+        code: 0,
+        data: { subtitle: { subtitles: [] } }
+      };
+
+      setupFetchMock(playerData);
+
+      const result = await bilibiliService.getVideoSubtitles('BV1nosub', userId);
+
+      expect(result.bvid).toBe('BV1nosub');
+      expect(result.subtitles).toHaveLength(0);
+    });
+
+    test('未绑定账号时应抛出错误', async () => {
+      const userId = createTestUser(1);
+
+      setupFetchMock({ code: 0, data: {} });
+
+      await expect(bilibiliService.getVideoSubtitles('BV1test', userId))
+        .rejects.toThrow('需要绑定B站账号才能获取字幕');
+    });
+
+    test('B站 API 异常时应抛出错误', async () => {
+      const userId = createTestUser(1);
+      await bilibiliService.saveCookie(userId, 'SESSDATA=test; bili_jct=xxx', { mid: '123456', uname: 'TestUser' });
+
+      const playerData = {
+        code: -403,
+        message: '访问权限不足'
+      };
+
+      setupFetchMock(playerData);
+
+      await expect(bilibiliService.getVideoSubtitles('BV1err', userId))
+        .rejects.toThrow('访问权限不足');
+    });
+
+    test('应使用缓存的字幕数据', async () => {
+      const lines = [
+        { from: 0, to: 3, content: '缓存内容' }
+      ];
+      db.prepare('INSERT INTO subtitle_cache (bvid, cid, lan, lan_doc, content) VALUES (?, ?, ?, ?, ?)')
+        .run('BV1cached', 12345, 'zh-Hans', '中文（简体）', JSON.stringify(lines));
+
+      const result = await bilibiliService.getVideoSubtitles('BV1cached', 1);
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(result.bvid).toBe('BV1cached');
+      expect(result.subtitles).toHaveLength(1);
+      expect(result.subtitles[0].lines[0].content).toBe('缓存内容');
     });
   });
 });

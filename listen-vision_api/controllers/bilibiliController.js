@@ -753,6 +753,30 @@ const getRecommendedVideos = async (req, res) => {
   }
 };
 
+/**
+ * 获取视频字幕
+ * GET /api/v1/bilibili/subtitle/:bvid
+ */
+const getSubtitle = async (req, res) => {
+  try {
+    const { bvid } = req.params;
+    if (!bvid) {
+      return errorResponse(res, '缺少 bvid 参数', 400);
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return errorResponse(res, '需要登录才能获取字幕', 401);
+    }
+
+    const result = await bilibiliService.getVideoSubtitles(bvid, userId);
+    successResponse(res, result, '获取字幕成功');
+  } catch (error) {
+    logger.error('getSubtitle failed', { error: error.message, bvid: req.params?.bvid });
+    errorResponse(res, error.message, 500);
+  }
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -775,6 +799,9 @@ module.exports = {
 
   // 推荐
   getRecommendedVideos,
+
+  // 字幕
+  getSubtitle,
 
   // 代理
   proxyImage,

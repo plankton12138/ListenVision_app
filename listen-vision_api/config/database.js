@@ -258,6 +258,24 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_user_behavior_logs_bvid ON user_behavior_logs(bvid);
   `);
 
+  // ========== 字幕缓存表 ==========
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS subtitle_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bvid TEXT NOT NULL,
+      cid INTEGER,
+      lan TEXT NOT NULL,
+      lan_doc TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(bvid, lan)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_subtitle_cache_bvid ON subtitle_cache(bvid);
+  `);
+
   logger.info('Database tables initialized successfully');
 };
 

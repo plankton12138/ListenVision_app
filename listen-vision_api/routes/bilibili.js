@@ -502,6 +502,71 @@ router.get('/recommend', (req, res, next) => {
   next();
 }, optionalAuthMiddleware, bilibiliController.getRecommendedVideos);
 
+// ========== 字幕 ==========
+
+/**
+ * @swagger
+ * /api/bilibili/subtitle/{bvid}:
+ *   get:
+ *     tags: [B站API]
+ *     summary: 获取视频字幕
+ *     description: 获取B站视频的CC字幕（需要登录并绑定B站账号）
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bvid
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 视频BV号
+ *     responses:
+ *       200:
+ *         description: 获取成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bvid:
+ *                       type: string
+ *                     cid:
+ *                       type: integer
+ *                     subtitles:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           lan:
+ *                             type: string
+ *                             description: 语言代码
+ *                           lan_doc:
+ *                             type: string
+ *                             description: 语言名称
+ *                           lines:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 from:
+ *                                   type: number
+ *                                   description: 起始时间（秒）
+ *                                 to:
+ *                                   type: number
+ *                                   description: 结束时间（秒）
+ *                                 content:
+ *                                   type: string
+ *                                   description: 字幕内容
+ *       401:
+ *         description: 未登录或未绑定B站账号
+ */
+router.get('/subtitle/:bvid', authMiddleware, bilibiliController.getSubtitle);
+
 /**
  * @swagger
  * /api/bilibili/refresh-cookie:

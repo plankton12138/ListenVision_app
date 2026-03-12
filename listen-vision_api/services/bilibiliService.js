@@ -1136,6 +1136,109 @@ const getRecommendedVideos = async (userId = null, page = 1, pageSize = 20) => {
   }
 };
 
+// ==================== 字幕功能 ====================
+
+// 字幕缓存预编译语句
+const subtitleStmt = {
+  getCache: db.prepare(`
+    SELECT lan, lan_doc, content FROM subtitle_cache WHERE bvid = ?
+  `),
+  insertCache: db.prepare(`
+    INSERT OR REPLACE INTO subtitle_cache (bvid, cid, lan, lan_doc, content)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+};
+
+/**
+ * 获取视频字幕列表及内容
+ *
+ * 流程：
+ * 1. 检查本地缓存
+ * 2. 获取视频 cid
+ * 3. 调用 Player API（WBI 签名）获取字幕列表
+ * 4. 下载字幕内容
+ * 5. 存入缓存
+ *
+ * @param {string} bvid - 视频 BV 号
+ * @param {number} userId - 用户 ID（用于获取绑定的 Cookie）
+ * @returns {Promise<Object>} { bvid, cid, subtitles: [{ lan, lan_doc, lines }] }
+ */
+const getVideoSubtitles = async (bvid, userId) => {
+  // 1. 检查缓存
+  const cached = subtitleStmt.getCache.all(bvid);
+  if (cached.length > 0) {
+    logger.debug('[getVideoSubtitles] 命中缓存: bvid=%s, %d 条字幕', bvid, cached.length);
+    return {
+      bvid,
+      cid: null,
+      subtitles: cached.map(row => ({
+        lan: row.lan,
+        lan_doc: row.lan_doc,
+        lines: JSON.parse(row.content),
+      })),
+    };
+  }
+
+  // 2. 获取视频 cid
+  const videoInfo = await getVideoInfo(bvid);
+  const cid = videoInfo.cid;
+
+  // 3. 获取用户 Cookie
+  const cookie = getCookie(userId);
+  if (!cookie) {
+    throw new Error('需要绑定B站账号才能获取字幕');
+  }
+
+  // 4. 调用 Player API（WBI 签名）获取字幕列表
+  const wbiKey = await getWbiKey(userId);
+  const params = signWbi({ bvid, cid }, wbiKey);
+  const queryString = new URLSearchParams(params).toString();
+  const playerUrl = `https://api.bilibili.com/x/player/wbi/v2?${queryString}`;
+
+  const playerData = await httpGet(playerUrl, { Cookie: cookie });
+
+  if (playerData.code !== 0) {
+    throw new Error(playerData.message || '获取字幕信息失败');
+  }
+
+  const subtitleList = playerData.data?.subtitle?.subtitles || [];
+  if (subtitleList.length === 0) {
+    logger.debug('[getVideoSubtitles] 视频无字幕: bvid=%s', bvid);
+    return { bvid, cid, subtitles: [] };
+  }
+
+  // 5. 获取每个语言的字幕内容
+  const results = [];
+  for (const sub of subtitleList) {
+    try {
+      const subtitleUrl = sub.subtitle_url.startsWith('//')
+        ? `https:${sub.subtitle_url}`
+        : sub.subtitle_url;
+
+      const subtitleData = await httpGet(subtitleUrl);
+      const lines = (subtitleData.body || []).map(line => ({
+        from: line.from,
+        to: line.to,
+        content: line.content,
+      }));
+
+      results.push({
+        lan: sub.lan,
+        lan_doc: sub.lan_doc,
+        lines,
+      });
+
+      // 6. 存入缓存
+      subtitleStmt.insertCache.run(bvid, cid, sub.lan, sub.lan_doc, JSON.stringify(lines));
+    } catch (e) {
+      logger.warn('[getVideoSubtitles] 获取字幕内容失败: lan=%s, error=%s', sub.lan, e.message);
+    }
+  }
+
+  logger.info('[getVideoSubtitles] 获取字幕成功: bvid=%s, %d 个语言', bvid, results.length);
+  return { bvid, cid, subtitles: results };
+};
+
 module.exports = {
   // QR码登录
   getQRCode,
@@ -1166,6 +1269,9 @@ module.exports = {
 
   // 推荐功能
   getRecommendedVideos,
+
+  // 字幕功能
+  getVideoSubtitles,
 
   // WBI签名（用于分区推荐）
   getWbiKey,

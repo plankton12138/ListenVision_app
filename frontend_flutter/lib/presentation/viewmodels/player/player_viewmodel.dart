@@ -23,6 +23,7 @@ import '../../../services/audio_player_service.dart';
 import '../library/history_viewmodel.dart';
 import 'metadata_viewmodel.dart';
 import 'queue_viewmodel.dart';
+import 'subtitle_viewmodel.dart';
 
 part 'player_viewmodel.freezed.dart';
 part 'player_viewmodel.g.dart';
@@ -265,6 +266,8 @@ class PlayerViewModel extends _$PlayerViewModel {
           (position) {
             if (_disposed) return;
             state = state.copyWith(position: position);
+            // 同步字幕位置
+            ref.read(subtitleViewModelProvider.notifier).updatePosition(position);
           },
           onError: (e) {
             AppLogger.error('PlayerViewModel', '位置监听错误: $e');
@@ -856,6 +859,11 @@ class PlayerViewModel extends _$PlayerViewModel {
         currentOnlineAudio: playable.original,
         currentBvid: playable.original.id,
       );
+      // 加载字幕（仅在线B站视频）
+      ref.read(subtitleViewModelProvider.notifier).loadSubtitle(playable.original.id);
+    } else {
+      // 清除字幕
+      ref.read(subtitleViewModelProvider.notifier).clear();
     }
 
     // 停止当前播放

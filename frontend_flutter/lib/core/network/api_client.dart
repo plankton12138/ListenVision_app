@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/dto/api_dto.dart';
+import '../../models/subtitle.dart';
 import '../utils/app_logger.dart';
 import 'dio_client.dart';
 import 'endpoints.dart';
@@ -187,6 +188,19 @@ class ApiClient {
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('ApiClient', '获取B站推荐失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取B站视频字幕
+  Future<SubtitleData> getBilibiliSubtitle(String bvid) async {
+    try {
+      final response = await _dioClient.get(Endpoints.bilibiliSubtitle(bvid));
+      final data = _handleResponse(response) as Map<String, dynamic>;
+      AppLogger.info('ApiClient', '获取字幕成功: $bvid');
+      return SubtitleData.fromJson(data);
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取字幕失败: $e');
       rethrow;
     }
   }

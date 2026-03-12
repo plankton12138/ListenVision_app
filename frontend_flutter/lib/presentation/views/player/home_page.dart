@@ -18,6 +18,7 @@ import 'dart:io' show Platform;
 
 import '../../../core/utils/blob_url.dart';
 import '../../widgets/common/network_status_listener.dart';
+import '../../widgets/player/subtitle_view.dart';
 
 /// 首页
 ///
@@ -405,13 +406,24 @@ class _HomePageState extends ConsumerState<HomePage> {
       body: Column(
         mainAxisSize: MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: const [
+        children: [
           // 音频信息（封面、标题、艺术家）
-          AudioInfo(),
+          const AudioInfo(),
+          
+          // 字幕展示区
+          SizedBox(
+            height: 120,
+            child: SubtitleView(
+              onSeek: (position) {
+                ref.read(playerViewModelProvider.notifier).seek(position);
+              },
+            ),
+          ),
+          
           // 控制面板（进度条、播放控制）
-          ControlsPanel(),
+          const ControlsPanel(),
           // 底部操作栏（收藏、添加到歌单、更多）
-          PlayerActionBar(),
+          const PlayerActionBar(),
         ],
       ),
 

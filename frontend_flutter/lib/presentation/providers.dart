@@ -31,7 +31,10 @@ export 'viewmodels/auth/netease_auth_viewmodel.dart' show isNeteaseBound;
 export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseQRLoginStatus;
 export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthState;
 export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthStateBound;
-
+// ==================== 字幕 ====================
+export 'viewmodels/player/subtitle_viewmodel.dart';
+export '../data/repositories/subtitle_repository.dart';
+export '../models/subtitle.dart';
 // ==================== 播放器相关 ====================
 export 'viewmodels/player/player_viewmodel.dart' show playerViewModelProvider;
 export 'viewmodels/player/player_viewmodel.dart' show audioPlayerServiceProvider;

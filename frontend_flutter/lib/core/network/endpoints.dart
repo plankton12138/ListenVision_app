@@ -37,6 +37,8 @@ class Endpoints {
   static const String bilibiliRecommend = '/bilibili/recommend';
   static const String bilibiliRefreshCookie = '/bilibili/refresh-cookie';
 
+  static String bilibiliSubtitle(String bvid) => '/bilibili/subtitle/$bvid';
+
   static String bilibiliVideo(String bvid) => '/bilibili/video/$bvid';
   static String bilibiliAudio(String bvid) => '/bilibili/audio/$bvid';
   static String bilibiliUploader(String mid) => '/bilibili/uploader/$mid';

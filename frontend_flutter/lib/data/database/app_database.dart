@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../../models/download_task.dart';
+import 'subtitle_dao.dart';
 
 /// 应用数据库 - 统一的本地数据存储
 ///
@@ -30,7 +31,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -156,6 +157,9 @@ class AppDatabase {
         FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
       )
     ''');
+    
+    // 创建 subtitle_cache 表
+    await db.execute(SubtitleDao.createTableSql);
 
     // 创建索引
     await db.execute('''
@@ -220,6 +224,11 @@ class AppDatabase {
     // 版本 5 -> 6: 添加独立的 playlists 和 playlist_items 表
     if (oldVersion < 6) {
       await _upgradeToV6(db);
+    }
+
+    // 版本 6 -> 7: 添加 subtitle_cache 表
+    if (oldVersion < 7) {
+      await _upgradeToV7(db);
     }
 
     // 未来版本升级在这里继续
@@ -606,6 +615,18 @@ class AppDatabase {
       AppLogger.info('AppDatabase', 'V6 迁移完成');
     } catch (e) {
       AppLogger.error('AppDatabase', 'V6 迁移失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 升级到版本 7：添加字幕缓存表
+  Future<void> _upgradeToV7(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V7：添加字幕缓存表');
+    try {
+      await db.execute(SubtitleDao.createTableSql);
+      AppLogger.info('AppDatabase', '字幕缓存表创建成功');
+    } catch (e) {
+      AppLogger.error('AppDatabase', '字幕缓存表创建失败: $e');
       rethrow;
     }
   }

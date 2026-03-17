@@ -36,6 +36,9 @@ class SubtitleViewModel extends _$SubtitleViewModel {
   /// 加载字幕
   /// [cid] 可选，用于多P视频获取指定分P的字幕
   Future<void> loadSubtitle(String bvid, {int? cid, Duration initialPosition = Duration.zero}) async {
+    // 检查 provider 是否仍然有效
+    if (!ref.mounted) return;
+
     final requestId = ++_loadRequestId;
 
     // 检查是否需要重新加载（bvid 变化，或 cid 明确指定且变化）

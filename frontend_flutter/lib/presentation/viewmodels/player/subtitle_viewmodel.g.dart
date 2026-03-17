@@ -3,6 +3,38 @@
 part of 'subtitle_viewmodel.dart';
 
 // **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+_SubtitleState _$SubtitleStateFromJson(Map<String, dynamic> json) =>
+    _SubtitleState(
+      data: json['data'] == null
+          ? null
+          : SubtitleData.fromJson(json['data'] as Map<String, dynamic>),
+      activeTrack: json['activeTrack'] == null
+          ? null
+          : SubtitleTrack.fromJson(json['activeTrack'] as Map<String, dynamic>),
+      currentLineIndex: (json['currentLineIndex'] as num?)?.toInt() ?? -1,
+      isLoading: json['isLoading'] as bool? ?? false,
+      isVisible: json['isVisible'] as bool? ?? false,
+      isSubtitleEnabled: json['isSubtitleEnabled'] as bool? ?? true,
+      error: json['error'] as String? ?? null,
+      needLogin: json['needLogin'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$SubtitleStateToJson(_SubtitleState instance) =>
+    <String, dynamic>{
+      'data': instance.data,
+      'activeTrack': instance.activeTrack,
+      'currentLineIndex': instance.currentLineIndex,
+      'isLoading': instance.isLoading,
+      'isVisible': instance.isVisible,
+      'isSubtitleEnabled': instance.isSubtitleEnabled,
+      'error': instance.error,
+      'needLogin': instance.needLogin,
+    };
+
+// **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
@@ -41,7 +73,7 @@ final class SubtitleViewModelProvider
   }
 }
 
-String _$subtitleViewModelHash() => r'df3912dfbfb2c0aed503dabc35ef9655b21d468c';
+String _$subtitleViewModelHash() => r'be5be93eae0826357c829b771cfa557b80609145';
 
 abstract class _$SubtitleViewModel extends $Notifier<SubtitleState> {
   SubtitleState build();

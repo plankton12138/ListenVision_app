@@ -22,11 +22,13 @@ class AudioInfo extends ConsumerWidget {
         QueueBottomSheet.show(context);
       },
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 专辑封面
-          _buildAlbumArt(context, playerState),
+          // 专辑封面 - 自适应高度
+          Flexible(
+            child: _buildAlbumArt(context, playerState),
+          ),
           // 音频信息（标题、艺术家）
           _buildAudioInfo(context, playerState),
         ],
@@ -37,8 +39,10 @@ class AudioInfo extends ConsumerWidget {
   /// 构建专辑封面
   Widget _buildAlbumArt(BuildContext context, playerState) {
     return Container(
-      width: MediaQuery.of(context).size.width,
-      height: 300,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.35,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: _buildAlbumArtContent(context, playerState),
     );
   }
@@ -115,38 +119,38 @@ class AudioInfo extends ConsumerWidget {
 
   /// 构建音频信息（标题和艺术家）
   Widget _buildAudioInfo(BuildContext context, playerState) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 20),
-
-        // 标题
-        Text(
-          playerState.title,
-          style: const TextStyle(
-            fontSize: UIConstants.fontSizeMedium,
-            fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 标题
+          Text(
+            playerState.title,
+            style: const TextStyle(
+              fontSize: UIConstants.fontSizeMedium,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 2,
-        ),
 
-        const SizedBox(height: 12),
+          const SizedBox(height: 4),
 
-        // 艺术家
-        Text(
-          playerState.artist,
-          style: const TextStyle(
-            fontSize: UIConstants.fontSizeSmall,
-            color: Colors.grey,
+          // 艺术家
+          Text(
+            playerState.artist,
+            style: const TextStyle(
+              fontSize: UIConstants.fontSizeSmall,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

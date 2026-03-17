@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../models/dto/api_dto.dart';
 import '../../../models/platform_account.dart' show BilibiliUserInfo;
 
 part 'platform_auth_viewmodel.freezed.dart';
@@ -121,7 +122,15 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
         
         return const PlatformAuthState.unbound();
       } catch (e) {
-        // 后端请求失败，回退到本地存储检查
+        if (_isUnauthorizedError(e)) {
+          AppLogger.warn('PlatformAuthViewModel', '后端鉴权失败(401)，清理本地B站绑定缓存');
+          await _secureStorage!.setBilibiliBound(false);
+          await _secureStorage!.clearBilibiliAccount();
+          await _secureStorage!.clearBilibiliCookie();
+          return const PlatformAuthState.unbound();
+        }
+
+        // 非鉴权错误（如网络异常）才回退到本地存储检查
         AppLogger.debug('PlatformAuthViewModel', '后端验证失败，使用本地存储: $e');
         
         final isBound = await _secureStorage!.isBilibiliBound();
@@ -312,6 +321,14 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
       state = const AsyncData(PlatformAuthState.unbound());
       return true;
     } catch (e) {
+      if (_isUnauthorizedError(e)) {
+        if (!ref.mounted) return false;
+        state = const AsyncData(
+          PlatformAuthState.error(message: '登录已过期，请重新登录后再解绑B站账号'),
+        );
+        return false;
+      }
+
       AppLogger.error('PlatformAuthViewModel', '解绑失败: $e');
       if (!ref.mounted) return false;
       state = AsyncError(e, StackTrace.current);
@@ -359,6 +376,13 @@ class PlatformAuthViewModel extends _$PlatformAuthViewModel {
     if (!ref.mounted) return;
     state = const AsyncData(PlatformAuthState.unbound());
     AppLogger.info('PlatformAuthViewModel', '状态已重置');
+  }
+
+  bool _isUnauthorizedError(Object error) {
+    if (error is ApiException) {
+      return error.statusCode == 401 || error.message.contains('Token 已过期');
+    }
+    return false;
   }
 }
 

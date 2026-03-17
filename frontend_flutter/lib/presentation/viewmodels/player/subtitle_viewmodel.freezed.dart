@@ -11,6 +11,7 @@ part of 'subtitle_viewmodel.dart';
 
 // dart format off
 T _$identity<T>(T value) => value;
+
 /// @nodoc
 mixin _$SubtitleState {
 
@@ -18,27 +19,30 @@ mixin _$SubtitleState {
  SubtitleTrack? get activeTrack;// 当前激活的语言
  int get currentLineIndex;// 当前高亮行索引
  bool get isLoading; bool get isVisible;// 字幕面板是否展开
- String? get error;
+ bool get isSubtitleEnabled;// 字幕是否开启（用户可通过菜单关闭）
+ String? get error; bool get needLogin;
 /// Create a copy of SubtitleState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $SubtitleStateCopyWith<SubtitleState> get copyWith => _$SubtitleStateCopyWithImpl<SubtitleState>(this as SubtitleState, _$identity);
 
+  /// Serializes this SubtitleState to a JSON map.
+  Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubtitleState&&(identical(other.data, data) || other.data == data)&&(identical(other.activeTrack, activeTrack) || other.activeTrack == activeTrack)&&(identical(other.currentLineIndex, currentLineIndex) || other.currentLineIndex == currentLineIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isVisible, isVisible) || other.isVisible == isVisible)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubtitleState&&(identical(other.data, data) || other.data == data)&&(identical(other.activeTrack, activeTrack) || other.activeTrack == activeTrack)&&(identical(other.currentLineIndex, currentLineIndex) || other.currentLineIndex == currentLineIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isVisible, isVisible) || other.isVisible == isVisible)&&(identical(other.isSubtitleEnabled, isSubtitleEnabled) || other.isSubtitleEnabled == isSubtitleEnabled)&&(identical(other.error, error) || other.error == error)&&(identical(other.needLogin, needLogin) || other.needLogin == needLogin));
 }
 
-
+@JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,data,activeTrack,currentLineIndex,isLoading,isVisible,error);
+int get hashCode => Object.hash(runtimeType,data,activeTrack,currentLineIndex,isLoading,isVisible,isSubtitleEnabled,error,needLogin);
 
 @override
 String toString() {
-  return 'SubtitleState(data: $data, activeTrack: $activeTrack, currentLineIndex: $currentLineIndex, isLoading: $isLoading, isVisible: $isVisible, error: $error)';
+  return 'SubtitleState(data: $data, activeTrack: $activeTrack, currentLineIndex: $currentLineIndex, isLoading: $isLoading, isVisible: $isVisible, isSubtitleEnabled: $isSubtitleEnabled, error: $error, needLogin: $needLogin)';
 }
 
 
@@ -49,7 +53,7 @@ abstract mixin class $SubtitleStateCopyWith<$Res>  {
   factory $SubtitleStateCopyWith(SubtitleState value, $Res Function(SubtitleState) _then) = _$SubtitleStateCopyWithImpl;
 @useResult
 $Res call({
- SubtitleData? data, SubtitleTrack? activeTrack, int currentLineIndex, bool isLoading, bool isVisible, String? error
+ SubtitleData? data, SubtitleTrack? activeTrack, int currentLineIndex, bool isLoading, bool isVisible, bool isSubtitleEnabled, String? error, bool needLogin
 });
 
 
@@ -66,15 +70,17 @@ class _$SubtitleStateCopyWithImpl<$Res>
 
 /// Create a copy of SubtitleState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? data = freezed,Object? activeTrack = freezed,Object? currentLineIndex = null,Object? isLoading = null,Object? isVisible = null,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? data = freezed,Object? activeTrack = freezed,Object? currentLineIndex = null,Object? isLoading = null,Object? isVisible = null,Object? isSubtitleEnabled = null,Object? error = freezed,Object? needLogin = null,}) {
   return _then(_self.copyWith(
 data: freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
 as SubtitleData?,activeTrack: freezed == activeTrack ? _self.activeTrack : activeTrack // ignore: cast_nullable_to_non_nullable
 as SubtitleTrack?,currentLineIndex: null == currentLineIndex ? _self.currentLineIndex : currentLineIndex // ignore: cast_nullable_to_non_nullable
 as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,isVisible: null == isVisible ? _self.isVisible : isVisible // ignore: cast_nullable_to_non_nullable
+as bool,isSubtitleEnabled: null == isSubtitleEnabled ? _self.isSubtitleEnabled : isSubtitleEnabled // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,needLogin: null == needLogin ? _self.needLogin : needLogin // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 /// Create a copy of SubtitleState
@@ -183,10 +189,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  bool isSubtitleEnabled,  String? error,  bool needLogin)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SubtitleState() when $default != null:
-return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.error);case _:
+return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.isSubtitleEnabled,_that.error,_that.needLogin);case _:
   return orElse();
 
 }
@@ -204,10 +210,10 @@ return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoad
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  bool isSubtitleEnabled,  String? error,  bool needLogin)  $default,) {final _that = this;
 switch (_that) {
 case _SubtitleState():
-return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.error);case _:
+return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.isSubtitleEnabled,_that.error,_that.needLogin);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -224,10 +230,10 @@ return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoad
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( SubtitleData? data,  SubtitleTrack? activeTrack,  int currentLineIndex,  bool isLoading,  bool isVisible,  bool isSubtitleEnabled,  String? error,  bool needLogin)?  $default,) {final _that = this;
 switch (_that) {
 case _SubtitleState() when $default != null:
-return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.error);case _:
+return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoading,_that.isVisible,_that.isSubtitleEnabled,_that.error,_that.needLogin);case _:
   return null;
 
 }
@@ -236,11 +242,11 @@ return $default(_that.data,_that.activeTrack,_that.currentLineIndex,_that.isLoad
 }
 
 /// @nodoc
-
+@JsonSerializable()
 
 class _SubtitleState implements SubtitleState {
-  const _SubtitleState({this.data = null, this.activeTrack = null, this.currentLineIndex = -1, this.isLoading = false, this.isVisible = false, this.error = null});
-  
+  const _SubtitleState({this.data = null, this.activeTrack = null, this.currentLineIndex = -1, this.isLoading = false, this.isVisible = false, this.isSubtitleEnabled = true, this.error = null, this.needLogin = false});
+  factory _SubtitleState.fromJson(Map<String, dynamic> json) => _$SubtitleStateFromJson(json);
 
 @override@JsonKey() final  SubtitleData? data;
 // 字幕数据
@@ -251,7 +257,10 @@ class _SubtitleState implements SubtitleState {
 @override@JsonKey() final  bool isLoading;
 @override@JsonKey() final  bool isVisible;
 // 字幕面板是否展开
+@override@JsonKey() final  bool isSubtitleEnabled;
+// 字幕是否开启（用户可通过菜单关闭）
 @override@JsonKey() final  String? error;
+@override@JsonKey() final  bool needLogin;
 
 /// Create a copy of SubtitleState
 /// with the given fields replaced by the non-null parameter values.
@@ -259,20 +268,23 @@ class _SubtitleState implements SubtitleState {
 @pragma('vm:prefer-inline')
 _$SubtitleStateCopyWith<_SubtitleState> get copyWith => __$SubtitleStateCopyWithImpl<_SubtitleState>(this, _$identity);
 
-
+@override
+Map<String, dynamic> toJson() {
+  return _$SubtitleStateToJson(this, );
+}
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubtitleState&&(identical(other.data, data) || other.data == data)&&(identical(other.activeTrack, activeTrack) || other.activeTrack == activeTrack)&&(identical(other.currentLineIndex, currentLineIndex) || other.currentLineIndex == currentLineIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isVisible, isVisible) || other.isVisible == isVisible)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubtitleState&&(identical(other.data, data) || other.data == data)&&(identical(other.activeTrack, activeTrack) || other.activeTrack == activeTrack)&&(identical(other.currentLineIndex, currentLineIndex) || other.currentLineIndex == currentLineIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isVisible, isVisible) || other.isVisible == isVisible)&&(identical(other.isSubtitleEnabled, isSubtitleEnabled) || other.isSubtitleEnabled == isSubtitleEnabled)&&(identical(other.error, error) || other.error == error)&&(identical(other.needLogin, needLogin) || other.needLogin == needLogin));
 }
 
-
+@JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,data,activeTrack,currentLineIndex,isLoading,isVisible,error);
+int get hashCode => Object.hash(runtimeType,data,activeTrack,currentLineIndex,isLoading,isVisible,isSubtitleEnabled,error,needLogin);
 
 @override
 String toString() {
-  return 'SubtitleState(data: $data, activeTrack: $activeTrack, currentLineIndex: $currentLineIndex, isLoading: $isLoading, isVisible: $isVisible, error: $error)';
+  return 'SubtitleState(data: $data, activeTrack: $activeTrack, currentLineIndex: $currentLineIndex, isLoading: $isLoading, isVisible: $isVisible, isSubtitleEnabled: $isSubtitleEnabled, error: $error, needLogin: $needLogin)';
 }
 
 
@@ -283,7 +295,7 @@ abstract mixin class _$SubtitleStateCopyWith<$Res> implements $SubtitleStateCopy
   factory _$SubtitleStateCopyWith(_SubtitleState value, $Res Function(_SubtitleState) _then) = __$SubtitleStateCopyWithImpl;
 @override @useResult
 $Res call({
- SubtitleData? data, SubtitleTrack? activeTrack, int currentLineIndex, bool isLoading, bool isVisible, String? error
+ SubtitleData? data, SubtitleTrack? activeTrack, int currentLineIndex, bool isLoading, bool isVisible, bool isSubtitleEnabled, String? error, bool needLogin
 });
 
 
@@ -300,15 +312,17 @@ class __$SubtitleStateCopyWithImpl<$Res>
 
 /// Create a copy of SubtitleState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? data = freezed,Object? activeTrack = freezed,Object? currentLineIndex = null,Object? isLoading = null,Object? isVisible = null,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? data = freezed,Object? activeTrack = freezed,Object? currentLineIndex = null,Object? isLoading = null,Object? isVisible = null,Object? isSubtitleEnabled = null,Object? error = freezed,Object? needLogin = null,}) {
   return _then(_SubtitleState(
 data: freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
 as SubtitleData?,activeTrack: freezed == activeTrack ? _self.activeTrack : activeTrack // ignore: cast_nullable_to_non_nullable
 as SubtitleTrack?,currentLineIndex: null == currentLineIndex ? _self.currentLineIndex : currentLineIndex // ignore: cast_nullable_to_non_nullable
 as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,isVisible: null == isVisible ? _self.isVisible : isVisible // ignore: cast_nullable_to_non_nullable
+as bool,isSubtitleEnabled: null == isSubtitleEnabled ? _self.isSubtitleEnabled : isSubtitleEnabled // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,needLogin: null == needLogin ? _self.needLogin : needLogin // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

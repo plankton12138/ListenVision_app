@@ -148,6 +148,32 @@ const deleteAccount = catchAsync(async (req, res) => {
 });
 
 /**
+ * 刷新 Token
+ * 使用 refresh token 获取新的 access token
+ */
+const refresh = catchAsync(async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    throw new AppError('Refresh token 不能为空', 400);
+  }
+
+  try {
+    const { verifyRefreshToken, generateToken } = require('../config/jwt');
+    const decoded = verifyRefreshToken(refreshToken);
+    
+    const newToken = generateToken({ userId: decoded.userId, username: decoded.username || decoded.user?.username });
+
+    return successResponse(res, {
+      token: newToken,
+      refreshToken // 返回旧的 refresh token，以备不时之需
+    }, '令牌刷新成功');
+  } catch (error) {
+    throw new AppError('Refresh token 无效或已过期', 401);
+  }
+});
+
+/**
  * 登出（客户端清除 token 即可，服务端无需操作）
  */
 const logout = catchAsync(async (req, res) => {
@@ -159,6 +185,7 @@ module.exports = {
   verifyEmail,
   login,
   logout,
+  refresh,
   getMe,
   verifyToken,
   sendResetCode,

@@ -52,8 +52,8 @@ const stmt = {
   maxPosition: db.prepare('SELECT COALESCE(MAX(position), -1) as max_pos FROM playlist_items WHERE playlist_id = ?'),
   // 歌单项 CRUD
   insertItem: db.prepare(`
-    INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO playlist_items (playlist_id, bvid, cid, title, artist, duration, cover_url, position)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
   updateItemPosition: db.prepare(`
     UPDATE playlist_items SET position = ? WHERE id = ?
@@ -222,11 +222,11 @@ const deletePlaylist = (playlistId, userId) => {
 /**
  * 添加音频到歌单
  * @param {number} playlistId - 歌单ID
- * @param {Object} itemData - 音频数据 { bvid, title, artist, duration, coverUrl }
+ * @param {Object} itemData - 音频数据 { bvid, cid, title, artist, duration, coverUrl }
  * @returns {Object} 添加的歌单项
  */
 const addItem = (playlistId, itemData) => {
-  const { bvid, title, artist, duration, coverUrl } = itemData;
+  const { bvid, cid, title, artist, duration, coverUrl } = itemData;
 
   // 验证必要参数
   if (!bvid || bvid.trim() === '') {
@@ -249,7 +249,7 @@ const addItem = (playlistId, itemData) => {
   const nextPosition = max_pos + 1;
 
   const result = stmt.insertItem.run(
-    playlistId, bvid.trim(), title || null, artist || null,
+    playlistId, bvid.trim(), cid || null, title || null, artist || null,
     duration || null, coverUrl || null, nextPosition
   );
 
@@ -341,11 +341,11 @@ const reorderItems = (playlistId, items) => {
 /**
  * 切换收藏状态（快捷方法）
  * @param {number} userId - 用户ID
- * @param {Object} itemData - 音频数据 { bvid, title, artist, duration, coverUrl }
+ * @param {Object} itemData - 音频数据 { bvid, cid, title, artist, duration, coverUrl }
  * @returns {Object} { added: boolean, favorited: boolean }
  */
 const toggleFavorite = (userId, itemData) => {
-  const { bvid, title, artist, duration, coverUrl } = itemData;
+  const { bvid, cid, title, artist, duration, coverUrl } = itemData;
 
   // 验证必要参数
   if (!bvid || bvid.trim() === '') {
@@ -372,6 +372,7 @@ const toggleFavorite = (userId, itemData) => {
     // 未收藏，添加
     addItem(favoritesPlaylist.id, {
       bvid: normalizedBvid,
+      cid: cid || null,
       title: normalizedTitle,
       artist: normalizedArtist,
       duration,
@@ -430,8 +431,8 @@ const saveNowPlaying = (userId, items) => {
   // 插入新内容
   if (items.length > 0) {
     const insertStmt = db.prepare(`
-      INSERT INTO playlist_items (playlist_id, bvid, title, artist, duration, cover_url, position)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO playlist_items (playlist_id, bvid, cid, title, artist, duration, cover_url, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const transaction = db.transaction((itemList) => {
       itemList.forEach((item, index) => {
@@ -439,6 +440,7 @@ const saveNowPlaying = (userId, items) => {
           insertStmt.run(
             nowPlayingPlaylist.id,
             item.bvid,
+            item.cid || null,
             item.title || null,
             item.artist || null,
             item.duration || null,

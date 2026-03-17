@@ -43,7 +43,7 @@ final class PlatformAuthViewModelProvider
 }
 
 String _$platformAuthViewModelHash() =>
-    r'288b5b07e89690ba51509118b6f0bccc7a5a59fd';
+    r'abc3b164ae1272d695d3cd3b504dd1bd6f6cd8c6';
 
 /// 平台认证 ViewModel
 ///

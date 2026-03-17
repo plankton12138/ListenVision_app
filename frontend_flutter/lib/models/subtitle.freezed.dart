@@ -288,7 +288,7 @@ as String,
 /// @nodoc
 mixin _$SubtitleTrack {
 
- String get lan;// 语言代码 (zh-Hans, en-US)
+ String get lan;// 语言代码 (zh-Hans, en-US, ai-zh)
 @JsonKey(name: 'lan_doc') String get lanDoc;// 语言名称 (中文（简体）)
  List<SubtitleLine> get lines;
 /// Create a copy of SubtitleTrack
@@ -485,12 +485,12 @@ return $default(_that.lan,_that.lanDoc,_that.lines);case _:
 /// @nodoc
 @JsonSerializable()
 
-class _SubtitleTrack implements SubtitleTrack {
-  const _SubtitleTrack({required this.lan, @JsonKey(name: 'lan_doc') required this.lanDoc, required final  List<SubtitleLine> lines}): _lines = lines;
+class _SubtitleTrack extends SubtitleTrack {
+  const _SubtitleTrack({required this.lan, @JsonKey(name: 'lan_doc') required this.lanDoc, required final  List<SubtitleLine> lines}): _lines = lines,super._();
   factory _SubtitleTrack.fromJson(Map<String, dynamic> json) => _$SubtitleTrackFromJson(json);
 
 @override final  String lan;
-// 语言代码 (zh-Hans, en-US)
+// 语言代码 (zh-Hans, en-US, ai-zh)
 @override@JsonKey(name: 'lan_doc') final  String lanDoc;
 // 语言名称 (中文（简体）)
  final  List<SubtitleLine> _lines;
@@ -568,7 +568,7 @@ as List<SubtitleLine>,
 /// @nodoc
 mixin _$SubtitleData {
 
- String get bvid; int get cid; List<SubtitleTrack> get subtitles;
+ String get bvid; int get cid; List<SubtitleTrack> get subtitles;@JsonKey(name: 'need_login') bool get needLogin;
 /// Create a copy of SubtitleData
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -581,16 +581,16 @@ $SubtitleDataCopyWith<SubtitleData> get copyWith => _$SubtitleDataCopyWithImpl<S
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubtitleData&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&const DeepCollectionEquality().equals(other.subtitles, subtitles));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubtitleData&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&const DeepCollectionEquality().equals(other.subtitles, subtitles)&&(identical(other.needLogin, needLogin) || other.needLogin == needLogin));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,bvid,cid,const DeepCollectionEquality().hash(subtitles));
+int get hashCode => Object.hash(runtimeType,bvid,cid,const DeepCollectionEquality().hash(subtitles),needLogin);
 
 @override
 String toString() {
-  return 'SubtitleData(bvid: $bvid, cid: $cid, subtitles: $subtitles)';
+  return 'SubtitleData(bvid: $bvid, cid: $cid, subtitles: $subtitles, needLogin: $needLogin)';
 }
 
 
@@ -601,7 +601,7 @@ abstract mixin class $SubtitleDataCopyWith<$Res>  {
   factory $SubtitleDataCopyWith(SubtitleData value, $Res Function(SubtitleData) _then) = _$SubtitleDataCopyWithImpl;
 @useResult
 $Res call({
- String bvid, int cid, List<SubtitleTrack> subtitles
+ String bvid, int cid, List<SubtitleTrack> subtitles,@JsonKey(name: 'need_login') bool needLogin
 });
 
 
@@ -618,12 +618,13 @@ class _$SubtitleDataCopyWithImpl<$Res>
 
 /// Create a copy of SubtitleData
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? bvid = null,Object? cid = null,Object? subtitles = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? bvid = null,Object? cid = null,Object? subtitles = null,Object? needLogin = null,}) {
   return _then(_self.copyWith(
 bvid: null == bvid ? _self.bvid : bvid // ignore: cast_nullable_to_non_nullable
 as String,cid: null == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
 as int,subtitles: null == subtitles ? _self.subtitles : subtitles // ignore: cast_nullable_to_non_nullable
-as List<SubtitleTrack>,
+as List<SubtitleTrack>,needLogin: null == needLogin ? _self.needLogin : needLogin // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -708,10 +709,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String bvid,  int cid,  List<SubtitleTrack> subtitles)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String bvid,  int cid,  List<SubtitleTrack> subtitles, @JsonKey(name: 'need_login')  bool needLogin)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SubtitleData() when $default != null:
-return $default(_that.bvid,_that.cid,_that.subtitles);case _:
+return $default(_that.bvid,_that.cid,_that.subtitles,_that.needLogin);case _:
   return orElse();
 
 }
@@ -729,10 +730,10 @@ return $default(_that.bvid,_that.cid,_that.subtitles);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String bvid,  int cid,  List<SubtitleTrack> subtitles)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String bvid,  int cid,  List<SubtitleTrack> subtitles, @JsonKey(name: 'need_login')  bool needLogin)  $default,) {final _that = this;
 switch (_that) {
 case _SubtitleData():
-return $default(_that.bvid,_that.cid,_that.subtitles);case _:
+return $default(_that.bvid,_that.cid,_that.subtitles,_that.needLogin);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -749,10 +750,10 @@ return $default(_that.bvid,_that.cid,_that.subtitles);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String bvid,  int cid,  List<SubtitleTrack> subtitles)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String bvid,  int cid,  List<SubtitleTrack> subtitles, @JsonKey(name: 'need_login')  bool needLogin)?  $default,) {final _that = this;
 switch (_that) {
 case _SubtitleData() when $default != null:
-return $default(_that.bvid,_that.cid,_that.subtitles);case _:
+return $default(_that.bvid,_that.cid,_that.subtitles,_that.needLogin);case _:
   return null;
 
 }
@@ -764,7 +765,7 @@ return $default(_that.bvid,_that.cid,_that.subtitles);case _:
 @JsonSerializable()
 
 class _SubtitleData implements SubtitleData {
-  const _SubtitleData({required this.bvid, required this.cid, required final  List<SubtitleTrack> subtitles}): _subtitles = subtitles;
+  const _SubtitleData({required this.bvid, required this.cid, required final  List<SubtitleTrack> subtitles, @JsonKey(name: 'need_login') this.needLogin = false}): _subtitles = subtitles;
   factory _SubtitleData.fromJson(Map<String, dynamic> json) => _$SubtitleDataFromJson(json);
 
 @override final  String bvid;
@@ -776,6 +777,7 @@ class _SubtitleData implements SubtitleData {
   return EqualUnmodifiableListView(_subtitles);
 }
 
+@override@JsonKey(name: 'need_login') final  bool needLogin;
 
 /// Create a copy of SubtitleData
 /// with the given fields replaced by the non-null parameter values.
@@ -790,16 +792,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubtitleData&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&const DeepCollectionEquality().equals(other._subtitles, _subtitles));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubtitleData&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&const DeepCollectionEquality().equals(other._subtitles, _subtitles)&&(identical(other.needLogin, needLogin) || other.needLogin == needLogin));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,bvid,cid,const DeepCollectionEquality().hash(_subtitles));
+int get hashCode => Object.hash(runtimeType,bvid,cid,const DeepCollectionEquality().hash(_subtitles),needLogin);
 
 @override
 String toString() {
-  return 'SubtitleData(bvid: $bvid, cid: $cid, subtitles: $subtitles)';
+  return 'SubtitleData(bvid: $bvid, cid: $cid, subtitles: $subtitles, needLogin: $needLogin)';
 }
 
 
@@ -810,7 +812,7 @@ abstract mixin class _$SubtitleDataCopyWith<$Res> implements $SubtitleDataCopyWi
   factory _$SubtitleDataCopyWith(_SubtitleData value, $Res Function(_SubtitleData) _then) = __$SubtitleDataCopyWithImpl;
 @override @useResult
 $Res call({
- String bvid, int cid, List<SubtitleTrack> subtitles
+ String bvid, int cid, List<SubtitleTrack> subtitles,@JsonKey(name: 'need_login') bool needLogin
 });
 
 
@@ -827,12 +829,13 @@ class __$SubtitleDataCopyWithImpl<$Res>
 
 /// Create a copy of SubtitleData
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? bvid = null,Object? cid = null,Object? subtitles = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? bvid = null,Object? cid = null,Object? subtitles = null,Object? needLogin = null,}) {
   return _then(_SubtitleData(
 bvid: null == bvid ? _self.bvid : bvid // ignore: cast_nullable_to_non_nullable
 as String,cid: null == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
 as int,subtitles: null == subtitles ? _self._subtitles : subtitles // ignore: cast_nullable_to_non_nullable
-as List<SubtitleTrack>,
+as List<SubtitleTrack>,needLogin: null == needLogin ? _self.needLogin : needLogin // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

@@ -25,6 +25,7 @@ abstract class Audio with _$Audio {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? localPath, // 本地音频文件路径（仅本地音频使用）
+    int? cid, // B站视频分P ID（用于获取字幕）
   }) = _Audio;
 
   /// 从 JSON 创建
@@ -86,6 +87,7 @@ abstract class Audio with _$Audio {
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
       localPath: safeString(json['local_path'] ?? json['localPath']),
+      cid: _parseCid(json['cid']),
     );
   }
 
@@ -145,6 +147,7 @@ abstract class Audio with _$Audio {
       if (uploader != null) 'uploader': uploader,
       if (uploaderMid != null) 'mid': int.tryParse(uploaderMid!) ?? uploaderMid,
       if (localPath != null) 'local_path': localPath,
+      if (cid != null) 'cid': cid,
     };
   }
 
@@ -152,6 +155,7 @@ abstract class Audio with _$Audio {
   PlaylistItem toPlaylistItem({required String playlistId, required int position}) {
     return PlaylistItem(
       bvid: id,
+      cid: cid,  // 传递 cid 用于字幕加载
       title: title,
       artist: artist,
       duration: duration,
@@ -201,6 +205,15 @@ abstract class Audio with _$Audio {
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value);
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+    return null;
+  }
+
+  /// 解析 CID（B站视频分P ID）
+  static int? _parseCid(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
     return null;
   }
 }

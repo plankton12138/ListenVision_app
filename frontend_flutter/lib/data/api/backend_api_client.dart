@@ -408,6 +408,7 @@ class BackendApiClient {
   /// 添加播放历史
   Future<Map<String, dynamic>> addPlayHistory({
     required String bvid,
+    int? cid, 
     String? title,
     String? artist,
     int? duration,
@@ -419,6 +420,7 @@ class BackendApiClient {
         HistoryEndpoints.history,
         data: {
           'bvid': bvid,
+          if (cid != null) 'cid': cid, 
           if (title != null) 'title': title,
           if (artist != null) 'artist': artist,
           if (duration != null) 'duration': duration,

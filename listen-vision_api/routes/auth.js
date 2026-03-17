@@ -288,6 +288,51 @@ router.post('/logout', authMiddleware, authController.logout);
 
 /**
  * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     tags: [认证]
+ *     summary: 刷新 Token
+ *     description: 使用 refresh token 获取新的 access token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: 用于刷新的 refresh token
+ *             required:
+ *               - refreshToken
+ *     responses:
+ *       200:
+ *         description: Token 刷新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: 新的 access token
+ *                     refreshToken:
+ *                       type: string
+ *                       description: 原 refresh token
+ *       400:
+ *         $ref: '#/components/schemas/Error'
+ *       401:
+ *         $ref: '#/components/schemas/Error'
+ */
+router.post('/refresh', authController.refresh);
+
+/**
+ * @swagger
  * /api/auth/account:
  *   delete:
  *     tags: [认证]

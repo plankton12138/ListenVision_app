@@ -27,26 +27,41 @@ class SubtitleRepository {
   }
 
   /// 获取字幕（本地缓存优先）
-  Future<SubtitleData?> getSubtitle(String bvid) async {
+  /// [bvid] 视频 BV 号
+  /// [cid] 可选，用于多 P 视频获取指定分 P 的字幕
+  ///
+  /// 注意：如果 cid 为 null，跳过本地缓存直接请求网络，
+  /// 因为缓存键可能不匹配（后端会返回正确的 cid）
+  Future<SubtitleData?> getSubtitle(String bvid, {int? cid}) async {
     final dao = await _getDao();
 
-    // 1. 尝试本地缓存
-    try {
-      final cached = await dao.getSubtitle(bvid);
-      if (cached != null && cached.isNotEmpty) {
-        return _buildFromCache(bvid, cached);
+    // 1. 尝试本地缓存（仅当 cid 明确指定时）
+    if (cid != null) {
+      try {
+        final cached = await dao.getSubtitle(bvid, cid: cid);
+        if (cached != null && cached.isNotEmpty) {
+          AppLogger.info('SubtitleRepository', '命中本地缓存：bvid=$bvid, cid=$cid');
+          return _buildFromCache(bvid, cid, cached);
+        }
+      } catch (e) {
+        AppLogger.warn('SubtitleRepository', '读取字幕缓存失败：$e');
       }
-    } catch (e) {
-      AppLogger.warn('SubtitleRepository', '读取字幕缓存失败: $e');
     }
 
     // 2. 网络获取
     try {
-      final data = await _apiClient.getBilibiliSubtitle(bvid);
-      // 3. 存入缓存
+      AppLogger.info('SubtitleRepository', '请求字幕：bvid=$bvid, cid=$cid');
+      final data = await _apiClient.getBilibiliSubtitle(bvid, cid: cid);
+
+      // 使用后端返回的实际 cid 作为缓存键（修复缓存键不匹配问题）
+      final actualCid = data.cid;
+      AppLogger.info('SubtitleRepository', '获取字幕成功：bvid=$bvid, cid=$actualCid, 字幕数：${data.subtitles.length}, needLogin: ${data.needLogin}');
+
+      // 3. 存入缓存（使用实际的 cid 区分不同分 P）
       for (final track in data.subtitles) {
         await dao.saveSubtitle(
           bvid,
+          actualCid,
           track.lan,
           track.lanDoc,
           track.lines.map((l) => l.toJson()).toList(),
@@ -54,14 +69,14 @@ class SubtitleRepository {
       }
       return data;
     } catch (e) {
-      AppLogger.warn('SubtitleRepository', '获取字幕失败: $e');
-      return null;
+      AppLogger.warn('SubtitleRepository', '获取字幕失败：$e');
+      rethrow;
     }
   }
 
-  SubtitleData _buildFromCache(String bvid, List<Map<String, dynamic>> cached) {
+  SubtitleData _buildFromCache(String bvid, int cid, List<Map<String, dynamic>> cached) {
     if (cached.isEmpty) {
-      return SubtitleData(bvid: bvid, cid: 0, subtitles: []);
+      return SubtitleData(bvid: bvid, cid: cid, subtitles: []);
     }
 
     final tracks = cached.map((row) {
@@ -79,8 +94,15 @@ class SubtitleRepository {
 
     return SubtitleData(
       bvid: bvid,
-      cid: 0,
+      cid: cid,
       subtitles: tracks,
     );
+  }
+
+  /// 清空字幕缓存
+  Future<void> clearCache() async {
+    final dao = await _getDao();
+    await dao.clearAll();
+    AppLogger.info('SubtitleRepository', '字幕缓存已清空');
   }
 }

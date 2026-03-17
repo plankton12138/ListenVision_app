@@ -43,6 +43,7 @@ _SubtitleData _$SubtitleDataFromJson(Map<String, dynamic> json) =>
       subtitles: (json['subtitles'] as List<dynamic>)
           .map((e) => SubtitleTrack.fromJson(e as Map<String, dynamic>))
           .toList(),
+      needLogin: json['need_login'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$SubtitleDataToJson(_SubtitleData instance) =>
@@ -50,4 +51,5 @@ Map<String, dynamic> _$SubtitleDataToJson(_SubtitleData instance) =>
       'bvid': instance.bvid,
       'cid': instance.cid,
       'subtitles': instance.subtitles,
+      'need_login': instance.needLogin,
     };

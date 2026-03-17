@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// API 响应包装类
 class ApiResponse<T> {
   final bool success;
@@ -61,6 +63,7 @@ class LoginRequestDto {
 
 class LoginResponseDto {
   final String token;
+  final String? refreshToken;
   final int userId;
   final String username;
   final String? email;
@@ -68,10 +71,28 @@ class LoginResponseDto {
 
   LoginResponseDto.fromJson(Map<String, dynamic> json)
       : token = json['token'] as String,
-        userId = json['userId'] as int,
+        refreshToken = json['refreshToken'] as String?,
+        userId = json['userId'] as int? ?? _extractUserIdFromToken(json['token'] as String),
         username = json['username'] as String,
         email = json['email'] as String?,
         bilibiliBound = json['bilibiliBound'] as bool? ?? false;
+
+  /// 从 JWT token 中提取 userId（当响应中没有 userId 时）
+  static int _extractUserIdFromToken(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return 0;
+      
+      // 解码 payload (添加必要的填充)
+      String payload = parts[1];
+      final padded = payload + '=' * (4 - payload.length % 4);
+      final decoded = utf8.decode(base64Url.decode(padded));
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      return json['userId'] as int? ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
 }
 
 class RegisterRequestDto {

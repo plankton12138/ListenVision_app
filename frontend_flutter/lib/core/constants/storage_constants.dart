@@ -8,8 +8,11 @@
 class StorageKeys {
   // ==================== 认证相关 ====================
 
-  /// 用户 token
+  /// 用户 token (access token)
   static const String keyToken = 'auth_token';
+
+  /// 用户 refresh token
+  static const String keyRefreshToken = 'refresh_token';
 
   /// 用户 ID
   static const String keyUserId = 'user_id';

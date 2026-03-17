@@ -149,6 +149,7 @@ abstract class PlaylistItem with _$PlaylistItem {
     String? id,
     String? playlistId,
     required String bvid,
+    int? cid,  // B站视频分P ID（用于获取字幕）
     String? title,
     String? artist,
     int? duration,
@@ -167,6 +168,7 @@ abstract class PlaylistItem with _$PlaylistItem {
       id: json['id']?.toString(),
       playlistId: json['playlist_id']?.toString() ?? json['playlistId']?.toString(),
       bvid: json['bvid'] as String? ?? '',
+      cid: json['cid'] as int?,
       title: json['title'] as String?,
       artist: json['artist'] as String? ?? json['author'] as String?,
       duration: json['duration'] as int?,
@@ -205,6 +207,7 @@ abstract class PlaylistItem with _$PlaylistItem {
       if (id != null) 'id': int.tryParse(id!) ?? id,
       if (playlistId != null) 'playlist_id': int.tryParse(playlistId!) ?? playlistId,
       'bvid': bvid,
+      if (cid != null) 'cid': cid,
       if (title != null) 'title': title,
       if (artist != null) 'artist': artist,
       if (duration != null) 'duration': duration,

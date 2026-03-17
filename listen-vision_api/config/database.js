@@ -137,6 +137,7 @@ const createTables = () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       playlist_id INTEGER NOT NULL,
       bvid TEXT NOT NULL,
+      cid INTEGER,  -- B站视频分P ID（用于获取字幕和正确分P）
       title TEXT,
       artist TEXT,
       duration INTEGER,
@@ -263,18 +264,28 @@ const createTables = () => {
     CREATE TABLE IF NOT EXISTS subtitle_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       bvid TEXT NOT NULL,
-      cid INTEGER,
+      cid INTEGER DEFAULT 0,
       lan TEXT NOT NULL,
       lan_doc TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(bvid, lan)
+      UNIQUE(bvid, cid, lan)
     )
   `);
 
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_subtitle_cache_bvid ON subtitle_cache(bvid);
-  `);
+  // 迁移：如果表已存在但 cid 列没有默认值，添加默认值
+  try {
+    db.exec(`ALTER TABLE subtitle_cache ADD COLUMN cid INTEGER DEFAULT 0`);
+  } catch (e) {
+    // 列已存在，忽略错误
+  }
+
+  // 迁移：更新旧数据，将 cid 为 NULL 的设置为 0
+  db.exec(`UPDATE subtitle_cache SET cid = 0 WHERE cid IS NULL`);
+
+  // 删除旧索引，创建新索引
+  db.exec(`DROP INDEX IF EXISTS idx_subtitle_cache_bvid`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_subtitle_cache_bvid_cid ON subtitle_cache(bvid, cid)`);
 
   logger.info('Database tables initialized successfully');
 };
@@ -284,20 +295,31 @@ const createTables = () => {
 const migratePlaylistItems = () => {
   try {
     const tableInfo = db.pragma('table_info(playlist_items)');
+    
+    // 迁移 local_path 字段
     const localPathColumn = tableInfo.find(col => col.name === 'local_path');
-
     if (!localPathColumn) {
       logger.info('Adding local_path column to playlist_items table...');
-
       try {
         db.exec(`ALTER TABLE playlist_items ADD COLUMN local_path TEXT`);
         logger.info('playlist_items.local_path column added successfully');
       } catch (e) {
-        // 字段已存在，忽略错误
         logger.debug('playlist_items.local_path column already exists or error:', e.message);
       }
+    }
+
+    // 迁移 cid 字段（用于多P视频字幕）
+    const cidColumn = tableInfo.find(col => col.name === 'cid');
+    if (!cidColumn) {
+      logger.info('Adding cid column to playlist_items table...');
+      try {
+        db.exec(`ALTER TABLE playlist_items ADD COLUMN cid INTEGER`);
+        logger.info('playlist_items.cid column added successfully');
+      } catch (e) {
+        logger.debug('playlist_items.cid column already exists or error:', e.message);
+      }
     } else {
-      logger.info('playlist_items table already has local_path column');
+      logger.info('playlist_items table already has cid column');
     }
   } catch (e) {
     logger.error('playlist_items table migration failed:', e.message);

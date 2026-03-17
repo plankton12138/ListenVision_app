@@ -193,11 +193,13 @@ class ApiClient {
   }
 
   /// 获取B站视频字幕
-  Future<SubtitleData> getBilibiliSubtitle(String bvid) async {
+  /// [cid] 可选，用于多P视频获取指定分P的字幕
+  Future<SubtitleData> getBilibiliSubtitle(String bvid, {int? cid}) async {
     try {
-      final response = await _dioClient.get(Endpoints.bilibiliSubtitle(bvid));
+      AppLogger.debug('ApiClient', '请求字幕: $bvid, cid=$cid, token: ${DioClient.instance.currentToken != null ? "已设置" : "未设置"}');
+      final response = await _dioClient.get(Endpoints.bilibiliSubtitle(bvid, cid: cid));
       final data = _handleResponse(response) as Map<String, dynamic>;
-      AppLogger.info('ApiClient', '获取字幕成功: $bvid');
+      AppLogger.info('ApiClient', '获取字幕成功: $bvid, cid=$cid, subtitles: ${(data['subtitles'] as List?)?.length ?? 0}');
       return SubtitleData.fromJson(data);
     } catch (e) {
       AppLogger.error('ApiClient', '获取字幕失败: $e');

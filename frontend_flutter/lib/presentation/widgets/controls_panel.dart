@@ -306,6 +306,8 @@ class ControlsPanel extends ConsumerWidget {
 
   /// 构建控制按钮
   Widget _buildControlButtons(BuildContext context, WidgetRef ref, playerState, playerViewModel) {
+    final subtitleState = ref.watch(subtitleViewModelProvider);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -314,6 +316,8 @@ class ControlsPanel extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
+            // 字幕按钮
+            _buildSubtitleButton(context, ref, subtitleState),
             IconButton(
               icon: const Icon(Icons.skip_previous),
               iconSize: 45,
@@ -361,6 +365,185 @@ class ControlsPanel extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+
+  /// 构建字幕按钮（类似B站字幕选择器）
+  Widget _buildSubtitleButton(BuildContext context, WidgetRef ref, SubtitleState subtitleState) {
+    final hasSubtitles = subtitleState.data?.subtitles.isNotEmpty ?? false;
+    final isEnabled = subtitleState.isSubtitleEnabled;
+    final isLoading = subtitleState.isLoading;
+    final needLogin = subtitleState.needLogin;
+    final hasError = subtitleState.error != null;
+
+    // 图标颜色：有字幕且开启时高亮，需要登录时显示警告色
+    Color iconColor;
+    if (isLoading) {
+      iconColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    } else if (needLogin) {
+      iconColor = Theme.of(context).colorScheme.error.withValues(alpha: 0.7);
+    } else if (hasSubtitles && isEnabled) {
+      iconColor = Theme.of(context).colorScheme.primary;
+    } else {
+      iconColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    }
+
+    return PopupMenuButton<String>(
+      icon: Icon(
+        isLoading ? Icons.hourglass_empty : Icons.subtitles,
+        color: iconColor,
+        size: 28,
+      ),
+      tooltip: '字幕',
+      onSelected: (value) {
+        final notifier = ref.read(subtitleViewModelProvider.notifier);
+        if (value == 'off') {
+          notifier.setSubtitleEnabled(false);
+        } else if (value == 'login') {
+          // 跳转到绑定页面
+          // TODO: 导航到B站绑定页面
+        } else {
+          notifier.switchLanguage(value);
+          notifier.setSubtitleEnabled(true);
+        }
+      },
+      itemBuilder: (context) {
+        final items = <PopupMenuEntry<String>>[];
+
+        // 关闭选项
+        items.add(
+          PopupMenuItem(
+            value: 'off',
+            child: Row(
+              children: [
+                Icon(
+                  !isEnabled ? Icons.check : null,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Text('关闭'),
+              ],
+            ),
+          ),
+        );
+
+        // 需要登录提示
+        if (needLogin && !hasSubtitles) {
+          items.add(const PopupMenuDivider());
+          items.add(
+            PopupMenuItem(
+              enabled: false,
+              value: 'need_login',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.login_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '需绑定B站账号',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 错误提示
+        if (hasError && !hasSubtitles) {
+          items.add(const PopupMenuDivider());
+          items.add(
+            PopupMenuItem(
+              enabled: false,
+              value: 'error',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '获取失败',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 无字幕提示
+        if (!hasSubtitles && !needLogin && !hasError) {
+          items.add(const PopupMenuDivider());
+          items.add(
+            PopupMenuItem(
+              enabled: false,
+              value: 'no_subtitle',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '该视频无字幕',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 分隔线
+        if (hasSubtitles) {
+          items.add(const PopupMenuDivider());
+        }
+
+        // 字幕语言选项
+        final subtitles = subtitleState.data?.subtitles ?? [];
+        for (final track in subtitles) {
+          items.add(
+            PopupMenuItem(
+              value: track.lan,
+              child: Row(
+                children: [
+                  Icon(
+                    isEnabled && subtitleState.activeTrack?.lan == track.lan
+                        ? Icons.check
+                        : null,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(track.displayName),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return items;
+      },
     );
   }
 }

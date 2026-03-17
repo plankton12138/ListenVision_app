@@ -28,6 +28,7 @@ _Audio _$AudioFromJson(Map<String, dynamic> json) => _Audio(
       ? null
       : DateTime.parse(json['updatedAt'] as String),
   localPath: json['localPath'] as String?,
+  cid: (json['cid'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$AudioToJson(_Audio instance) => <String, dynamic>{
@@ -46,4 +47,5 @@ Map<String, dynamic> _$AudioToJson(_Audio instance) => <String, dynamic>{
   'createdAt': instance.createdAt?.toIso8601String(),
   'updatedAt': instance.updatedAt?.toIso8601String(),
   'localPath': instance.localPath,
+  'cid': instance.cid,
 };

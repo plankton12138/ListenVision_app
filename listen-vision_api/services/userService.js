@@ -7,7 +7,7 @@ const { AppError } = require('../middleware/errorHandler');
 const stmt = {
   userById: db.prepare('SELECT id, username, email, email_verified, created_at FROM users WHERE id = ?'),
   userByName: db.prepare('SELECT * FROM users WHERE username = ?'),
-  userByEmail: db.prepare('SELECT id FROM users WHERE email = ?'),
+  userByEmail: db.prepare('SELECT id, username FROM users WHERE email = ?'),
   userByNameForAuth: db.prepare('SELECT id, username, email, password FROM users WHERE username = ?'),
   allUsers: db.prepare('SELECT id, username, email, created_at FROM users'),
   insertUser: db.prepare('INSERT INTO users (username, password, email, email_verified) VALUES (?, ?, ?, ?)'),
@@ -114,11 +114,14 @@ const verifyEmailAndCreateUser = async (email, verifyCode) => {
   // 删除待验证记录
   stmt.deletePendingReg.run(email);
 
-  // 生成 token
+  // 生成 tokens
+  const { generateToken, generateRefreshToken } = require('../config/jwt');
   const token = generateToken({ userId, username: pending.username });
+  const refreshToken = generateRefreshToken({ userId });
 
   return {
     token,
+    refreshToken,
     user: { id: userId, username: pending.username, email }
   };
 };
@@ -151,11 +154,14 @@ const loginUser = async (usernameOrEmail, password) => {
     throw new AppError('用户名或密码错误', 401);
   }
 
-  // 生成 JWT token
+  // 生成 JWT tokens
+  const { generateToken, generateRefreshToken } = require('../config/jwt');
   const token = generateToken({ userId: user.id, username: user.username });
+  const refreshToken = generateRefreshToken({ userId: user.id });
 
   return {
     token,
+    refreshToken,
     user: { id: user.id, username: user.username, email: user.email }
   };
 };

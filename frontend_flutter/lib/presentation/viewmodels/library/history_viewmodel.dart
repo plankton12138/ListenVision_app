@@ -64,7 +64,7 @@ class HistoryViewModel extends _$HistoryViewModel {
     try {
       return await _loadHistoryFromLocal();
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '初始化失败: $e');
+      AppLogger.error('HistoryViewModel', '初始化失败：$e');
       return HistoryState.error(message: e.toString());
     }
   }
@@ -72,7 +72,7 @@ class HistoryViewModel extends _$HistoryViewModel {
   /// 从服务器加载播放历史
   Future<void> loadHistory({int limit = 50}) async {
     try {
-      AppLogger.info('HistoryViewModel', '加载播放历史: limit=$limit');
+      AppLogger.info('HistoryViewModel', '加载播放历史：limit=$limit');
 
       final history = await _repository!.getPlayHistory(
         page: 1,
@@ -91,9 +91,9 @@ class HistoryViewModel extends _$HistoryViewModel {
       ));
 
       await _saveHistoryToLocal();
-      AppLogger.info('HistoryViewModel', '加载播放历史成功: ${history.length}条');
+      AppLogger.info('HistoryViewModel', '加载播放历史成功：${history.length}条');
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '加载播放历史失败: $e');
+      AppLogger.error('HistoryViewModel', '加载播放历史失败：$e');
       // 尝试从本地加载
       if (!ref.mounted) return;
       state = AsyncData(await _loadHistoryFromLocal());
@@ -122,9 +122,9 @@ class HistoryViewModel extends _$HistoryViewModel {
       ));
 
       await _saveHistoryToLocal();
-      AppLogger.info('HistoryViewModel', '加载所有播放历史成功: ${history.length}条');
+      AppLogger.info('HistoryViewModel', '加载所有播放历史成功：${history.length}条');
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '加载所有播放历史失败: $e');
+      AppLogger.error('HistoryViewModel', '加载所有播放历史失败：$e');
     }
   }
 
@@ -133,6 +133,7 @@ class HistoryViewModel extends _$HistoryViewModel {
   /// 支持在线音频（bvid）和本地音频（localPath）
   Future<void> recordPlay({
     String? bvid,
+    int? cid,
     String? localPath,
     String? title,
     String? artist,
@@ -215,6 +216,7 @@ class HistoryViewModel extends _$HistoryViewModel {
         _syncPlayToServer(
           token,
           bvid,
+          cid,
           progress,
           title: title,
           artist: artist,
@@ -225,9 +227,9 @@ class HistoryViewModel extends _$HistoryViewModel {
         });
       }
 
-      AppLogger.info('HistoryViewModel', '记录播放成功: $identifier');
+      AppLogger.info('HistoryViewModel', '记录播放成功：$identifier');
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '记录播放失败: $e');
+      AppLogger.error('HistoryViewModel', '记录播放失败：$e');
     }
   }
 
@@ -235,6 +237,7 @@ class HistoryViewModel extends _$HistoryViewModel {
   Future<void> _syncPlayToServer(
     String token,
     String bvid,
+    int? cid,
     int progress, {
     String? title,
     String? artist,
@@ -244,6 +247,7 @@ class HistoryViewModel extends _$HistoryViewModel {
     try {
       await _repository!.addPlayHistory(
         bvid: bvid,
+        cid: cid,
         title: title,
         artist: artist,
         duration: duration,
@@ -252,14 +256,14 @@ class HistoryViewModel extends _$HistoryViewModel {
       );
     } catch (e) {
       // 静默失败
-      AppLogger.debug('HistoryViewModel', '同步播放到服务器失败: $e');
+      AppLogger.debug('HistoryViewModel', '同步播放到服务器失败：$e');
     }
   }
 
   /// 删除指定记录
   Future<bool> removeHistoryItem(String bvid) async {
     try {
-      AppLogger.info('HistoryViewModel', '删除播放记录: $bvid');
+      AppLogger.info('HistoryViewModel', '删除播放记录：$bvid');
 
       final currentHistory = state.valueOrNull?.maybeWhen(
         loaded: (history, stats) => history,
@@ -290,15 +294,15 @@ class HistoryViewModel extends _$HistoryViewModel {
 
       return true;
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '删除播放记录失败: $e');
+      AppLogger.error('HistoryViewModel', '删除播放记录失败：$e');
       return false;
     }
   }
 
-  /// 按ID删除记录
+  /// 按 ID 删除记录
   Future<bool> removeHistoryById(String id) async {
     try {
-      AppLogger.info('HistoryViewModel', '按ID删除播放记录: $id');
+      AppLogger.info('HistoryViewModel', '按 ID 删除播放记录：$id');
 
       final currentHistory = state.valueOrNull?.maybeWhen(
         loaded: (history, stats) => history,
@@ -322,7 +326,7 @@ class HistoryViewModel extends _$HistoryViewModel {
       await _saveHistoryToLocal();
       return true;
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '按ID删除播放记录失败: $e');
+      AppLogger.error('HistoryViewModel', '按 ID 删除播放记录失败：$e');
       return false;
     }
   }
@@ -348,12 +352,12 @@ class HistoryViewModel extends _$HistoryViewModel {
 
       return true;
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '清空播放历史失败: $e');
+      AppLogger.error('HistoryViewModel', '清空播放历史失败：$e');
       return false;
     }
   }
 
-  /// 获取去重后的历史（按bvid）
+  /// 获取去重后的历史（按 bvid）
   List<PlayHistory> get uniqueHistory {
     return state.valueOrNull?.maybeWhen(
       loaded: (history, stats) {
@@ -370,7 +374,7 @@ class HistoryViewModel extends _$HistoryViewModel {
     ) ?? [];
   }
 
-  /// 根据bvid查找历史记录
+  /// 根据 bvid 查找历史记录
   PlayHistory? findByBvid(String bvid) {
     return state.valueOrNull?.maybeWhen(
       loaded: (history, stats) {
@@ -411,7 +415,7 @@ class HistoryViewModel extends _$HistoryViewModel {
       }
       return const HistoryState.initial();
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '从本地加载播放历史失败: $e');
+      AppLogger.error('HistoryViewModel', '从本地加载播放历史失败：$e');
       return const HistoryState.initial();
     }
   }
@@ -427,7 +431,7 @@ class HistoryViewModel extends _$HistoryViewModel {
         await _storage!.setString('play_history_cache', json);
       }
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '保存本地播放历史失败: $e');
+      AppLogger.error('HistoryViewModel', '保存本地播放历史失败：$e');
     }
   }
 }

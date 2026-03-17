@@ -226,14 +226,23 @@ class SharedStorageService {
 
   // ==================== 认证相关快捷方法 ====================
 
-  /// 保存 token
+  /// 保存 token (access token)
   Future<bool> setToken(String token) => setString(StorageKeys.keyToken, token);
 
-  /// 获取 token
+  /// 获取 token (access token)
   String? getToken() => getString(StorageKeys.keyToken);
 
   /// 删除 token
   Future<bool> clearToken() => remove(StorageKeys.keyToken);
+
+  /// 保存 refresh token
+  Future<bool> setRefreshToken(String refreshToken) => setString(StorageKeys.keyRefreshToken, refreshToken);
+
+  /// 获取 refresh token
+  String? getRefreshToken() => getString(StorageKeys.keyRefreshToken);
+
+  /// 删除 refresh token
+  Future<bool> clearRefreshToken() => remove(StorageKeys.keyRefreshToken);
 
   /// 保存用户 ID
   Future<bool> setUserId(String id) => setString(StorageKeys.keyUserId, id);

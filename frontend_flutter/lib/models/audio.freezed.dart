@@ -17,7 +17,8 @@ mixin _$Audio {
 
  String get id;// BV号或 local_{hash}
  String get title; String? get artist; String? get album; String? get coverUrl; String? get streamUrl; int? get duration;// 秒
- String? get description; int? get playCount; String? get uploader; String? get uploaderMid; DateTime? get publishedAt; DateTime? get createdAt; DateTime? get updatedAt; String? get localPath;
+ String? get description; int? get playCount; String? get uploader; String? get uploaderMid; DateTime? get publishedAt; DateTime? get createdAt; DateTime? get updatedAt; String? get localPath;// 本地音频文件路径（仅本地音频使用）
+ int? get cid;
 /// Create a copy of Audio
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,16 +31,16 @@ $AudioCopyWith<Audio> get copyWith => _$AudioCopyWithImpl<Audio>(this as Audio, 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Audio&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.album, album) || other.album == album)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.streamUrl, streamUrl) || other.streamUrl == streamUrl)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.description, description) || other.description == description)&&(identical(other.playCount, playCount) || other.playCount == playCount)&&(identical(other.uploader, uploader) || other.uploader == uploader)&&(identical(other.uploaderMid, uploaderMid) || other.uploaderMid == uploaderMid)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.localPath, localPath) || other.localPath == localPath));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Audio&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.album, album) || other.album == album)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.streamUrl, streamUrl) || other.streamUrl == streamUrl)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.description, description) || other.description == description)&&(identical(other.playCount, playCount) || other.playCount == playCount)&&(identical(other.uploader, uploader) || other.uploader == uploader)&&(identical(other.uploaderMid, uploaderMid) || other.uploaderMid == uploaderMid)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.cid, cid) || other.cid == cid));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,artist,album,coverUrl,streamUrl,duration,description,playCount,uploader,uploaderMid,publishedAt,createdAt,updatedAt,localPath);
+int get hashCode => Object.hash(runtimeType,id,title,artist,album,coverUrl,streamUrl,duration,description,playCount,uploader,uploaderMid,publishedAt,createdAt,updatedAt,localPath,cid);
 
 @override
 String toString() {
-  return 'Audio(id: $id, title: $title, artist: $artist, album: $album, coverUrl: $coverUrl, streamUrl: $streamUrl, duration: $duration, description: $description, playCount: $playCount, uploader: $uploader, uploaderMid: $uploaderMid, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, localPath: $localPath)';
+  return 'Audio(id: $id, title: $title, artist: $artist, album: $album, coverUrl: $coverUrl, streamUrl: $streamUrl, duration: $duration, description: $description, playCount: $playCount, uploader: $uploader, uploaderMid: $uploaderMid, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, localPath: $localPath, cid: $cid)';
 }
 
 
@@ -50,7 +51,7 @@ abstract mixin class $AudioCopyWith<$Res>  {
   factory $AudioCopyWith(Audio value, $Res Function(Audio) _then) = _$AudioCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, String? artist, String? album, String? coverUrl, String? streamUrl, int? duration, String? description, int? playCount, String? uploader, String? uploaderMid, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, String? localPath
+ String id, String title, String? artist, String? album, String? coverUrl, String? streamUrl, int? duration, String? description, int? playCount, String? uploader, String? uploaderMid, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, String? localPath, int? cid
 });
 
 
@@ -67,7 +68,7 @@ class _$AudioCopyWithImpl<$Res>
 
 /// Create a copy of Audio
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? artist = freezed,Object? album = freezed,Object? coverUrl = freezed,Object? streamUrl = freezed,Object? duration = freezed,Object? description = freezed,Object? playCount = freezed,Object? uploader = freezed,Object? uploaderMid = freezed,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? localPath = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? artist = freezed,Object? album = freezed,Object? coverUrl = freezed,Object? streamUrl = freezed,Object? duration = freezed,Object? description = freezed,Object? playCount = freezed,Object? uploader = freezed,Object? uploaderMid = freezed,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? localPath = freezed,Object? cid = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -84,7 +85,8 @@ as String?,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt
 as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,localPath: freezed == localPath ? _self.localPath : localPath // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,cid: freezed == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -169,10 +171,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath,  int? cid)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Audio() when $default != null:
-return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath);case _:
+return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath,_that.cid);case _:
   return orElse();
 
 }
@@ -190,10 +192,10 @@ return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath,  int? cid)  $default,) {final _that = this;
 switch (_that) {
 case _Audio():
-return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath);case _:
+return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath,_that.cid);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +212,10 @@ return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  String? artist,  String? album,  String? coverUrl,  String? streamUrl,  int? duration,  String? description,  int? playCount,  String? uploader,  String? uploaderMid,  DateTime? publishedAt,  DateTime? createdAt,  DateTime? updatedAt,  String? localPath,  int? cid)?  $default,) {final _that = this;
 switch (_that) {
 case _Audio() when $default != null:
-return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath);case _:
+return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_that.streamUrl,_that.duration,_that.description,_that.playCount,_that.uploader,_that.uploaderMid,_that.publishedAt,_that.createdAt,_that.updatedAt,_that.localPath,_that.cid);case _:
   return null;
 
 }
@@ -225,7 +227,7 @@ return $default(_that.id,_that.title,_that.artist,_that.album,_that.coverUrl,_th
 @JsonSerializable()
 
 class _Audio extends Audio {
-  const _Audio({required this.id, required this.title, this.artist, this.album, this.coverUrl, this.streamUrl, this.duration, this.description, this.playCount, this.uploader, this.uploaderMid, this.publishedAt, this.createdAt, this.updatedAt, this.localPath}): super._();
+  const _Audio({required this.id, required this.title, this.artist, this.album, this.coverUrl, this.streamUrl, this.duration, this.description, this.playCount, this.uploader, this.uploaderMid, this.publishedAt, this.createdAt, this.updatedAt, this.localPath, this.cid}): super._();
   factory _Audio.fromJson(Map<String, dynamic> json) => _$AudioFromJson(json);
 
 @override final  String id;
@@ -245,6 +247,8 @@ class _Audio extends Audio {
 @override final  DateTime? createdAt;
 @override final  DateTime? updatedAt;
 @override final  String? localPath;
+// 本地音频文件路径（仅本地音频使用）
+@override final  int? cid;
 
 /// Create a copy of Audio
 /// with the given fields replaced by the non-null parameter values.
@@ -259,16 +263,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Audio&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.album, album) || other.album == album)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.streamUrl, streamUrl) || other.streamUrl == streamUrl)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.description, description) || other.description == description)&&(identical(other.playCount, playCount) || other.playCount == playCount)&&(identical(other.uploader, uploader) || other.uploader == uploader)&&(identical(other.uploaderMid, uploaderMid) || other.uploaderMid == uploaderMid)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.localPath, localPath) || other.localPath == localPath));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Audio&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.album, album) || other.album == album)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.streamUrl, streamUrl) || other.streamUrl == streamUrl)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.description, description) || other.description == description)&&(identical(other.playCount, playCount) || other.playCount == playCount)&&(identical(other.uploader, uploader) || other.uploader == uploader)&&(identical(other.uploaderMid, uploaderMid) || other.uploaderMid == uploaderMid)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.cid, cid) || other.cid == cid));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,artist,album,coverUrl,streamUrl,duration,description,playCount,uploader,uploaderMid,publishedAt,createdAt,updatedAt,localPath);
+int get hashCode => Object.hash(runtimeType,id,title,artist,album,coverUrl,streamUrl,duration,description,playCount,uploader,uploaderMid,publishedAt,createdAt,updatedAt,localPath,cid);
 
 @override
 String toString() {
-  return 'Audio(id: $id, title: $title, artist: $artist, album: $album, coverUrl: $coverUrl, streamUrl: $streamUrl, duration: $duration, description: $description, playCount: $playCount, uploader: $uploader, uploaderMid: $uploaderMid, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, localPath: $localPath)';
+  return 'Audio(id: $id, title: $title, artist: $artist, album: $album, coverUrl: $coverUrl, streamUrl: $streamUrl, duration: $duration, description: $description, playCount: $playCount, uploader: $uploader, uploaderMid: $uploaderMid, publishedAt: $publishedAt, createdAt: $createdAt, updatedAt: $updatedAt, localPath: $localPath, cid: $cid)';
 }
 
 
@@ -279,7 +283,7 @@ abstract mixin class _$AudioCopyWith<$Res> implements $AudioCopyWith<$Res> {
   factory _$AudioCopyWith(_Audio value, $Res Function(_Audio) _then) = __$AudioCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, String? artist, String? album, String? coverUrl, String? streamUrl, int? duration, String? description, int? playCount, String? uploader, String? uploaderMid, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, String? localPath
+ String id, String title, String? artist, String? album, String? coverUrl, String? streamUrl, int? duration, String? description, int? playCount, String? uploader, String? uploaderMid, DateTime? publishedAt, DateTime? createdAt, DateTime? updatedAt, String? localPath, int? cid
 });
 
 
@@ -296,7 +300,7 @@ class __$AudioCopyWithImpl<$Res>
 
 /// Create a copy of Audio
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? artist = freezed,Object? album = freezed,Object? coverUrl = freezed,Object? streamUrl = freezed,Object? duration = freezed,Object? description = freezed,Object? playCount = freezed,Object? uploader = freezed,Object? uploaderMid = freezed,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? localPath = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? artist = freezed,Object? album = freezed,Object? coverUrl = freezed,Object? streamUrl = freezed,Object? duration = freezed,Object? description = freezed,Object? playCount = freezed,Object? uploader = freezed,Object? uploaderMid = freezed,Object? publishedAt = freezed,Object? createdAt = freezed,Object? updatedAt = freezed,Object? localPath = freezed,Object? cid = freezed,}) {
   return _then(_Audio(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -313,7 +317,8 @@ as String?,publishedAt: freezed == publishedAt ? _self.publishedAt : publishedAt
 as DateTime?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,localPath: freezed == localPath ? _self.localPath : localPath // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,cid: freezed == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

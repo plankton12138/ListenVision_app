@@ -65,7 +65,10 @@
       "Bash(ForEach-Object { Get-Content $_FullName -Tail 200 })",
       "Bash(Format-Table Name, LastWriteTime)",
       "Bash($env:USERNAME = \"23104\")",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "Bash(cd:*)",
+      "Bash(python -m json.tool)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[''''data''''].get\\(''''subtitle'''', {}\\), indent=2, ensure_ascii=False\\)\\)\")"
     ]
   }
 }

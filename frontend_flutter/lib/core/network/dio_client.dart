@@ -4,8 +4,10 @@ import 'package:dio/dio.dart';
 
 import '../constants/api_constants.dart';
 import '../errors/exceptions.dart';
+import '../storage/shared_storage_service.dart';
 import '../utils/app_logger.dart';
 import 'adaptive_network_manager.dart';
+import 'endpoints.dart';
 
 /// Dio 网络客户端
 ///
@@ -84,11 +86,117 @@ class DioClient {
           await _networkManager.refreshQuality();
         }
 
+        // 处理 401 Unauthorized - 尝试刷新 token（仅限需要鉴权的请求）
+        if (error.response?.statusCode == 401 && _shouldAttemptTokenRefresh(error)) {
+          return await _handleTokenRefresh(error, handler, dio);
+        }
+
         return handler.next(error);
       },
     ));
 
     return dio;
+  }
+
+  bool _shouldAttemptTokenRefresh(DioException error) {
+    final requestOptions = error.requestOptions;
+
+    // 显式跳过：用于 refresh 请求自身或外部指定
+    final extra = requestOptions.extra;
+    if (extra['__skipTokenRefresh'] == true) return false;
+    if (extra['__tokenRefreshAttempted'] == true) return false;
+
+    // 没有 access token 时，不做刷新（避免登录失败也刷 token）
+    final accessToken = _token;
+    if (accessToken == null || accessToken.isEmpty) return false;
+
+    // 对 refresh/login/register 等端点不做刷新，避免递归/噪音
+    final path = requestOptions.path;
+    if (path == Endpoints.authRefresh ||
+        path == Endpoints.authLogin ||
+        path == Endpoints.authRegister ||
+        path == Endpoints.authVerifyEmail ||
+        path == Endpoints.authSendCode ||
+        path == Endpoints.authResetPassword) {
+      return false;
+    }
+
+    // 如果请求没有携带 Authorization（理论上不该 401），也跳过
+    final authHeader = requestOptions.headers[HttpHeaders.authorization] ?? dio.options.headers[HttpHeaders.authorization];
+    if (authHeader == null || authHeader.toString().isEmpty) return false;
+
+    return true;
+  }
+
+  /// 处理 401 并尝试刷新 token
+  Future<dynamic> _handleTokenRefresh(
+    DioException error,
+    ErrorInterceptorHandler handler,
+    Dio dio,
+  ) async {
+    try {
+      // 获取存储的 refresh token
+      final storage = SharedStorageService.instance;
+      final refreshToken = storage.getRefreshToken();
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        AppLogger.warn('DioClient', 'Refresh token 不存在，无法刷新');
+        return handler.next(error);
+      }
+
+      AppLogger.info('DioClient', '尝试使用 refresh token 刷新认证令牌');
+
+      // 调用刷新端点
+      final refreshResponse = await dio.post(
+        Endpoints.authRefresh,
+        data: {'refreshToken': refreshToken},
+        options: Options(
+          extra: const {'__skipTokenRefresh': true},
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (refreshResponse.statusCode == 200) {
+        final newToken = refreshResponse.data?['data']?['token'] as String?;
+        final newRefreshToken = refreshResponse.data?['data']?['refreshToken'] as String?;
+        if (newToken != null && newToken.isNotEmpty) {
+          // 保存新 token
+          await storage.setToken(newToken);
+          if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+            await storage.setRefreshToken(newRefreshToken);
+          }
+          updateToken(newToken);
+          AppLogger.info('DioClient', '令牌刷新成功，重试原始请求');
+
+          // 更新原始请求的 Authorization header
+          error.requestOptions.headers[HttpHeaders.authorization] = '${HttpHeaders.bearer}$newToken';
+          error.requestOptions.extra['__tokenRefreshAttempted'] = true;
+
+          // 重试原始请求
+          final retryResponse = await dio.request(
+            error.requestOptions.path,
+            data: error.requestOptions.data,
+            queryParameters: error.requestOptions.queryParameters,
+            options: Options(
+              method: error.requestOptions.method,
+              headers: error.requestOptions.headers,
+              extra: error.requestOptions.extra,
+              sendTimeout: error.requestOptions.sendTimeout,
+              receiveTimeout: error.requestOptions.receiveTimeout,
+            ),
+          );
+
+          return handler.resolve(retryResponse);
+        }
+      }
+
+      AppLogger.warn('DioClient', '令牌刷新失败，返回原始 401 错误');
+      return handler.next(error);
+    } catch (e) {
+      AppLogger.error('DioClient', '令牌刷新异常: $e');
+      return handler.next(error);
+    }
   }
 
   /// 更新认证 Token

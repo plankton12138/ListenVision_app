@@ -403,28 +403,32 @@ class _HomePageState extends ConsumerState<HomePage> {
       drawer: const MyDrawer(),
 
       // 核心内容：音频播放器
-      body: Column(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // 音频信息（封面、标题、艺术家）
-          const AudioInfo(),
-          
-          // 字幕展示区
-          SizedBox(
-            height: 120,
-            child: SubtitleView(
-              onSeek: (position) {
-                ref.read(playerViewModelProvider.notifier).seek(position);
-              },
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 音频信息（封面、标题、艺术家）- 自适应高度
+            const Flexible(
+              flex: 3,
+              child: AudioInfo(),
             ),
-          ),
-          
-          // 控制面板（进度条、播放控制）
-          const ControlsPanel(),
-          // 底部操作栏（收藏、添加到歌单、更多）
-          const PlayerActionBar(),
-        ],
+
+            // 字幕展示区 - 固定高度
+            SizedBox(
+              height: 100,
+              child: SubtitleView(
+                onSeek: (position) {
+                  ref.read(playerViewModelProvider.notifier).seek(position);
+                },
+              ),
+            ),
+
+            // 控制面板（进度条、播放控制）
+            const ControlsPanel(),
+
+            // 底部操作栏（收藏、添加到歌单、更多）
+            const PlayerActionBar(),
+          ],
+        ),
       ),
 
       // 持久显示的底部按钮

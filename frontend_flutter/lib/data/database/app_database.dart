@@ -31,7 +31,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -229,6 +229,11 @@ class AppDatabase {
     // 版本 6 -> 7: 添加 subtitle_cache 表
     if (oldVersion < 7) {
       await _upgradeToV7(db);
+    }
+
+    // 版本 7 -> 8: 更新 subtitle_cache 表结构，添加 cid 字段
+    if (oldVersion < 8) {
+      await _upgradeToV8(db);
     }
 
     // 未来版本升级在这里继续
@@ -627,6 +632,42 @@ class AppDatabase {
       AppLogger.info('AppDatabase', '字幕缓存表创建成功');
     } catch (e) {
       AppLogger.error('AppDatabase', '字幕缓存表创建失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 升级到版本 8：更新 subtitle_cache 表结构，添加 cid 字段
+  Future<void> _upgradeToV8(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V8：更新 subtitle_cache 表结构');
+    try {
+      // 尝试添加 cid 字段（如果不存在）
+      try {
+        await db.execute('ALTER TABLE subtitle_cache ADD COLUMN cid INTEGER DEFAULT 0');
+        AppLogger.info('AppDatabase', 'subtitle_cache.cid 字段添加成功');
+      } catch (e) {
+        // 字段已存在，忽略
+        AppLogger.debug('AppDatabase', 'cid 字段可能已存在：$e');
+      }
+
+      // 更新旧数据，将 NULL 值设置为 0
+      await db.execute('UPDATE subtitle_cache SET cid = 0 WHERE cid IS NULL');
+
+      // 删除旧的唯一索引（基于 bvid, lan）
+      try {
+        await db.execute('DROP INDEX IF EXISTS idx_subtitle_cache_bvid_lan');
+      } catch (e) {
+        AppLogger.debug('AppDatabase', '旧索引不存在：$e');
+      }
+
+      // 创建新的唯一索引（基于 bvid, cid, lan）
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_subtitle_cache_bvid_cid_lan ON subtitle_cache(bvid, cid, lan)');
+
+      // 创建 cid 索引以优化查询性能
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_subtitle_cache_cid ON subtitle_cache(cid)');
+
+      AppLogger.info('AppDatabase', 'subtitle_cache 表结构更新成功');
+    } catch (e) {
+      AppLogger.error('AppDatabase', 'subtitle_cache 表结构更新失败：$e');
       rethrow;
     }
   }

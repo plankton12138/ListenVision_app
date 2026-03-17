@@ -17,14 +17,14 @@ class ResetPasswordPage extends ConsumerStatefulWidget {
 }
 
 class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _codeController.dispose();
     _newPasswordController.dispose();
     super.dispose();
@@ -71,13 +71,17 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
         Form(
           key: _formKey,
           child: TextFormField(
-            controller: _usernameController,
+            controller: _emailController,
             decoration: const InputDecoration(
-              labelText: '用户名',
+              labelText: '邮箱',
             ),
+            keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return '请输入用户名';
+                return '请输入邮箱';
+              }
+              if (!value.contains('@')) {
+                return '请输入有效的邮箱地址';
               }
               return null;
             },
@@ -130,6 +134,12 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                   if (value == null || value.isEmpty) {
                     return '请输入新密码';
                   }
+                  if (value.length < 6) {
+                    return '密码长度至少为 6 位';
+                  }
+                  if (!RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)').hasMatch(value)) {
+                    return '密码必须包含字母和数字';
+                  }
                   return null;
                 },
               ),
@@ -156,7 +166,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
 
     try {
       final success = await ref.read(authViewModelProvider.notifier).sendVerificationCode(
-        _usernameController.text,
+        _emailController.text,
       );
 
       if (!mounted) return;
@@ -185,7 +195,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
 
     try {
       final success = await ref.read(authViewModelProvider.notifier).resetPassword(
-        email: _usernameController.text,
+        email: _emailController.text,
         code: _codeController.text,
         newPassword: _newPasswordController.text,
       );

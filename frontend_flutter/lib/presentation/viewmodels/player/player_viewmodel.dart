@@ -853,17 +853,17 @@ class PlayerViewModel extends _$PlayerViewModel {
       isCurrentOnline: playable.isOnline,
     );
 
+    final subtitleNotifier = ref.read(subtitleViewModelProvider.notifier);
+
     // 更新特定类型的音频
     if (playable is OnlinePlayable) {
       state = state.copyWith(
         currentOnlineAudio: playable.original,
         currentBvid: playable.original.id,
       );
-      // 加载字幕（仅在线B站视频）
-      ref.read(subtitleViewModelProvider.notifier).loadSubtitle(playable.original.id);
     } else {
       // 清除字幕
-      ref.read(subtitleViewModelProvider.notifier).clear();
+      subtitleNotifier.clear();
     }
 
     // 停止当前播放
@@ -875,6 +875,13 @@ class PlayerViewModel extends _$PlayerViewModel {
       await _playOnlineWithFallback(playable);
     } else {
       await _audioService!.playFile(playable.url);
+    }
+
+    if (playable is OnlinePlayable) {
+      unawaited(subtitleNotifier.loadSubtitle(
+        playable.original.id,
+        cid: playable.original.cid,
+      ));
     }
 
     _isSwitchingSource = false;
@@ -958,12 +965,23 @@ class PlayerViewModel extends _$PlayerViewModel {
         statusMessage: '正在加载...',
       );
 
+      final subtitleNotifier = ref.read(subtitleViewModelProvider.notifier);
+
       // 更新特定类型的音频
       if (playable is OnlinePlayable) {
         state = state.copyWith(
           currentOnlineAudio: playable.original,
           currentBvid: playable.original.id,
         );
+        unawaited(
+          subtitleNotifier.loadSubtitle(
+            playable.original.id,
+            cid: playable.original.cid,
+            initialPosition: Duration(seconds: startPosition),
+          ),
+        );
+      } else {
+        subtitleNotifier.clear();
       }
 
       if (playable.isOnline) {

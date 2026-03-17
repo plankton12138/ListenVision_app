@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
-import '../../../models/subtitle.dart';
 
 /// 字幕滚动展示组件
 ///
@@ -40,7 +40,9 @@ class _SubtitleViewState extends ConsumerState<SubtitleView> {
   }
 
   void _onUserScroll() {
-    if (_scrollController.position.activity!.isScrolling) {
+    // 检测用户手动滚动（通过检查 userScrollDirection）
+    final position = _scrollController.position;
+    if (position.userScrollDirection != ScrollDirection.idle) {
       // 用户正在滚动
       if (_isAutoScrolling) {
         setState(() => _isAutoScrolling = false);
@@ -57,9 +59,15 @@ class _SubtitleViewState extends ConsumerState<SubtitleView> {
     final subtitleState = ref.watch(subtitleViewModelProvider);
     final track = subtitleState.activeTrack;
     final isLoading = subtitleState.isLoading;
+    final isSubtitleEnabled = subtitleState.isSubtitleEnabled;
 
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    // 用户关闭了字幕
+    if (!isSubtitleEnabled) {
+      return _buildDisabledState();
     }
 
     if (track == null || track.lines.isEmpty) {
@@ -93,14 +101,60 @@ class _SubtitleViewState extends ConsumerState<SubtitleView> {
   }
 
   Widget _buildEmptyState(SubtitleState state) {
+    String message;
+    IconData icon;
+
+    if (state.error != null) {
+      message = '获取字幕失败: ${state.error}';
+      icon = Icons.error_outline;
+    } else if (state.needLogin) {
+      message = '需要绑定B站账号才能查看字幕';
+      icon = Icons.login_outlined;
+    } else {
+      message = '该视频暂无字幕';
+      icon = Icons.subtitles_off_outlined;
+    }
+
     return Center(
-      child: Text(
-        state.error != null
-            ? '获取字幕失败: ${state.error}'
-            : '暂无字幕',
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 48,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisabledState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.subtitles_off_outlined,
+            size: 48,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '字幕已关闭',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
       ),
     );
   }

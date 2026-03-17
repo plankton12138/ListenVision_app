@@ -565,7 +565,7 @@ router.get('/recommend', (req, res, next) => {
  *       401:
  *         description: 未登录或未绑定B站账号
  */
-router.get('/subtitle/:bvid', authMiddleware, bilibiliController.getSubtitle);
+router.get('/subtitle/:bvid', optionalAuthMiddleware, bilibiliController.getSubtitle);
 
 /**
  * @swagger

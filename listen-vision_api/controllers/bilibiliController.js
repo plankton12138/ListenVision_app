@@ -755,21 +755,21 @@ const getRecommendedVideos = async (req, res) => {
 
 /**
  * 获取视频字幕
- * GET /api/v1/bilibili/subtitle/:bvid
+ * GET /api/v1/bilibili/subtitle/:bvid?cid=xxx
  */
 const getSubtitle = async (req, res) => {
   try {
     const { bvid } = req.params;
+    const { cid } = req.query;
     if (!bvid) {
       return errorResponse(res, '缺少 bvid 参数', 400);
     }
 
-    const userId = req.user?.id;
-    if (!userId) {
-      return errorResponse(res, '需要登录才能获取字幕', 401);
-    }
+    const userId = req.user?.id || null;
+    const cidNum = cid ? parseInt(cid, 10) : null;
+    logger.info('[getSubtitle] 请求字幕: bvid=%s, cid=%s, userId=%s, hasUser=%s', bvid, cidNum, userId, !!req.user);
 
-    const result = await bilibiliService.getVideoSubtitles(bvid, userId);
+    const result = await bilibiliService.getVideoSubtitles(bvid, userId, cidNum);
     successResponse(res, result, '获取字幕成功');
   } catch (error) {
     logger.error('getSubtitle failed', { error: error.message, bvid: req.params?.bvid });

@@ -11,6 +11,7 @@ class Endpoints {
   static const String authVerifyEmail = '/auth/verify-email';
   static const String authLogout = '/auth/logout';
   static const String authMe = '/auth/me';
+    static const String authRefresh = '/auth/refresh';
   static const String authSendCode = '/auth/send-code';
   static const String authResetPassword = '/auth/reset-pwd';
   static const String authVerifyCode = '/auth/verify-code';
@@ -37,7 +38,12 @@ class Endpoints {
   static const String bilibiliRecommend = '/bilibili/recommend';
   static const String bilibiliRefreshCookie = '/bilibili/refresh-cookie';
 
-  static String bilibiliSubtitle(String bvid) => '/bilibili/subtitle/$bvid';
+  static String bilibiliSubtitle(String bvid, {int? cid}) {
+    if (cid != null) {
+      return '/bilibili/subtitle/$bvid?cid=$cid';
+    }
+    return '/bilibili/subtitle/$bvid';
+  }
 
   static String bilibiliVideo(String bvid) => '/bilibili/video/$bvid';
   static String bilibiliAudio(String bvid) => '/bilibili/audio/$bvid';

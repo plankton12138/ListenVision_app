@@ -286,7 +286,7 @@ class AuthViewModel extends _$AuthViewModel {
   /// 是否已登录
   bool get isLoggedIn {
     return state.valueOrNull?.maybeWhen(
-      authenticated: (_, __) => true,
+      authenticated: (_, _) => true,
       orElse: () => false,
     ) ?? false;
   }
@@ -319,7 +319,7 @@ String? authToken(Ref ref) {
 @riverpod
 bool isLoggedIn(Ref ref) {
   return ref.watch(authViewModelProvider).valueOrNull?.maybeWhen(
-    authenticated: (_, __) => true,
+    authenticated: (_, _) => true,
     orElse: () => false,
   ) ?? false;
 }

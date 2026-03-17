@@ -98,6 +98,7 @@ class OnlinePlayable extends PlayableAudio {
       duration: item.duration,
       coverUrl: item.coverUrl,
       streamUrl: null,
+      cid: item.cid,  // 传递 cid 用于字幕加载
     );
     return OnlinePlayable.fromAudio(audio, null);
   }

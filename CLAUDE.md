@@ -534,3 +534,56 @@ final apiClient = ref.watch(apiClientProvider);
 | 统一错误提示风格 | ✅ 已完成 | ErrorUIHandler 已全面增强，可逐步迁移现有 93 处调用 |
 | 网络断链提示 | ✅ 已完成 | 实时监测网络状态，自动提示断连/恢复 |
 | 双向数据同步 | ⏳ P2 | 待实现 |
+
+### Token 刷新机制实现 - 第三阶段完成
+
+**完成日期**: 2026-03-14
+
+#### 问题
+- API 调用返回 401（Token 过期）无法自动刷新
+- 解绑 B站 时返回 401 导致解绑失败  
+- token 状态存储代码有缺陷
+
+#### 解决方案
+
+**后端改动**:
+- ✅ `config/jwt.js` - 添加 refreshToken 生成和验证方法
+- ✅ `services/userService.js` - 登录和注册时返回 refreshToken
+- ✅ `controllers/authController.js` - 新增 `/auth/refresh` 端点
+- ✅ `routes/auth.js` - 挂载 `/auth/refresh` 路由（无需认证）
+
+**前端改动**:
+- ✅ `core/constants/storage_constants.dart` - 添加 `keyRefreshToken` 常量
+- ✅ `core/storage/shared_storage_service.dart` - 添加 refresh token 存储方法
+- ✅ `models/dto/api_dto.dart` - LoginResponseDto 添加 refreshToken 字段
+- ✅ `core/network/dio_client.dart` - 实现 401 拦截器自动刷新 token 并重试
+- ✅ `data/repositories/auth_repository.dart` - 登录和注册时保存 refresh token
+
+#### 工作流程
+```
+API 请求 → DioClient → 如果 401:
+  ├─ 获取本地 refreshToken
+  ├─ 调用 /auth/refresh 获取新 token
+  ├─ 保存新 token 到存储和 DioClient
+  └─ 重试原始请求 (使用新 token)
+```
+
+#### 涉及文件
+**后端**: 
+- `listen-vision_api/config/jwt.js`
+- `listen-vision_api/services/userService.js`
+- `listen-vision_api/controllers/authController.js`
+- `listen-vision_api/routes/auth.js`
+
+**前端**:
+- `frontend_flutter/lib/core/constants/storage_constants.dart`
+- `frontend_flutter/lib/core/storage/shared_storage_service.dart`
+- `frontend_flutter/lib/models/dto/api_dto.dart`
+- `frontend_flutter/lib/core/network/dio_client.dart`
+- `frontend_flutter/lib/data/repositories/auth_repository.dart`
+
+#### 测试验证
+- [ ] Token 自动刷新机制
+- [ ] 并发请求时的竞态条件  
+- [ ] Refresh token 过期场景
+- [ ] 字幕获取（应支持未登录用户）

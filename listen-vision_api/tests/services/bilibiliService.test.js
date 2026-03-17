@@ -282,7 +282,7 @@ describe('B站服务测试', () => {
         })
       });
 
-      // Mock搜索请求
+      // Mock搜索请求 - 使用 v2 API 格式
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -290,26 +290,29 @@ describe('B站服务测试', () => {
           data: {
             result: [
               {
-                type: 'video',
-                bvid: 'BV1xx411c7mD',
-                title: '测试视频1',
-                description: '这是一个测试视频',
-                pic: '//example.com/cover1.jpg',
-                duration: '3:45',
-                author: '测试UP主',
-                play: 10000,
-                arcurl: 'https://www.bilibili.com/video/BV1xx411c7mD'
-              },
-              {
-                type: 'video',
-                bvid: 'BV1yy411c7mE',
-                title: '测试视频2',
-                description: '这是另一个测试视频',
-                pic: '//example.com/cover2.jpg',
-                duration: '5:20',
-                author: '另一个UP主',
-                play: 5000,
-                arcurl: 'https://www.bilibili.com/video/BV1yy411c7mE'
+                result_type: 'video',
+                data: [
+                  {
+                    bvid: 'BV1xx411c7mD',
+                    title: '测试视频1',
+                    description: '这是一个测试视频',
+                    pic: '//example.com/cover1.jpg',
+                    duration: '3:45',
+                    author: '测试UP主',
+                    play: 10000,
+                    arcurl: 'https://www.bilibili.com/video/BV1xx411c7mD'
+                  },
+                  {
+                    bvid: 'BV1yy411c7mE',
+                    title: '测试视频2',
+                    description: '这是另一个测试视频',
+                    pic: '//example.com/cover2.jpg',
+                    duration: '5:20',
+                    author: '另一个UP主',
+                    play: 5000,
+                    arcurl: 'https://www.bilibili.com/video/BV1yy411c7mE'
+                  }
+                ]
               }
             ],
             numResults: 2
@@ -343,15 +346,19 @@ describe('B站服务测试', () => {
           data: {
             result: [
               {
-                type: 'video',
-                bvid: 'BV1xx411c7mD',
-                title: '测试视频',
-                description: '测试',
-                pic: '//static.example.com/cover.jpg',
-                duration: '3:00',
-                author: 'UP主',
-                play: 1000,
-                arcurl: 'https://www.bilibili.com/video/BV1xx411c7mD'
+                result_type: 'video',
+                data: [
+                  {
+                    bvid: 'BV1xx411c7mD',
+                    title: '测试视频',
+                    description: '测试',
+                    pic: '//static.example.com/cover.jpg',
+                    duration: '3:00',
+                    author: 'UP主',
+                    play: 1000,
+                    arcurl: 'https://www.bilibili.com/video/BV1xx411c7mD'
+                  }
+                ]
               }
             ],
             numResults: 1
@@ -655,7 +662,7 @@ describe('B站服务测试', () => {
         if (urlStr.includes('x/web-interface/nav')) {
           return { ok: true, json: async () => mockNavResponse };
         }
-        if (urlStr.includes('x/player/wbi/v2')) {
+        if (urlStr.includes('x/player/v2')) {
           return { ok: true, json: async () => playerResponse };
         }
         if (urlStr.includes('aisubtitle.hdslb.com') && subtitleResponse) {
@@ -720,13 +727,19 @@ describe('B站服务测试', () => {
       expect(result.subtitles).toHaveLength(0);
     });
 
-    test('未绑定账号时应抛出错误', async () => {
+    test('未绑定账号时应使用匿名模式请求字幕', async () => {
       const userId = createTestUser(1);
 
-      setupFetchMock({ code: 0, data: {} });
+      const playerData = {
+        code: 0,
+        data: { subtitle: { subtitles: [] } }
+      };
 
-      await expect(bilibiliService.getVideoSubtitles('BV1test', userId))
-        .rejects.toThrow('需要绑定B站账号才能获取字幕');
+      setupFetchMock(playerData);
+
+      const result = await bilibiliService.getVideoSubtitles('BV1test', userId);
+      expect(result.bvid).toBe('BV1test');
+      expect(result.subtitles).toHaveLength(0);
     });
 
     test('B站 API 异常时应抛出错误', async () => {
@@ -751,7 +764,8 @@ describe('B站服务测试', () => {
       db.prepare('INSERT INTO subtitle_cache (bvid, cid, lan, lan_doc, content) VALUES (?, ?, ?, ?, ?)')
         .run('BV1cached', 12345, 'zh-Hans', '中文（简体）', JSON.stringify(lines));
 
-      const result = await bilibiliService.getVideoSubtitles('BV1cached', 1);
+      // 传入 cid=12345 以匹配缓存数据
+      const result = await bilibiliService.getVideoSubtitles('BV1cached', 1, 12345);
 
       expect(global.fetch).not.toHaveBeenCalled();
       expect(result.bvid).toBe('BV1cached');

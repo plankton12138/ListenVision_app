@@ -2,6 +2,7 @@ const bilibiliService = require('../services/bilibiliService');
 const searchHistoryService = require('../services/audio/searchHistoryService');
 const { successResponse, errorResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
+const { AppError, catchAsync } = require('../middleware/errorHandler');
 
 const FETCH_TIMEOUT_MS = 30000;
 const FETCH_MAX_RETRIES = 3;
@@ -138,95 +139,75 @@ const conversionTracker = new ConversionTaskTracker();
 /**
  * 获取QR码登录凭证
  */
-const getQRCode = async (req, res) => {
-  try {
-    const result = await bilibiliService.getQRCode();
-    successResponse(res, result, '获取QR码成功');
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
+const getQRCode = catchAsync(async (req, res) => {
+  const result = await bilibiliService.getQRCode();
+  successResponse(res, result, '获取QR码成功');
+});
 
 /**
  * 检查QR码登录状态
  */
-const checkQRLoginStatus = async (req, res) => {
-  try {
-    const { qrcodeKey } = req.body;
+const checkQRLoginStatus = catchAsync(async (req, res) => {
+  const { qrcodeKey } = req.body;
 
-    if (!qrcodeKey) {
-      return errorResponse(res, '缺少 qrcodeKey 参数', 400);
-    }
-
-    const result = await bilibiliService.checkQRLoginStatus(qrcodeKey);
-
-    // 使用 result.statusCode (QR码状态码) 而不是 result.code (API调用状态码)
-    // statusCode: 0=成功, 86101=未扫码, 86090=已扫描, 86038=已过期
-    if (result.statusCode === 0) {
-      // 登录成功，保存Cookie（如果有）
-      if (result.cookie && req.user) {
-        await bilibiliService.saveCookie(req.user.id, result.cookie, result.userInfo);
-      }
-      successResponse(res, {
-        status: 'success',
-        userInfo: result.userInfo
-      }, '登录成功');
-    } else if (result.statusCode === 86038) {
-      // QR码已过期
-      successResponse(res, { status: 'expired' }, 'QR码已过期');
-    } else if (result.statusCode === 86090) {
-      // 已扫描待确认
-      successResponse(res, { status: 'scanned' }, '已扫描，请确认');
-    } else {
-      // 未扫码或其他状态
-      successResponse(res, { status: 'pending' }, '等待扫码');
-    }
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!qrcodeKey) {
+    throw new AppError('缺少 qrcodeKey 参数', 400);
   }
-};
+
+  const result = await bilibiliService.checkQRLoginStatus(qrcodeKey);
+
+  // 使用 result.statusCode (QR码状态码) 而不是 result.code (API调用状态码)
+  // statusCode: 0=成功, 86101=未扫码, 86090=已扫描, 86038=已过期
+  if (result.statusCode === 0) {
+    // 登录成功，保存Cookie（如果有）
+    if (result.cookie && req.user) {
+      await bilibiliService.saveCookie(req.user.id, result.cookie, result.userInfo);
+    }
+    successResponse(res, {
+      status: 'success',
+      userInfo: result.userInfo
+    }, '登录成功');
+  } else if (result.statusCode === 86038) {
+    // QR码已过期
+    successResponse(res, { status: 'expired' }, 'QR码已过期');
+  } else if (result.statusCode === 86090) {
+    // 已扫描待确认
+    successResponse(res, { status: 'scanned' }, '已扫描，请确认');
+  } else {
+    // 未扫码或其他状态
+    successResponse(res, { status: 'pending' }, '等待扫码');
+  }
+});
 
 /**
  * 获取B站账号绑定状态
  */
-const getBindStatus = async (req, res) => {
-  try {
-    const status = bilibiliService.getBindStatus(req.user.id);
-    successResponse(res, status);
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
+const getBindStatus = catchAsync(async (req, res) => {
+  const status = bilibiliService.getBindStatus(req.user.id);
+  successResponse(res, status);
+});
 
 /**
  * 解绑B站账号
  */
-const unbindAccount = async (req, res) => {
-  try {
-    const result = bilibiliService.unbindAccount(req.user.id);
-    successResponse(res, result, '解绑成功');
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
+const unbindAccount = catchAsync(async (req, res) => {
+  const result = bilibiliService.unbindAccount(req.user.id);
+  successResponse(res, result, '解绑成功');
+});
 
 /**
  * 获取视频信息
  */
-const getVideoInfo = async (req, res) => {
-  try {
-    const { bvid } = req.params;
+const getVideoInfo = catchAsync(async (req, res) => {
+  const { bvid } = req.params;
 
-    if (!bvid) {
-      return errorResponse(res, '缺少 bvid 参数', 400);
-    }
-
-    const info = await bilibiliService.getVideoInfo(bvid);
-    successResponse(res, info);
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!bvid) {
+    throw new AppError('缺少 bvid 参数', 400);
   }
-};
+
+  const info = await bilibiliService.getVideoInfo(bvid);
+  successResponse(res, info);
+});
 
 /**
  * 获取音频流URL
@@ -238,162 +219,138 @@ const getVideoInfo = async (req, res) => {
  * - content_type: 内容类型
  * - supported_formats: 支持的格式列表（m4s, mp3, aac）
  */
-const getAudioStream = async (req, res) => {
-  try {
-    const { bvid } = req.params;
+const getAudioStream = catchAsync(async (req, res) => {
+  const { bvid } = req.params;
 
-    if (!bvid) {
-      return errorResponse(res, '缺少 bvid 参数', 400);
-    }
-
-    // 使用登录用户的Cookie获取更高质量的音频
-    const userId = req.user?.id || null;
-    const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
-
-    if (!audioStream || !audioStream.baseUrl) {
-      return errorResponse(res, '无法获取音频流URL', 404);
-    }
-
-    // 构建响应（向后兼容：保留原有字段在顶层）
-    const response = {
-      // 原有字段（保持向后兼容）
-      baseUrl: audioStream.baseUrl || audioStream.url,
-      url: audioStream.url,
-      quality: audioStream.quality,
-      codec: audioStream.codec,
-      size: audioStream.size,
-      content_type: audioStream.content_type || 'audio/mp4',
-      duration: audioStream.duration || 0, // 毫秒
-
-      // 新增能力字段（可选）
-      seekable: true, // m4s 格式直传支持 seek/断点续传
-      streamable: true, // 支持流式播放
-      supported_formats: ['m4s', 'mp3', 'aac'],
-      default_format: 'm4s',
-      format_capabilities: {
-        m4s: {
-          seekable: true,
-          description: '原始格式，支持 seek 和断点续传，推荐使用'
-        },
-        mp3: {
-          seekable: false,
-          description: '转码格式，不支持 seek，兼容性最好'
-        },
-        aac: {
-          seekable: false,
-          description: '转码格式，不支持 seek，兼容性较好'
-        }
-      }
-    };
-
-    successResponse(res, response);
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!bvid) {
+    throw new AppError('缺少 bvid 参数', 400);
   }
-};
+
+  // 使用登录用户的Cookie获取更高质量的音频
+  const userId = req.user?.id || null;
+  const audioStream = await bilibiliService.getAudioStream(bvid, null, userId);
+
+  if (!audioStream || !audioStream.baseUrl) {
+    throw new AppError('无法获取音频流URL', 404);
+  }
+
+  // 构建响应（向后兼容：保留原有字段在顶层）
+  const response = {
+    // 原有字段（保持向后兼容）
+    baseUrl: audioStream.baseUrl || audioStream.url,
+    url: audioStream.url,
+    quality: audioStream.quality,
+    codec: audioStream.codec,
+    size: audioStream.size,
+    content_type: audioStream.content_type || 'audio/mp4',
+    duration: audioStream.duration || 0, // 毫秒
+
+    // 新增能力字段（可选）
+    seekable: true, // m4s 格式直传支持 seek/断点续传
+    streamable: true, // 支持流式播放
+    supported_formats: ['m4s', 'mp3', 'aac'],
+    default_format: 'm4s',
+    format_capabilities: {
+      m4s: {
+        seekable: true,
+        description: '原始格式，支持 seek 和断点续传，推荐使用'
+      },
+      mp3: {
+        seekable: false,
+        description: '转码格式，不支持 seek，兼容性最好'
+      },
+      aac: {
+        seekable: false,
+        description: '转码格式，不支持 seek，兼容性较好'
+      }
+    }
+  };
+
+  successResponse(res, response);
+});
 
 /**
  * 获取UP主视频列表
  */
-const getUploaderVideos = async (req, res) => {
-  try {
-    const { mid } = req.params;
-    const { page = 1, pageSize = 20 } = req.query;
+const getUploaderVideos = catchAsync(async (req, res) => {
+  const { mid } = req.params;
+  const { page = 1, pageSize = 20 } = req.query;
 
-    if (!mid) {
-      return errorResponse(res, '缺少 mid 参数', 400);
-    }
-
-    const result = await bilibiliService.getUploaderVideos(
-      mid,
-      parseInt(page) || 1,
-      parseInt(pageSize) || 20
-    );
-
-    successResponse(res, result);
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!mid) {
+    throw new AppError('缺少 mid 参数', 400);
   }
-};
+
+  const result = await bilibiliService.getUploaderVideos(
+    mid,
+    parseInt(page) || 1,
+    parseInt(pageSize) || 20
+  );
+
+  successResponse(res, result);
+});
 
 /**
  * 搜索B站视频
  */
-const searchBilibili = async (req, res) => {
-  try {
-    const { keyword } = req.query;
-    const { page = 1, pageSize = 20 } = req.query;
+const searchBilibili = catchAsync(async (req, res) => {
+  const { keyword } = req.query;
+  const { page = 1, pageSize = 20 } = req.query;
 
-    if (!keyword) {
-      return errorResponse(res, '缺少 keyword 参数', 400);
-    }
-
-    // 使用登录用户的ID（如果有）
-    const userId = req.user?.id || null;
-
-    const result = await bilibiliService.searchBilibili(
-      keyword,
-      parseInt(page) || 1,
-      parseInt(pageSize) || 20,
-      userId
-    );
-
-    successResponse(res, result);
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!keyword) {
+    throw new AppError('缺少 keyword 参数', 400);
   }
-};
+
+  // 使用登录用户的ID（如果有）
+  const userId = req.user?.id || null;
+
+  const result = await bilibiliService.searchBilibili(
+    keyword,
+    parseInt(page) || 1,
+    parseInt(pageSize) || 20,
+    userId
+  );
+
+  successResponse(res, result);
+});
 
 /**
  * 获取最近搜索历史
  */
-const getRecentSearches = async (req, res) => {
-  try {
-    const { limit = 10 } = req.query;
+const getRecentSearches = catchAsync(async (req, res) => {
+  const { limit = 10 } = req.query;
 
-    const keywords = bilibiliService.getRecentSearches(req.user.id);
+  const keywords = bilibiliService.getRecentSearches(req.user.id);
 
-    successResponse(res, {
-      keywords: keywords.slice(0, parseInt(limit) || 10)
-    });
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
+  successResponse(res, {
+    keywords: keywords.slice(0, parseInt(limit) || 10)
+  });
+});
 
 /**
  * 获取搜索建议（联想词）
  */
-const getSearchSuggestions = async (req, res) => {
-  try {
-    const { keyword } = req.query;
+const getSearchSuggestions = catchAsync(async (req, res) => {
+  const { keyword } = req.query;
 
-    if (!keyword) {
-      return errorResponse(res, '缺少 keyword 参数', 400);
-    }
-
-    const suggestions = await bilibiliService.getSearchSuggestions(keyword);
-
-    successResponse(res, {
-      suggestions,
-      keyword
-    });
-  } catch (error) {
-    errorResponse(res, error.message, 500);
+  if (!keyword) {
+    throw new AppError('缺少 keyword 参数', 400);
   }
-};
+
+  const suggestions = await bilibiliService.getSearchSuggestions(keyword);
+
+  successResponse(res, {
+    suggestions,
+    keyword
+  });
+});
 
 /**
  * 清空搜索历史
  */
-const clearSearchHistory = async (req, res) => {
-  try {
-    const cleared = searchHistoryService.clearSearchHistory(req.user.id);
-    successResponse(res, { cleared });
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
+const clearSearchHistory = catchAsync(async (req, res) => {
+  const cleared = searchHistoryService.clearSearchHistory(req.user.id);
+  successResponse(res, { cleared });
+});
 
 /**
  * 代理图片（解决封面防盗链）
@@ -734,48 +691,38 @@ const proxyAudioStreamByBvid = async (req, res) => {
 /**
  * 获取B站推荐视频
  */
-const getRecommendedVideos = async (req, res) => {
-  try {
-    const { page = 1, pageSize = 20 } = req.query;
-    const userId = req.user?.id || null;
-    logger.info('getRecommendedVideos called', { userId, page, pageSize });
+const getRecommendedVideos = catchAsync(async (req, res) => {
+  const { page = 1, pageSize = 20 } = req.query;
+  const userId = req.user?.id || null;
+  logger.info('getRecommendedVideos called', { userId, page, pageSize });
 
-    const result = await bilibiliService.getRecommendedVideos(
-      userId,
-      parseInt(page) || 1,
-      parseInt(pageSize) || 20
-    );
+  const result = await bilibiliService.getRecommendedVideos(
+    userId,
+    parseInt(page) || 1,
+    parseInt(pageSize) || 20
+  );
 
-    successResponse(res, result);
-  } catch (error) {
-    logger.error('getRecommendedVideos failed', { error: error.message, stack: error.stack });
-    errorResponse(res, error.message, 500);
-  }
-};
+  successResponse(res, result);
+});
 
 /**
  * 获取视频字幕
  * GET /api/v1/bilibili/subtitle/:bvid?cid=xxx
  */
-const getSubtitle = async (req, res) => {
-  try {
-    const { bvid } = req.params;
-    const { cid } = req.query;
-    if (!bvid) {
-      return errorResponse(res, '缺少 bvid 参数', 400);
-    }
-
-    const userId = req.user?.id || null;
-    const cidNum = cid ? parseInt(cid, 10) : null;
-    logger.info('[getSubtitle] 请求字幕: bvid=%s, cid=%s, userId=%s, hasUser=%s', bvid, cidNum, userId, !!req.user);
-
-    const result = await bilibiliService.getVideoSubtitles(bvid, userId, cidNum);
-    successResponse(res, result, '获取字幕成功');
-  } catch (error) {
-    logger.error('getSubtitle failed', { error: error.message, bvid: req.params?.bvid });
-    errorResponse(res, error.message, 500);
+const getSubtitle = catchAsync(async (req, res) => {
+  const { bvid } = req.params;
+  const { cid } = req.query;
+  if (!bvid) {
+    throw new AppError('缺少 bvid 参数', 400);
   }
-};
+
+  const userId = req.user?.id || null;
+  const cidNum = cid ? parseInt(cid, 10) : null;
+  logger.info('[getSubtitle] 请求字幕: bvid=%s, cid=%s, userId=%s, hasUser=%s', bvid, cidNum, userId, !!req.user);
+
+  const result = await bilibiliService.getVideoSubtitles(bvid, userId, cidNum);
+  successResponse(res, result, '获取字幕成功');
+});
 
 module.exports = {
   // QR码登录

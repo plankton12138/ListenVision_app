@@ -2,8 +2,12 @@ const express = require('express');
 const router = express.Router();
 const bilibiliController = require('../controllers/bilibiliController');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { strictLimiter } = require('../middleware/rateLimiter');
 const { successResponse, errorResponse } = require('../utils/response');
 const { logger } = require('../utils/logger');
+
+// B站相关操作限流 - 应用于所有路由
+router.use(strictLimiter);
 
 // 调试日志
 logger.debug('Loading bilibili routes', { stackLength: router.stack.length });

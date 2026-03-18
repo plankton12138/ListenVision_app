@@ -124,6 +124,11 @@ extension PlayerStateX on PlayerState {
 /// 依赖：
 /// - AudioPlayerService: 底层播放器封装
 /// - SharedStorageService: 持久化播放设置
+///
+/// 状态管理规范：
+/// - 使用 `state = state.copyWith(...)` 更新状态（不可变模式）
+/// - 避免直接修改 `state.value`（不会触发重建）
+/// - 保持同步 build() 以支持流监听初始化
 @Riverpod(keepAlive: true)
 class PlayerViewModel extends _$PlayerViewModel {
   AudioPlayerService? _audioService;

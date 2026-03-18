@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 
@@ -319,25 +320,47 @@ class DioClient {
   }
 
   /// 处理 Dio 错误
-  Exception _handleDioError(DioException e) {
-    if (e.response != null) {
-      final statusCode = e.response!.statusCode;
-      final responseData = e.response!.data;
+  Exception _handleDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return const NetworkException.timeout();
+      case DioExceptionType.badResponse:
+        final statusCode = error.response?.statusCode ?? 500;
+        final data = error.response?.data;
 
-      // 优先使用服务器返回的错误消息
-      String? message;
-      if (responseData is Map<String, dynamic>) {
-        message = responseData['message']?.toString() ??
-            responseData['error']?.toString();
-      }
+        // 尝试从响应中解析错误信息
+        String errorMessage = '请求失败';
+        String? errorCode;
 
-      // 使用简化的错误消息（服务器消息或摘要）
-      final errorSummary = message ?? _getErrorSummary(e);
-      return ApiException(_parseValidationError(errorSummary), statusCode ?? 500);
+        if (data is Map<String, dynamic>) {
+          errorMessage = data['error'] as String?
+                      ?? data['message'] as String?
+                      ?? '请求失败';
+          errorCode = data['code'] as String?;
+        }
+
+        // 返回 ApiServerException
+        return ApiServerException.fromResponse(
+          error: errorMessage,
+          statusCode: statusCode,
+          code: errorCode,
+        );
+      case DioExceptionType.cancel:
+        return const TaskCanceledException();
+      case DioExceptionType.connectionError:
+        return const NetworkException.noConnection();
+      case DioExceptionType.badCertificate:
+        return const NetworkException('证书错误', 'BAD_CERTIFICATE');
+      case DioExceptionType.unknown:
+      default:
+        // 检查是否是网络错误
+        if (error.error is SocketException) {
+          return const NetworkException.noConnection();
+        }
+        return const NetworkException.requestFailed();
     }
-    // 无响应的情况（网络错误）
-    final errorSummary = _getErrorSummary(e);
-    return ApiException('网络错误: $errorSummary', 500);
   }
 
   /// 获取简化的错误摘要

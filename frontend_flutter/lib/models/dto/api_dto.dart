@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+// 注意：如需处理 API 异常，请使用
+// import 'package:listen_vision/core/errors/exceptions.dart';
+// 中的 ApiServerException
+
 /// API 响应包装类
 class ApiResponse<T> {
   final bool success;
@@ -37,7 +41,10 @@ class ApiResponse<T> {
   }
 }
 
-/// API 异常
+/// API 异常（已废弃）
+///
+/// 请使用 core/errors/exceptions.dart 中的 ApiServerException
+@Deprecated('请使用 ApiServerException 替代')
 class ApiException implements Exception {
   final String message;
   final int? statusCode;

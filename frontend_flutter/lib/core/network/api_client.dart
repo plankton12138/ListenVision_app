@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/dto/api_dto.dart';
 import '../../models/subtitle.dart';
+import '../errors/exceptions.dart';
 import '../utils/app_logger.dart';
 import 'dio_client.dart';
 import 'endpoints.dart';
@@ -25,9 +26,15 @@ class ApiClient {
     if (response['success'] == true) {
       return response['data'];
     } else {
-      throw ApiException(
-        response['error'] ?? response['message'] ?? '请求失败',
-        response['statusCode'] ?? 500,
+      // 使用新的异常类型
+      final statusCode = response['statusCode'] as int? ?? 500;
+      final error = response['error'] as String? ?? response['message'] as String? ?? '请求失败';
+      final code = response['code'] as String?;
+
+      throw ApiServerException.fromResponse(
+        error: error,
+        statusCode: statusCode,
+        code: code,
       );
     }
   }

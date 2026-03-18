@@ -287,3 +287,48 @@ class BilibiliException extends AppException {
     );
   }
 }
+
+// ==================== API 响应异常 ====================
+
+/// API 响应异常
+///
+/// 从后端返回的错误响应创建的异常
+class ApiServerException extends ServerException {
+  const ApiServerException(super.message, [super.code, super.statusCode]);
+
+  /// 从 API 响应创建异常
+  /// [response] 后端返回的 error 字段
+  /// [statusCode] HTTP 状态码
+  factory ApiServerException.fromResponse({
+    required String error,
+    required int statusCode,
+    String? code,
+  }) {
+    return ApiServerException(
+      error,
+      code ?? 'API_ERROR',
+      statusCode,
+    );
+  }
+
+  /// 从后端错误码映射到异常
+  factory ApiServerException.fromErrorCode(String errorCode) {
+    switch (errorCode) {
+      case 'INVALID_TOKEN':
+      case 'TOKEN_EXPIRED':
+        return const ApiServerException('登录已过期', 'TOKEN_EXPIRED', 401);
+      case 'NOT_LOGGED_IN':
+        return const ApiServerException('请先登录', 'NOT_LOGGED_IN', 401);
+      case 'FORBIDDEN':
+        return const ApiServerException('无权限访问', 'FORBIDDEN', 403);
+      case 'NOT_FOUND':
+        return const ApiServerException('资源不存在', 'NOT_FOUND', 404);
+      case 'VALIDATION_ERROR':
+        return const ApiServerException('参数验证失败', 'VALIDATION_ERROR', 400);
+      case 'RATE_LIMITED':
+        return const ApiServerException('请求过于频繁', 'RATE_LIMITED', 429);
+      default:
+        return const ApiServerException('服务器错误', 'SERVER_ERROR', 500);
+    }
+  }
+}

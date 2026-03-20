@@ -439,8 +439,7 @@ class HistoryViewModel extends _$HistoryViewModel {
 /// Provider 定义
 @riverpod
 PlayHistoryRepository historyRepository(Ref ref) {
-  // 启用本地优先模式
-  return PlayHistoryRepository(localOnlyMode: true);
+  return PlayHistoryRepository();
 }
 
 /// 历史状态 Provider - 用于 UI 层监听状态

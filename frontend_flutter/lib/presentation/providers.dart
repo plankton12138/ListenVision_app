@@ -6,12 +6,6 @@ library;
 // ==================== Repository 层（本地优先架构）====================
 export '../data/repositories/repository_providers.dart';
 
-// ==================== 同步机制 ====================
-export '../data/sync/sync_worker_provider.dart' show syncWorkerProvider;
-export '../data/sync/sync_worker_provider.dart' show syncStatsProvider;
-export '../data/sync/sync_worker_provider.dart' show hasPendingSyncTasksProvider;
-export '../data/database/sync_queue_dao.dart' show SyncQueueStats;
-
 // ==================== 认证相关 ====================
 export 'viewmodels/auth/auth_viewmodel.dart' show authViewModelProvider;
 export 'viewmodels/auth/auth_viewmodel.dart' show currentUserProvider;

@@ -7,7 +7,6 @@ import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/api/backend_api_client.dart' show LoginRequest, RegisterRequest;
-import '../../../data/sync/sync_worker_provider.dart';
 import '../../../models/user.dart';
 import 'platform_auth_viewmodel.dart';
 
@@ -57,9 +56,6 @@ class AuthViewModel extends _$AuthViewModel {
         final token = await _repository!.getToken();
         AppLogger.info('AuthViewModel', '用户已登录: ${user.username}');
 
-        // 启动同步工作器（通过读取 Provider 触发初始化）
-        ref.read(syncWorkerProvider);
-
         return AuthState.authenticated(user: user, token: token);
       }
       AppLogger.debug('AuthViewModel', '用户未登录');
@@ -89,9 +85,6 @@ class AuthViewModel extends _$AuthViewModel {
 
       if (!ref.mounted) return false;
       state = AsyncData(AuthState.authenticated(user: user, token: user.token));
-
-      // 启动同步工作器（通过读取 Provider 触发初始化）
-      ref.read(syncWorkerProvider);
 
       return true;
     } catch (e) {
@@ -155,9 +148,6 @@ class AuthViewModel extends _$AuthViewModel {
 
       if (!ref.mounted) return false;
       state = AsyncData(AuthState.authenticated(user: user, token: user.token));
-
-      // 启动同步工作器
-      ref.read(syncWorkerProvider);
 
       return true;
     } catch (e) {

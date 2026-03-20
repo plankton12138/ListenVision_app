@@ -5,12 +5,9 @@ import '../../core/utils/app_logger.dart';
 import '../../models/audio.dart';
 import '../../models/cached_track.dart';
 import '../../models/local_audio.dart';
-import '../../models/sync_queue.dart';
-import '../api/backend_api_client.dart';
 import '../api/bilibili_api_client.dart';
 import '../database/app_database.dart';
 import '../database/download_task_dao.dart';
-import '../database/sync_queue_dao.dart';
 import '../database/track_dao.dart';
 
 /// 音轨仓库 - 单一数据源
@@ -18,31 +15,23 @@ import '../database/track_dao.dart';
 /// 实现"本地优先，网络回源"的核心原则：
 /// 1. 所有读取操作优先查询本地数据库
 /// 2. 本地没有数据时，从网络获取并缓存到本地
-/// 3. 所有写入操作先更新本地，再异步同步到网络（通过同步队列）
 class TrackRepository {
   final TrackDao _trackDao;
   final DownloadTaskDao _downloadTaskDao;
-  final SyncQueueDao _syncDao;
   final BilibiliApiClient _bilibiliApi;
 
   // 用于通知下载进度的事件流
   final _downloadProgressController =
       StreamController<DownloadProgressEvent>.broadcast();
 
-  /// 本地优先模式：true = 仅更新本地，false = 尝试同步网络
-  final bool localOnlyMode;
-
   TrackRepository({
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
-    SyncQueueDao? syncDao,
     BilibiliApiClient? bilibiliApi,
     BackendApiClient? backendApi, // 保留参数用于向后兼容，但不使用
-    this.localOnlyMode = false,
   })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
         _downloadTaskDao = downloadTaskDao ??
             DownloadTaskDao(AppDatabase.instance),
-        _syncDao = syncDao ?? SyncQueueDao(AppDatabase.instance),
         _bilibiliApi = bilibiliApi ?? BilibiliApiClient();
 
   /// 下载进度事件流
@@ -205,7 +194,6 @@ class TrackRepository {
   ///
   /// 本地优先策略：
   /// 1. 立即更新本地数据库
-  /// 2. 加入同步队列，由 SyncWorker 后台处理网络同步
   Future<void> toggleFavorite(
     int trackId,
     bool isFavorite, {
@@ -214,37 +202,9 @@ class TrackRepository {
     int? duration,
     String? coverUrl,
   }) async {
-    // 1. 本地优先：立即更新本地
+    // 本地优先：立即更新本地
     await _trackDao.toggleFavorite(trackId, isFavorite);
-
-    // 2. 如果不是离线模式，加入同步队列
-    if (!localOnlyMode) {
-      final track = await _trackDao.getById(trackId);
-
-      // 本地收藏不同步到后端
-      if (track?.sourceType == TrackSource.local ||
-          track?.bvid?.startsWith('local_') == true) {
-        return;
-      }
-
-      if (track?.bvid != null) {
-        try {
-          final syncTask = SyncTaskFactory.createFavoriteTask(
-            trackId: trackId,
-            bvid: track!.bvid!,
-            isFavorite: isFavorite,
-            title: title,
-            artist: artist,
-            duration: duration,
-            coverUrl: coverUrl,
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.debug('TrackRepository', '收藏操作已加入同步队列: ${track.bvid}');
-        } catch (e) {
-          AppLogger.error('TrackRepository', '创建同步任务失败: $e');
-        }
-      }
-    }
+    AppLogger.debug('TrackRepository', '收藏状态已更新: trackId=$trackId, isFavorite=$isFavorite');
   }
 
   /// 获取收藏列表
@@ -279,27 +239,10 @@ class TrackRepository {
   ///
   /// 本地优先策略：
   /// 1. 立即更新本地数据库
-  /// 2. 加入同步队列，由 SyncWorker 后台处理网络同步
   Future<void> recordPlayHistory(int trackId) async {
-    // 1. 本地优先：立即更新本地
+    // 本地优先：立即更新本地
     await _trackDao.incrementPlayCount(trackId);
-
-    // 2. 如果不是离线模式，加入同步队列
-    if (!localOnlyMode) {
-      final track = await _trackDao.getById(trackId);
-      if (track?.bvid != null) {
-        try {
-          final syncTask = SyncTaskFactory.createPlayHistoryTask(
-            trackId: trackId,
-            bvid: track!.bvid!,
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.debug('TrackRepository', '播放历史已加入同步队列: ${track.bvid}');
-        } catch (e) {
-          AppLogger.error('TrackRepository', '创建同步任务失败: $e');
-        }
-      }
-    }
+    AppLogger.debug('TrackRepository', '播放历史已记录: trackId=$trackId');
   }
 
   /// 获取最近播放
@@ -489,3 +432,7 @@ class DownloadProgressEvent {
     );
   }
 }
+
+/// BackendApiClient 占位符，用于向后兼容
+/// 实际不使用，仅保留类型声明
+class BackendApiClient {}

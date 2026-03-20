@@ -1,32 +1,20 @@
-import 'dart:convert';
-
 import '../../core/utils/app_logger.dart';
 import '../../models/playlist.dart';
-import '../../models/sync_queue.dart';
 import '../../core/network/api_client.dart';
 import '../database/app_database.dart';
 import '../database/playlist_dao.dart';
-import '../database/sync_queue_dao.dart';
 
 /// 歌单仓库
 ///
 /// 负责歌单相关的数据操作
-/// 支持本地优先模式：网络操作失败时加入同步队列
 class PlaylistRepository {
   final ApiClient _apiClient;
-  final SyncQueueDao _syncDao;
   final PlaylistDao _playlistDao;
-
-  /// 本地优先模式：true = 仅网络操作失败时加入队列，false = 直接抛出错误
-  final bool localOnlyMode;
 
   PlaylistRepository({
     ApiClient? apiClient,
-    SyncQueueDao? syncDao,
     PlaylistDao? playlistDao,
-    this.localOnlyMode = false,
   })  : _apiClient = apiClient ?? ApiClient(),
-        _syncDao = syncDao ?? SyncQueueDao(AppDatabase.instance),
         _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
 
   // ==================== 歌单操作 ====================
@@ -78,7 +66,7 @@ class PlaylistRepository {
     }
   }
 
-  /// 创建歌单（带同步重试）
+  /// 创建歌单
   Future<Playlist?> createPlaylist({
     required String name,
     String? description,
@@ -94,34 +82,11 @@ class PlaylistRepository {
       return Playlist.fromDto(data);
     } catch (e) {
       AppLogger.error('PlaylistRepository', '创建歌单失败: $e');
-
-      // 本地优先模式：加入同步队列
-      if (localOnlyMode) {
-        try {
-          // 创建临时 ID 用于标识
-          final tempId = 'local_${DateTime.now().millisecondsSinceEpoch}';
-          final syncTask = SyncTask(
-            type: SyncType.createPlaylist,
-            playlistId: tempId,
-            data: jsonEncode({
-              'name': name,
-              'description': description,
-              'coverUrl': coverUrl,
-            }),
-            status: SyncStatus.pending,
-            createdAt: DateTime.now(),
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '创建歌单已加入同步队列: $name');
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
 
-  /// 更新歌单（带同步重试）
+  /// 更新歌单
   Future<Playlist?> updatePlaylist({
     required String id,
     String? name,
@@ -139,32 +104,11 @@ class PlaylistRepository {
       return Playlist.fromDto(data);
     } catch (e) {
       AppLogger.error('PlaylistRepository', '更新歌单失败: $e');
-
-      // 本地优先模式：加入同步队列
-      if (localOnlyMode) {
-        try {
-          final syncTask = SyncTask(
-            type: SyncType.updatePlaylist,
-            playlistId: id,
-            data: jsonEncode({
-              'name': name,
-              'description': description,
-              'coverUrl': coverUrl,
-            }),
-            status: SyncStatus.pending,
-            createdAt: DateTime.now(),
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '更新歌单已加入同步队列: $id');
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
 
-  /// 删除歌单（带同步重试）
+  /// 删除歌单
   Future<bool> deletePlaylist(String id) async {
     try {
       await _apiClient.deletePlaylist(id);
@@ -172,28 +116,11 @@ class PlaylistRepository {
       return true;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '删除歌单失败: $e');
-
-      // 本地优先模式：加入同步队列
-      if (localOnlyMode) {
-        try {
-          final syncTask = SyncTask(
-            type: SyncType.deletePlaylist,
-            playlistId: id,
-            status: SyncStatus.pending,
-            createdAt: DateTime.now(),
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '删除歌单已加入同步队列: $id');
-          return true;
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
 
-  /// 添加歌单项（带同步重试）
+  /// 添加歌单项
   Future<bool> addPlaylistItem({
     required String playlistId,
     required String bvid,
@@ -217,28 +144,11 @@ class PlaylistRepository {
       return true;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '添加歌单项失败: $e');
-
-      // 本地优先模式：加入同步队列
-      if (localOnlyMode) {
-        try {
-          final syncTask = SyncTaskFactory.createPlaylistItemTask(
-            type: SyncType.addPlaylistItem,
-            playlistId: playlistId,
-            bvid: bvid,
-            position: position,
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '添加歌单项已加入同步队列: $bvid');
-          return true;
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
 
-  /// 删除歌单项（带同步重试）
+  /// 删除歌单项
   Future<bool> removePlaylistItem({
     required String playlistId,
     required String bvid,
@@ -252,22 +162,6 @@ class PlaylistRepository {
       return true;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '删除歌单项失败: $e');
-
-      // 本地优先模式：加入同步队列
-      if (localOnlyMode) {
-        try {
-          final syncTask = SyncTaskFactory.createPlaylistItemTask(
-            type: SyncType.removePlaylistItem,
-            playlistId: playlistId,
-            bvid: bvid,
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '删除歌单项已加入同步队列: $bvid');
-          return true;
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
@@ -298,7 +192,6 @@ class PlaylistRepository {
   /// 切换收藏状态（移除预检查）
   ///
   /// 返回 true 表示添加收藏，false 表示取消收藏
-  /// 本地优先模式：网络失败时加入同步队列
   Future<bool> toggleFavorite(String bvid) async {
     try {
       // 直接调用后端，后端返回操作结果
@@ -309,23 +202,6 @@ class PlaylistRepository {
       return added;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '切换收藏失败: $e');
-
-      // 本地优先模式：加入同步队列（默认假设为收藏操作）
-      if (localOnlyMode) {
-        try {
-          final syncTask = SyncTask(
-            type: SyncType.favorite,
-            bvid: bvid,
-            status: SyncStatus.pending,
-            createdAt: DateTime.now(),
-          );
-          await _syncDao.insert(syncTask);
-          AppLogger.info('PlaylistRepository', '切换收藏已加入同步队列: $bvid');
-          return true; // 乐观更新
-        } catch (syncError) {
-          AppLogger.error('PlaylistRepository', '加入同步队列失败: $syncError');
-        }
-      }
       rethrow;
     }
   }
@@ -405,25 +281,6 @@ class PlaylistRepository {
       AppLogger.info('PlaylistRepository', '保存播放队列成功: ${items.length}个');
     } catch (e) {
       AppLogger.error('PlaylistRepository', '保存播放队列失败: $e');
-
-      // 本地优先模式：静默处理失败
-      if (localOnlyMode) {
-        AppLogger.warn('PlaylistRepository', '播放队列同步失败，本地优先模式已忽略');
-      } else {
-        rethrow;
-      }
     }
-  }
-
-  // ==================== 同步队列管理 ====================
-
-  /// 获取同步统计
-  Future<SyncQueueStats> getSyncStats() async {
-    return await _syncDao.getStats();
-  }
-
-  /// 检查是否有待处理任务
-  Future<bool> hasPendingSyncTasks() async {
-    return await _syncDao.hasPendingTasks();
   }
 }

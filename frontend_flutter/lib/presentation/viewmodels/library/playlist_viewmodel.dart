@@ -943,8 +943,7 @@ extension PlaylistStateX on PlaylistState {
 /// Provider定义
 @riverpod
 PlaylistRepository playlistRepository(Ref ref) {
-  // 启用本地优先模式
-  return PlaylistRepository(localOnlyMode: true);
+  return PlaylistRepository();
 }
 
 @riverpod

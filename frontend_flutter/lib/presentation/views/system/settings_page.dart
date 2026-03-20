@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../viewmodels/system/theme_viewmodel.dart';
-import '../../widgets/common/sync_status_indicator.dart';
 
 /// 设置页面
 ///
@@ -684,7 +683,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const Spacer(),
-              const SyncStatusIndicator(size: 18, showMenu: true),
+              Icon(Icons.check_circle, size: 18, color: Colors.green),
             ],
           ),
           const SizedBox(height: 8),

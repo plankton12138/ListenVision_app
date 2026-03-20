@@ -764,6 +764,5 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 /// Provider定义
 @riverpod
 PlaylistRepository playlistRepository(Ref ref) {
-  // 使用与 PlaylistViewModel 相同的配置
-  return PlaylistRepository(localOnlyMode: true);
+  return PlaylistRepository();
 }

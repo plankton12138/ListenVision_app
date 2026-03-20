@@ -1,7 +1,7 @@
 from typing import Optional, List, Tuple
 import httpx
 from bilibili_api import video, user, search, Credential
-from bilibili_api.exceptions import ResponseCodeException
+from bilibili_api.exceptions import ResponseCodeException, ArgsException
 
 from app.utils.logger import logger
 from app.utils.cache import cached
@@ -11,6 +11,37 @@ from app.schemas.bilibili import (
     SubtitleResponse, SubtitleInfo, SubtitleLine,
     SearchResponse, SearchResultItem
 )
+
+
+def _parse_duration(duration_str: str) -> int:
+    """
+    将 B站 duration 字符串转换为秒数
+
+    Args:
+        duration_str: 时长字符串，格式可能是 '分:秒' 或 '时:分:秒'
+
+    Returns:
+        总秒数
+
+    Examples:
+        '4:2' -> 242
+        '37:42' -> 2262
+        '1:30:45' -> 5445
+    """
+    try:
+        parts = duration_str.split(':')
+        if len(parts) == 2:
+            # 分:秒 格式
+            return int(parts[0]) * 60 + int(parts[1])
+        elif len(parts) == 3:
+            # 时:分:秒 格式
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        else:
+            logger.warning(f"无法解析的 duration 格式: {duration_str}")
+            return 0
+    except (ValueError, AttributeError) as e:
+        logger.error(f"解析 duration 失败: {duration_str}, 错误: {e}")
+        return 0
 
 
 # 搜索历史缓存（生产环境应使用 Redis）
@@ -68,8 +99,18 @@ class BilibiliService:
             info = await v.get_info()
             cid = info["cid"]
 
-            # 获取音频流URL
-            audio_url = await v.get_download_url(cid)
+            # 获取分P列表，找到目标 cid 对应的 page_index
+            pages = info.get("pages", [])
+            page_index = 0  # 默认第一P
+
+            if pages:
+                for idx, page in enumerate(pages):
+                    if page.get("cid") == cid:
+                        page_index = idx
+                        break
+
+            # 获取音频流URL（使用 page_index 而非 cid）
+            audio_url = await v.get_download_url(page_index)
 
             streams = []
             if "dash" in audio_url and "audio" in audio_url["dash"]:
@@ -87,8 +128,11 @@ class BilibiliService:
                 title=info["title"],
                 streams=streams
             )
+        except ArgsException as e:
+            logger.error(f"视频分P错误 [{bvid}]: {e}")
+            raise ValueError(f"视频 {bvid} 不存在或分P信息有误") from e
         except ResponseCodeException as e:
-            logger.error(f"获取音频流失败: {e.code} - {e.msg}")
+            logger.error(f"获取音频流失败 [{bvid}]: {e.code} - {e.msg}")
             raise
 
     @staticmethod
@@ -154,29 +198,31 @@ class BilibiliService:
                 page_size=page_size
             )
 
-            items = []
+            videos = []
             for item in result.get("result", []):
-                owner = VideoOwner(
-                    mid=item["mid"],
-                    name=item["author"],
-                    face=None
-                )
-                items.append(SearchResultItem(
+                # 跳过非视频类型（如 ketang）
+                if item.get("type") != "video":
+                    continue
+                # 跳过没有 bvid 的结果
+                if not item.get("bvid"):
+                    continue
+
+                videos.append(SearchResultItem(
                     bvid=item["bvid"],
                     title=item["title"].replace("<em class=\"keyword\">", "").replace("</em>", ""),
+                    author=item.get("author", ""),
+                    cover=item.get("pic", ""),
+                    duration=_parse_duration(item.get("duration", "")),
                     description=item.get("description", ""),
-                    owner=owner,
-                    duration=item["duration"],
-                    cover_url=item["pic"],
-                    view_count=item["play"],
-                    pubdate=item["pubdate"]
+                    view_count=item.get("play", 0),
+                    pubdate=item.get("pubdate", 0)
                 ))
 
             return SearchResponse(
-                items=items,
+                videos=videos,
                 total=result.get("numResults", 0),
                 page=page,
-                page_size=page_size
+                pageSize=page_size
             )
         except ResponseCodeException as e:
             logger.error(f"搜索失败: {e.code} - {e.msg}")
@@ -206,6 +252,10 @@ class BilibiliService:
         Returns:
             元组 (图片二进制数据, content_type)
         """
+        # 处理无协议头的 URL（B站常见格式：//i2.hdslb.com/...）
+        if url.startswith("//"):
+            url = f"https:{url}"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, follow_redirects=True)
             response.raise_for_status()
@@ -306,8 +356,9 @@ class BilibiliService:
             搜索建议列表
         """
         try:
-            result = await search.get_suggestions(keyword)
-            return [item["value"] for item in result.get("tag", [])]
+            # 使用 bilibili_api 的 get_suggest_keywords 方法
+            result = await search.get_suggest_keywords(keyword)
+            return result if result else []
         except Exception as e:
             logger.error(f"获取搜索建议失败: {e}")
             return []

@@ -76,23 +76,23 @@ class SubtitleResponse(BaseModel):
 
 
 class SearchResultItem(BaseModel):
-    """搜索结果项"""
+    """搜索结果项 - 匹配前端期望格式"""
     bvid: str
     title: str
-    description: str
-    owner: VideoOwner
+    author: str
+    cover: str
     duration: int
-    cover_url: str
-    view_count: int
-    pubdate: datetime
+    description: str = ""
+    view_count: int = 0
+    pubdate: int = 0  # 时间戳
 
 
 class SearchResponse(BaseModel):
-    """搜索响应"""
-    items: List[SearchResultItem]
+    """搜索响应 - 匹配前端期望格式"""
+    videos: List[SearchResultItem]
     total: int
     page: int
-    page_size: int
+    pageSize: int
 
 
 class RecommendationItem(BaseModel):

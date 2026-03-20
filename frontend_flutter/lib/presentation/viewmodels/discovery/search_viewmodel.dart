@@ -5,6 +5,7 @@ import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/api/backend_api_client.dart';
 import '../../../models/search_suggestion.dart';
+import '../auth/auth_viewmodel.dart';
 
 part 'search_viewmodel.freezed.dart';
 part 'search_viewmodel.g.dart';
@@ -85,10 +86,11 @@ class SearchViewModel extends _$SearchViewModel {
     try {
       AppLogger.debug('SearchViewModel', '初始化');
 
-      // 加载搜索历史
-      final history = await _loadSearchHistoryFromServer();
+      // 检查登录状态，未登录时不加载搜索历史
+      final isLoggedIn = ref.read(isLoggedInProvider);
+      final history = isLoggedIn ? await _loadSearchHistoryFromServer() : const <String>[];
 
-      AppLogger.debug('SearchViewModel', '初始化完成');
+      AppLogger.debug('SearchViewModel', '初始化完成，登录状态: $isLoggedIn');
       return SearchState.idle(
         searchHistory: history,
         suggestions: const [],

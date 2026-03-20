@@ -1,7 +1,8 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, get_current_user_optional
 from app.services.bilibili_service import BilibiliService
 from app.services.bilibili_auth_service import BilibiliAuthService
 from app.schemas.bilibili import (
@@ -129,20 +130,23 @@ async def proxy_image(url: str):
 async def proxy_audio(
     bvid: str,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
     代理音频流，支持 Range 请求
 
     用于播放B站音频，支持断点续传。
+    支持游客模式（无需登录）。
     如果用户已绑定B站账号，使用其凭证获取更高质量的音频流。
     """
     range_header = request.headers.get("range")
 
-    # 获取用户 B站凭证（如果已绑定）
-    auth_service = BilibiliAuthService(db)
-    credential = await auth_service.get_credential(current_user.id)
+    # 获取用户 B站凭证（如果已登录且已绑定）
+    credential = None
+    if current_user:
+        auth_service = BilibiliAuthService(db)
+        credential = await auth_service.get_credential(current_user.id)
 
     data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
         bvid, credential=credential, range_header=range_header
@@ -184,7 +188,9 @@ async def get_search_suggestions(keyword: str):
 
     根据输入关键词返回搜索建议列表
     """
-    suggestions = await BilibiliService.get_search_suggestions(keyword)
+    keywords = await BilibiliService.get_search_suggestions(keyword)
+    # 转换为前端期望的格式：[{ "value": "...", "name": "..." }]
+    suggestions = [{"value": kw, "name": kw} for kw in keywords]
     return ApiResponse(success=True, data={"suggestions": suggestions})
 
 

@@ -256,16 +256,25 @@ class SearchHistory(Base):
 | 文件/目录 | 操作 |
 |----------|------|
 | `lib/data/sync/sync_worker_provider.dart` | 删除 |
-| `lib/data/sync/download_integrity_provider.dart` | 删除 |
 | `lib/data/sync/sync_strategy.dart` | 删除 |
-| `lib/data/sync/conflict_resolver.dart` | 删除 |
 | `lib/data/sync/sync_worker.dart` | 删除 |
 | `lib/data/sync/sync_configuration_provider.dart` | 删除 |
 | `lib/data/sync/bidirectional_sync_worker.dart` | 删除 |
-| `lib/data/sync/*.g.dart` | 删除（生成文件） |
+| `lib/data/sync/sync_worker_provider.g.dart` | 删除（生成文件） |
+| `lib/data/sync/download_integrity_provider.dart` | 删除 |
+| `lib/data/sync/download_integrity_provider.g.dart` | 删除（生成文件） |
 | `lib/data/database/sync_queue_dao.dart` | 删除 |
-| `lib/presentation/widgets/common/sync_status_listener.dart` | 删除 |
+| `lib/models/sync_queue.dart` | 删除 |
+| `lib/presentation/widgets/common/sync_status_indicator.dart` | 删除 |
 | 网易云相关代码 | 保留占位或删除实现 |
+
+#### 保留的本地功能
+
+以下文件属于**本地优先架构**，与网络同步无关，应保留：
+
+| 文件 | 用途 |
+|------|------|
+| `lib/services/download_integrity_service.dart` | 本地文件完整性验证（启动扫描+定期轮询+播放前验证） |
 
 ### 4.2 字段名映射表
 

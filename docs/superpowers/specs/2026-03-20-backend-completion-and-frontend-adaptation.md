@@ -38,15 +38,44 @@
 | 密码重置 | `POST /auth/send-code`, `POST /auth/reset-pwd` | 发送重置验证码，验证后重置密码 |
 | 账号注销 | `DELETE /auth/account` | 永久删除用户账号及关联数据 |
 
-### 2.2 P1 - B站代理功能
+### 2.2 P1 - B站功能
+
+#### 已实现（需验证）
+
+| 功能 | 端点 | 状态 |
+|------|------|------|
+| QR码登录 | `POST /bilibili/qrcode`, `GET /bilibili/qrcode/check` | ✅ 已实现 |
+| 绑定状态 | `GET /bilibili/status` | ✅ 已实现 |
+| 解绑账号 | `DELETE /bilibili/unbind` | ✅ 已实现 |
+| 视频信息 | `GET /bilibili/video/{bvid}` | ✅ 已实现 |
+| 音频流 | `GET /bilibili/audio/{bvid}` | ✅ 已实现 |
+| 字幕获取 | `GET /bilibili/subtitle/{bvid}` | ✅ 已实现 |
+| 视频搜索 | `GET /bilibili/search` | ✅ 已实现 |
+| 推荐视频 | `GET /bilibili/recommend` | ✅ 基础实现 |
+
+#### 待实现
 
 | 功能 | 端点 | 描述 |
 |------|------|------|
 | 图片代理 | `GET /bilibili/proxy/image` | 代理B站图片，解决跨域问题 |
 | 音频代理 | `GET /bilibili/proxy/audio/{bvid}` | 代理音频流，支持Range请求 |
 | UP主信息 | `GET /bilibili/uploader/{mid}` | 获取UP主详细信息 |
+| 搜索建议 | `GET /bilibili/search/suggest` | 搜索关键词自动完成 |
+| 搜索历史 | `GET /bilibili/search/recent` | 最近搜索记录 |
+| Cookie刷新 | `POST /bilibili/refresh-cookie` | 手动刷新B站Cookie |
 
-### 2.3 P2 - 其他功能
+### 2.3 P1 - 推荐功能
+
+| 功能 | 端点 | 描述 |
+|------|------|------|
+| 热门歌单 | `GET /recommendations/hot-playlists` | 热门歌单推荐 |
+| 热歌榜单 | `GET /recommendations/rank` | 各类榜单 |
+| 个性化推荐 | `GET /recommendations/personalized` | 基于历史的推荐 |
+| 分区推荐 | `GET /recommendations/category/{tid}` | 特定分区推荐 |
+| 音乐区推荐 | `GET /recommendations/music` | 音乐区精选 |
+| 分区列表 | `GET /recommendations/categories` | 可用分区列表 |
+
+### 2.4 P2 - 其他功能
 
 | 功能 | 端点 | 描述 |
 |------|------|------|
@@ -55,7 +84,7 @@
 | 本地搜索 | `GET /search/local`, `/search/suggestions` | 本地元数据全文搜索（FTS5） |
 | 搜索历史 | `GET/POST/DELETE /search/history` | 用户搜索历史管理 |
 
-### 2.4 不实现的功能
+### 2.5 不实现的功能
 
 | 功能 | 原因 |
 |------|------|
@@ -72,15 +101,17 @@
 listen-vision-api-python/app/
 ├── api/routes/
 │   ├── auth.py          # 扩展：邮箱验证、密码重置、账号注销
-│   ├── bilibili.py      # 扩展：代理、UP主信息
+│   ├── bilibili.py      # 扩展：代理、UP主、搜索建议
 │   ├── playlist.py      # 已完成
+│   ├── recommendations.py # 新增：推荐功能
 │   ├── audio.py         # 新增：音频元数据管理
 │   ├── history.py       # 新增：播放历史
 │   └── search.py        # 新增：本地搜索
 │
 ├── services/
 │   ├── auth_service.py      # 扩展：邮箱验证、密码重置
-│   ├── bilibili_service.py  # 扩展：代理、UP主信息
+│   ├── bilibili_service.py  # 扩展：代理、UP主、搜索建议
+│   ├── recommendation_service.py # 新增：推荐服务
 │   ├── audio_service.py     # 新增：元数据管理
 │   ├── history_service.py   # 新增：播放历史
 │   └── search_service.py    # 新增：本地搜索
@@ -113,7 +144,8 @@ class AudioMetadata(Base):
     duration = Column(Integer)
     local_path = Column(String(500))  # 本地文件路径
     file_size = Column(Integer)
-    download_status = Column(String(20))  # pending, downloading, completed, failed
+    play_progress = Column(Integer, default=0)  # 播放进度（秒）
+    download_status = Column(Enum('pending', 'downloading', 'completed', 'failed'))
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 ```
@@ -131,6 +163,7 @@ class PlayHistory(Base):
     artist = Column(String(100))
     cover_url = Column(String(500))
     duration = Column(Integer)
+    progress = Column(Integer, default=0)  # 播放进度（秒）
     play_count = Column(Integer, default=1)
     last_played_at = Column(DateTime)
     created_at = Column(DateTime)
@@ -150,7 +183,9 @@ class SearchHistory(Base):
 
 ### 3.3 API 响应格式
 
-统一使用 snake_case 字段名：
+统一使用 snake_case 字段名。
+
+#### 成功响应
 
 ```json
 {
@@ -160,6 +195,36 @@ class SearchHistory(Base):
     "access_token": "eyJ...",
     "refresh_token": "eyJ...",
     "expires_in": 3600
+  }
+}
+```
+
+#### 错误响应
+
+```json
+{
+  "success": false,
+  "message": "错误描述",
+  "error": {
+    "code": "ERROR_CODE",
+    "details": "详细错误信息"
+  }
+}
+```
+
+#### 分页响应
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 100,
+      "total_pages": 5
+    }
   }
 }
 ```
@@ -174,7 +239,7 @@ class SearchHistory(Base):
 
 | 文件 | 修改内容 |
 |------|----------|
-| `lib/core/network/api_constants.dart` | 基础地址改为 Python 后端 |
+| `lib/core/network/dio_client.dart` | 基础地址改为 Python 后端端口 |
 | `lib/core/network/endpoints.dart` | 检查端点路径是否一致 |
 
 #### 数据解析
@@ -190,30 +255,66 @@ class SearchHistory(Base):
 
 | 文件/目录 | 操作 |
 |----------|------|
-| `lib/data/sync/` | 删除整个目录 |
+| `lib/data/sync/sync_worker_provider.dart` | 删除 |
+| `lib/data/sync/download_integrity_provider.dart` | 删除 |
+| `lib/data/sync/sync_strategy.dart` | 删除 |
+| `lib/data/sync/conflict_resolver.dart` | 删除 |
+| `lib/data/sync/sync_worker.dart` | 删除 |
+| `lib/data/sync/sync_configuration_provider.dart` | 删除 |
+| `lib/data/sync/bidirectional_sync_worker.dart` | 删除 |
+| `lib/data/sync/*.g.dart` | 删除（生成文件） |
 | `lib/data/database/sync_queue_dao.dart` | 删除 |
-| `lib/presentation/viewmodels/system/sync_*` | 删除同步相关 ViewModel |
 | `lib/presentation/widgets/common/sync_status_listener.dart` | 删除 |
 | 网易云相关代码 | 保留占位或删除实现 |
 
-### 4.2 字段名映射示例
+### 4.2 字段名映射表
 
-**认证响应**：
+#### 认证响应
 
 | Node.js (旧) | Python (新) |
 |--------------|-------------|
 | `token` | `access_token` |
 | `refreshToken` | `refresh_token` |
+| `expiresIn` | `expires_in` |
 | `user.id` | `user.id` |
 | `user.username` | `user.username` |
+| `user.email` | `user.email` |
 
-**B站视频响应**：
+#### B站视频响应
 
 | Node.js (旧) | Python (新) |
 |--------------|-------------|
 | `owner.mid` | `owner.mid` |
+| `owner.name` | `owner.name` |
 | `stat.view` | `stat.view` |
 | `pubdate` | `pubdate` |
+
+#### 歌单响应
+
+| Node.js (旧) | Python (新) |
+|--------------|-------------|
+| `userId` | `user_id` |
+| `isDefault` | `is_default` |
+| `isPublic` | `is_public` |
+| `createdAt` | `created_at` |
+| `updatedAt` | `updated_at` |
+| `itemCount` | `item_count` |
+
+#### 播放历史响应
+
+| Node.js (旧) | Python (新) |
+|--------------|-------------|
+| `playCount` | `play_count` |
+| `lastPlayedAt` | `last_played_at` |
+
+#### 音频元数据响应
+
+| Node.js (旧) | Python (新) |
+|--------------|-------------|
+| `localPath` | `local_path` |
+| `fileSize` | `file_size` |
+| `playProgress` | `play_progress` |
+| `downloadStatus` | `download_status` |
 
 ### 4.3 前端修改清单生成方式
 
@@ -231,14 +332,15 @@ class SearchHistory(Base):
 
 ## 5. 实施计划
 
-### 阶段 1：后端补齐 + 前端审查并行（预计 3-4 天）
+### 阶段 1：后端补齐 + 前端审查并行（预计 4-5 天）
 
 | 任务 | 后端工作 | 前端工作 |
 |------|----------|----------|
 | Day 1 | P0 用户功能：邮箱验证注册、密码重置、账号注销 | 审查 auth 相关代码 |
 | Day 2 | P1 B站代理：图片代理、音频代理 | 审查 bilibili 相关代码 |
-| Day 3 | P1 B站代理：UP主信息 | 审查 playlist 相关代码 |
-| Day 4 | P2 音频元数据、播放历史、本地搜索 | 生成完整修改清单 |
+| Day 3 | P1 B站扩展：UP主、搜索建议、Cookie刷新 | 审查 playlist 相关代码 |
+| Day 4 | P1 推荐功能：热门歌单、榜单、分区推荐 | 审查 history/search 相关代码 |
+| Day 5 | P2 音频元数据、播放历史、本地搜索 | 生成完整修改清单 |
 
 ### 阶段 2：前端集中修改（预计 1-2 天）
 
@@ -263,9 +365,11 @@ class SearchHistory(Base):
 | 风险 | 影响 | 缓解措施 |
 |------|------|----------|
 | API 响应格式差异 | 前端解析失败 | 统一使用 snake_case，逐一检查 |
-| 遗漏端点 | 功能缺失 | 对比 Node.js 路由文件 |
+| 遗漏端点 | 功能缺失 | 对比 Node.js 路由文件，逐个验证 |
 | 同步功能移除影响 | 用户数据丢失风险 | 项目处于开发阶段，无生产数据 |
-| 前端引用遗漏 | 编译错误 | 使用 IDE 全局搜索 |
+| Token 刷新机制差异 | 认证失败 | 后端实现与 Node.js 一致的 `/auth/refresh` 接口 |
+| 限流策略缺失 | 服务不稳定 | 后端添加 FastAPI 限流中间件 |
+| B站 Cookie 过期 | 功能异常 | 实现自动刷新机制，提供手动刷新接口 |
 
 ---
 
@@ -274,7 +378,7 @@ class SearchHistory(Base):
 ### 后端
 
 - [ ] 所有 P0/P1/P2 功能端点可用
-- [ ] 测试覆盖率 ≥ 80%
+- [ ] 后端测试覆盖率 ≥ 80%
 - [ ] API 文档完整（Swagger）
 
 ### 前端
@@ -282,7 +386,16 @@ class SearchHistory(Base):
 - [ ] 所有 API 调用正常工作
 - [ ] 无同步相关代码残留
 - [ ] 无编译错误/警告
-- [ ] 核心功能端到端测试通过
+
+### 核心功能测试清单
+
+| 功能 | 测试项 |
+|------|--------|
+| 登录注册 | 邮箱验证注册、登录、Token刷新、密码重置 |
+| B站功能 | QR码绑定、视频搜索、音频播放、字幕获取 |
+| 歌单管理 | 创建、删除、添加/移除歌曲 |
+| 播放历史 | 记录、查询、删除 |
+| 本地搜索 | 元数据搜索、搜索建议 |
 
 ---
 

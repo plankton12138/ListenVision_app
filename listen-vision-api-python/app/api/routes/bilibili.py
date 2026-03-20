@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
@@ -11,6 +11,7 @@ from app.schemas.bilibili import (
 )
 from app.schemas.common import ApiResponse
 from app.models import User
+from bilibili_api import Credential
 
 router = APIRouter(prefix="/bilibili", tags=["B站"])
 
@@ -105,3 +106,136 @@ async def get_recommendations(page: int = 1):
     """获取推荐视频"""
     result = await BilibiliService.get_recommendations(page)
     return ApiResponse(success=True, data=result)
+
+
+# ==================== 代理功能 ====================
+
+@router.get("/proxy/image")
+async def proxy_image(url: str):
+    """
+    代理图片
+
+    用于绕过跨域限制，代理B站图片资源
+    """
+    data, content_type = await BilibiliService.proxy_image(url)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
+
+
+@router.get("/proxy/audio/{bvid}")
+async def proxy_audio(
+    bvid: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    代理音频流，支持 Range 请求
+
+    用于播放B站音频，支持断点续传
+    """
+    range_header = request.headers.get("range")
+
+    data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
+        bvid, range_header=range_header
+    )
+
+    headers = {
+        "Content-Type": content_type,
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(len(data)),
+    }
+
+    if range_header:
+        end = start + len(data) - 1
+        headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
+        return Response(content=data, status_code=206, headers=headers)
+
+    return Response(content=data, headers=headers)
+
+
+# ==================== UP主功能 ====================
+
+@router.get("/uploader/{mid}")
+async def get_uploader(mid: int):
+    """
+    获取UP主信息
+
+    包括粉丝数、投稿数等基本信息
+    """
+    info = await BilibiliService.get_uploader_info(mid)
+    return ApiResponse(success=True, data=info)
+
+
+# ==================== 搜索功能 ====================
+
+@router.get("/search/suggest")
+async def get_search_suggestions(keyword: str):
+    """
+    获取搜索建议
+
+    根据输入关键词返回搜索建议列表
+    """
+    suggestions = await BilibiliService.get_search_suggestions(keyword)
+    return ApiResponse(success=True, data={"suggestions": suggestions})
+
+
+@router.get("/search/recent")
+async def get_recent_searches(
+    current_user: User = Depends(get_current_user),
+    limit: int = 10
+):
+    """
+    获取最近搜索记录
+
+    返回当前用户的搜索历史
+    """
+    history = await BilibiliService.get_search_history(current_user.id, limit)
+    return ApiResponse(success=True, data={"keywords": history})
+
+
+# ==================== Cookie 刷新 ====================
+
+@router.post("/refresh-cookie")
+async def refresh_cookie(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    手动刷新 B站 Cookie
+
+    当Cookie即将过期时调用此接口刷新
+    """
+    from app.db.repositories.platform_account_repo import PlatformAccountRepository
+    from app.models.platform_account import PlatformType
+
+    platform_repo = PlatformAccountRepository(db)
+    account = await platform_repo.get_by_user_and_platform(
+        current_user.id, PlatformType.BILIBILI
+    )
+
+    if not account:
+        return ApiResponse(success=False, message="未绑定B站账号")
+
+    # 构建 Credential
+    credential = Credential(
+        sessdata=account.sessdata,
+        bili_jct=account.bili_jct,
+        dedeuserid=account.dedeuserid
+    )
+
+    # 刷新 Cookie
+    new_cred = await BilibiliService.refresh_cookie(credential)
+
+    # 更新数据库
+    await platform_repo.update_bilibili_credentials(
+        account_id=account.id,
+        sessdata=new_cred["sessdata"],
+        bili_jct=new_cred["bili_jct"],
+        dedeuserid=new_cred["dedeuserid"]
+    )
+
+    return ApiResponse(success=True, message="Cookie 刷新成功")

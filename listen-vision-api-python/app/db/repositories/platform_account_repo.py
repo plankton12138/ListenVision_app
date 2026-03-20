@@ -77,3 +77,34 @@ class PlatformAccountRepository:
         for account in accounts:
             account.is_active = False
         await self.db.commit()
+
+    async def update_bilibili_credentials(
+        self,
+        account_id: int,
+        sessdata: str,
+        bili_jct: str,
+        dedeuserid: str
+    ) -> Optional[PlatformAccount]:
+        """
+        更新B站账号凭证
+
+        Args:
+            account_id: 账号ID
+            sessdata: 新的 SESSDATA
+            bili_jct: 新的 bili_jct
+            dedeuserid: 新的 DedeUserID
+
+        Returns:
+            更新后的账号对象
+        """
+        result = await self.db.execute(
+            select(PlatformAccount).where(PlatformAccount.id == account_id)
+        )
+        account = result.scalar_one_or_none()
+        if account:
+            account.sessdata = sessdata
+            account.bili_jct = bili_jct
+            account.dedeuserid = dedeuserid
+            await self.db.commit()
+            await self.db.refresh(account)
+        return account

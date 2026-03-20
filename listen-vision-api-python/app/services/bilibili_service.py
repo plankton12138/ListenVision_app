@@ -1,5 +1,6 @@
-from typing import Optional, List
-from bilibili_api import video, user, search
+from typing import Optional, List, Tuple
+import httpx
+from bilibili_api import video, user, search, Credential
 from bilibili_api.exceptions import ResponseCodeException
 
 from app.utils.logger import logger
@@ -10,6 +11,10 @@ from app.schemas.bilibili import (
     SubtitleResponse, SubtitleInfo, SubtitleLine,
     SearchResponse, SearchResultItem
 )
+
+
+# 搜索历史缓存（生产环境应使用 Redis）
+_search_history: dict[int, list[str]] = {}
 
 
 class BilibiliService:
@@ -186,4 +191,183 @@ class BilibiliService:
             return result.get("item", [])
         except ResponseCodeException as e:
             logger.error(f"获取推荐失败: {e.code} - {e.msg}")
+            raise
+
+    # ==================== 代理功能 ====================
+
+    @staticmethod
+    async def proxy_image(url: str) -> Tuple[bytes, str]:
+        """
+        代理图片，返回 (图片数据, content_type)
+
+        Args:
+            url: 图片URL
+
+        Returns:
+            元组 (图片二进制数据, content_type)
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, follow_redirects=True)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "image/jpeg")
+            return response.content, content_type
+
+    @staticmethod
+    async def proxy_audio_stream(
+        bvid: str,
+        credential: Optional[Credential] = None,
+        range_header: Optional[str] = None
+    ) -> Tuple[bytes, str, int, int]:
+        """
+        代理音频流，返回 (数据, content_type, 总大小, 当前位置)
+
+        Args:
+            bvid: 视频BV号
+            credential: B站认证凭证（可选）
+            range_header: Range请求头（可选）
+
+        Returns:
+            元组 (音频数据, content_type, 总大小, 起始位置)
+        """
+        streams = await BilibiliService.get_audio_streams(bvid, credential)
+        if not streams.streams:
+            raise ValueError("无可用音频流")
+
+        # 选择最高质量
+        stream = streams.streams[0]
+        url = stream.url
+
+        headers = {}
+        if range_header:
+            headers["Range"] = range_header
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(url, headers=headers, follow_redirects=True)
+            response.raise_for_status()
+
+            content_type = response.headers.get("content-type", "audio/mp4")
+            total_size = int(response.headers.get("content-length", 0))
+            content_range = response.headers.get("content-range", "")
+
+            # 解析 range
+            start = 0
+            if content_range:
+                parts = content_range.split("/")
+                if len(parts) == 2:
+                    total_size = int(parts[1])
+                    range_parts = parts[0].replace("bytes ", "").split("-")
+                    if len(range_parts) >= 1:
+                        start = int(range_parts[0])
+
+            return response.content, content_type, total_size, start
+
+    # ==================== UP主功能 ====================
+
+    @staticmethod
+    @cached(ttl=300)
+    async def get_uploader_info(mid: int) -> dict:
+        """
+        获取UP主信息
+
+        Args:
+            mid: UP主ID
+
+        Returns:
+            UP主信息字典
+        """
+        try:
+            u = user.User(uid=mid)
+            info = await u.get_user_info()
+            return {
+                "mid": info.get("mid", mid),
+                "name": info.get("name", ""),
+                "face": info.get("face", ""),
+                "sign": info.get("sign", ""),
+                "level": info.get("level", 0),
+                "fans": info.get("follower", 0),
+                "videos": info.get("video_count", 0)
+            }
+        except ResponseCodeException as e:
+            logger.error(f"获取UP主信息失败: {e.code} - {e.msg}")
+            raise
+
+    # ==================== 搜索功能 ====================
+
+    @staticmethod
+    @cached(ttl=60)
+    async def get_search_suggestions(keyword: str) -> List[str]:
+        """
+        获取搜索建议
+
+        Args:
+            keyword: 搜索关键词
+
+        Returns:
+            搜索建议列表
+        """
+        try:
+            result = await search.get_suggestions(keyword)
+            return [item["value"] for item in result.get("tag", [])]
+        except Exception as e:
+            logger.error(f"获取搜索建议失败: {e}")
+            return []
+
+    @staticmethod
+    async def get_search_history(user_id: int, limit: int = 10) -> List[str]:
+        """
+        获取搜索历史
+
+        Args:
+            user_id: 用户ID
+            limit: 返回数量限制
+
+        Returns:
+            搜索历史列表
+        """
+        return _search_history.get(user_id, [])[:limit]
+
+    @staticmethod
+    async def add_search_history(user_id: int, keyword: str) -> None:
+        """
+        添加搜索历史
+
+        Args:
+            user_id: 用户ID
+            keyword: 搜索关键词
+        """
+        if user_id not in _search_history:
+            _search_history[user_id] = []
+        history = _search_history[user_id]
+        # 去重：移除已存在的相同关键词
+        if keyword in history:
+            history.remove(keyword)
+        # 添加到开头
+        history.insert(0, keyword)
+        # 限制数量为50条
+        _search_history[user_id] = history[:50]
+
+    # ==================== Cookie 刷新 ====================
+
+    @staticmethod
+    async def refresh_cookie(credential: Credential) -> dict:
+        """
+        刷新 B站 Cookie
+
+        Args:
+            credential: 当前的认证凭证
+
+        Returns:
+            新的凭证信息字典
+        """
+        try:
+            from bilibili_api import login_func
+            # 使用 credential 刷新
+            new_credential = await login_func.refresh_cookie(credential)
+            return {
+                "sessdata": new_credential.sessdata,
+                "bili_jct": new_credential.bili_jct,
+                "dedeuserid": new_credential.dedeuserid
+            }
+        except Exception as e:
+            logger.error(f"刷新 Cookie 失败: {e}")
             raise

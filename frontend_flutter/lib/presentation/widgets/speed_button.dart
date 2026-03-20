@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 倍速按钮组件
 ///

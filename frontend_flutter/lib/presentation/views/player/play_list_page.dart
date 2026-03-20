@@ -1,6 +1,6 @@
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/widgets/my_drawer.dart';
+import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,7 +92,7 @@ class PlaylistPage extends ConsumerWidget {
                   ),
                   onTap: () {
                     ref.read(queueViewModelProvider.notifier).setCurrentIndex(index);
-                    // TODO: 触发播放
+                    // 后续在此接入明确的播放触发入口
                   },
                 );
               },

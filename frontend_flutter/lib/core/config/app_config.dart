@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 应用环境配置
 ///
@@ -23,7 +23,8 @@ enum AppEnvironment {
   dev('开发环境', 'http://localhost:8000'),
   test('测试环境', 'http://192.168.0.197:8000'),
   staging('预发布环境', 'https://app.phytoplankton.cn'),
-  prod('生产环境', 'https://api.listenvision.com');
+  prod('生产环境', 'https://app.phytoplankton.cn');
+
 
   final String description;
   final String defaultBaseUrl;

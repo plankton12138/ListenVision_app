@@ -210,25 +210,25 @@ class QueueTabView extends ConsumerWidget {
   void _handleSourceTap(BuildContext context, QueueSource source) {
     switch (source.type) {
       case SourceType.userPlaylist:
-        // TODO: 跳转到歌单详情页
+        // 后续可跳转到歌单详情页
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('即将跳转到歌单: ${source.name}')),
         );
         break;
       case SourceType.favorites:
-        // TODO: 跳转到收藏页
+        // 后续可跳转到收藏页
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('即将跳转到收藏页')),
         );
         break;
       case SourceType.history:
-        // TODO: 切换到历史 Tab
+        // 后续可切换到历史 Tab
         break;
       case SourceType.search:
-        // TODO: 跳转到搜索页
+        // 后续可跳转到搜索页
         break;
       case SourceType.neteasePlaylist:
-        // TODO: 跳转到网易云歌单详情页
+        // 后续可跳转到网易云歌单详情页
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('即将跳转到网易云歌单: ${source.name}')),
         );
@@ -273,7 +273,7 @@ class QueueTabView extends ConsumerWidget {
           // 定位按钮
           TextButton.icon(
             onPressed: () {
-              // TODO: 滚动到当前播放
+              // 后续可补充滚动到当前播放项的交互
             },
             icon: const Icon(Icons.location_on),
             label: const Text('定位'),

@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:demo/core/utils/audio_metadata_helper.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/audio_metadata_helper.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 元数据写入器
 ///

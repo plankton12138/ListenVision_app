@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/models/playlist.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
-import 'package:demo/presentation/widgets/audio/audio_action_menu.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/models/playlist.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
+import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 
 /// 播放器底部操作栏
 ///

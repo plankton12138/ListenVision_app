@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:demo/presentation/widgets/volume_slider.dart';
-import 'package:demo/presentation/widgets/speed_button.dart';
-import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/models/playable_audio.dart';
-import 'package:demo/models/online_playable.dart';
+import 'package:listenvision/presentation/widgets/volume_slider.dart';
+import 'package:listenvision/presentation/widgets/speed_button.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/models/playable_audio.dart';
+import 'package:listenvision/models/online_playable.dart';
 
 /// 播放控制面板组件
 ///

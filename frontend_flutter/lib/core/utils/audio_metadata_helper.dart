@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart' hide readMetadata, updateMetadata;
 import 'package:audio_metadata_reader/audio_metadata_reader.dart' as meta;
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// 音频元数据结果

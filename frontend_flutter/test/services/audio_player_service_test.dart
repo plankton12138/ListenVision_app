@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:demo/services/audio_player_service.dart';
+import 'package:listenvision/services/audio_player_service.dart';
 
 void main() {
   group('AudioPlayerService', () {

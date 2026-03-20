@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/dto/api_dto.dart';
+import '../../models/search_suggestion.dart';
 import '../../models/subtitle.dart';
 import '../errors/exceptions.dart';
 import '../utils/app_logger.dart';
@@ -152,6 +153,26 @@ class ApiClient {
     } catch (e) {
       AppLogger.error('ApiClient', '搜索B站失败: $e');
       rethrow;
+    }
+  }
+
+  /// 获取 B 站搜索建议
+  Future<List<SearchSuggestion>> getBilibiliSearchSuggestions(
+    String keyword,
+  ) async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.bilibiliSearchSuggest,
+        queryParameters: {'keyword': keyword},
+      );
+      final data = _handleResponse(response) as Map<String, dynamic>;
+      final suggestions = data['suggestions'] as List? ?? const [];
+      return suggestions
+          .map((item) => SearchSuggestion.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取B站搜索建议失败: $e');
+      return [];
     }
   }
 
@@ -320,6 +341,19 @@ class ApiClient {
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('ApiClient', '获取网易云歌单详情失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取网易云推荐歌单
+  Future<Map<String, dynamic>> getNeteaseRecommendedPlaylists() async {
+    try {
+      final response = await _dioClient.get(
+        Endpoints.neteaseRecommendedPlaylists,
+      );
+      return _handleResponse(response) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('ApiClient', '获取网易云推荐歌单失败: $e');
       rethrow;
     }
   }

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 网络质量等级
 enum NetworkQuality {

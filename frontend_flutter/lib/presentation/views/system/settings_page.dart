@@ -1,10 +1,10 @@
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/viewmodels/auth/platform_auth_viewmodel.dart';
-import 'package:demo/presentation/viewmodels/settings/scan_viewmodel.dart';
-import 'package:demo/presentation/viewmodels/library/local_music_viewmodel.dart';
-import 'package:demo/presentation/widgets/my_drawer.dart';
-import 'package:demo/core/utils/dialog_helper.dart';
+import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/viewmodels/auth/platform_auth_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/settings/scan_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
+import 'package:listenvision/presentation/widgets/my_drawer.dart';
+import 'package:listenvision/core/utils/dialog_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

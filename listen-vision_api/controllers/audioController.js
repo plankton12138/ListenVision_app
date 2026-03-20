@@ -1,10 +1,15 @@
 const audioService = require('../services/audio');
-const { successResponse } = require('../utils/response');
 const { AppError, catchAsync } = require('../middleware/errorHandler');
+const { successResponse } = require('../utils/response');
 
 /**
  * 音频元数据控制器
  */
+
+const parseOptionalNumber = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
 
 /**
  * 获取音频元数据
@@ -19,10 +24,10 @@ const getAudioMetadata = catchAsync(async (req, res) => {
 
   const metadata = await audioService.getAudioMetadata(
     bvid,
-    maxAge ? parseInt(maxAge) : undefined
+    maxAge ? parseOptionalNumber(maxAge, undefined) : undefined
   );
 
-  successResponse(res, metadata);
+  return successResponse(res, metadata);
 });
 
 /**
@@ -40,7 +45,7 @@ const getAudioStreamUrl = catchAsync(async (req, res) => {
     req.user?.id || null
   );
 
-  successResponse(res, result);
+  return successResponse(res, result);
 });
 
 /**
@@ -53,18 +58,15 @@ const getMultipleMetadata = catchAsync(async (req, res) => {
     throw new AppError('bvids 参数必须是非空数组', 400);
   }
 
-  // 限制一次最多获取50个
   const limitedBvids = bvids.slice(0, 50);
-
   const metadataMap = await audioService.getMultipleMetadata(limitedBvids);
-
-  // 改为对象格式，key 为 bvid
   const metadataObj = {};
+
   for (const [bvid, data] of metadataMap.entries()) {
     metadataObj[bvid] = data;
   }
 
-  successResponse(res, { metadata: metadataObj });
+  return successResponse(res, { metadata: metadataObj });
 });
 
 /**
@@ -78,8 +80,7 @@ const refreshMetadata = catchAsync(async (req, res) => {
   }
 
   const metadata = await audioService.refreshMetadata(bvid);
-
-  successResponse(res, metadata, '刷新成功');
+  return successResponse(res, metadata, '刷新成功');
 });
 
 /**
@@ -92,30 +93,26 @@ const deleteMetadata = catchAsync(async (req, res) => {
     throw new AppError('缺少 bvid 参数', 400);
   }
 
-  const success = audioService.deleteMetadata(bvid);
-
-  if (!success) {
+  const deleted = audioService.deleteMetadata(bvid);
+  if (!deleted) {
     throw new AppError('元数据不存在', 404);
   }
 
-  successResponse(res, { deleted: true }, '删除成功');
+  return successResponse(res, { deleted: true }, '删除成功');
 });
 
 /**
  * 获取所有缓存元数据
  */
 const getAllMetadata = catchAsync(async (req, res) => {
-  const { limit = 50, offset = 0 } = req.query;
+  const limit = parseOptionalNumber(req.query.limit, 50);
+  const offset = parseOptionalNumber(req.query.offset, 0);
+  const metadata = audioService.getAllMetadata(limit, offset);
 
-  const metadata = audioService.getAllMetadata(
-    parseInt(limit) || 50,
-    parseInt(offset) || 0
-  );
-
-  successResponse(res, {
+  return successResponse(res, {
     metadata,
-    limit: parseInt(limit) || 50,
-    offset: parseInt(offset) || 0
+    limit,
+    offset
   });
 });
 
@@ -123,18 +120,14 @@ const getAllMetadata = catchAsync(async (req, res) => {
  * 获取搜索历史
  */
 const getSearchHistory = catchAsync(async (req, res) => {
-  const { limit = 20, offset = 0 } = req.query;
+  const limit = parseOptionalNumber(req.query.limit, 20);
+  const offset = parseOptionalNumber(req.query.offset, 0);
+  const history = audioService.getSearchHistory(req.user.id, limit, offset);
 
-  const history = audioService.getSearchHistory(
-    req.user.id,
-    parseInt(limit) || 20,
-    parseInt(offset) || 0
-  );
-
-  successResponse(res, {
+  return successResponse(res, {
     history,
-    limit: parseInt(limit) || 20,
-    offset: parseInt(offset) || 0
+    limit,
+    offset
   });
 });
 
@@ -142,16 +135,10 @@ const getSearchHistory = catchAsync(async (req, res) => {
  * 获取最近搜索关键词
  */
 const getRecentSearches = catchAsync(async (req, res) => {
-  const { limit = 10 } = req.query;
+  const limit = parseOptionalNumber(req.query.limit, 10);
+  const keywords = audioService.getRecentSearches(req.user.id, limit);
 
-  const keywords = audioService.getRecentSearches(
-    req.user.id,
-    parseInt(limit) || 10
-  );
-
-  successResponse(res, {
-    keywords
-  });
+  return successResponse(res, { keywords });
 });
 
 /**
@@ -159,8 +146,7 @@ const getRecentSearches = catchAsync(async (req, res) => {
  */
 const clearSearchHistory = catchAsync(async (req, res) => {
   audioService.clearSearchHistory(req.user.id);
-
-  successResponse(res, { cleared: true }, '搜索历史已清空');
+  return successResponse(res, { cleared: true }, '搜索历史已清空');
 });
 
 /**
@@ -173,13 +159,12 @@ const deleteSearchKeyword = catchAsync(async (req, res) => {
     throw new AppError('缺少 keyword 参数', 400);
   }
 
-  const success = audioService.deleteSearchKeyword(req.user.id, keyword);
-
-  if (!success) {
+  const deleted = audioService.deleteSearchKeyword(req.user.id, keyword);
+  if (!deleted) {
     throw new AppError('搜索记录不存在', 404);
   }
 
-  successResponse(res, { deleted: true }, '删除成功');
+  return successResponse(res, { deleted: true }, '删除成功');
 });
 
 /**
@@ -187,8 +172,7 @@ const deleteSearchKeyword = catchAsync(async (req, res) => {
  */
 const getCacheStats = catchAsync(async (req, res) => {
   const stats = audioService.getCacheStats();
-
-  successResponse(res, stats);
+  return successResponse(res, stats);
 });
 
 /**
@@ -196,30 +180,24 @@ const getCacheStats = catchAsync(async (req, res) => {
  */
 const cleanExpiredCache = catchAsync(async (req, res) => {
   const { maxAge } = req.query;
-
   const count = audioService.cleanExpiredCache(
-    maxAge ? parseInt(maxAge) : undefined
+    maxAge ? parseOptionalNumber(maxAge, undefined) : undefined
   );
 
-  successResponse(res, { cleaned: count }, `清理了 ${count} 条过期缓存`);
+  return successResponse(res, { cleaned: count }, `清理了 ${count} 条过期缓存`);
 });
 
 module.exports = {
-  // 元数据
   getAudioMetadata,
   getAudioStreamUrl,
   getMultipleMetadata,
   refreshMetadata,
   deleteMetadata,
   getAllMetadata,
-
-  // 搜索历史
   getSearchHistory,
   getRecentSearches,
   clearSearchHistory,
   deleteSearchKeyword,
-
-  // 统计
   getCacheStats,
   cleanExpiredCache
 };

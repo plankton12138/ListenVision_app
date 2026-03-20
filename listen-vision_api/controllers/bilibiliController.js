@@ -401,7 +401,7 @@ const proxyAudioStream = async (req, res) => {
     const { url, format = 'm4s' } = req.query;
 
     if (!url) {
-      return res.status(400).json({ success: false, error: '缺少 url 参数' });
+      return errorResponse(res, '缺少 url 参数', 400);
     }
 
     // 支持的格式
@@ -431,10 +431,11 @@ const proxyAudioStream = async (req, res) => {
 
     // 服务端不再提供格式转换（除缓存命中），建议请求 m4s 或在客户端转换
     if (targetFormat !== 'm4s') {
-      return res.status(400).json({
-        success: false,
-        error: '服务器不再支持服务端音频转换，请请求 m4s 或在客户端执行转换'
-      });
+      return errorResponse(
+        res,
+        '服务器不再支持服务端音频转换，请请求 m4s 或在客户端执行转换',
+        400
+      );
     } else {
       // 直接转发原始音频流（支持 seek 和断点续传）
       const contentType = response.headers.get('Content-Type') || 'audio/mp4';
@@ -487,7 +488,7 @@ const proxyAudioStream = async (req, res) => {
     }
   } catch (error) {
     logger.error('BiliProxy proxy audio failed', { error: error.message });
-    res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
+    return errorResponse(res, `代理音频失败: ${error.message}`, 500);
   }
 };
 
@@ -511,7 +512,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
   const { format = 'auto' } = req.query;  // ✅ 默认 'auto'，让后端智能选择
 
   if (!bvid) {
-    return res.status(400).json({ success: false, error: '缺少 bvid 参数' });
+    return errorResponse(res, '缺少 bvid 参数', 400);
   }
 
   try {
@@ -524,7 +525,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
 
     if (!audioData || !audioData.baseUrl) {
       logger.warn('BiliProxy missing audio url', { bvid, userId: userId || 'none', audioData });
-      return res.status(404).json({ success: false, error: '无法获取音频流URL' });
+      return errorResponse(res, '无法获取音频流URL', 404);
     }
 
     const streamUrl = audioData.baseUrl || audioData.url;
@@ -570,10 +571,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
           status: response.status,
           statusText: response.statusText 
         });
-        return res.status(response.status).json({ 
-          success: false, 
-          error: `获取音频失败 (${response.status})` 
-        });
+        return errorResponse(res, `获取音频失败 (${response.status})`, response.status);
       }
 
       const contentType = response.headers.get('Content-Type') || 'audio/mp4';
@@ -629,7 +627,7 @@ const proxyAudioStreamByBvid = async (req, res) => {
         readableStream.on('error', (err) => {
           logger.warn('BiliProxy stream error', { bvid, error: err.message });
           if (!res.headersSent) {
-            res.status(500).json({ success: false, error: '音频流传输中断' });
+            errorResponse(res, '音频流传输中断', 500);
           }
         });
 
@@ -654,15 +652,13 @@ const proxyAudioStreamByBvid = async (req, res) => {
         return;
       }
 
-      return res.status(400).json({
-        success: false,
-        error: '服务器不再支持服务端音频转换（mp3），请请求 m4s 或在客户端执行转换'
-      });
+      return errorResponse(
+        res,
+        '服务器不再支持服务端音频转换（mp3），请请求 m4s 或在客户端执行转换',
+        400
+      );
     } else {
-    return res.status(400).json({
-        success: false,
-        error: `不支持的格式: ${targetFormat}`
-      });
+      return errorResponse(res, `不支持的格式: ${targetFormat}`, 400);
     }
   } catch (error) {
     const isNetworkError = error.name === 'AbortError' || 
@@ -676,15 +672,15 @@ const proxyAudioStreamByBvid = async (req, res) => {
         error: error.message,
         code: error.code 
       });
-      return res.status(503).json({ 
-        success: false, 
+      return res.status(503).json({
+        success: false,
         error: '网络连接不稳定，请稍后重试',
         code: 'NETWORK_ERROR'
       });
     }
     
     logger.error('BiliProxy error', { error: error.message, stack: error.stack });
-    res.status(500).json({ success: false, error: `代理音频失败: ${error.message}` });
+    return errorResponse(res, `代理音频失败: ${error.message}`, 500);
   }
 };
 

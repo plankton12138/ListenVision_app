@@ -16,7 +16,7 @@
 /// ```
 library;
 
-import 'package:demo/core/config/app_config.dart';
+import 'package:listenvision/core/config/app_config.dart';
 
 /// API 基础配置
 class ApiConstants {

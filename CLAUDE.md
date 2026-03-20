@@ -108,7 +108,7 @@ presentation/
 ```
 MVVM 重构:       ███████████████████████  100% (Phase 9/10) ✅
 本地优先架构:    ███████████████████████  100% (Phase 9/9) ✅
-发现搜索改进:    ████████████░░░░░░░░░░░░  60% (Phase 3/5) 🟡
+发现搜索改进:    ███████████████████████  100% (Phase 5/5) ✅
 
 --- MVVM 重构进度 (已完成 2026-02-05) ---
 Phase 0:  ✅ 骨架搭建
@@ -445,6 +445,8 @@ final apiClient = ref.watch(apiClientProvider);
 ## 长期记忆
 
 ### 项目决策记录
+
+- **[2026-03-09]** 更新 `.github/copilot-instructions.md`：补全自 2026-02-16 以来新增的架构层（`core/errors/`、`core/models/`、`models/dto/`、`data/sync/`、`services/`、`widgets/common/`）、`DownloadIntegrityService` 三层扫描策略、`NetworkStatusListener`、`ErrorUIHandler` 全方法列表、技术栈版本表、认证架构说明及参考文档索引。同步修正前端测试路径（`test\providers\auth\auth_provider_test.dart`）。
 
 - **[2026-02-16]** 文件系统监听方案变更：放弃 `FileSystemEntity.watch()` 方案，改用启动扫描 + 定期轮询 + 播放前验证的三层检测机制。
   - **原因**: `FileSystemEntity.watch()` 在移动端支持不完整，不可靠。

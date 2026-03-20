@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:demo/core/constants/api_constants.dart';
-import 'package:demo/core/utils/app_logger.dart';
-import 'package:demo/models/audio.dart';
-import 'package:demo/models/download_task.dart';
-import 'package:demo/models/online_playable.dart';
-import 'package:demo/models/playlist.dart';
-import 'package:demo/presentation/providers.dart';
-import 'package:demo/presentation/viewmodels/library/playlist_viewmodel.dart';
-import 'package:demo/presentation/viewmodels/system/download_viewmodel.dart';
+import 'package:listenvision/core/constants/api_constants.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/models/audio.dart';
+import 'package:listenvision/models/download_task.dart';
+import 'package:listenvision/models/online_playable.dart';
+import 'package:listenvision/models/playlist.dart';
+import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/system/download_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;

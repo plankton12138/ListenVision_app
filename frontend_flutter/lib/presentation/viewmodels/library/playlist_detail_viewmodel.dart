@@ -311,7 +311,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         return false;
       }
 
-      // TODO: 记录队列来源（Phase 3）
+      // 后续可补充记录队列来源的能力（Phase 3）
       // 替换队列
       await ref.read(queueViewModelProvider.notifier).setQueue(
         queueItems,

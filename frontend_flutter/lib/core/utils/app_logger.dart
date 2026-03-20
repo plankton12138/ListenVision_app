@@ -108,7 +108,7 @@ class AppLogger {
       // Web 平台：跳过文件日志，仅使用控制台输出
       if (kIsWeb) {
         if (kDebugMode) {
-          print('📁 AppLogger: Web 平台，仅使用控制台输出');
+          debugPrint('📁 AppLogger: Web 平台，仅使用控制台输出');
         }
         _isInitialized = true;
         return;

@@ -12,7 +12,7 @@ const { generalLimiter } = require('./middleware/rateLimiter');
 const swaggerSpecs = require('./config/swagger');
 
 // ========== 环境变量校验 ==========
-const requiredEnvVars = ['JWT_SECRET', 'DATABASE_PATH'];
+const requiredEnvVars = ['JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
 
 if (missingEnvVars.length > 0) {

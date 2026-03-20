@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:demo/core/constants/app_constants.dart';
-import 'package:demo/core/utils/app_logger.dart';
+import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/core/utils/app_logger.dart';
 
 /// 歌单封面选择对话框
 ///

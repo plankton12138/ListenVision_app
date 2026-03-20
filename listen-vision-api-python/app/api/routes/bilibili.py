@@ -135,12 +135,17 @@ async def proxy_audio(
     """
     代理音频流，支持 Range 请求
 
-    用于播放B站音频，支持断点续传
+    用于播放B站音频，支持断点续传。
+    如果用户已绑定B站账号，使用其凭证获取更高质量的音频流。
     """
     range_header = request.headers.get("range")
 
+    # 获取用户 B站凭证（如果已绑定）
+    auth_service = BilibiliAuthService(db)
+    credential = await auth_service.get_credential(current_user.id)
+
     data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
-        bvid, range_header=range_header
+        bvid, credential=credential, range_header=range_header
     )
 
     headers = {

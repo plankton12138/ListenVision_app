@@ -141,3 +141,30 @@ class BilibiliAuthService:
                 avatar_url=account.avatar_url
             )
         return BilibiliStatusResponse(is_bound=False)
+
+    async def get_credential(self, user_id: int) -> Optional[Credential]:
+        """
+        获取用户的 B站认证凭证
+
+        Args:
+            user_id: 用户ID
+
+        Returns:
+            如果用户已绑定B站账号，返回 Credential 对象；否则返回 None
+        """
+        if not self.db:
+            raise ValueError("Database session required")
+
+        from app.models.platform_account import PlatformType
+        account = await self.platform_repo.get_by_user_and_platform(
+            user_id, PlatformType.BILIBILI
+        )
+
+        if not account:
+            return None
+
+        return Credential(
+            sessdata=account.sessdata,
+            bili_jct=account.bili_jct,
+            dedeuserid=account.dedeuserid
+        )

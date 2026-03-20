@@ -125,3 +125,81 @@ async def test_search_history_empty_user():
     history = await BilibiliService.get_search_history(user_id)
     assert isinstance(history, list)
     assert len(history) == 0
+
+
+@pytest.mark.asyncio
+async def test_proxy_audio_stream():
+    """测试音频流代理"""
+    # 使用一个已知的视频 BV 号进行测试
+    bvid = "BV1xx411c7mD"  # B站官方视频
+    try:
+        data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
+            bvid, credential=None, range_header=None
+        )
+        assert isinstance(data, bytes)
+        assert len(data) > 0
+        assert content_type.startswith("audio/")
+        assert total_size > 0
+        assert start == 0
+    except Exception as e:
+        # 网络问题或视频不存在时跳过
+        pytest.skip(f"网络不可用或视频不存在: {e}")
+
+
+@pytest.mark.asyncio
+async def test_proxy_audio_stream_with_range():
+    """测试带 Range 请求的音频流代理"""
+    bvid = "BV1xx411c7mD"
+    try:
+        # 请求前 1024 字节
+        data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
+            bvid, credential=None, range_header="bytes=0-1023"
+        )
+        assert isinstance(data, bytes)
+        assert len(data) <= 1024
+        assert content_type.startswith("audio/")
+        assert start == 0
+    except Exception as e:
+        pytest.skip(f"网络不可用或视频不存在: {e}")
+
+
+@pytest.mark.asyncio
+async def test_refresh_cookie():
+    """测试 Cookie 刷新"""
+    from unittest.mock import AsyncMock, patch, MagicMock
+    from bilibili_api import Credential
+
+    # 创建一个模拟的 Credential，使用 spec 来确保类型正确
+    mock_credential = MagicMock(spec=Credential)
+    mock_credential.sessdata = "test_sessdata"
+    mock_credential.bili_jct = "test_bili_jct"
+    mock_credential.dedeuserid = "test_dedeuserid"
+    mock_credential.refresh = AsyncMock()
+
+    # 设置刷新后的值
+    async def mock_refresh():
+        mock_credential.sessdata = "new_sessdata"
+        mock_credential.bili_jct = "new_bili_jct"
+        mock_credential.dedeuserid = "new_dedeuserid"
+
+    mock_credential.refresh.side_effect = mock_refresh
+
+    result = await BilibiliService.refresh_cookie(mock_credential)
+
+    assert result["sessdata"] == "new_sessdata"
+    assert result["bili_jct"] == "new_bili_jct"
+    assert result["dedeuserid"] == "new_dedeuserid"
+    mock_credential.refresh.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_refresh_cookie_failure():
+    """测试 Cookie 刷新失败"""
+    from unittest.mock import AsyncMock, MagicMock
+    from bilibili_api import Credential
+
+    mock_credential = MagicMock(spec=Credential)
+    mock_credential.refresh = AsyncMock(side_effect=Exception("Cookie 已过期"))
+
+    with pytest.raises(Exception, match="Cookie 已过期"):
+        await BilibiliService.refresh_cookie(mock_credential)

@@ -360,13 +360,12 @@ class BilibiliService:
             新的凭证信息字典
         """
         try:
-            from bilibili_api import login_func
-            # 使用 credential 刷新
-            new_credential = await login_func.refresh_cookie(credential)
+            # 使用 Credential 的 refresh 方法刷新
+            await credential.refresh()
             return {
-                "sessdata": new_credential.sessdata,
-                "bili_jct": new_credential.bili_jct,
-                "dedeuserid": new_credential.dedeuserid
+                "sessdata": credential.sessdata,
+                "bili_jct": credential.bili_jct,
+                "dedeuserid": credential.dedeuserid
             }
         except Exception as e:
             logger.error(f"刷新 Cookie 失败: {e}")

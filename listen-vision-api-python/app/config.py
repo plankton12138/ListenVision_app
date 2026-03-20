@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # SMTP (邮件服务)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_from_email: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

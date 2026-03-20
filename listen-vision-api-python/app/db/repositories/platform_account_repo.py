@@ -70,3 +70,10 @@ class PlatformAccountRepository:
         if account:
             account.is_active = False
             await self.db.commit()
+
+    async def delete_by_user(self, user_id: int) -> None:
+        """删除用户的所有平台账号"""
+        accounts = await self.get_by_user(user_id)
+        for account in accounts:
+            account.is_active = False
+        await self.db.commit()

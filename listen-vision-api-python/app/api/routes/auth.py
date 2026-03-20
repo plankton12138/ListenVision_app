@@ -7,6 +7,7 @@ from app.schemas.auth import (
     UserCreate, UserResponse, LoginRequest, TokenResponse,
     RefreshRequest, UserMeResponse
 )
+from app.schemas.email import SendCodeRequest, VerifyEmailRequest, ResetPasswordRequest
 from app.schemas.common import ApiResponse
 from app.models import User
 
@@ -18,9 +19,53 @@ async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    """用户注册"""
+    """用户注册（直接注册，无需验证码）"""
     service = AuthService(db)
     user = await service.register(user_data)
+    return ApiResponse(success=True, message="注册成功", data=user)
+
+
+@router.post("/send-code", response_model=ApiResponse)
+async def send_verification_code(
+    request: SendCodeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    发送验证码
+
+    purpose: register | reset_password
+    """
+    service = AuthService(db)
+    code = await service.send_verification_code(request.email, request.purpose)
+    return ApiResponse(
+        success=True,
+        message="验证码已发送",
+        data={"code": code} if code else None  # 开发环境返回验证码
+    )
+
+
+@router.post("/verify-email", response_model=ApiResponse[UserResponse])
+async def verify_email_and_register(
+    request: VerifyEmailRequest,
+    password: str,
+    db: AsyncSession = Depends(get_db),
+    username: str = None
+):
+    """
+    验证邮箱并完成注册
+
+    - **email**: 邮箱地址
+    - **code**: 验证码
+    - **password**: 密码（必需，通过 form-data 传递）
+    - **username**: 用户名（可选，通过 form-data 传递）
+    """
+    service = AuthService(db)
+    user = await service.verify_email_and_register(
+        email=request.email,
+        code=request.code,
+        password=password,
+        username=username
+    )
     return ApiResponse(success=True, message="注册成功", data=user)
 
 
@@ -55,3 +100,37 @@ async def get_me(
     service = AuthService(db)
     user_data = await service.get_user_with_platforms(current_user.id)
     return ApiResponse(success=True, data=UserMeResponse(**user_data))
+
+
+@router.post("/reset-pwd", response_model=ApiResponse)
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    重置密码
+
+    需要先调用 /send-code 获取验证码
+    """
+    service = AuthService(db)
+    await service.reset_password(
+        email=request.email,
+        code=request.code,
+        new_password=request.new_password
+    )
+    return ApiResponse(success=True, message="密码重置成功")
+
+
+@router.delete("/account", response_model=ApiResponse)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    注销账号
+
+    需要登录，删除当前用户的所有数据
+    """
+    service = AuthService(db)
+    await service.delete_account(current_user.id)
+    return ApiResponse(success=True, message="账号已注销")

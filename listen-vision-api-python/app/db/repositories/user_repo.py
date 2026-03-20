@@ -36,3 +36,17 @@ class UserRepository:
         """检查邮箱是否已存在"""
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none() is not None
+
+    async def update_password(self, user_id: int, hashed_password: str) -> None:
+        """更新用户密码"""
+        user = await self.get_by_id(user_id)
+        if user:
+            user.hashed_password = hashed_password
+            await self.db.commit()
+
+    async def delete(self, user_id: int) -> None:
+        """删除用户"""
+        user = await self.get_by_id(user_id)
+        if user:
+            await self.db.delete(user)
+            await self.db.commit()

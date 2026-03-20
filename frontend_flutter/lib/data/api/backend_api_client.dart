@@ -376,7 +376,7 @@ class BackendApiClient {
     try {
       final response = await _dioClient.get(PlaylistEndpoints.favoritesCheck(bvid));
       final data = _handleResponse(response) as Map<String, dynamic>;
-      return data['isFavorite'] ?? false;
+      return data['is_favorite'] as bool? ?? data['isFavorite'] as bool? ?? false;
     } catch (e) {
       AppLogger.error('BackendApiClient', '检查收藏状态失败: $e');
       rethrow;

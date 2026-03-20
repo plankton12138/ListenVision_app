@@ -19,3 +19,6 @@ class User(Base):
     # 关系
     platform_accounts = relationship("PlatformAccount", back_populates="user", cascade="all, delete-orphan")
     playlists = relationship("Playlist", back_populates="user", cascade="all, delete-orphan")
+    play_history = relationship("PlayHistory", back_populates="user", cascade="all, delete-orphan")
+    audio_metadata = relationship("AudioMetadata", back_populates="user", cascade="all, delete-orphan")
+    search_history = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")

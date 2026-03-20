@@ -159,8 +159,8 @@ class DioClient {
       );
 
       if (refreshResponse.statusCode == 200) {
-        final newToken = refreshResponse.data?['data']?['token'] as String?;
-        final newRefreshToken = refreshResponse.data?['data']?['refreshToken'] as String?;
+        final newToken = refreshResponse.data?['data']?['access_token'] as String?;
+        final newRefreshToken = refreshResponse.data?['data']?['refresh_token'] as String?;
         if (newToken != null && newToken.isNotEmpty) {
           // 保存新 token
           await storage.setToken(newToken);
@@ -325,7 +325,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const NetworkException.timeout();
+        return NetworkException.timeout();
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode ?? 500;
         final data = error.response?.data;
@@ -350,16 +350,16 @@ class DioClient {
       case DioExceptionType.cancel:
         return const TaskCanceledException();
       case DioExceptionType.connectionError:
-        return const NetworkException.noConnection();
+        return  NetworkException.noConnection();
       case DioExceptionType.badCertificate:
         return const NetworkException('证书错误', 'BAD_CERTIFICATE');
       case DioExceptionType.unknown:
       default:
         // 检查是否是网络错误
         if (error.error is SocketException) {
-          return const NetworkException.noConnection();
+          return NetworkException.noConnection();
         }
-        return const NetworkException.requestFailed();
+        return  NetworkException.requestFailed();
     }
   }
 

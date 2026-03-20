@@ -20,8 +20,8 @@ import 'package:demo/core/utils/app_logger.dart';
 
 /// 环境类型枚举
 enum AppEnvironment {
-  dev('开发环境', 'http://127.0.0.1:3000'),
-  test('测试环境', 'http://192.168.0.197:3000'),
+  dev('开发环境', 'http://localhost:8000'),
+  test('测试环境', 'http://192.168.0.197:8000'),
   staging('预发布环境', 'https://app.phytoplankton.cn'),
   prod('生产环境', 'https://api.listenvision.com');
 

@@ -34,6 +34,12 @@ async def get_db():
 
 
 async def init_db():
-    """初始化数据库（创建表）"""
+    """初始化数据库（创建表）
+
+    需要导入所有模型以确保它们被注册到 Base.metadata
+    """
+    # 导入所有模型以注册到 Base.metadata
+    from app.models import User, PlatformAccount, Playlist, PlayHistory, AudioMetadata, SearchHistory  # noqa: F401
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -68,7 +68,14 @@
       "Bash(sqlite3:*)",
       "Bash(cd:*)",
       "Bash(python -m json.tool)",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[''''data''''].get\\(''''subtitle'''', {}\\), indent=2, ensure_ascii=False\\)\\)\")"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[''''data''''].get\\(''''subtitle'''', {}\\), indent=2, ensure_ascii=False\\)\\)\")",
+      "mcp__zread__get_repo_structure",
+      "Bash(bash -s -- --cli-only)",
+      "WebFetch(domain:nemo2011.github.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(uv --version)",
+      "Bash(uv add:*)",
+      "Bash(uv run:*)"
     ]
   }
 }

@@ -69,33 +69,35 @@ class LoginRequestDto {
 }
 
 class LoginResponseDto {
-  final String token;
+  final String accessToken;
   final String? refreshToken;
+  final int expiresIn;
   final int userId;
   final String username;
   final String? email;
   final bool bilibiliBound;
 
   LoginResponseDto.fromJson(Map<String, dynamic> json)
-      : token = json['token'] as String,
-        refreshToken = json['refreshToken'] as String?,
-        userId = json['userId'] as int? ?? _extractUserIdFromToken(json['token'] as String),
-        username = json['username'] as String,
-        email = json['email'] as String?,
-        bilibiliBound = json['bilibiliBound'] as bool? ?? false;
+      : accessToken = json['access_token'] as String,
+        refreshToken = json['refresh_token'] as String?,
+        expiresIn = json['expires_in'] as int? ?? 3600,
+        userId = json['user']?['id'] as int? ?? _extractUserIdFromToken(json['access_token'] as String),
+        username = json['user']?['username'] as String? ?? '',
+        email = json['user']?['email'] as String?,
+        bilibiliBound = json['bilibili_bound'] as bool? ?? false;
 
   /// 从 JWT token 中提取 userId（当响应中没有 userId 时）
   static int _extractUserIdFromToken(String token) {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return 0;
-      
+
       // 解码 payload (添加必要的填充)
       String payload = parts[1];
       final padded = payload + '=' * (4 - payload.length % 4);
       final decoded = utf8.decode(base64Url.decode(padded));
       final json = jsonDecode(decoded) as Map<String, dynamic>;
-      return json['userId'] as int? ?? 0;
+      return json['user_id'] as int? ?? json['userId'] as int? ?? 0;
     } catch (e) {
       return 0;
     }
@@ -130,11 +132,13 @@ class BilibiliQRCodeDto {
   final DateTime expiresAt;
 
   BilibiliQRCodeDto.fromJson(Map<String, dynamic> json)
-      : qrcodeKey = json['qrcodeKey'] as String,
-        qrcodeUrl = json['qrCodeUrl'] as String,
-        expiresAt = json['expiresAt'] != null
-            ? DateTime.parse(json['expiresAt'] as String)
-            : DateTime.now().add(const Duration(minutes: 3));
+      : qrcodeKey = json['qrcode_key'] as String? ?? json['qrcodeKey'] as String,
+        qrcodeUrl = json['qrcode_url'] as String? ?? json['qrCodeUrl'] as String,
+        expiresAt = json['expires_at'] != null
+            ? DateTime.parse(json['expires_at'] as String)
+            : json['expiresAt'] != null
+                ? DateTime.parse(json['expiresAt'] as String)
+                : DateTime.now().add(const Duration(minutes: 3));
 }
 
 class BilibiliQRStatusDto {
@@ -143,7 +147,7 @@ class BilibiliQRStatusDto {
 
   BilibiliQRStatusDto.fromJson(Map<String, dynamic> json)
       : status = json['status'] as String,
-        userInfo = json['userInfo'] as Map<String, dynamic>?;
+        userInfo = json['user_info'] as Map<String, dynamic>? ?? json['userInfo'] as Map<String, dynamic>?;
 }
 
 class BilibiliVideoDto {
@@ -157,7 +161,7 @@ class BilibiliVideoDto {
   BilibiliVideoDto.fromJson(Map<String, dynamic> json)
       : bvid = json['bvid'] as String,
         title = json['title'] as String,
-        cover = json['cover'] as String?,
+        cover = json['cover'] as String? ?? json['pic'] as String?,
         duration = json['duration'] as int?,
         owner = json['owner'] as Map<String, dynamic>?,
         cid = json['cid'] as int?;
@@ -174,12 +178,12 @@ class BilibiliAudioDto {
   final bool seekable;
 
   BilibiliAudioDto.fromJson(Map<String, dynamic> json)
-      : baseUrl = json['baseUrl'] as String? ?? json['url'] as String,
+      : baseUrl = json['base_url'] as String? ?? json['baseUrl'] as String? ?? json['url'] as String,
         url = json['url'] as String?,
         quality = json['quality'] as String?,
         codec = json['codec'] as String?,
         size = json['size'] as int?,
-        contentType = json['content_type'] as String? ?? 'audio/mp4',
+        contentType = json['content_type'] as String? ?? json['contentType'] as String? ?? 'audio/mp4',
         duration = json['duration'] as int? ?? 0,
         seekable = json['seekable'] as bool? ?? true;
 }
@@ -218,7 +222,7 @@ class NeteaseQRStatusDto {
 
   NeteaseQRStatusDto.fromJson(Map<String, dynamic> json)
       : status = json['status'] as String,
-        userInfo = json['userInfo'] as Map<String, dynamic>?,
+        userInfo = json['user_info'] as Map<String, dynamic>? ?? json['userInfo'] as Map<String, dynamic>?,
         message = json['message'] as String?;
 }
 
@@ -280,11 +284,13 @@ class PlaylistDto {
       : id = json['id'] as int,
         name = json['name'] as String,
         description = json['description'] as String?,
-        coverUrl = json['coverUrl'] as String? ?? json['cover_url'] as String?,
-        itemCount = json['itemCount'] as int? ?? 0,
-        createdAt = json['createdAt'] != null
-            ? DateTime.parse(json['createdAt'] as String)
-            : null;
+        coverUrl = json['cover_url'] as String? ?? json['coverUrl'] as String?,
+        itemCount = json['item_count'] as int? ?? json['itemCount'] as int? ?? 0,
+        createdAt = json['created_at'] != null
+            ? DateTime.parse(json['created_at'] as String)
+            : json['createdAt'] != null
+                ? DateTime.parse(json['createdAt'] as String)
+                : null;
 }
 
 class CreatePlaylistRequestDto {
@@ -297,4 +303,28 @@ class CreatePlaylistRequestDto {
         'name': name,
         if (description != null) 'description': description,
       };
+}
+
+/// 播放历史相关 DTO
+class PlayHistoryDto {
+  final int id;
+  final String bvid;
+  final String? title;
+  final String? artist;
+  final String? coverUrl;
+  final int duration;
+  final int progress;
+  final int playCount;
+  final DateTime lastPlayedAt;
+
+  PlayHistoryDto.fromJson(Map<String, dynamic> json)
+      : id = json['id'] as int,
+        bvid = json['bvid'] as String,
+        title = json['title'] as String?,
+        artist = json['artist'] as String?,
+        coverUrl = json['cover_url'] as String? ?? json['coverUrl'] as String?,
+        duration = json['duration'] as int? ?? 0,
+        progress = json['progress'] as int? ?? 0,
+        playCount = json['play_count'] as int? ?? json['playCount'] as int? ?? 1,
+        lastPlayedAt = DateTime.parse(json['last_played_at'] as String? ?? json['lastPlayedAt'] as String? ?? DateTime.now().toIso8601String());
 }

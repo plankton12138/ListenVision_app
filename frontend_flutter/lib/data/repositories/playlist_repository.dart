@@ -196,7 +196,7 @@ class PlaylistRepository {
     try {
       // 直接调用后端，后端返回操作结果
       final result = await _apiClient.toggleFavorite(bvid);
-      final added = result['added'] as bool? ?? false;
+      final added = result['added'] as bool? ?? result['is_added'] as bool? ?? false;
 
       AppLogger.info('PlaylistRepository', '切换收藏状态: $bvid, added=$added');
       return added;

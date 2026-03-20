@@ -30,18 +30,24 @@ class AuthRepository {
       final data = await _apiClient.login(request);
 
       final user = User.fromDto({
-        ...data['user'],
-        'token': data['token'],
+        ...?data['user'] as Map<String, dynamic>?,
+        'token': data['access_token'] as String?,
       });
 
-      await _storage.setToken(data['token'] as String);
+      await _storage.setToken(data['access_token'] as String);
       await _storage.setUserId(user.id);
       await _storage.setJson(StorageKeys.userInfo, user.toDto());
 
+      // 保存 refresh token
+      final refreshToken = data['refresh_token'] as String?;
+      if (refreshToken != null) {
+        await _storage.setRefreshToken(refreshToken);
+      }
+
       // 保存B站绑定状态
-      final bilibiliBound = data['bilibiliBound'] as bool? ?? false;
-      final bilibiliUser = data['bilibiliUser'] as Map<String, dynamic>?;
-      
+      final bilibiliBound = data['bilibili_bound'] as bool? ?? false;
+      final bilibiliUser = data['bilibili_user'] as Map<String, dynamic>?;
+
       await _secureStorage.setBilibiliBound(bilibiliBound);
       if (bilibiliBound && bilibiliUser != null) {
         await _secureStorage.setBilibiliAccount(bilibiliUser);
@@ -80,13 +86,19 @@ class AuthRepository {
       final data = await _apiClient.verifyEmail(email: email, code: code);
 
       final user = User.fromDto({
-        ...data['user'],
-        'token': data['token'],
+        ...?data['user'] as Map<String, dynamic>?,
+        'token': data['access_token'] as String?,
       });
 
-      await _storage.setToken(data['token'] as String);
+      await _storage.setToken(data['access_token'] as String);
       await _storage.setUserId(user.id);
       await _storage.setJson(StorageKeys.userInfo, user.toDto());
+
+      // 保存 refresh token
+      final refreshToken = data['refresh_token'] as String?;
+      if (refreshToken != null) {
+        await _storage.setRefreshToken(refreshToken);
+      }
 
       // 新注册用户无B站绑定
       await _secureStorage.setBilibiliBound(false);

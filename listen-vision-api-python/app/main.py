@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import get_settings
 from app.utils.logger import logger
 from app.db.database import init_db
-from app.api.routes import auth, bilibili, playlist, recommendations
+from app.api.routes import auth, bilibili, playlist, recommendations, history, audio, search
 
 settings = get_settings()
 
@@ -45,6 +45,9 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(bilibili.router, prefix="/api/v1")
 app.include_router(playlist.router, prefix="/api/v1")
 app.include_router(recommendations.router, prefix="/api/v1")
+app.include_router(history.router, prefix="/api/v1")
+app.include_router(audio.router, prefix="/api/v1")
+app.include_router(search.router, prefix="/api/v1")
 
 
 @app.get("/")

@@ -551,7 +551,7 @@ class ApiClient {
         data: {'bvid': bvid},
       );
       final data = _handleResponse(response) as Map<String, dynamic>;
-      AppLogger.info('ApiClient', '切换收藏: $bvid, 结果: ${data['added']}');
+      AppLogger.info('ApiClient', '切换收藏: $bvid, 结果: ${data['added'] ?? data['is_added']}');
       return data;
     } catch (e) {
       AppLogger.error('ApiClient', '切换收藏失败: $e');
@@ -566,7 +566,7 @@ class ApiClient {
         Endpoints.playlistsFavoritesCheck(bvid),
       );
       final data = _handleResponse(response) as Map<String, dynamic>;
-      return data['favorited'] as bool? ?? false;
+      return data['is_favorite'] as bool? ?? data['favorited'] as bool? ?? false;
     } catch (e) {
       AppLogger.error('ApiClient', '检查收藏状态失败: $e');
       rethrow;

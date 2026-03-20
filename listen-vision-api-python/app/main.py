@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import get_settings
 from app.utils.logger import logger
 from app.db.database import init_db
-from app.api.routes import auth, bilibili, playlist
+from app.api.routes import auth, bilibili, playlist, recommendations
 
 settings = get_settings()
 
@@ -44,6 +44,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(bilibili.router, prefix="/api/v1")
 app.include_router(playlist.router, prefix="/api/v1")
+app.include_router(recommendations.router, prefix="/api/v1")
 
 
 @app.get("/")

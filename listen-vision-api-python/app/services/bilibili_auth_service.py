@@ -1,6 +1,7 @@
 from typing import Optional
 from datetime import datetime
-from bilibili_api import login, user, Credential
+from bilibili_api import user, Credential
+from bilibili_api.login_v2 import QrCodeLogin
 from bilibili_api.exceptions import ResponseCodeException, LoginError
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,39 +22,40 @@ class BilibiliAuthService:
     async def generate_qrcode(self) -> QRCodeResponse:
         """生成登录二维码"""
         try:
-            qr = await login.qrcode_login.get_qrcode()
+            qr_login = QrCodeLogin()
+            qr_data = await qr_login.get_qrcode()
             return QRCodeResponse(
-                qrcode_key=qr["qrcode_key"],
-                qr_url=qr["url"],
+                qrcode_key=qr_data.qrcode_key,
+                qr_url=qr_data.url,
                 expires_in=300
             )
         except Exception as e:
             logger.error(f"生成二维码失败: {e}")
             raise
 
-    async def check_qrcode(self, qrcode_key: str) -> QRCodeCheckResponse:
+    async def check_qrcode(self, qrcode_key: str) -> tuple[QRCodeCheckResponse, Optional[Credential]]:
         """检查二维码扫描状态"""
         try:
-            result = await login.qrcode_login.check_qrcode_status(qrcode_key)
+            qr_login = QrCodeLogin()
+            result = await qr_login.check_qrcode(qrcode_key)
 
-            if result["code"] == 0:
+            if result.code == 0:
                 # 登录成功
-                credential = result["data"]["credential"]
                 return QRCodeCheckResponse(
                     status="success",
                     message="登录成功"
-                ), credential
-            elif result["code"] == 86038:
+                ), result.credential
+            elif result.code == 86038:
                 return QRCodeCheckResponse(
                     status="expired",
                     message="二维码已过期"
                 ), None
-            elif result["code"] == 86090:
+            elif result.code == 86090:
                 return QRCodeCheckResponse(
                     status="scanned",
                     message="已扫描，等待确认"
                 ), None
-            elif result["code"] == 86101:
+            elif result.code == 86101:
                 return QRCodeCheckResponse(
                     status="pending",
                     message="等待扫描"
@@ -61,7 +63,7 @@ class BilibiliAuthService:
             else:
                 return QRCodeCheckResponse(
                     status="error",
-                    message=f"未知错误: {result['code']}"
+                    message=f"未知错误: {result.code}"
                 ), None
         except Exception as e:
             logger.error(f"检查二维码失败: {e}")

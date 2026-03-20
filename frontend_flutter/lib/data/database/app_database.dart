@@ -138,26 +138,6 @@ class AppDatabase {
       )
     ''');
 
-    // 创建 sync_queue 表 - 网络同步重试队列
-    await db.execute('''
-      CREATE TABLE sync_queue (
-        id $idType,
-        type $textType NOT NULL,
-        track_id $intType,
-        bvid $textNullableType,
-        playlist_id $textNullableType,
-        data $textNullableType,
-        status $textType DEFAULT 'pending',
-        retry_count $intType DEFAULT 0,
-        max_retries $intType DEFAULT 3,
-        error_message $textNullableType,
-        created_at $textType,
-        updated_at $textNullableType,
-        completed_at $textNullableType,
-        FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
-      )
-    ''');
-    
     // 创建 subtitle_cache 表
     await db.execute(SubtitleDao.createTableSql);
 
@@ -186,15 +166,6 @@ class AppDatabase {
     await db.execute('''
       CREATE INDEX idx_play_history_played_at ON play_history(played_at)
     ''');
-    await db.execute('''
-      CREATE INDEX idx_sync_queue_status ON sync_queue(status)
-    ''');
-    await db.execute('''
-      CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)
-    ''');
-    await db.execute('''
-      CREATE INDEX idx_sync_queue_type ON sync_queue(type)
-    ''');
 
     AppLogger.info('AppDatabase', '数据库表创建完成');
   }
@@ -202,7 +173,7 @@ class AppDatabase {
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     AppLogger.info('AppDatabase', '数据库升级: $oldVersion -> $newVersion');
 
-    // 版本 1 -> 2: 添加断点续传支持字段 + sync_queue 表
+    // 版本 1 -> 2: 添加断点续传支持字段
     if (oldVersion < 2) {
       await _upgradeToV2(db);
     }
@@ -239,11 +210,11 @@ class AppDatabase {
     // 未来版本升级在这里继续
   }
 
-  /// 升级到版本 2：添加断点续传支持字段 + sync_queue 表
+  /// 升级到版本 2：添加断点续传支持字段
   Future<void> _upgradeToV2(Database db) async {
-    AppLogger.info('AppDatabase', '升级数据库到 V2：添加断点续传字段 + sync_queue 表');
+    AppLogger.info('AppDatabase', '升级数据库到 V2：添加断点续传字段');
 
-    // 1. 添加新字段到 download_tasks 表
+    // 添加新字段到 download_tasks 表
     try {
       await db.execute('''
         ALTER TABLE download_tasks
@@ -273,56 +244,6 @@ class AppDatabase {
       AppLogger.info('AppDatabase', '添加 last_modified 字段成功');
     } catch (e) {
       AppLogger.debug('AppDatabase', 'last_modified 字段可能已存在: $e');
-    }
-
-    // 2. 创建 sync_queue 表（如果不存在）
-    try {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS sync_queue (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          type TEXT NOT NULL,
-          track_id INTEGER,
-          bvid TEXT,
-          playlist_id TEXT,
-          data TEXT,
-          status TEXT DEFAULT 'pending',
-          retry_count INTEGER DEFAULT 0,
-          max_retries INTEGER DEFAULT 3,
-          error_message TEXT,
-          created_at TEXT,
-          updated_at TEXT,
-          completed_at TEXT,
-          FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
-        )
-      ''');
-      AppLogger.info('AppDatabase', '创建 sync_queue 表成功');
-    } catch (e) {
-      AppLogger.error('AppDatabase', '创建 sync_queue 表失败: $e');
-    }
-
-    // 3. 创建 sync_queue 索引
-    try {
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status)
-      ''');
-    } catch (e) {
-      AppLogger.debug('AppDatabase', '创建 idx_sync_queue_status 索引失败: $e');
-    }
-
-    try {
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at)
-      ''');
-    } catch (e) {
-      AppLogger.debug('AppDatabase', '创建 idx_sync_queue_created_at 索引失败: $e');
-    }
-
-    try {
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sync_queue_type ON sync_queue(type)
-      ''');
-    } catch (e) {
-      AppLogger.debug('AppDatabase', '创建 idx_sync_queue_type 索引失败: $e');
     }
   }
 
@@ -957,142 +878,6 @@ class AppDatabase {
     await db.delete('play_history');
   }
 
-  // ==================== Sync Queue CRUD ====================
-
-  /// 插入同步任务
-  Future<int> insertSyncTask(Map<String, dynamic> task) async {
-    final db = await database;
-    task['created_at'] = DateTime.now().toIso8601String();
-    task['updated_at'] = DateTime.now().toIso8601String();
-    final id = await db.insert('sync_queue', task);
-    AppLogger.info('AppDatabase', '插入同步任务: $id');
-    return id;
-  }
-
-  /// 根据 ID 获取同步任务
-  Future<Map<String, dynamic>?> getSyncTaskById(int id) async {
-    final db = await database;
-    final maps = await db.query(
-      'sync_queue',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    return maps.isNotEmpty ? maps.first : null;
-  }
-
-  /// 获取待同步的任务列表
-  Future<List<Map<String, dynamic>>> getPendingSyncTasks({int limit = 50}) async {
-    final db = await database;
-    return await db.query(
-      'sync_queue',
-      where: 'status = ?',
-      whereArgs: ['pending'],
-      orderBy: 'created_at ASC',
-      limit: limit,
-    );
-  }
-
-  /// 获取失败但可重试的任务
-  Future<List<Map<String, dynamic>>> getRetryableSyncTasks({int limit = 50}) async {
-    final db = await database;
-    return await db.rawQuery('''
-      SELECT * FROM sync_queue
-      WHERE status = 'failed'
-        AND retry_count < max_retries
-      ORDER BY created_at ASC
-      LIMIT ?
-    ''', [limit]);
-  }
-
-  /// 更新同步任务
-  Future<void> updateSyncTask(int id, Map<String, dynamic> data) async {
-    final db = await database;
-    data['updated_at'] = DateTime.now().toIso8601String();
-    await db.update(
-      'sync_queue',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  /// 标记同步任务为同步中
-  Future<void> markSyncTaskSyncing(int id) async {
-    await updateSyncTask(id, {'status': 'syncing'});
-  }
-
-  /// 标记同步任务为成功
-  Future<void> markSyncTaskSucceeded(int id) async {
-    await updateSyncTask(id, {
-      'status': 'succeeded',
-      'completed_at': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// 标记同步任务为失败
-  Future<void> markSyncTaskFailed(int id, String errorMessage) async {
-    final db = await database;
-    await db.rawUpdate('''
-      UPDATE sync_queue
-      SET status = 'failed',
-          error_message = ?,
-          retry_count = retry_count + 1,
-          updated_at = ?
-      WHERE id = ?
-    ''', [errorMessage, DateTime.now().toIso8601String(), id]);
-  }
-
-  /// 删除同步任务
-  Future<void> deleteSyncTask(int id) async {
-    final db = await database;
-    await db.delete(
-      'sync_queue',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  /// 清空已完成的同步任务
-  Future<void> clearCompletedSyncTasks() async {
-    final db = await database;
-    await db.delete(
-      'sync_queue',
-      where: 'status = ?',
-      whereArgs: ['succeeded'],
-    );
-  }
-
-  /// 获取同步任务统计
-  Future<Map<String, int>> getSyncStats() async {
-    AppLogger.debug('AppDatabase', 'getSyncStats() 开始获取 database');
-    final db = await database;
-    AppLogger.debug('AppDatabase', 'getSyncStats() database 已获取，开始查询');
-
-    final pendingResult = await db.rawQuery(
-      "SELECT COUNT(*) FROM sync_queue WHERE status = 'pending'"
-    );
-    AppLogger.debug('AppDatabase', 'getSyncStats() pending 查询完成');
-
-    final syncingResult = await db.rawQuery(
-      "SELECT COUNT(*) FROM sync_queue WHERE status = 'syncing'"
-    );
-    AppLogger.debug('AppDatabase', 'getSyncStats() syncing 查询完成');
-
-    final failedResult = await db.rawQuery(
-      "SELECT COUNT(*) FROM sync_queue WHERE status = 'failed' AND retry_count < max_retries"
-    );
-    AppLogger.debug('AppDatabase', 'getSyncStats() failed 查询完成');
-
-    final result = {
-      'pending': Sqflite.firstIntValue(pendingResult) ?? 0,
-      'syncing': Sqflite.firstIntValue(syncingResult) ?? 0,
-      'retryable': Sqflite.firstIntValue(failedResult) ?? 0,
-    };
-    AppLogger.debug('AppDatabase', 'getSyncStats() 返回: $result');
-    return result;
-  }
-
   // ==================== 事务支持 ====================
 
   /// 执行事务（批量操作）
@@ -1142,13 +927,11 @@ class AppDatabase {
     final trackResult = await db.rawQuery('SELECT COUNT(*) FROM tracks');
     final downloadResult = await db.rawQuery('SELECT COUNT(*) FROM download_tasks');
     final historyResult = await db.rawQuery('SELECT COUNT(*) FROM play_history');
-    final syncResult = await db.rawQuery('SELECT COUNT(*) FROM sync_queue WHERE status != "succeeded"');
 
     return {
       'tracks': Sqflite.firstIntValue(trackResult) ?? 0,
       'download_tasks': Sqflite.firstIntValue(downloadResult) ?? 0,
       'play_history': Sqflite.firstIntValue(historyResult) ?? 0,
-      'sync_queue': Sqflite.firstIntValue(syncResult) ?? 0,
     };
   }
 }

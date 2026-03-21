@@ -210,19 +210,8 @@ flutter analyze
 | 类型 | 位置 |
 |------|------|
 | 前端 | `C:\Users\<用户>\Documents\logs\` |
-| 后端 | `listen-vision_api/logs/` |
+| 后端 | `listen-vision-api-python/logs/` |
 
-```powershell
-# 查看前端日志（获取最新200行）
-$env:USERNAME = "23104"  # 替换为实际用户名
-Get-Content "C:\Users\$env:USERNAME\Documents\logs\app-$(Get-Date -Format 'yyyy-MM-dd').log" -Tail 200
-
-# 或查看今天的日志
-Get-ChildItem "C:\Users\$env:USERNAME\Documents\logs\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content -Tail 100
-
-# 查看后端日志
-Get-Content "A:\Projects\listen-vision-audio-app\listen-vision_api\logs\combined.log" -Tail 100
-```
 
 ---
 

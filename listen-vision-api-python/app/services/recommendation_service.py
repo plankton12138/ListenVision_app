@@ -6,6 +6,7 @@ from bilibili_api.exceptions import ResponseCodeException
 from app.schemas.recommendation import HotPlaylist, RankItem, CategoryInfo
 from app.utils.logger import logger
 from app.utils.cache import cached
+from app.utils.bilibili import normalize_bilibili_url
 
 
 class RecommendationService:
@@ -30,7 +31,7 @@ class RecommendationService:
                 playlists.append(HotPlaylist(
                     id=i + 1,
                     name=title,
-                    cover_url=item.get("pic"),
+                    cover_url=normalize_bilibili_url(item.get("pic", "")),
                     play_count=item.get("play", 0) or item.get("stat", {}).get("view", 0),
                     description=item.get("desc", "")
                 ))
@@ -73,7 +74,7 @@ class RecommendationService:
                 items.append(RankItem(
                     bvid=item.get("bvid", ""),
                     title=item.get("title", ""),
-                    cover_url=item.get("pic"),
+                    cover_url=normalize_bilibili_url(item.get("pic", "")),
                     view_count=item.get("play", 0) or item.get("stat", {}).get("view", 0),
                     author=item.get("owner", {}).get("name", "") or item.get("author", "")
                 ))
@@ -143,7 +144,7 @@ class RecommendationService:
                 recommendations.append(RankItem(
                     bvid=item.get("bvid", ""),
                     title=title,
-                    cover_url=item.get("pic"),
+                    cover_url=normalize_bilibili_url(item.get("pic", "")),
                     view_count=item.get("play", 0) or item.get("stat", {}).get("view", 0),
                     author=item.get("owner", {}).get("name", "")
                 ))
@@ -167,7 +168,7 @@ class RecommendationService:
                 items.append(RankItem(
                     bvid=item.get("bvid", ""),
                     title=item.get("title", ""),
-                    cover_url=item.get("pic"),
+                    cover_url=normalize_bilibili_url(item.get("pic", "")),
                     view_count=item.get("play", 0) or item.get("stat", {}).get("view", 0),
                     author=item.get("owner", {}).get("name", "") or item.get("author", "")
                 ))
@@ -191,7 +192,7 @@ class RecommendationService:
                 items.append(RankItem(
                     bvid=item.get("bvid", ""),
                     title=item.get("title", ""),
-                    cover_url=item.get("pic"),
+                    cover_url=normalize_bilibili_url(item.get("pic", "")),
                     view_count=item.get("stat", {}).get("view", 0),
                     author=item.get("owner", {}).get("name", "")
                 ))
@@ -221,7 +222,7 @@ class RecommendationService:
                 items.append(RankItem(
                     bvid="",  # 音乐榜可能没有 bvid
                     title=item.get("title", ""),
-                    cover_url=item.get("cover"),
+                    cover_url=normalize_bilibili_url(item.get("cover", "")),
                     view_count=item.get("play_count", 0),
                     author=item.get("author", "") or item.get("uname", "")
                 ))

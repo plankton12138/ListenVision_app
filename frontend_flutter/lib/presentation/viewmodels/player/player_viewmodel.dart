@@ -475,6 +475,12 @@ class PlayerViewModel extends _$PlayerViewModel {
   Future<void> togglePlayPause() async {
     if (_disposed) return;
 
+    // 正在切换音频源时忽略操作
+    if (_isSwitchingSource) {
+      AppLogger.debug('PlayerViewModel', '正在切换音频源，忽略播放/暂停操作');
+      return;
+    }
+
     // 清除错误状态
     if (state.hasError) {
       state = state.clearError();
@@ -525,6 +531,12 @@ class PlayerViewModel extends _$PlayerViewModel {
   /// 播放
   Future<void> play() async {
     if (_disposed) return;
+
+    // 正在切换音频源时忽略操作
+    if (_isSwitchingSource) {
+      AppLogger.debug('PlayerViewModel', '正在切换音频源，忽略播放操作');
+      return;
+    }
 
     try {
       await _audioService!.play();
@@ -848,7 +860,7 @@ class PlayerViewModel extends _$PlayerViewModel {
       const Duration(milliseconds: 500),
     );
 
-    // 更新元数据
+    // 更新元数据并设置加载状态
     state = state.copyWith(
       currentPlayable: playable,
       title: playable.title,
@@ -856,6 +868,8 @@ class PlayerViewModel extends _$PlayerViewModel {
       albumArt: playable.coverData,
       coverUrl: playable.coverUrl,
       isCurrentOnline: playable.isOnline,
+      isLoading: true,
+      statusMessage: '正在加载...',
     );
 
     final subtitleNotifier = ref.read(subtitleViewModelProvider.notifier);
@@ -890,6 +904,13 @@ class PlayerViewModel extends _$PlayerViewModel {
     }
 
     _isSwitchingSource = false;
+
+    // 清除加载状态
+    state = state.copyWith(
+      isLoading: false,
+      statusMessage: '',
+    );
+
     AppLogger.info('PlayerViewModel', '播放: ${playable.title}');
   }
 

@@ -13,6 +13,7 @@ import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
+import '../auth/auth_viewmodel.dart' show isLoggedInProvider;
 import '../library/playlist_viewmodel.dart' show playlistViewModelProvider;
 import 'player_viewmodel.dart'
     show sharedStorageServiceProvider, playerViewModelProvider;
@@ -691,6 +692,13 @@ Future<void> playAt(int index) async {
 
   /// 同步播放队列到后端
   Future<void> _syncNowPlayingToServer() async {
+    // 未登录时不同步
+    final isLoggedIn = ref.read(isLoggedInProvider);
+    if (!isLoggedIn) {
+      AppLogger.debug('QueueViewModel', '未登录，跳过播放队列同步');
+      return;
+    }
+
     if (state.queue.isEmpty) return;
 
     try {

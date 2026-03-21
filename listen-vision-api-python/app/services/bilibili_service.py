@@ -5,6 +5,7 @@ from bilibili_api.exceptions import ResponseCodeException, ArgsException
 
 from app.utils.logger import logger
 from app.utils.cache import cached
+from app.utils.bilibili import BILIBILI_HEADERS, normalize_bilibili_url
 from app.schemas.bilibili import (
     VideoInfo, VideoOwner, VideoStat,
     AudioStreamsResponse, AudioStream,
@@ -59,10 +60,14 @@ class BilibiliService:
             v = video.Video(bvid=bvid)
             info = await v.get_info()
 
+            # 处理图片 URL（B站返回的可能缺少协议头）
+            pic_url = normalize_bilibili_url(info["pic"])
+            face_url = normalize_bilibili_url(info["owner"].get("face", ""))
+
             owner = VideoOwner(
                 mid=info["owner"]["mid"],
                 name=info["owner"]["name"],
-                face=info["owner"].get("face")
+                face=face_url
             )
 
             stat = VideoStat(
@@ -83,7 +88,7 @@ class BilibiliService:
                 desc=info["desc"],
                 owner=owner,
                 duration=info["duration"],
-                pic=info["pic"],
+                pic=pic_url,
                 pubdate=info["pubdate"],
                 stat=stat
             )
@@ -115,11 +120,13 @@ class BilibiliService:
             streams = []
             if "dash" in audio_url and "audio" in audio_url["dash"]:
                 for audio in audio_url["dash"]["audio"]:
+                    # baseUrl 和 base_url 都可能存在
+                    audio_url_str = audio.get("baseUrl") or audio.get("base_url", "")
                     streams.append(AudioStream(
-                        quality=audio["id"],
-                        url=audio["baseUrl"],
-                        size=audio["size"],
-                        codecs=audio["codecs"]
+                        quality=audio.get("id", 0),
+                        url=audio_url_str,
+                        size=audio.get("size", 0),  # B站API可能不返回size
+                        codecs=audio.get("codecs", "")
                     ))
 
             return AudioStreamsResponse(
@@ -153,9 +160,8 @@ class BilibiliService:
                 if sub_url.startswith("//"):
                     sub_url = f"https:{sub_url}"
 
-                import httpx
                 async with httpx.AsyncClient() as client:
-                    resp = await client.get(sub_url)
+                    resp = await client.get(sub_url, headers=BILIBILI_HEADERS)
                     sub_data = resp.json()
 
                 lines = [
@@ -207,11 +213,14 @@ class BilibiliService:
                 if not item.get("bvid"):
                     continue
 
+                # 处理封面 URL（B站返回的 pic 可能缺少协议头）
+                cover_url = normalize_bilibili_url(item.get("pic", ""))
+
                 videos.append(SearchResultItem(
                     bvid=item["bvid"],
                     title=item["title"].replace("<em class=\"keyword\">", "").replace("</em>", ""),
                     author=item.get("author", ""),
-                    cover=item.get("pic", ""),
+                    cover=cover_url,
                     duration=_parse_duration(item.get("duration", "")),
                     description=item.get("description", ""),
                     view_count=item.get("play", 0),
@@ -253,11 +262,10 @@ class BilibiliService:
             元组 (图片二进制数据, content_type)
         """
         # 处理无协议头的 URL（B站常见格式：//i2.hdslb.com/...）
-        if url.startswith("//"):
-            url = f"https:{url}"
+        url = normalize_bilibili_url(url)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, follow_redirects=True)
+            response = await client.get(url, headers=BILIBILI_HEADERS, follow_redirects=True)
             response.raise_for_status()
             content_type = response.headers.get("content-type", "image/jpeg")
             return response.content, content_type
@@ -287,7 +295,7 @@ class BilibiliService:
         stream = streams.streams[0]
         url = stream.url
 
-        headers = {}
+        headers = BILIBILI_HEADERS.copy()
         if range_header:
             headers["Range"] = range_header
 

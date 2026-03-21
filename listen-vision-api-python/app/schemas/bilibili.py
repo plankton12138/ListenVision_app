@@ -37,10 +37,10 @@ class VideoInfo(BaseModel):
 
 class AudioStream(BaseModel):
     """音频流"""
-    quality: int
-    url: str
-    size: int
-    codecs: str
+    quality: int = 0
+    url: str = ""
+    size: int = 0  # B站API可能不返回size字段，默认为0
+    codecs: str = ""
 
 
 class AudioStreamsResponse(BaseModel):

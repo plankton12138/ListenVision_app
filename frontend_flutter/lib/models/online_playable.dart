@@ -18,6 +18,19 @@ class OnlinePlayable extends PlayableAudio {
 
   OnlinePlayable(this._audio, [this._proxyUrl]);
 
+  /// 从 Audio 创建，自动生成代理 URL
+  factory OnlinePlayable.withProxyUrl(Audio audio) {
+    final audioId = audio.id;
+    if (audioId.startsWith('netease_')) {
+      // 网易云播放链接使用原始 streamUrl
+      return OnlinePlayable(audio);
+    }
+    // 自动生成代理 URL
+    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
+    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$audioId?format=auto';
+    return OnlinePlayable(audio, proxyUrl);
+  }
+
   /// 从 Audio 创建
   factory OnlinePlayable.fromAudio(Audio audio, String? proxyUrl) {
     return OnlinePlayable(audio, proxyUrl);

@@ -56,14 +56,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         duration: item.duration,
       );
 
-      // 创建 OnlinePlayable 对象
-      final playable = OnlinePlayable(audio);
-
-      // 添加到播放队列并立即播放
+      // 创建 OnlinePlayable 对象（自动生成代理 URL）并添加到队列
+      final playable = OnlinePlayable.withProxyUrl(audio);
       await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
 
-      // 开始播放
-      await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
+      // 通过 QueueViewModel 触发播放（避免与 PlayerViewModel 直接调用产生竞态）
+      final queueIndex = ref.read(queueViewModelProvider).queue.length - 1;
+      if (queueIndex >= 0) {
+        await ref.read(queueViewModelProvider.notifier).playAt(queueIndex);
+      }
 
       // 显示播放提示
       if (mounted) {

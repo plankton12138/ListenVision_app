@@ -94,6 +94,24 @@ class QueueViewModel extends _$QueueViewModel {
   ///
   /// 如果队列已恢复完成，回调会立即执行
   /// 否则回调会在队列恢复完成后执行
+  ///
+  /// ## 为什么不需要取消注册机制
+  ///
+  /// 虽然看起来可以多次注册回调，但以下设计保证不会产生问题：
+  ///
+  /// 1. **Provider 生命周期**：`QueueViewModel` 和 `PlaybackViewModel` 都是
+  ///    `keepAlive: true`，在整个 App 生命周期内只存在一个实例，不会因页面
+  ///    重建而重新创建。
+  ///
+  /// 2. **回调自动清理**：恢复完成后，`_onQueueRestoredCallbacks` 会被清空
+  ///    （见 `_loadFromStorage` 的 finally 块）。
+  ///
+  /// 3. **回调幂等性**：`prepareCurrentFromQueue()` 会验证队列索引有效性，
+  ///    多次调用不会产生副作用。
+  ///
+  /// 4. **唯一注册时机**：回调仅在 `HomePage.initState` 中注册，该页面是
+  ///    主页面，通常不会被多次创建。即使被重建（如热重载），回调也会在
+  ///    恢复完成后被立即执行并清空，不会累积。
   void onQueueRestored(void Function() callback) {
     if (_didFinishInitialRestore) {
       callback();

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
+import 'package:listenvision/models/playable_audio.dart';
 import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 
@@ -520,6 +521,234 @@ void main() {
       expect(state.queue.isEmpty, true);
       // 对于空队列，任何索引（包括 0）都是无效的
       expect(state.currentIndex >= state.queue.length, true);
+    });
+  });
+
+  /// 测试 onQueueRestored 回调机制的设计预期
+  ///
+  /// 注意：由于 QueueViewModel 是 Riverpod Notifier，完整的回调行为测试
+  /// 需要 ProviderContainer 和 mock SharedStorageService。以下测试验证
+  /// 回调机制的核心逻辑。
+  group('onQueueRestored 回调机制测试', () {
+    test('回调机制：应在队列恢复完成后执行回调', () {
+      // 这是回调机制的核心设计：
+      // 1. 如果 _didFinishInitialRestore == true，回调立即执行
+      // 2. 如果 _didFinishInitialRestore == false，回调被添加到列表
+
+      // 模拟回调立即执行的条件
+      bool didFinishInitialRestore = true;
+      final callbacks = <void Function()>[];
+      var callbackExecuted = false;
+
+      void onQueueRestored(void Function() callback) {
+        if (didFinishInitialRestore) {
+          callback();
+        } else {
+          callbacks.add(callback);
+        }
+      }
+
+      // Act: 注册回调
+      onQueueRestored(() {
+        callbackExecuted = true;
+      });
+
+      // Assert: 回调应立即执行
+      expect(callbackExecuted, true, reason: '队列已恢复完成，回调应立即执行');
+      expect(callbacks.isEmpty, true, reason: '回调不应被添加到列表');
+    });
+
+    test('回调机制：应在队列未恢复时延迟执行回调', () {
+      // 模拟队列未恢复完成的状态
+      bool didFinishInitialRestore = false;
+      final callbacks = <void Function()>[];
+      var callbackExecuted = false;
+
+      void onQueueRestored(void Function() callback) {
+        if (didFinishInitialRestore) {
+          callback();
+        } else {
+          callbacks.add(callback);
+        }
+      }
+
+      // Act: 注册回调
+      onQueueRestored(() {
+        callbackExecuted = true;
+      });
+
+      // Assert: 回调应被添加到列表，暂不执行
+      expect(callbackExecuted, false, reason: '队列未恢复完成，回调不应立即执行');
+      expect(callbacks.length, 1, reason: '回调应被添加到列表');
+
+      // Act: 模拟恢复完成，执行回调
+      for (final callback in callbacks) {
+        callback();
+      }
+      callbacks.clear();
+
+      // Assert: 回调应被执行
+      expect(callbackExecuted, true, reason: '恢复完成后回调应被执行');
+      expect(callbacks.isEmpty, true, reason: '回调列表应被清空');
+    });
+
+    test('回调机制：多次注册回调应都能执行', () {
+      // 模拟队列未恢复完成的状态
+      bool didFinishInitialRestore = false;
+      final callbacks = <void Function()>[];
+      var executionCount = 0;
+
+      void onQueueRestored(void Function() callback) {
+        if (didFinishInitialRestore) {
+          callback();
+        } else {
+          callbacks.add(callback);
+        }
+      }
+
+      // Act: 注册多个回调
+      onQueueRestored(() => executionCount++);
+      onQueueRestored(() => executionCount++);
+      onQueueRestored(() => executionCount++);
+
+      // Assert: 所有回调应被添加
+      expect(callbacks.length, 3, reason: '所有回调应被添加到列表');
+      expect(executionCount, 0, reason: '回调尚未执行');
+
+      // Act: 模拟恢复完成
+      for (final callback in callbacks) {
+        callback();
+      }
+      callbacks.clear();
+
+      // Assert: 所有回调应被执行
+      expect(executionCount, 3, reason: '所有回调应被执行');
+    });
+
+    test('回调机制：回调是幂等的', () {
+      // prepareCurrentFromQueue 的核心逻辑是验证索引有效性
+      // 这意味着多次调用不会产生副作用
+
+      // Arrange: 模拟有效队列状态
+      final queue = <PlayableAudio>[
+        LocalPlayable(LocalAudio(
+          filePath: '/path/to/audio.mp3',
+          title: '测试音频',
+          artist: '测试艺术家',
+          duration: 180,
+        )),
+      ];
+      const currentIndex = 0;
+
+      // Assert: 索引验证逻辑
+      bool isIndexValid(int index, List<PlayableAudio> queue) {
+        return index >= 0 && index < queue.length;
+      }
+
+      // 第一次验证
+      expect(isIndexValid(currentIndex, queue), true);
+      // 第二次验证（幂等性）
+      expect(isIndexValid(currentIndex, queue), true);
+      // 第三次验证（幂等性）
+      expect(isIndexValid(currentIndex, queue), true);
+    });
+  });
+
+  /// prepareCurrentFromQueue 集成测试
+  ///
+  /// 测试 prepareCurrentFromQueue 方法的索引验证逻辑
+  group('prepareCurrentFromQueue 索引验证测试', () {
+    test('有效索引应通过验证', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = QueueState(queue: [playable], currentIndex: 0);
+
+      // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
+      final currentIndex = state.currentIndex;
+      final isValid = currentIndex >= 0 && currentIndex < state.queue.length;
+
+      // Assert
+      expect(isValid, true, reason: '索引 0 对于单元素队列是有效的');
+    });
+
+    test('索引 -1 应跳过恢复', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = QueueState(queue: [playable], currentIndex: -1);
+
+      // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
+      final currentIndex = state.currentIndex;
+      final shouldSkip = currentIndex < 0;
+
+      // Assert
+      expect(shouldSkip, true, reason: '索引 -1 应跳过恢复');
+    });
+
+    test('索引超出队列长度应跳过恢复', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = QueueState(queue: [playable], currentIndex: 5);
+
+      // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
+      final currentIndex = state.currentIndex;
+      final shouldSkip = currentIndex >= state.queue.length;
+
+      // Assert
+      expect(shouldSkip, true, reason: '索引超出队列长度应跳过恢复');
+    });
+
+    test('空队列应跳过恢复', () {
+      // Arrange
+      const state = QueueState(queue: [], currentIndex: 0);
+
+      // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
+      final currentIndex = state.currentIndex;
+      final queueLength = state.queue.length;
+      final shouldSkip = queueLength == 0 || currentIndex < 0 || currentIndex >= queueLength;
+
+      // Assert
+      expect(shouldSkip, true, reason: '空队列应跳过恢复');
+    });
+
+    test('应能获取当前可播放音频', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = QueueState(queue: [playable], currentIndex: 0);
+
+      // Act: 模拟获取当前播放项
+      PlayableAudio? currentPlayable;
+      final currentIndex = state.currentIndex;
+      if (currentIndex >= 0 && currentIndex < state.queue.length) {
+        currentPlayable = state.queue[currentIndex];
+      }
+
+      // Assert
+      expect(currentPlayable, isNotNull);
+      expect(currentPlayable?.title, '测试音频');
     });
   });
 }

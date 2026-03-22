@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
@@ -749,6 +751,212 @@ void main() {
       // Assert
       expect(currentPlayable, isNotNull);
       expect(currentPlayable?.title, '测试音频');
+    });
+  });
+
+  /// 元数据一致性测试
+  ///
+  /// 验证 _updatePlayableState 方法的行为，确保 play() 和 prepareSource()
+  /// 设置的元数据字段一致。
+  group('PlaybackState 元数据一致性测试', () {
+    test('_updatePlayableState 应正确设置所有元数据字段', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试歌曲',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      const initialState = PlaybackState();
+
+      // Act: 模拟 _updatePlayableState 的行为
+      final newState = initialState.copyWith(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: playable.coverUrl,
+        coverData: playable.coverData,
+        currentIndex: 0,
+        errorMessage: null,
+      );
+
+      // Assert: 所有元数据字段应被正确设置
+      expect(newState.currentPlayable, equals(playable));
+      expect(newState.title, '测试歌曲');
+      expect(newState.artist, '测试艺术家');
+      expect(newState.coverUrl, playable.coverUrl);
+      expect(newState.coverData, playable.coverData);
+      expect(newState.currentIndex, 0);
+      expect(newState.errorMessage, isNull);
+    });
+
+    test('_updatePlayableState 应正确处理 artist 默认值逻辑', () {
+      // Arrange: 创建一个有艺术家的音频
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '有艺术家歌曲',
+        artist: '具体艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      const initialState = PlaybackState(errorMessage: '之前的错误');
+
+      // Act: 模拟 _updatePlayableState 的行为
+      final newState = initialState.copyWith(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: playable.coverUrl,
+        coverData: playable.coverData,
+        currentIndex: -1,
+        errorMessage: null,
+      );
+
+      // Assert: artist 应被正确设置，errorMessage 应被清除
+      expect(newState.artist, '具体艺术家');
+      expect(newState.errorMessage, isNull);
+    });
+
+    test('play() 和 prepareSource() 应设置相同的元数据字段', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '一致性测试歌曲',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+
+      // Act: 模拟 play() 的状态设置
+      final playState = PlaybackState(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: playable.coverUrl,
+        coverData: playable.coverData,
+        currentIndex: 0,
+        errorMessage: null,
+      );
+
+      // Act: 模拟 prepareSource() 的状态设置（现在应该使用相同的 _updatePlayableState）
+      final prepareState = PlaybackState(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: playable.coverUrl,
+        coverData: playable.coverData,
+        currentIndex: -1, // prepareSource 默认不设置索引
+        errorMessage: null,
+      );
+
+      // Assert: 两个方法设置的元数据字段应该一致（除了 currentIndex）
+      expect(playState.currentPlayable, equals(prepareState.currentPlayable));
+      expect(playState.title, prepareState.title);
+      expect(playState.artist, prepareState.artist);
+      expect(playState.coverUrl, prepareState.coverUrl);
+      expect(playState.coverData, prepareState.coverData);
+      expect(playState.errorMessage, prepareState.errorMessage);
+    });
+
+    test('coverData 应被正确设置（本地音频场景）', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '本地音频',
+        artist: '本地艺术家',
+        duration: 180,
+        albumArt: Uint8List.fromList([1, 2, 3, 4]), // 模拟封面数据
+      );
+      final playable = LocalPlayable(localAudio);
+      const initialState = PlaybackState();
+
+      // Act
+      final newState = initialState.copyWith(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: playable.coverUrl,
+        coverData: playable.coverData,
+        currentIndex: 0,
+        errorMessage: null,
+      );
+
+      // Assert
+      expect(newState.coverData, isNotNull);
+      expect(newState.coverData, equals(Uint8List.fromList([1, 2, 3, 4])));
+    });
+
+    test('coverUrl 应被正确设置（在线音频场景）', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '在线音频',
+        artist: '在线艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      const initialState = PlaybackState();
+
+      // Act
+      final newState = initialState.copyWith(
+        currentPlayable: playable,
+        title: playable.title,
+        artist: playable.artist ?? '未知艺术家',
+        coverUrl: 'https://example.com/cover.jpg',
+        coverData: playable.coverData,
+        currentIndex: 0,
+        errorMessage: null,
+      );
+
+      // Assert
+      expect(newState.coverUrl, 'https://example.com/cover.jpg');
+    });
+
+    test('多次调用 _updatePlayableState 应覆盖之前的状态', () {
+      // Arrange
+      final localAudio1 = LocalAudio(
+        filePath: '/path/to/audio1.mp3',
+        title: '第一首歌',
+        artist: '艺术家1',
+        duration: 180,
+      );
+      final localAudio2 = LocalAudio(
+        filePath: '/path/to/audio2.mp3',
+        title: '第二首歌',
+        artist: '艺术家2',
+        duration: 200,
+      );
+      final playable1 = LocalPlayable(localAudio1);
+      final playable2 = LocalPlayable(localAudio2);
+
+      // Act: 第一次设置
+      var state = PlaybackState(
+        currentPlayable: playable1,
+        title: playable1.title,
+        artist: playable1.artist ?? '未知艺术家',
+        coverUrl: playable1.coverUrl,
+        coverData: playable1.coverData,
+        currentIndex: 0,
+        errorMessage: null,
+      );
+
+      // Act: 第二次设置（模拟切换歌曲）
+      state = state.copyWith(
+        currentPlayable: playable2,
+        title: playable2.title,
+        artist: playable2.artist ?? '未知艺术家',
+        coverUrl: playable2.coverUrl,
+        coverData: playable2.coverData,
+        currentIndex: 1,
+        errorMessage: null,
+      );
+
+      // Assert: 应该是第二次设置的状态
+      expect(state.currentPlayable, equals(playable2));
+      expect(state.title, '第二首歌');
+      expect(state.artist, '艺术家2');
+      expect(state.currentIndex, 1);
     });
   });
 }

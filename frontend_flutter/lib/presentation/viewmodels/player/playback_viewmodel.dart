@@ -214,12 +214,12 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   // ==================== 播放控制 ====================
 
-  /// 播放指定音频
-  Future<void> play(PlayableAudio playable, {int index = -1}) async {
-    if (_disposed) return;
-
-    AppLogger.info('PlaybackViewModel', '播放: ${playable.title}');
-
+  /// 更新当前播放项的状态
+  ///
+  /// 统一设置元数据字段，确保 play() 和 prepareSource() 的一致性。
+  /// 包括：currentPlayable、title、artist、coverUrl、coverData、currentIndex，
+  /// 并清除 errorMessage。
+  void _updatePlayableState(PlayableAudio playable, {int index = -1}) {
     state = state.copyWith(
       currentPlayable: playable,
       title: playable.title,
@@ -227,9 +227,19 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       coverUrl: playable.coverUrl,
       coverData: playable.coverData,
       currentIndex: index,
-      isLoading: true,
       errorMessage: null,
     );
+  }
+
+  /// 播放指定音频
+  Future<void> play(PlayableAudio playable, {int index = -1}) async {
+    if (_disposed) return;
+
+    AppLogger.info('PlaybackViewModel', '播放: ${playable.title}');
+
+    // 使用公共方法设置状态
+    _updatePlayableState(playable, index: index);
+    state = state.copyWith(isLoading: true);
 
     try {
       if (playable.isOnline && playable is OnlinePlayable) {
@@ -429,13 +439,9 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     AppLogger.info('PlaybackViewModel', '准备音频源: ${playable.title}');
 
-    state = state.copyWith(
-      currentPlayable: playable,
-      title: playable.title,
-      artist: playable.artist ?? '未知艺术家',
-      coverUrl: playable.coverUrl,
-      isLoading: true,
-    );
+    // 使用公共方法设置状态
+    _updatePlayableState(playable);
+    state = state.copyWith(isLoading: true);
 
     try {
       if (playable.isOnline && playable is OnlinePlayable) {

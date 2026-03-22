@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/constants/storage_constants.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/playback_state_validator.dart';
 import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
@@ -203,12 +204,14 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       isPaused: isPaused,
       isLoading: false,
     );
+    _validateState();
   }
 
   void _onPlaybackComplete() {
     AppLogger.info('PlaybackViewModel', '播放完成');
     _stopPositionSaveTimer();
     state = state.copyWith(isPlaying: false, isCompleted: true);
+    _validateState();
     _playNextAutomatically();
   }
 
@@ -251,6 +254,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       state = state.copyWith(isLoading: false, isPlaying: true);
       _startPositionSaveTimer();
       _recordHistory(playable);
+      _validateState();
     } catch (e) {
       AppLogger.error('PlaybackViewModel', '播放失败: $e');
 
@@ -289,6 +293,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     await _audioService!.pause();
     _stopPositionSaveTimer();
     state = state.copyWith(isPlaying: false, isPaused: true);
+    _validateState();
     AppLogger.debug('PlaybackViewModel', '暂停');
   }
 
@@ -298,6 +303,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     await _audioService!.play();
     _startPositionSaveTimer();
     state = state.copyWith(isPlaying: true, isPaused: false);
+    _validateState();
     AppLogger.debug('PlaybackViewModel', '恢复播放');
   }
 
@@ -321,6 +327,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       currentPlayable: null,
       currentIndex: -1,
     );
+    _validateState();
     AppLogger.debug('PlaybackViewModel', '停止');
   }
 
@@ -463,6 +470,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
       state = state.copyWith(isLoading: false);
       AppLogger.info('PlaybackViewModel', '音频源准备完成');
+      _validateState();
     } catch (e) {
       AppLogger.error('PlaybackViewModel', '准备音频源失败: $e');
       state = state.copyWith(
@@ -506,6 +514,22 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     } catch (e) {
       AppLogger.debug('PlaybackViewModel', '记录历史失败: $e');
     }
+  }
+
+  /// 验证状态完整性（仅 DEBUG 模式）
+  ///
+  /// 在关键操作后检查状态是否存在不一致问题，如：
+  /// - isPlaying=true 但 currentPlayable=null
+  /// - isLoading 和 isPlaying 同时为 true
+  /// - isPlaying 和 isPaused 同时为 true
+  void _validateState() {
+    assert(() {
+      final result = PlaybackStateValidator.validate(state);
+      if (!result.isValid) {
+        AppLogger.warn('PlaybackViewModel', '状态不一致: ${result.issues}');
+      }
+      return true;
+    }());
   }
 }
 

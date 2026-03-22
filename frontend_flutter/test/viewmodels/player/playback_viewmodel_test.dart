@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:listenvision/core/utils/playback_state_validator.dart';
 import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/playable_audio.dart';
@@ -957,6 +958,217 @@ void main() {
       expect(state.title, '第二首歌');
       expect(state.artist, '艺术家2');
       expect(state.currentIndex, 1);
+    });
+  });
+
+  /// PlaybackStateValidator 状态验证测试
+  group('PlaybackStateValidator 测试', () {
+    test('应检测到 isPlaying=true 且 currentPlayable=null 的不一致', () {
+      // Arrange
+      final state = PlaybackState(isPlaying: true, currentPlayable: null);
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, false);
+      expect(result.issues, contains(contains('currentPlayable')));
+    });
+
+    test('应检测到 currentIndex>=0 且 currentPlayable=null 的不一致', () {
+      // Arrange
+      final state = PlaybackState(currentIndex: 0, currentPlayable: null);
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, false);
+      expect(result.issues, contains(contains('currentPlayable')));
+    });
+
+    test('应检测到 isLoading 和 isPlaying 同时为 true', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isLoading: true,
+        isPlaying: true,
+        currentPlayable: playable,
+      );
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, false);
+      expect(result.issues, contains(contains('isLoading')));
+    });
+
+    test('应检测到 isPlaying 和 isPaused 同时为 true', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isPlaying: true,
+        isPaused: true,
+        currentPlayable: playable,
+      );
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, false);
+      expect(result.issues, contains(contains('isPlaying')));
+    });
+
+    test('有效状态应通过验证', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isPlaying: true,
+        isPaused: false,
+        isLoading: false,
+        currentPlayable: playable,
+        currentIndex: 0,
+      );
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, true);
+      expect(result.issues, isEmpty);
+    });
+
+    test('默认状态应通过验证', () {
+      // Arrange
+      const state = PlaybackState();
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, true);
+      expect(result.issues, isEmpty);
+    });
+
+    test('repair 应修复 isPlaying=true 且 currentPlayable=null 的不一致', () {
+      // Arrange
+      final state = PlaybackState(isPlaying: true, currentPlayable: null);
+
+      // Act
+      final repaired = PlaybackStateValidator.repair(state);
+
+      // Assert
+      expect(repaired.isPlaying, false);
+    });
+
+    test('repair 应修复 isLoading 和 isPlaying 同时为 true', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isLoading: true,
+        isPlaying: true,
+        currentPlayable: playable,
+      );
+
+      // Act
+      final repaired = PlaybackStateValidator.repair(state);
+
+      // Assert
+      expect(repaired.isPlaying, false);
+      expect(repaired.isLoading, true);
+    });
+
+    test('repair 应修复 isPlaying 和 isPaused 同时为 true', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isPlaying: true,
+        isPaused: true,
+        currentPlayable: playable,
+      );
+
+      // Act
+      final repaired = PlaybackStateValidator.repair(state);
+
+      // Assert
+      expect(repaired.isPlaying, true);
+      expect(repaired.isPaused, false);
+    });
+
+    test('repair 应保持有效状态不变', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = PlaybackState(
+        isPlaying: true,
+        currentPlayable: playable,
+        currentIndex: 0,
+        title: '测试标题',
+      );
+
+      // Act
+      final repaired = PlaybackStateValidator.repair(state);
+
+      // Assert
+      expect(repaired.isPlaying, true);
+      expect(repaired.currentPlayable, equals(playable));
+      expect(repaired.currentIndex, 0);
+      expect(repaired.title, '测试标题');
+    });
+
+    test('验证结果应包含所有发现的问题', () {
+      // Arrange: 创建一个有多个问题的状态
+      final state = PlaybackState(
+        isPlaying: true,
+        isPaused: true,
+        isLoading: true,
+        currentIndex: 0,
+        currentPlayable: null,
+      );
+
+      // Act
+      final result = PlaybackStateValidator.validate(state);
+
+      // Assert
+      expect(result.isValid, false);
+      expect(result.issues.length, greaterThanOrEqualTo(3));
     });
   });
 }

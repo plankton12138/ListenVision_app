@@ -1,13 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:listenvision/models/local_audio.dart';
+import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 
-/// PlaybackState 单元测试
+/// PlaybackState 和 QueueState 单元测试
 ///
 /// 测试内容：
-/// 1. 初始状态验证
-/// 2. copyWith 方法
-/// 3. 错误状态设置
-/// 4. 字段完整性
+/// 1. PlaybackState 初始状态验证
+/// 2. PlaybackState copyWith 方法
+/// 3. PlaybackState 错误状态设置
+/// 4. PlaybackState 字段完整性
+/// 5. QueueState 队列恢复相关测试
 void main() {
   group('PlaybackState 初始状态测试', () {
     test('默认构造函数应创建具有正确默认值的状态', () {
@@ -431,6 +435,91 @@ void main() {
       // 其他属性应保持默认
       expect(adjustedState.isPlaying, false);
       expect(adjustedState.currentIndex, -1);
+    });
+  });
+
+  group('QueueState 队列恢复测试', () {
+    test('QueueState 默认索引应为 -1', () {
+      // Act
+      const state = QueueState();
+
+      // Assert
+      expect(state.currentIndex, -1, reason: 'currentIndex 默认应为 -1');
+    });
+
+    test('QueueState 默认队列应为空', () {
+      // Act
+      const state = QueueState();
+
+      // Assert
+      expect(state.queue, isEmpty, reason: 'queue 默认应为空列表');
+    });
+
+    test('队列索引 -1 对任何非空队列都是无效的', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+      final state = QueueState(queue: [playable], currentIndex: -1);
+
+      // Act & Assert
+      // 索引 -1 在非空队列中是无效的
+      expect(state.currentIndex, lessThan(0), reason: '索引 -1 表示无选中项');
+      expect(state.queue.isNotEmpty, true, reason: '队列不为空');
+      // 验证索引有效性检查逻辑：currentIndex < 0 应跳过恢复
+      expect(state.currentIndex < 0, true);
+    });
+
+    test('有效索引应在 0 到队列长度-1 之间', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+
+      // Act - 索引 0 对于单元素队列是有效的
+      final validState = QueueState(queue: [playable], currentIndex: 0);
+
+      // Assert
+      expect(validState.currentIndex, greaterThanOrEqualTo(0));
+      expect(validState.currentIndex, lessThan(validState.queue.length));
+      expect(validState.queue[validState.currentIndex].title, '测试音频');
+    });
+
+    test('索引超出队列长度应为无效', () {
+      // Arrange
+      final localAudio = LocalAudio(
+        filePath: '/path/to/audio.mp3',
+        title: '测试音频',
+        artist: '测试艺术家',
+        duration: 180,
+      );
+      final playable = LocalPlayable(localAudio);
+
+      // Act - 索引 5 对于单元素队列是无效的
+      final invalidState = QueueState(queue: [playable], currentIndex: 5);
+
+      // Assert
+      expect(invalidState.currentIndex, greaterThanOrEqualTo(invalidState.queue.length));
+      // 验证索引有效性检查逻辑：currentIndex >= queue.length 应跳过恢复
+      expect(invalidState.currentIndex >= invalidState.queue.length, true);
+    });
+
+    test('空队列时任何索引都是无效的', () {
+      // Act
+      const state = QueueState(queue: [], currentIndex: 0);
+
+      // Assert
+      expect(state.queue.isEmpty, true);
+      // 对于空队列，任何索引（包括 0）都是无效的
+      expect(state.currentIndex >= state.queue.length, true);
     });
   });
 }

@@ -6,7 +6,6 @@ import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
-import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio_info.dart';
 import 'package:listenvision/presentation/widgets/controls_panel.dart';
 import 'package:listenvision/presentation/widgets/player_action_bar.dart';
@@ -338,6 +337,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    // 注册队列恢复完成回调
+    ref.read(queueViewModelProvider.notifier).onQueueRestored(() {
+      // 准备当前音频（不自动播放）
+      ref.read(playbackViewModelProvider.notifier).prepareCurrentFromQueue();
+    });
+
     // 延迟处理，等待页面构建完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleUrlParams();

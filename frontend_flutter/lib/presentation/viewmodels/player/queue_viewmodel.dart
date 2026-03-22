@@ -67,6 +67,9 @@ class QueueViewModel extends _$QueueViewModel {
   /// 当用户主动操作时递增，使旧的回调失效
   int _restoreVersion = 0;
 
+  /// 队列恢复完成回调列表
+  final List<void Function()> _onQueueRestoredCallbacks = [];
+
   @override
   QueueState build() {
     _storage = ref.watch(sharedStorageServiceProvider);
@@ -84,6 +87,18 @@ class QueueViewModel extends _$QueueViewModel {
       AppLogger.info('QueueViewModel', '初始化完成，队列长度: ${state.queue.length}');
     } catch (e) {
       AppLogger.error('QueueViewModel', '初始化失败: $e');
+    }
+  }
+
+  /// 注册队列恢复完成回调
+  ///
+  /// 如果队列已恢复完成，回调会立即执行
+  /// 否则回调会在队列恢复完成后执行
+  void onQueueRestored(void Function() callback) {
+    if (_didFinishInitialRestore) {
+      callback();
+    } else {
+      _onQueueRestoredCallbacks.add(callback);
     }
   }
 
@@ -570,6 +585,12 @@ class QueueViewModel extends _$QueueViewModel {
     } finally {
       _isRestoringFromStorage = false;
       _didFinishInitialRestore = true;
+
+      // 执行恢复完成回调
+      for (final callback in _onQueueRestoredCallbacks) {
+        callback();
+      }
+      _onQueueRestoredCallbacks.clear();
     }
   }
 

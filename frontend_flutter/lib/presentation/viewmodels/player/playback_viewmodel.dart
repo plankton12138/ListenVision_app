@@ -391,6 +391,31 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   // ==================== 辅助方法 ====================
 
+  /// 从队列准备当前音频（不自动播放）
+  ///
+  /// 用于应用启动时恢复上次播放位置
+  /// 依赖 QueueViewModel 已恢复完成
+  Future<void> prepareCurrentFromQueue() async {
+    if (_disposed) return;
+
+    final queueNotifier = ref.read(queueViewModelProvider.notifier);
+    final queueState = ref.read(queueViewModelProvider);
+    final currentIndex = queueState.currentIndex;
+
+    // 验证索引有效性
+    if (currentIndex < 0 || currentIndex >= queueState.queue.length) {
+      AppLogger.debug('PlaybackViewModel', '队列索引无效，跳过恢复');
+      return;
+    }
+
+    final playable = queueState.queue[currentIndex];
+    final savedPosition = await queueNotifier.restorePosition() ?? 0;
+
+    AppLogger.info('PlaybackViewModel', '恢复队列项: ${playable.title}, 位置: ${savedPosition}s');
+
+    await prepareSource(playable, startPosition: savedPosition);
+  }
+
   /// 准备音频源（不自动播放）
   ///
   /// 用于恢复播放时准备音频源并设置起始位置

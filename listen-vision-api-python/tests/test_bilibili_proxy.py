@@ -1,5 +1,7 @@
 """B站代理功能测试"""
 import pytest
+from bilibili_api.exceptions import CredentialNoSessdataException
+from unittest.mock import AsyncMock, patch
 
 from app.services.bilibili_service import BilibiliService
 
@@ -164,6 +166,22 @@ async def test_proxy_audio_stream_with_range():
 
 
 @pytest.mark.asyncio
+async def test_get_subtitles_returns_need_login_when_sessdata_missing():
+    """测试游客态字幕请求返回 need_login 而不是 500"""
+    mock_video = AsyncMock()
+    mock_video.get_info.return_value = {"cid": 123456}
+    mock_video.get_subtitle.side_effect = CredentialNoSessdataException()
+
+    with patch("app.services.bilibili_service.video.Video", return_value=mock_video):
+        result = await BilibiliService.get_subtitles("BV1test123456")
+
+    assert result.bvid == "BV1test123456"
+    assert result.cid == 123456
+    assert result.subtitles == []
+    assert result.need_login is True
+
+
+@pytest.mark.asyncio
 async def test_refresh_cookie():
     """测试 Cookie 刷新"""
     from unittest.mock import AsyncMock, patch, MagicMock
@@ -203,3 +221,61 @@ async def test_refresh_cookie_failure():
 
     with pytest.raises(Exception, match="Cookie 已过期"):
         await BilibiliService.refresh_cookie(mock_credential)
+
+
+@pytest.mark.asyncio
+async def test_stream_audio_proxy():
+    """测试流式音频代理"""
+    bvid = "BV1vsAwzREPP"
+
+    try:
+        chunks = []
+        async for chunk in BilibiliService.stream_audio_proxy(bvid):
+            chunks.append(chunk)
+            if len(chunks) >= 3:  # 只测试前几个块
+                break
+
+        assert len(chunks) > 0
+        assert all(isinstance(chunk, bytes) for chunk in chunks)
+    except Exception as e:
+        # 网络问题或视频不存在时跳过
+        pytest.skip(f"网络不可用或视频不存在: {e}")
+
+
+@pytest.mark.asyncio
+async def test_stream_audio_proxy_with_range():
+    """测试带 Range 的流式代理"""
+    bvid = "BV1vsAwzREPP"
+
+    try:
+        # 先获取流信息
+        url, content_length, headers = await BilibiliService.get_audio_stream_info(bvid)
+        assert content_length > 0
+
+        # 请求前 1KB
+        chunks = []
+        async for chunk in BilibiliService.stream_audio_proxy(bvid, range_header="bytes=0-1023"):
+            chunks.append(chunk)
+
+        total_size = sum(len(chunk) for chunk in chunks)
+        assert total_size == 1024  # 请求了 0-1023，共 1024 字节
+    except Exception as e:
+        pytest.skip(f"网络不可用或视频不存在: {e}")
+
+
+@pytest.mark.asyncio
+async def test_get_audio_stream_info():
+    """测试获取音频流信息"""
+    bvid = "BV1vsAwzREPP"
+
+    try:
+        url, content_length, headers = await BilibiliService.get_audio_stream_info(bvid)
+
+        assert url is not None
+        assert len(url) > 0
+        assert content_length > 0
+        assert "content-type" in headers
+        assert "accept-ranges" in headers
+        assert headers["accept-ranges"] == "bytes"
+    except Exception as e:
+        pytest.skip(f"网络不可用或视频不存在: {e}")

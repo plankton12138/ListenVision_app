@@ -5,6 +5,27 @@ import 'package:flutter/foundation.dart';
 
 import '../core/utils/app_logger.dart';
 
+/// 播放状态枚举（抽象层，不依赖具体库实现）
+///
+/// 用于 ViewModel 层，屏蔽底层播放库的具体实现细节。
+/// 符合 MVVM 分层原则：Service 封装第三方库，ViewModel 只依赖抽象接口。
+enum AudioPlaybackState {
+  /// 正在播放
+  playing,
+
+  /// 已暂停
+  paused,
+
+  /// 已停止
+  stopped,
+
+  /// 播放完成
+  completed,
+
+  /// 未加载音频源
+  idle,
+}
+
 /// 音频播放服务
 ///
 /// 封装 audioplayers 包的核心功能，提供统一的播放控制接口。
@@ -300,8 +321,25 @@ class AudioPlayerService {
   /// 时长变化流
   Stream<Duration?> get durationStream => _player.onDurationChanged;
 
-  /// 播放状态流
+  /// 播放状态流（原始类型，供底层操作使用）
   Stream<PlayerState> get playerStateStream => _player.onPlayerStateChanged;
+
+  /// 播放状态流（抽象类型，供 ViewModel 使用）
+  ///
+  /// 将底层 PlayerState 转换为 AudioPlaybackState，屏蔽库实现细节。
+  Stream<AudioPlaybackState> get playbackStateStream =>
+      _player.onPlayerStateChanged.map(_convertPlayerState);
+
+  /// 将底层 PlayerState 转换为抽象 AudioPlaybackState
+  AudioPlaybackState _convertPlayerState(PlayerState state) {
+    return switch (state) {
+      PlayerState.playing => AudioPlaybackState.playing,
+      PlayerState.paused => AudioPlaybackState.paused,
+      PlayerState.stopped => AudioPlaybackState.stopped,
+      PlayerState.completed => AudioPlaybackState.completed,
+      _ => AudioPlaybackState.idle,
+    };
+  }
 
   /// 播放完成事件流
   Stream<void> get onPlayerComplete => _player.onPlayerComplete;

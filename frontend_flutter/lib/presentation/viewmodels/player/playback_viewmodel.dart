@@ -179,7 +179,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     // 播放状态监听
     _subscriptions.add(
-      _audioService!.playerStateStream.listen((playerState) {
+      _audioService!.playbackStateStream.listen((playerState) {
         if (_disposed) return;
         _onPlayerStateChanged(playerState);
       }),
@@ -194,9 +194,9 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     );
   }
 
-  void _onPlayerStateChanged(dynamic playerState) {
-    final isPlaying = playerState.name == 'playing';
-    final isPaused = playerState.name == 'paused';
+  void _onPlayerStateChanged(AudioPlaybackState playerState) {
+    final isPlaying = playerState == AudioPlaybackState.playing;
+    final isPaused = playerState == AudioPlaybackState.paused;
 
     state = state.copyWith(
       isPlaying: isPlaying,

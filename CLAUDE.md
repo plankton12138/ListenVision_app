@@ -148,6 +148,11 @@ Phase 5:  ✅ 批量导入改进 (2026-02-06)
 
 --- 媒体播放改进 (2026-03-12) ---
 Phase 1:  ✅ B站视频字幕支持 (2026-03-12)
+
+--- B站音频播放修复 (2026-03-22) ---
+Phase 1:  ✅ 修复音频播放和图片加载问题
+Phase 2:  ✅ 修复未登录搜索历史问题
+Phase 3:  ✅ Python 后端与前端适配完成
 ```
 
 ---
@@ -435,6 +440,18 @@ final apiClient = ref.watch(apiClientProvider);
 
 ### 项目决策记录
 
+- **[2026-03-22]** 播放器架构重构与修复：
+  - **问题**：`PlaybackViewModel` 错误使用 `playerState.name == 'playing'` 导致运行时错误，`PlayerState` 是 audioplayers 库的枚举类型，没有 `name` 属性。
+  - **架构违规**：初步修复方案让 ViewModel 直接依赖 `audioplayers` 库，破坏了 MVVM 分层原则。
+  - **正确方案**：定义 `AudioPlaybackState` 抽象枚举，由 `AudioPlayerService` 负责转换底层状态。ViewModel 只依赖抽象状态，不依赖具体库实现。
+  - **相关文件**：`services/audio_player_service.dart`（定义枚举和转换流）、`playback_viewmodel.dart`（使用抽象状态）
+  - **设计原则**：Service 层封装第三方库细节，ViewModel 只依赖抽象接口。
+
+- **[2026-03-22]** 代码审查与修复：
+  - **删除 `bidirectional_sync_worker.dart`**：该文件依赖 4 个不存在的模块（`conflict_resolver.dart`、`sync_strategy.dart`、`sync_worker.dart`、`sync_queue_dao.dart`），导致 35+ 编译错误。双向同步功能尚未实现，删除以恢复编译。
+  - **修复 Python 测试隔离**：`test_history.py` 和 `test_playlist_model.py` 使用 UUID 生成唯一邮箱，确保测试可重复运行。
+  - **Node.js 后端声明为遗留**：主要后端迁移至 Python，Node.js 后端不再主动维护。
+
 - **[2026-03-09]** 更新 `.github/copilot-instructions.md`：补全自 2026-02-16 以来新增的架构层（`core/errors/`、`core/models/`、`models/dto/`、`data/sync/`、`services/`、`widgets/common/`）、`DownloadIntegrityService` 三层扫描策略、`NetworkStatusListener`、`ErrorUIHandler` 全方法列表、技术栈版本表、认证架构说明及参考文档索引。同步修正前端测试路径（`test\providers\auth\auth_provider_test.dart`）。
 
 - **[2026-02-16]** 文件系统监听方案变更：放弃 `FileSystemEntity.watch()` 方案，改用启动扫描 + 定期轮询 + 播放前验证的三层检测机制。
@@ -524,7 +541,7 @@ final apiClient = ref.watch(apiClientProvider);
 | 数据变化感知（文件监听） | ✅ 已完成 | 三层检测机制：启动扫描+轮询+播放验证 |
 | 统一错误提示风格 | ✅ 已完成 | ErrorUIHandler 已全面增强，可逐步迁移现有 93 处调用 |
 | 网络断链提示 | ✅ 已完成 | 实时监测网络状态，自动提示断连/恢复 |
-| 双向数据同步 | ⏳ P2 | 待实现 |
+| 双向数据同步 | ⏳ P2 | 待实现（`bidirectional_sync_worker.dart` 已删除，需重新设计） |
 
 ### Token 刷新机制实现 - 第三阶段完成
 

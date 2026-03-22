@@ -4,6 +4,7 @@ import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -473,7 +474,8 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
       initialIndex: 0,
     );
 
-    await ref.read(queueViewModelProvider.notifier).playAt(0);
+    // 使用 PlaybackViewModel 播放
+    ref.read(playbackViewModelProvider.notifier).play(playables.first, index: 0);
 
     if (mounted) {
       final first = playables.first.original;
@@ -527,7 +529,11 @@ class _NeteasePlaylistDetailPageState extends ConsumerState<NeteasePlaylistDetai
         initialIndex: selectedIndex,
       );
 
-      await ref.read(queueViewModelProvider.notifier).playAt(selectedIndex);
+      // 使用 PlaybackViewModel 播放
+      ref.read(playbackViewModelProvider.notifier).play(
+        playables[selectedIndex],
+        index: selectedIndex,
+      );
 
       if (mounted) {
         SnackbarHelper.showPlaying(context, track.name, artist: track.artist);

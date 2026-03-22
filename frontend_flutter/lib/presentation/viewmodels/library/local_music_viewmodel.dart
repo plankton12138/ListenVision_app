@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/utils/blob_url.dart';
 import '../../../models/local_playable.dart';
 import '../../providers.dart' show queueViewModelProvider;
+import '../player/playback_viewmodel.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -183,7 +184,12 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
         // 播放第一首
         final queueState = ref.read(queueViewModelProvider);
         if (queueState.queue.isNotEmpty) {
-          await ref.read(queueViewModelProvider.notifier).playAt(queueState.queue.length - files.length);
+          final firstIndex = queueState.queue.length - files.length;
+          // 使用 PlaybackViewModel 播放
+          ref.read(playbackViewModelProvider.notifier).play(
+            queueState.queue[firstIndex],
+            index: firstIndex,
+          );
         }
 
         AppLogger.info('LocalMusicViewModel', 'Web 批量导入：已加入队列 ${files.length} 首');

@@ -6,7 +6,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/constants/storage_constants.dart';
 import '../../../core/storage/shared_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../data/repositories/repository_providers.dart';
 import '../../../models/local_audio.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/local_playable.dart';
@@ -15,8 +14,7 @@ import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
 import '../auth/auth_viewmodel.dart' show isLoggedInProvider;
 import '../library/playlist_viewmodel.dart' show playlistViewModelProvider;
-import 'player_viewmodel.dart'
-    show sharedStorageServiceProvider, playerViewModelProvider;
+import 'player_viewmodel.dart' show sharedStorageServiceProvider;
 
 part 'queue_viewmodel.freezed.dart';
 part 'queue_viewmodel.g.dart';
@@ -53,13 +51,22 @@ abstract class QueueState with _$QueueState {
 ///
 /// 职责：
 /// 1. 播放队列管理（添加、删除、清空）
-/// 2. 当前播放索引
-/// 3. 下一首/上一首
+/// 2. 当前播放索引管理
+/// 3. 播放模式管理
 /// 4. 持久化播放队列
+///
+/// 注意：播放控制逻辑已移至 PlaybackViewModel
 @Riverpod(keepAlive: true)
 class QueueViewModel extends _$QueueViewModel {
   SharedStorageService? _storage;
   Timer? _syncDebounceTimer;
+  bool _isRestoringFromStorage = false;
+  bool _didFinishInitialRestore = false;
+  bool _skipInitialRestore = false;
+
+  /// 恢复版本号，用于取消过期的自动恢复回调
+  /// 当用户主动操作时递增，使旧的回调失效
+  int _restoreVersion = 0;
 
   @override
   QueueState build() {
@@ -118,6 +125,7 @@ class QueueViewModel extends _$QueueViewModel {
     List<PlayableAudio> queue, {
     int initialIndex = -1,
   }) async {
+    _markQueueMutated();
     state = state.copyWith(queue: queue, currentIndex: initialIndex);
 
     await _saveToStorage();
@@ -133,6 +141,7 @@ class QueueViewModel extends _$QueueViewModel {
     QueueSource source, {
     int initialIndex = -1,
   }) async {
+    _markQueueMutated();
     state = state.copyWith(
       queue: queue,
       currentIndex: initialIndex,
@@ -168,6 +177,7 @@ class QueueViewModel extends _$QueueViewModel {
     PlayableAudio playable, {
     bool playImmediately = false,
   }) async {
+    _markQueueMutated();
     final newQueue = List<PlayableAudio>.from(state.queue);
 
     // 检查是否已存在
@@ -203,6 +213,7 @@ class QueueViewModel extends _$QueueViewModel {
 
   /// 批量添加到播放队列
   Future<void> addAll(List<PlayableAudio> playables) async {
+    _markQueueMutated();
     final newQueue = List<PlayableAudio>.from(state.queue);
 
     for (final playable in playables) {
@@ -224,6 +235,7 @@ class QueueViewModel extends _$QueueViewModel {
   Future<void> removeAt(int index) async {
     if (index < 0 || index >= state.queue.length) return;
 
+    _markQueueMutated();
     final newQueue = List<PlayableAudio>.from(state.queue);
     newQueue.removeAt(index);
 
@@ -256,6 +268,7 @@ class QueueViewModel extends _$QueueViewModel {
 
   /// 清空播放队列
   Future<void> clear() async {
+    _markQueueMutated();
     state = const QueueState();
 
     await _saveToStorage();
@@ -274,96 +287,12 @@ class QueueViewModel extends _$QueueViewModel {
       return;
     }
 
+    _markQueueMutated();
     state = state.copyWith(currentIndex: index);
     AppLogger.debug('QueueViewModel', '设置当前索引: $index');
   }
 
-/// 播放指定索引的音频
-///
-/// [index] 要播放的索引
-Future<void> playAt(int index) async {
-  if (index < 0 || index >= state.queue.length) {
-    AppLogger.warn(
-      'QueueViewModel',
-      '无效的索引: $index, 队列长度: ${state.queue.length}',
-    );
-    return;
-  }
-
-  final playable = state.queue[index];
-
-  // 更新索引
-  state = state.copyWith(currentIndex: index);
-
-  // 通知播放器播放
-  final playerNotifier = ref.read(playerViewModelProvider.notifier);
-
-    if (playable.isOnline && playable is OnlinePlayable) {
-      final sourceId = playable.original.id;
-
-      // 本地优先播放策略：先检查本地是否已下载且文件有效
-      final trackRepository = ref.read(trackRepositoryProvider);
-      final localPath = await trackRepository.getLocalPath(sourceId);
-
-      if (localPath != null) {
-        // 使用本地文件播放
-        await playerNotifier.playLocalAudio(
-          localPath,
-          title: playable.original.title,
-          artist: playable.original.artist,
-        );
-        AppLogger.info(
-            'QueueViewModel', '本地优先播放: $sourceId (路径: $localPath)');
-      } else {
-        // 本地不存在或文件无效，使用网络流播放
-        await playerNotifier.playOnlineAudio(
-          audio: playable.original,
-          streamUrl: playable.url,
-        );
-        AppLogger.info('QueueViewModel', '网络播放: $sourceId');
-      }
-    } else {
-      // 本地音频（非B站音频）直接播放
-      await playerNotifier.playLocalAudio(
-        playable.url,
-        title: playable.title,
-        artist: playable.artist,
-        albumArt: playable.coverData,
-      );
-    }
-
-  AppLogger.info('QueueViewModel', '播放索引 $index: ${playable.title}');
-}
-
-  /// 播放下一首
-  ///
-  /// 返回下一首的音频，如果没有则返回 null
-  PlayableAudio? playNext() {
-    if (isEmpty) return null;
-
-    final nextIndex = hasNext ? state.currentIndex + 1 : 0;
-    setCurrentIndex(nextIndex);
-
-    AppLogger.info('QueueViewModel', '播放下一首，索引: $nextIndex');
-    return currentPlayable;
-  }
-
-  /// 播放上一首
-  ///
-  /// 返回上一首的音频，如果没有则返回 null
-  PlayableAudio? playPrevious() {
-    if (isEmpty) return null;
-
-    final previousIndex = hasPrevious
-        ? state.currentIndex - 1
-        : state.queue.length - 1;
-    setCurrentIndex(previousIndex);
-
-    AppLogger.info('QueueViewModel', '播放上一首，索引: $previousIndex');
-    return currentPlayable;
-  }
-
-  /// 拖拽排序
+/// 拖拽排序
   ///
   /// 将 [oldIndex] 位置的项移动到 [newIndex]
   Future<void> reorder(int oldIndex, int newIndex) async {
@@ -371,6 +300,7 @@ Future<void> playAt(int index) async {
     if (newIndex < 0 || newIndex >= state.queue.length) return;
     if (oldIndex == newIndex) return;
 
+    _markQueueMutated();
     final newQueue = List<PlayableAudio>.from(state.queue);
     final item = newQueue.removeAt(oldIndex);
     newQueue.insert(newIndex, item);
@@ -397,6 +327,7 @@ Future<void> playAt(int index) async {
   ///
   /// 将 [playable] 插入到当前播放位置的下一首
   Future<void> insertNext(PlayableAudio playable) async {
+    _markQueueMutated();
     if (isEmpty) {
       // 队列为空，直接添加并播放
       await add(playable, playImmediately: true);
@@ -450,6 +381,7 @@ Future<void> playAt(int index) async {
     LocalAudio audio, {
     bool playImmediately = false,
   }) async {
+    _markQueueMutated();
     final playable = LocalPlayable(audio);
     await add(playable, playImmediately: playImmediately);
 
@@ -465,6 +397,7 @@ Future<void> playAt(int index) async {
 
   /// 移除本地音频
   Future<void> removeLocalAudio(String filePath) async {
+    _markQueueMutated();
     final newLocalAudios = state.localAudios
         .where((a) => a.filePath != filePath)
         .toList();
@@ -533,6 +466,7 @@ Future<void> playAt(int index) async {
 
   /// 从存储加载
   Future<void> _loadFromStorage() async {
+    _isRestoringFromStorage = true;
     try {
       // 加载索引
       final savedIndex =
@@ -562,6 +496,11 @@ Future<void> playAt(int index) async {
       final queueJson = _storage!.getJsonList(StorageKeys.unifiedPlaylist);
 
       if (queueJson != null && queueJson.isNotEmpty) {
+        if (_skipInitialRestore) {
+          AppLogger.info('QueueViewModel', '检测到初始化期间已有用户操作，跳过本地队列恢复');
+          return;
+        }
+
         final queue = <PlayableAudio>[];
         for (final item in queueJson) {
           if (item is Map<String, dynamic>) {
@@ -599,6 +538,11 @@ Future<void> playAt(int index) async {
           }
         }
 
+        if (_skipInitialRestore) {
+          AppLogger.info('QueueViewModel', '本地队列恢复过程中检测到用户操作，取消覆盖当前队列');
+          return;
+        }
+
         if (!ref.mounted) return;
         state = state.copyWith(
           queue: queue,
@@ -614,48 +558,29 @@ Future<void> playAt(int index) async {
           '加载播放队列: 索引=$savedIndex, 长度=${queue.length}, 模式=${playMode.name}, 来源=${source?.name ?? "无"}',
         );
 
-        // 如果队列不为空，准备当前索引的音频（不播放）
+        // 如果队列不为空，确保索引有效
         if (queue.isNotEmpty) {
-          // 确保索引有效
           if (state.currentIndex < 0 || state.currentIndex >= queue.length) {
             state = state.copyWith(currentIndex: 0);
           }
-          AppLogger.info('QueueViewModel', '准备音频，索引: ${state.currentIndex}');
-
-          // 等待 PlayerViewModel 初始化完成后再准备音频源
-          final playerNotifier = ref.read(playerViewModelProvider.notifier);
-          playerNotifier.onInitialized(() {
-            if (!ref.mounted) return;
-            _prepareFirstAudio();
-          });
+          AppLogger.info('QueueViewModel', '队列恢复完成，索引: ${state.currentIndex}');
         }
       }
     } catch (e) {
       AppLogger.error('QueueViewModel', '加载播放队列失败: $e');
+    } finally {
+      _isRestoringFromStorage = false;
+      _didFinishInitialRestore = true;
     }
   }
 
-  /// 准备第一首音频并恢复播放状态
-  Future<void> _prepareFirstAudio() async {
-    if (state.queue.isEmpty || state.currentIndex < 0) return;
-
-    final playable = state.queue[state.currentIndex];
-    final playerNotifier = ref.read(playerViewModelProvider.notifier);
-
-    try {
-      // 恢复播放位置
-      final position = await restorePosition() ?? 0;
-      AppLogger.info('QueueViewModel', '准备第一首音频: $playable, 起始位置: $position秒');
-
-      // 准备音频源并设置起始位置
-      await playerNotifier.prepareSource(playable, startPosition: position);
-
-      // 自动开始播放
-      await playerNotifier.play();
-      AppLogger.info('QueueViewModel', '已自动恢复播放');
-    } catch (e) {
-      AppLogger.error('QueueViewModel', '准备第一首音频失败: $e');
+  void _markQueueMutated() {
+    if (_isRestoringFromStorage && !_didFinishInitialRestore) {
+      _skipInitialRestore = true;
     }
+    // 用户主动操作时递增版本号，使旧的自动恢复回调失效
+    _restoreVersion++;
+    AppLogger.debug('QueueViewModel', '用户操作，恢复版本号递增至: $_restoreVersion');
   }
 
   /// 保存播放位置

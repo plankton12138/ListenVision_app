@@ -11,6 +11,7 @@ import '../../../models/online_playable.dart';
 import '../../../models/local_audio.dart';
 import '../../../models/local_playable.dart';
 import '../../viewmodels/library/history_viewmodel.dart';
+import '../../viewmodels/player/playback_viewmodel.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
 
 /// 播放历史 Tab
@@ -183,7 +184,8 @@ class HistoryTabView extends ConsumerWidget {
               QueueSource.manual(),
               initialIndex: 0,
             );
-            ref.read(queueViewModelProvider.notifier).playAt(0);
+            // 使用 PlaybackViewModel 播放
+            ref.read(playbackViewModelProvider.notifier).play(localPlayable, index: 0);
           } else {
             // 文件不存在，显示提示并提供移除选项
             if (context.mounted) {
@@ -217,7 +219,8 @@ class HistoryTabView extends ConsumerWidget {
             QueueSource.manual(),
             initialIndex: 0,
           );
-          ref.read(queueViewModelProvider.notifier).playAt(0);
+          // 使用 PlaybackViewModel 播放
+          ref.read(playbackViewModelProvider.notifier).play(playable, index: 0);
         }
       },
     );

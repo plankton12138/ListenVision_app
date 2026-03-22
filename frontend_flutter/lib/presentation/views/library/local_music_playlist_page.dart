@@ -3,6 +3,7 @@ import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -397,7 +398,8 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
       initialIndex: 0,
     );
 
-    await ref.read(queueViewModelProvider.notifier).playAt(0);
+    // 使用 PlaybackViewModel 播放
+    ref.read(playbackViewModelProvider.notifier).play(playables.first, index: 0);
 
     if (context.mounted) {
       SnackbarHelper.showPlaying(context, audios.first.title, artist: audios.first.artist);
@@ -423,8 +425,11 @@ class LocalMusicPlaylistPage extends ConsumerWidget {
         initialIndex: index,
       );
 
-      // 播放指定索引
-      await ref.read(queueViewModelProvider.notifier).playAt(index);
+      // 使用 PlaybackViewModel 播放
+      ref.read(playbackViewModelProvider.notifier).play(
+        playables[index],
+        index: index,
+      );
 
       if (context.mounted) {
         SnackbarHelper.showPlaying(context, audio.title, artist: audio.artist);

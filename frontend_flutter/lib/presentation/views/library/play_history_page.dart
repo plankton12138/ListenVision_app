@@ -4,6 +4,7 @@ import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/history_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -265,8 +266,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       initialIndex: 0,
     );
 
-    // 播放音频
-    await ref.read(queueViewModelProvider.notifier).playAt(0);
+    // 使用 PlaybackViewModel 播放
+    ref.read(playbackViewModelProvider.notifier).play(playable, index: 0);
 
     if (mounted) {
       context.go('/');

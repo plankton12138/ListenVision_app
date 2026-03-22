@@ -5,6 +5,7 @@ import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio_info.dart';
 import 'package:listenvision/presentation/widgets/controls_panel.dart';
 import 'package:listenvision/presentation/widgets/player_action_bar.dart';
@@ -110,7 +111,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           // 开始播放（播放刚添加的最后一首）
           final queueState = ref.read(queueViewModelProvider);
           final newIndex = queueState.queue.length - 1;
-          await ref.read(queueViewModelProvider.notifier).playAt(newIndex);
+          // 使用 PlaybackViewModel 播放
+          ref.read(playbackViewModelProvider.notifier).play(
+            queueState.queue[newIndex],
+            index: newIndex,
+          );
           
           AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
           
@@ -172,7 +177,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 6. 开始播放（播放刚添加的最后一首）
       final queueState = ref.read(queueViewModelProvider);
       final newIndex = queueState.queue.length - 1;
-      await ref.read(queueViewModelProvider.notifier).playAt(newIndex);
+      // 使用 PlaybackViewModel 播放
+      ref.read(playbackViewModelProvider.notifier).play(
+        queueState.queue[newIndex],
+        index: newIndex,
+      );
 
       AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
 

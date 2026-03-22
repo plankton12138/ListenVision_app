@@ -22,6 +22,7 @@ import '../../../models/play_mode.dart';
 import '../../../services/audio_player_service.dart';
 import '../library/history_viewmodel.dart';
 import 'metadata_viewmodel.dart';
+import 'playback_viewmodel.dart';
 import 'queue_viewmodel.dart';
 import 'subtitle_viewmodel.dart';
 
@@ -463,7 +464,14 @@ class PlayerViewModel extends _$PlayerViewModel {
       }
 
       AppLogger.info('PlayerViewModel', '自动播放下一首，索引: $nextIndex');
-      await queueNotifier.playAt(nextIndex);
+
+      // 更新队列索引
+      queueNotifier.setCurrentIndex(nextIndex);
+
+      // 使用 PlaybackViewModel 播放
+      final playbackNotifier = ref.read(playbackViewModelProvider.notifier);
+      final nextPlayable = queueState.queue[nextIndex];
+      await playbackNotifier.play(nextPlayable, index: nextIndex);
     } catch (e) {
       AppLogger.error('PlayerViewModel', '自动播放下一首失败: $e');
     }
@@ -568,7 +576,8 @@ class PlayerViewModel extends _$PlayerViewModel {
     if (_disposed) return;
 
     // 检查是否需要加载音频源
-    if (state.isIdle && state.currentPlayable != null) {
+    if (state.currentPlayable != null && _audioService!.isIdle) {
+      // 音频源未加载，需要重新加载
       state = state.copyWith(statusMessage: '正在加载...');
       try {
         await _playPlayable(state.currentPlayable!);
@@ -582,6 +591,17 @@ class PlayerViewModel extends _$PlayerViewModel {
       }
     } else if (state.isCompleted && !state.isCurrentOnline) {
       await _audioService!.seek(Duration.zero);
+    }
+
+    // 确保音频源已加载再播放
+    if (_audioService!.isIdle) {
+      AppLogger.warn('PlayerViewModel', 'resume() 失败：音频源未加载');
+      state = state.copyWith(
+        statusMessage: '请重新选择音频',
+        hasError: true,
+        isIdle: true,
+      );
+      return;
     }
 
     await _audioService!.play();
@@ -817,6 +837,10 @@ class PlayerViewModel extends _$PlayerViewModel {
         statusMessage: e.message.isEmpty ? '音频格式不支持' : e.message,
         hasError: true,
         isPlaying: false,
+        isIdle: true,
+        currentPlayable: null,
+        currentOnlineAudio: null,
+        currentBvid: null,
       );
     } on PlatformException catch (e) {
       final message = _getPlatformErrorMessage(e);
@@ -825,6 +849,22 @@ class PlayerViewModel extends _$PlayerViewModel {
         statusMessage: message,
         hasError: true,
         isPlaying: false,
+        isIdle: true,
+        currentPlayable: null,
+        currentOnlineAudio: null,
+        currentBvid: null,
+      );
+    } on TimeoutException catch (e) {
+      final message = e.message ?? '音频加载超时，请检查网络';
+      AppLogger.error('PlayerViewModel', '播放超时: $message');
+      state = state.copyWith(
+        statusMessage: message,
+        hasError: true,
+        isPlaying: false,
+        isIdle: true,
+        currentPlayable: null,
+        currentOnlineAudio: null,
+        currentBvid: null,
       );
     } catch (e) {
       AppLogger.error('PlayerViewModel', '在线播放失败: $e');
@@ -832,6 +872,10 @@ class PlayerViewModel extends _$PlayerViewModel {
         statusMessage: '播放失败，请重试',
         hasError: true,
         isPlaying: false,
+        isIdle: true,
+        currentPlayable: null,
+        currentOnlineAudio: null,
+        currentBvid: null,
       );
     }
   }
@@ -885,33 +929,59 @@ class PlayerViewModel extends _$PlayerViewModel {
       subtitleNotifier.clear();
     }
 
-    // 停止当前播放
-    await _audioService!.stop();
-    await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      // 停止当前播放
+      await _audioService!.stop();
+      await Future.delayed(const Duration(milliseconds: 100));
 
-    // 设置并播放
-    if (playable.isOnline) {
-      await _playOnlineWithFallback(playable);
-    } else {
-      await _audioService!.playFile(playable.url);
+      // 设置并播放（添加 60 秒超时，因为 B站音频代理可能需要较长时间）
+      if (playable.isOnline) {
+        await _playOnlineWithFallback(playable).timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            throw TimeoutException('音频加载超时，请检查网络连接');
+          },
+        );
+      } else {
+        await _audioService!.playFile(playable.url);
+      }
+
+      if (playable is OnlinePlayable) {
+        unawaited(subtitleNotifier.loadSubtitle(
+          playable.original.id,
+          cid: playable.original.cid,
+        ));
+      }
+
+      AppLogger.info('PlayerViewModel', '播放: ${playable.title}');
+    } catch (e) {
+      final errorMsg = e is TimeoutException
+          ? e.message ?? '音频加载超时'
+          : e.toString();
+      AppLogger.error('PlayerViewModel', '播放失败: ${playable.title}, 错误: $e');
+
+      // 重置播放状态，确保下次重试时能正确加载
+      state = state.copyWith(
+        hasError: true,
+        statusMessage: errorMsg,
+        isLoading: false,
+        isIdle: true,
+        currentPlayable: null,
+        currentOnlineAudio: null,
+        currentAudio: null,
+        currentBvid: null,
+      );
+      return; // 提前返回，不执行 finally 中的成功逻辑
+    } finally {
+      // 确保 _isSwitchingSource 总是被重置
+      _isSwitchingSource = false;
     }
 
-    if (playable is OnlinePlayable) {
-      unawaited(subtitleNotifier.loadSubtitle(
-        playable.original.id,
-        cid: playable.original.cid,
-      ));
-    }
-
-    _isSwitchingSource = false;
-
-    // 清除加载状态
+    // 播放成功，清除加载状态
     state = state.copyWith(
       isLoading: false,
       statusMessage: '',
     );
-
-    AppLogger.info('PlayerViewModel', '播放: ${playable.title}');
   }
 
   /// 播放在线音频，遇到格式错误时自动降级

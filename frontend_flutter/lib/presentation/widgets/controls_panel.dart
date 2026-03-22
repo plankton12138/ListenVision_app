@@ -6,6 +6,7 @@ import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/models/playable_audio.dart';
 import 'package:listenvision/models/online_playable.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 
 /// 播放控制面板组件
 ///
@@ -50,30 +51,14 @@ class ControlsPanel extends ConsumerWidget {
 
   /// 播放上一首
   void _playPrevious(BuildContext context, WidgetRef ref) {
-    final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    final previous = queueNotifier.playPrevious();
-
-    if (previous != null) {
-      _playPlayable(context, ref, previous);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有上一首了')),
-      );
-    }
+    final playbackNotifier = ref.read(playbackViewModelProvider.notifier);
+    playbackNotifier.previous();
   }
 
   /// 播放下一首
   void _playNext(BuildContext context, WidgetRef ref) {
-    final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    final next = queueNotifier.playNext();
-
-    if (next != null) {
-      _playPlayable(context, ref, next);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有下一首了')),
-      );
-    }
+    final playbackNotifier = ref.read(playbackViewModelProvider.notifier);
+    playbackNotifier.next();
   }
 
   /// 播放可播放音频

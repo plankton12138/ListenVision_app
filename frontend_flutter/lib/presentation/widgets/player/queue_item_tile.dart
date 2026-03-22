@@ -6,6 +6,7 @@ import '../../../models/playable_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/local_playable.dart';
 import '../../../data/repositories/repository_providers.dart';
+import '../../viewmodels/player/playback_viewmodel.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
 import '../../viewmodels/library/playlist_viewmodel.dart';
 import '../../viewmodels/auth/auth_viewmodel.dart';
@@ -148,7 +149,16 @@ class QueueItemTile extends ConsumerWidget {
             () {
               AppLogger.logButtonClick('播放队列项', 'QueueItemTile',
                 parameters: {'index': index});
-              ref.read(queueViewModelProvider.notifier).playAt(index);
+              // 设置队列索引
+              ref.read(queueViewModelProvider.notifier).setCurrentIndex(index);
+              // 使用 PlaybackViewModel 播放
+              final queueState = ref.read(queueViewModelProvider);
+              if (index >= 0 && index < queueState.queue.length) {
+                ref.read(playbackViewModelProvider.notifier).play(
+                  queueState.queue[index],
+                  index: index,
+                );
+              }
             },
 
         onLongPress: onLongPress ??

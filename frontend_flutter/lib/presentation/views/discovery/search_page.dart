@@ -6,6 +6,7 @@ import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/search_suggestion.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/discovery/search_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/download_status_indicator.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
@@ -58,12 +59,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       // 创建 OnlinePlayable 对象（自动生成代理 URL）并添加到队列
       final playable = OnlinePlayable.withProxyUrl(audio);
-      await ref.read(queueViewModelProvider.notifier).add(playable, playImmediately: true);
+      final queueNotifier = ref.read(queueViewModelProvider.notifier);
+      await queueNotifier.add(playable, playImmediately: true);
 
-      // 通过 QueueViewModel 触发播放（避免与 PlayerViewModel 直接调用产生竞态）
-      final queueIndex = ref.read(queueViewModelProvider).queue.length - 1;
+      // 播放当前实际选中的队列项。
+      // 不能使用 queue.length - 1，因为去重命中时当前项可能不是末尾。
+      final queueIndex = ref.read(queueViewModelProvider).currentIndex;
       if (queueIndex >= 0) {
-        await ref.read(queueViewModelProvider.notifier).playAt(queueIndex);
+        final queueState = ref.read(queueViewModelProvider);
+        if (queueIndex < queueState.queue.length) {
+          // 使用 PlaybackViewModel 播放
+          ref.read(playbackViewModelProvider.notifier).play(
+            queueState.queue[queueIndex],
+            index: queueIndex,
+          );
+        }
       }
 
       // 显示播放提示

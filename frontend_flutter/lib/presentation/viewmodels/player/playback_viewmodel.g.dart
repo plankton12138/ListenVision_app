@@ -77,7 +77,7 @@ final class PlaybackViewModelProvider
   }
 }
 
-String _$playbackViewModelHash() => r'71eed8423472a9550760614a91b6a428589eacb6';
+String _$playbackViewModelHash() => r'fe20610432cec1f5a37f97108f1ce10d50b23c03';
 
 /// 播放控制器 ViewModel
 ///
@@ -157,51 +157,3 @@ final class AudioPlayerServiceProvider
 
 String _$audioPlayerServiceHash() =>
     r'92102d1c8bbcc116200f5493d4e24bc7a5269b7f';
-
-@ProviderFor(sharedStorageService)
-final sharedStorageServiceProvider = SharedStorageServiceProvider._();
-
-final class SharedStorageServiceProvider
-    extends
-        $FunctionalProvider<
-          SharedStorageService,
-          SharedStorageService,
-          SharedStorageService
-        >
-    with $Provider<SharedStorageService> {
-  SharedStorageServiceProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'sharedStorageServiceProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$sharedStorageServiceHash();
-
-  @$internal
-  @override
-  $ProviderElement<SharedStorageService> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
-
-  @override
-  SharedStorageService create(Ref ref) {
-    return sharedStorageService(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(SharedStorageService value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<SharedStorageService>(value),
-    );
-  }
-}
-
-String _$sharedStorageServiceHash() =>
-    r'df792e9db096eeedfe0f22cac72ea90a1712c709';

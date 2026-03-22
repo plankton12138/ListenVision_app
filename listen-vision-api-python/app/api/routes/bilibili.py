@@ -1,5 +1,6 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, Request, Response
+from typing import Optional, Tuple
+from fastapi import APIRouter, Depends, Request, Response, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user, get_current_user_optional
@@ -85,9 +86,18 @@ async def get_audio_streams(bvid: str):
 
 
 @router.get("/video/{bvid}/subtitle", response_model=ApiResponse[SubtitleResponse])
-async def get_subtitles(bvid: str):
+async def get_subtitles(
+    bvid: str,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
     """获取字幕"""
-    subtitles = await BilibiliService.get_subtitles(bvid)
+    credential = None
+    if current_user:
+        auth_service = BilibiliAuthService(db)
+        credential = await auth_service.get_credential(current_user.id)
+
+    subtitles = await BilibiliService.get_subtitles(bvid, credential=credential)
     return ApiResponse(success=True, data=subtitles)
 
 
@@ -134,13 +144,15 @@ async def proxy_audio(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    代理音频流，支持 Range 请求
+    流式代理音频，支持 Range 请求
 
-    用于播放B站音频，支持断点续传。
+    用于播放B站音频，边下载边返回，显著降低启动延迟。
     支持游客模式（无需登录）。
-    如果用户已绑定B站账号，使用其凭证获取更高质量的音频流。
     """
+    from app.utils.logger import logger
+
     range_header = request.headers.get("range")
+    logger.info(f"流式音频代理: bvid={bvid}, range={range_header}")
 
     # 获取用户 B站凭证（如果已登录且已绑定）
     credential = None
@@ -148,22 +160,49 @@ async def proxy_audio(
         auth_service = BilibiliAuthService(db)
         credential = await auth_service.get_credential(current_user.id)
 
-    data, content_type, total_size, start = await BilibiliService.proxy_audio_stream(
-        bvid, credential=credential, range_header=range_header
-    )
+    try:
+        # 获取流信息
+        url, content_length, headers = await BilibiliService.get_audio_stream_info(bvid, credential)
 
-    headers = {
-        "Content-Type": content_type,
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(len(data)),
-    }
+        # 构建响应头
+        response_headers = {
+            "Content-Type": headers["content-type"],
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+        }
 
-    if range_header:
-        end = start + len(data) - 1
-        headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
-        return Response(content=data, status_code=206, headers=headers)
+        # 处理 Range 请求
+        if range_header:
+            # 解析 Range 头
+            start, end = _parse_range_header(range_header, content_length)
+            if start >= content_length:
+                return Response(status_code=416, headers={"Content-Range": f"bytes */{content_length}"})
 
-    return Response(content=data, headers=headers)
+            # 构建子范围请求头
+            range_request_header = f"bytes={start}-{end}"
+            response_headers["Content-Range"] = f"bytes {start}-{end}/{content_length}"
+            response_headers["Content-Length"] = str(end - start + 1)
+
+            logger.info(f"流式代理范围: {range_request_header}")
+
+            return StreamingResponse(
+                BilibiliService.stream_audio_proxy(bvid, credential, range_request_header),
+                status_code=206,
+                headers=response_headers,
+                media_type=headers["content-type"]
+            )
+        else:
+            response_headers["Content-Length"] = str(content_length)
+
+            return StreamingResponse(
+                BilibiliService.stream_audio_proxy(bvid, credential),
+                headers=response_headers,
+                media_type=headers["content-type"]
+            )
+
+    except Exception as e:
+        logger.error(f"流式音频代理失败: bvid={bvid}, error={e}")
+        raise HTTPException(status_code=500, detail=f"音频代理失败: {str(e)}")
 
 
 # ==================== UP主功能 ====================
@@ -250,3 +289,30 @@ async def refresh_cookie(
     )
 
     return ApiResponse(success=True, message="Cookie 刷新成功")
+
+
+# ==================== 辅助函数 ====================
+
+def _parse_range_header(range_header: str, total_size: int) -> Tuple[int, int]:
+    """
+    解析 Range 请求头
+
+    Args:
+        range_header: Range 头值，如 "bytes=0-1023"
+        total_size: 文件总大小
+
+    Returns:
+        元组 (start, end)
+    """
+    if not range_header.startswith("bytes="):
+        return 0, total_size - 1
+
+    range_spec = range_header[6:]  # 去掉 "bytes="
+    if "-" not in range_spec:
+        return 0, total_size - 1
+
+    parts = range_spec.split("-")
+    start = int(parts[0]) if parts[0] else 0
+    end = int(parts[1]) if parts[1] else total_size - 1
+
+    return start, min(end, total_size - 1)

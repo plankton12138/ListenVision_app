@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -34,6 +35,9 @@ abstract class PlaybackState with _$PlaybackState {
 
     /// 封面 URL
     String? coverUrl,
+
+    /// 封面数据（本地音频）
+    Uint8List? coverData,
 
     /// 是否正在播放
     @Default(false) bool isPlaying,
@@ -221,6 +225,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       title: playable.title,
       artist: playable.artist ?? '未知艺术家',
       coverUrl: playable.coverUrl,
+      coverData: playable.coverData,
       currentIndex: index,
       isLoading: true,
       errorMessage: null,

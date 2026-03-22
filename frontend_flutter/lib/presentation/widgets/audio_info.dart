@@ -55,9 +55,9 @@ class AudioInfo extends ConsumerWidget {
   /// 3. 默认封面图片
   Widget _buildAlbumArtContent(BuildContext context, playerState) {
     // 优先级1: 本地音频封面 (Uint8List)
-    if (playerState.albumArt != null) {
+    if (playerState.coverData != null) {
       return Image.memory(
-        playerState.albumArt!,
+        playerState.coverData!,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           AppLogger.error('AudioInfo', '本地封面解析失败: $error');

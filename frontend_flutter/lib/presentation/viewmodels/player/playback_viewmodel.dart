@@ -243,9 +243,14 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       _recordHistory(playable);
     } catch (e) {
       AppLogger.error('PlaybackViewModel', '播放失败: $e');
+
+      // 分类错误并获取用户友好消息
+      final errorType = classifyError(e);
+      final userMessage = getUserFriendlyMessage(errorType);
+
       state = state.copyWith(
         isLoading: false,
-        errorMessage: '播放失败: $e',
+        errorMessage: userMessage,
       );
     }
   }

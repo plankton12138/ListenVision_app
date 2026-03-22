@@ -26,6 +26,81 @@ enum AudioPlaybackState {
   idle,
 }
 
+/// 音频播放错误类型
+///
+/// 用于分类播放过程中可能出现的各种错误，
+/// 并提供用户友好的错误提示信息。
+enum AudioPlayerErrorType {
+  /// 源加载失败
+  sourceLoadFailed,
+
+  /// 网络错误
+  networkError,
+
+  /// 文件不存在
+  fileNotFound,
+
+  /// 格式不支持
+  formatNotSupported,
+
+  /// 平台错误
+  platformError,
+
+  /// 未知错误
+  unknown,
+}
+
+/// 根据异常分类错误类型
+///
+/// [error] 异常对象或错误消息
+/// 返回对应的错误类型枚举
+AudioPlayerErrorType classifyError(dynamic error) {
+  final errorString = error.toString().toLowerCase();
+
+  if (errorString.contains('windowsaudioerror') ||
+      errorString.contains('platformexception')) {
+    return AudioPlayerErrorType.platformError;
+  }
+  if (errorString.contains('network') ||
+      errorString.contains('socket') ||
+      errorString.contains('timeout') ||
+      errorString.contains('connection')) {
+    return AudioPlayerErrorType.networkError;
+  }
+  if (errorString.contains('file not found') ||
+      errorString.contains('enoent') ||
+      errorString.contains('could not find') ||
+      errorString.contains('no such file')) {
+    return AudioPlayerErrorType.fileNotFound;
+  }
+  if (errorString.contains('format') ||
+      errorString.contains('unsupported') ||
+      errorString.contains('invalid audio')) {
+    return AudioPlayerErrorType.formatNotSupported;
+  }
+  if (errorString.contains('source') ||
+      errorString.contains('load failed') ||
+      errorString.contains('failed to load')) {
+    return AudioPlayerErrorType.sourceLoadFailed;
+  }
+  return AudioPlayerErrorType.unknown;
+}
+
+/// 获取用户友好的错误消息
+///
+/// [type] 错误类型
+/// 返回中文用户友好错误提示
+String getUserFriendlyMessage(AudioPlayerErrorType type) {
+  return switch (type) {
+    AudioPlayerErrorType.sourceLoadFailed => '音频源加载失败，请重试',
+    AudioPlayerErrorType.networkError => '网络连接失败，请检查网络',
+    AudioPlayerErrorType.fileNotFound => '音频文件不存在或已被删除',
+    AudioPlayerErrorType.formatNotSupported => '音频格式不支持',
+    AudioPlayerErrorType.platformError => '播放器初始化失败，请重启应用',
+    AudioPlayerErrorType.unknown => '播放失败，请重试',
+  };
+}
+
 /// 音频播放服务
 ///
 /// 封装 audioplayers 包的核心功能，提供统一的播放控制接口。
@@ -214,14 +289,31 @@ class AudioPlayerService {
     _currentSourceUrl = filePath;
   }
 
-  /// 播放在线URL
+  /// 播放在线URL（带重试）
   ///
   /// [url] 在线音频流的 URL 地址
-  Future<void> playUrl(String url) async {
+  /// [maxRetries] 最大重试次数（默认 2）
+  Future<void> playUrl(String url, {int maxRetries = 2}) async {
     if (_disposed) return;
-    AppLogger.info('AudioPlayerService', '播放在线URL: $url');
-    await _player.play(UrlSource(url));
-    _currentSourceUrl = url;
+
+    int attempt = 0;
+    while (attempt <= maxRetries) {
+      try {
+        AppLogger.info('AudioPlayerService', '播放在线URL (尝试 ${attempt + 1}): $url');
+        await _player.play(UrlSource(url));
+        _currentSourceUrl = url;
+        return; // 成功，退出重试循环
+      } catch (e) {
+        attempt++;
+        if (attempt > maxRetries) {
+          AppLogger.error('AudioPlayerService', '播放失败，已重试 $maxRetries 次: $e');
+          rethrow;
+        }
+        // 等待后重试（递增延迟）
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+        AppLogger.warn('AudioPlayerService', '播放失败，准备重试 ($attempt/$maxRetries): $e');
+      }
+    }
   }
 
   /// 播放 Asset 资源

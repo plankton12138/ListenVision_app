@@ -14,7 +14,7 @@ class PlayerActionBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerViewModelProvider);
+    final playerState = ref.watch(playbackViewModelProvider);
     final playlistAsync = ref.watch(playlistViewModelProvider);
 
     final currentId = playerState.currentPlayable?.id ?? '';
@@ -69,7 +69,7 @@ class PlayerActionBar extends ConsumerWidget {
   ) async {
     final isLoggedIn = ref.read(isLoggedInProvider);
     final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-    final playerState = ref.read(playerViewModelProvider);
+    final playerState = ref.read(playbackViewModelProvider);
     final token = ref.read(authTokenProvider);
 
     if (!isLoggedIn) {
@@ -127,7 +127,7 @@ class PlayerActionBar extends ConsumerWidget {
 
   /// 处理添加到歌单
   void _handleAddToPlaylist(BuildContext context, WidgetRef ref) {
-    final playerState = ref.read(playerViewModelProvider);
+    final playerState = ref.read(playbackViewModelProvider);
     final currentPlayable = playerState.currentPlayable;
 
     if (currentPlayable == null) {
@@ -152,7 +152,7 @@ class PlayerActionBar extends ConsumerWidget {
 
   /// 处理更多选项
   void _handleMore(BuildContext context, WidgetRef ref) {
-    final playerState = ref.read(playerViewModelProvider);
+    final playerState = ref.read(playbackViewModelProvider);
     final currentPlayable = playerState.currentPlayable;
 
     if (currentPlayable == null) {

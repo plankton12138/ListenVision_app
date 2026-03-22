@@ -14,7 +14,7 @@ class AudioInfo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerViewModelProvider);
+    final playerState = ref.watch(playbackViewModelProvider);
 
     return GestureDetector(
       onTap: () {

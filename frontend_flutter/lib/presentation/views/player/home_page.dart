@@ -273,7 +273,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
 
       // 开始播放
-      final playerNotifier = ref.read(playerViewModelProvider.notifier);
+      final playerNotifier = ref.read(playbackViewModelProvider.notifier);
       await playerNotifier.playOnlineAudio(audio: audio);
 
       AppLogger.info('HomePage', '在线音频播放成功：${audio.title}');
@@ -318,7 +318,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
 
       // 开始播放
-      final playerNotifier = ref.read(playerViewModelProvider.notifier);
+      final playerNotifier = ref.read(playbackViewModelProvider.notifier);
       await playerNotifier.playLocalAudio(
         localAudio.filePath,
         title: localAudio.title,
@@ -426,7 +426,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               height: 100,
               child: SubtitleView(
                 onSeek: (position) {
-                  ref.read(playerViewModelProvider.notifier).seek(position);
+                  ref.read(playbackViewModelProvider.notifier).seek(position);
                 },
               ),
             ),

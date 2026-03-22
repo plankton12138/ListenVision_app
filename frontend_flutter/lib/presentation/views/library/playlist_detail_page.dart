@@ -712,7 +712,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
       // 直接播放本地音频
       await ref
-          .read(playerViewModelProvider.notifier)
+          .read(playbackViewModelProvider.notifier)
           .playLocalAudio(
             localAudio.filePath,
             title: localAudio.title,

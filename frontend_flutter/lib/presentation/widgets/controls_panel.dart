@@ -16,8 +16,8 @@ class ControlsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerViewModelProvider);
-    final playerViewModel = ref.read(playerViewModelProvider.notifier);
+    final playerState = ref.watch(playbackViewModelProvider);
+    final playerViewModel = ref.read(playbackViewModelProvider.notifier);
 
     // 无播放内容时显示提示
     if (playerState.currentPlayable == null && playerState.isIdle) {
@@ -63,7 +63,7 @@ class ControlsPanel extends ConsumerWidget {
 
   /// 播放可播放音频
   void _playPlayable(BuildContext context, WidgetRef ref, PlayableAudio playable) {
-    final playerViewModel = ref.read(playerViewModelProvider.notifier);
+    final playerViewModel = ref.read(playbackViewModelProvider.notifier);
 
     if (playable.isOnline) {
       // 在线音频

@@ -321,7 +321,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       // 开始播放第一首
       final firstItem = queueItems.first;
       if (firstItem is OnlinePlayable) {
-        await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
+        await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(
           audio: firstItem.original,
           proxyUrl: firstItem.proxyUrl,
         );
@@ -442,12 +442,12 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       // 播放点击的歌曲（使用 startIndex）
       final clickedPlayable = queueItems[startIndex];
       if (clickedPlayable is OnlinePlayable) {
-        await ref.read(playerViewModelProvider.notifier).playOnlineAudio(
+        await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(
           audio: clickedPlayable.original,
           proxyUrl: clickedPlayable.proxyUrl,
         );
       } else if (clickedPlayable is LocalPlayable) {
-        await ref.read(playerViewModelProvider.notifier).playLocalAudio(
+        await ref.read(playbackViewModelProvider.notifier).playLocalAudio(
           clickedPlayable.original.filePath,
           title: clickedPlayable.original.title,
           artist: clickedPlayable.original.artist,

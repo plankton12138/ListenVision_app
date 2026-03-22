@@ -507,7 +507,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         coverUrl: item.coverUrl,
       );
 
-      await ref.read(playerViewModelProvider.notifier).playOnlineAudio(audio: audio);
+      await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(audio: audio);
 
       if (mounted) {
         SnackbarHelper.showPlaying(context, item.title, artist: item.author);

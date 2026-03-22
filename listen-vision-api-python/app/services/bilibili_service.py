@@ -1,7 +1,11 @@
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, AsyncGenerator
 import httpx
 from bilibili_api import video, user, search, Credential
-from bilibili_api.exceptions import ResponseCodeException, ArgsException
+from bilibili_api.exceptions import (
+    ArgsException,
+    CredentialNoSessdataException,
+    ResponseCodeException,
+)
 
 from app.utils.logger import logger
 from app.utils.cache import cached
@@ -150,39 +154,50 @@ class BilibiliService:
             info = await v.get_info()
             cid = info["cid"]
 
-            # 获取字幕列表
-            subtitle_info = await v.get_subtitle(cid)
+            try:
+                # 获取字幕列表
+                subtitle_info = await v.get_subtitle(cid)
+            except CredentialNoSessdataException:
+                logger.info(f"字幕需要登录 [{bvid}]: 未提供有效 sessdata")
+                return SubtitleResponse(
+                    bvid=bvid,
+                    cid=cid,
+                    subtitles=[],
+                    need_login=True,
+                )
 
             subtitles = []
-            for sub in subtitle_info.get("subtitles", []):
-                # 获取字幕内容
-                sub_url = sub["subtitle_url"]
-                if sub_url.startswith("//"):
-                    sub_url = f"https:{sub_url}"
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                for sub in subtitle_info.get("subtitles", []):
+                    # 获取字幕内容
+                    sub_url = sub["subtitle_url"]
+                    if sub_url.startswith("//"):
+                        sub_url = f"https:{sub_url}"
 
-                async with httpx.AsyncClient() as client:
                     resp = await client.get(sub_url, headers=BILIBILI_HEADERS)
+                    resp.raise_for_status()
                     sub_data = resp.json()
 
-                lines = [
-                    SubtitleLine(
-                        from_time=line["from"],
-                        to_time=line["to"],
-                        content=line["content"]
-                    )
-                    for line in sub_data.get("body", [])
-                ]
+                    lines = [
+                        SubtitleLine(
+                            from_time=line["from"],
+                            to_time=line["to"],
+                            content=line["content"]
+                        )
+                        for line in sub_data.get("body", [])
+                    ]
 
-                subtitles.append(SubtitleInfo(
-                    lan=sub["lan"],
-                    lan_doc=sub["lan_doc"],
-                    lines=lines
-                ))
+                    subtitles.append(SubtitleInfo(
+                        lan=sub["lan"],
+                        lan_doc=sub["lan_doc"],
+                        lines=lines
+                    ))
 
             return SubtitleResponse(
                 bvid=bvid,
                 cid=cid,
-                subtitles=subtitles
+                subtitles=subtitles,
+                need_login=False,
             )
         except ResponseCodeException as e:
             logger.error(f"获取字幕失败: {e.code} - {e.msg}")
@@ -318,6 +333,73 @@ class BilibiliService:
                         start = int(range_parts[0])
 
             return response.content, content_type, total_size, start
+
+    @staticmethod
+    async def stream_audio_proxy(
+        bvid: str,
+        credential: Optional[Credential] = None,
+        range_header: Optional[str] = None
+    ) -> AsyncGenerator[bytes, None]:
+        """
+        流式代理音频，边从 B站下载边返回
+
+        Args:
+            bvid: 视频BV号
+            credential: B站认证凭证（可选）
+            range_header: Range请求头（可选）
+
+        Yields:
+            音频数据块
+        """
+        streams = await BilibiliService.get_audio_streams(bvid, credential)
+        if not streams.streams:
+            raise ValueError("无可用音频流")
+
+        stream = streams.streams[0]
+        url = stream.url
+
+        headers = BILIBILI_HEADERS.copy()
+        if range_header:
+            headers["Range"] = range_header
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            async with client.stream("GET", url, headers=headers, follow_redirects=True) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_bytes(chunk_size=65536):  # 64KB chunks
+                    yield chunk
+
+    @staticmethod
+    async def get_audio_stream_info(
+        bvid: str,
+        credential: Optional[Credential] = None
+    ) -> Tuple[str, int, dict]:
+        """
+        获取音频流信息（URL、大小、请求头）
+
+        Args:
+            bvid: 视频BV号
+            credential: B站认证凭证（可选）
+
+        Returns:
+            元组 (音频URL, 内容长度, 响应头字典)
+        """
+        streams = await BilibiliService.get_audio_streams(bvid, credential)
+        if not streams.streams:
+            raise ValueError("无可用音频流")
+
+        stream = streams.streams[0]
+        url = stream.url
+
+        # 发送 HEAD 请求获取元信息
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.head(url, headers=BILIBILI_HEADERS, follow_redirects=True)
+            content_length = int(response.headers.get("content-length", 0))
+            content_type = response.headers.get("content-type", "audio/mp4")
+
+            return url, content_length, {
+                "content-type": content_type,
+                "accept-ranges": "bytes",
+            }
 
     # ==================== UP主功能 ====================
 

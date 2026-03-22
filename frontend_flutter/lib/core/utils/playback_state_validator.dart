@@ -61,24 +61,32 @@ class PlaybackStateValidator {
   ///
   /// 尝试自动修复以下问题：
   /// - isPlaying=true 但 currentPlayable=null -> 设置 isPlaying=false
+  /// - currentIndex>=0 但 currentPlayable=null -> 设置 currentIndex=-1
   /// - isLoading 和 isPlaying 同时为 true -> 设置 isPlaying=false
   /// - isPlaying 和 isPaused 同时为 true -> 设置 isPaused=false
   static PlaybackState repair(PlaybackState state) {
+    var repaired = state;
+
     // 如果播放中但没有当前音频，停止播放
-    if (state.isPlaying && state.currentPlayable == null) {
-      return state.copyWith(isPlaying: false);
+    if (repaired.isPlaying && repaired.currentPlayable == null) {
+      repaired = repaired.copyWith(isPlaying: false);
     }
 
-    // 如果加载中和播放同时为 true，停止播放
-    if (state.isLoading && state.isPlaying) {
-      return state.copyWith(isPlaying: false);
+    // 如果有有效索引但没有当前音频，重置索引为 -1
+    if (repaired.currentIndex >= 0 && repaired.currentPlayable == null) {
+      repaired = repaired.copyWith(currentIndex: -1);
     }
 
-    // 如果播放和暂停同时为 true，取消暂停
-    if (state.isPlaying && state.isPaused) {
-      return state.copyWith(isPaused: false);
+    // 如果加载中同时播放，停止播放
+    if (repaired.isLoading && repaired.isPlaying) {
+      repaired = repaired.copyWith(isPlaying: false);
     }
 
-    return state;
+    // 如果同时播放和暂停，取消暂停
+    if (repaired.isPlaying && repaired.isPaused) {
+      repaired = repaired.copyWith(isPaused: false);
+    }
+
+    return repaired;
   }
 }

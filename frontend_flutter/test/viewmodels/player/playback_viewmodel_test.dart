@@ -1070,6 +1070,17 @@ void main() {
       expect(result.issues, isEmpty);
     });
 
+    test('repair 应重置无效的 currentIndex', () {
+      // Arrange
+      final state = PlaybackState(currentIndex: 5, currentPlayable: null);
+
+      // Act
+      final repaired = PlaybackStateValidator.repair(state);
+
+      // Assert
+      expect(repaired.currentIndex, -1);
+    });
+
     test('repair 应修复 isPlaying=true 且 currentPlayable=null 的不一致', () {
       // Arrange
       final state = PlaybackState(isPlaying: true, currentPlayable: null);

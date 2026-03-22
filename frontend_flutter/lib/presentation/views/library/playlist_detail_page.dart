@@ -1,5 +1,6 @@
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
@@ -711,14 +712,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       }
 
       // 直接播放本地音频
+      final playable = LocalPlayable(localAudio);
       await ref
           .read(playbackViewModelProvider.notifier)
-          .playLocalAudio(
-            localAudio.filePath,
-            title: localAudio.title,
-            artist: localAudio.artist,
-            albumArt: localAudio.albumArt,
-          );
+          .play(playable);
 
       // 显示播放提示
       if (mounted) {

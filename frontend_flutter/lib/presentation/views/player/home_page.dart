@@ -3,6 +3,7 @@ import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
+import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
@@ -274,7 +275,8 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       // 开始播放
       final playerNotifier = ref.read(playbackViewModelProvider.notifier);
-      await playerNotifier.playOnlineAudio(audio: audio);
+      final playable = OnlinePlayable.withProxyUrl(audio);
+      await playerNotifier.play(playable);
 
       AppLogger.info('HomePage', '在线音频播放成功：${audio.title}');
     } catch (e) {
@@ -319,12 +321,8 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       // 开始播放
       final playerNotifier = ref.read(playbackViewModelProvider.notifier);
-      await playerNotifier.playLocalAudio(
-        localAudio.filePath,
-        title: localAudio.title,
-        artist: localAudio.artist,
-        albumArt: localAudio.albumArt,
-      );
+      final playable = LocalPlayable(localAudio);
+      await playerNotifier.play(playable);
 
       AppLogger.info('HomePage', '本地音频播放成功：${localAudio.title}');
     } catch (e) {

@@ -20,7 +20,7 @@ class ControlsPanel extends ConsumerWidget {
     final playerViewModel = ref.read(playbackViewModelProvider.notifier);
 
     // 无播放内容时显示提示
-    if (playerState.currentPlayable == null && playerState.isIdle) {
+    if (playerState.currentPlayable == null) {
       return const Padding(
         padding: EdgeInsets.all(32),
         child: Center(
@@ -64,24 +64,7 @@ class ControlsPanel extends ConsumerWidget {
   /// 播放可播放音频
   void _playPlayable(BuildContext context, WidgetRef ref, PlayableAudio playable) {
     final playerViewModel = ref.read(playbackViewModelProvider.notifier);
-
-    if (playable.isOnline) {
-      // 在线音频
-      if (playable is OnlinePlayable) {
-        playerViewModel.playOnlineAudio(
-          audio: playable.original,
-          proxyUrl: playable.proxyUrl,
-        );
-      }
-    } else {
-      // 本地音频 - 使用 url 属性获取文件路径，传递已保存的元数据
-      playerViewModel.playLocalAudio(
-        playable.url,
-        title: playable.title,
-        artist: playable.artist,
-        albumArt: playable.coverData,
-      );
-    }
+    playerViewModel.play(playable);
   }
 
   /// 构建时间显示
@@ -99,15 +82,15 @@ class ControlsPanel extends ConsumerWidget {
     final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || playerState.isPlaying);
 
     // UX改进：优先显示错误状态（最优先）
-    if (playerState.hasError) {
+    if (playerState.errorMessage != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 16),
           const SizedBox(width: 4),
           Text(
-            playerState.statusMessage.isNotEmpty
-                ? playerState.statusMessage
+            playerState.errorMessage!.isNotEmpty
+                ? playerState.errorMessage!
                 : '播放失败',
             style: const TextStyle(color: Colors.red),
           ),
@@ -174,7 +157,7 @@ class ControlsPanel extends ConsumerWidget {
     }
 
     // 空闲状态
-    if (playerState.isIdle) {
+    if (playerState.currentPlayable == null) {
       return const Text(
         '就绪',
         style: TextStyle(color: Colors.grey),
@@ -211,16 +194,17 @@ class ControlsPanel extends ConsumerWidget {
     final hasValidDuration = durationSec > 0;
 
     // UX改进：有错误时显示重试提示
-    if (playerState.hasError) {
+    if (playerState.errorMessage != null) {
       return SizedBox(
         height: 48,
         child: Center(
           child: TextButton.icon(
             onPressed: () {
               AppLogger.logButtonClick('重试', 'ControlsPanel');
-              // 使用 ViewModel 的 clearError 方法而不是 state 的扩展方法
-              playerViewModel.clearError();
-              playerViewModel.togglePlayPause();
+              // 重试播放当前音频
+              if (playerState.currentPlayable != null) {
+                playerViewModel.play(playerState.currentPlayable!);
+              }
             },
             icon: const Icon(Icons.refresh, color: Colors.blue),
             label: const Text(

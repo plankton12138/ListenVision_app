@@ -1,6 +1,7 @@
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
+import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/discovery/explore_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
@@ -507,7 +508,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         coverUrl: item.coverUrl,
       );
 
-      await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(audio: audio);
+      final playable = OnlinePlayable.withProxyUrl(audio);
+      await ref.read(playbackViewModelProvider.notifier).play(playable);
 
       if (mounted) {
         SnackbarHelper.showPlaying(context, item.title, artist: item.author);

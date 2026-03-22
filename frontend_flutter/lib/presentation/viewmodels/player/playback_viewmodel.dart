@@ -12,6 +12,7 @@ import '../../../models/playable_audio.dart';
 import '../../../models/play_mode.dart';
 import '../../../services/audio_player_service.dart';
 import '../library/history_viewmodel.dart';
+import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
 import 'queue_viewmodel.dart';
 import 'subtitle_viewmodel.dart';
 
@@ -85,6 +86,9 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   Timer? _positionSaveTimer;
   bool _disposed = false;
 
+  /// Stream 订阅列表
+  final List<StreamSubscription> _subscriptions = [];
+
   /// 初始化完成回调列表
   final List<void Function()> _onInitializedCallbacks = [];
 
@@ -100,6 +104,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       if (!_disposed) {
         _disposed = true;
         _positionSaveTimer?.cancel();
+        // 取消所有 Stream 订阅
+        for (final sub in _subscriptions) {
+          sub.cancel();
+        }
+        _subscriptions.clear();
         _audioService?.dispose();
       }
     });
@@ -148,29 +157,37 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   void _initListeners() {
     // 位置变化监听
-    _audioService!.positionStream.listen((position) {
-      if (_disposed) return;
-      state = state.copyWith(position: position);
-      ref.read(subtitleViewModelProvider.notifier).updatePosition(position);
-    });
+    _subscriptions.add(
+      _audioService!.positionStream.listen((position) {
+        if (_disposed) return;
+        state = state.copyWith(position: position);
+        ref.read(subtitleViewModelProvider.notifier).updatePosition(position);
+      }),
+    );
 
     // 时长变化监听
-    _audioService!.durationStream.listen((duration) {
-      if (_disposed) return;
-      state = state.copyWith(duration: duration);
-    });
+    _subscriptions.add(
+      _audioService!.durationStream.listen((duration) {
+        if (_disposed) return;
+        state = state.copyWith(duration: duration);
+      }),
+    );
 
     // 播放状态监听
-    _audioService!.playerStateStream.listen((playerState) {
-      if (_disposed) return;
-      _onPlayerStateChanged(playerState);
-    });
+    _subscriptions.add(
+      _audioService!.playerStateStream.listen((playerState) {
+        if (_disposed) return;
+        _onPlayerStateChanged(playerState);
+      }),
+    );
 
     // 播放完成监听
-    _audioService!.onPlayerComplete.listen((_) {
-      if (_disposed) return;
-      _onPlaybackComplete();
-    });
+    _subscriptions.add(
+      _audioService!.onPlayerComplete.listen((_) {
+        if (_disposed) return;
+        _onPlaybackComplete();
+      }),
+    );
   }
 
   void _onPlayerStateChanged(dynamic playerState) {
@@ -326,23 +343,27 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   void _playNextAutomatically() async {
-    final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    final queueState = ref.read(queueViewModelProvider);
-    if (queueState.playMode == PlayMode.sequence && !queueNotifier.hasNext) {
-      AppLogger.debug('PlaybackViewModel', '已是最后一首，停止');
-      return;
-    }
-
-    if (queueState.playMode == PlayMode.loopOne) {
-      // 单曲循环
-      final current = state.currentPlayable;
-      if (current != null) {
-        await play(current, index: queueState.currentIndex);
+    try {
+      final queueNotifier = ref.read(queueViewModelProvider.notifier);
+      final queueState = ref.read(queueViewModelProvider);
+      if (queueState.playMode == PlayMode.sequence && !queueNotifier.hasNext) {
+        AppLogger.debug('PlaybackViewModel', '已是最后一首，停止');
+        return;
       }
-      return;
-    }
 
-    await next();
+      if (queueState.playMode == PlayMode.loopOne) {
+        // 单曲循环
+        final current = state.currentPlayable;
+        if (current != null) {
+          await play(current, index: queueState.currentIndex);
+        }
+        return;
+      }
+
+      await next();
+    } catch (e) {
+      AppLogger.error('PlaybackViewModel', '自动播放下一首失败: $e');
+    }
   }
 
   // ==================== 音量/倍速 ====================
@@ -452,9 +473,4 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 @riverpod
 AudioPlayerService audioPlayerService(Ref ref) {
   return AudioPlayerService();
-}
-
-@riverpod
-SharedStorageService sharedStorageService(Ref ref) {
-  return SharedStorageService.instance;
 }

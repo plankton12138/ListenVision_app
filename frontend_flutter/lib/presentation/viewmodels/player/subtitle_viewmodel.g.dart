@@ -73,7 +73,7 @@ final class SubtitleViewModelProvider
   }
 }
 
-String _$subtitleViewModelHash() => r'be5be93eae0826357c829b771cfa557b80609145';
+String _$subtitleViewModelHash() => r'05302ffb32228f37bb2869feaa3db42f29c52ad2';
 
 abstract class _$SubtitleViewModel extends $Notifier<SubtitleState> {
   SubtitleState build();

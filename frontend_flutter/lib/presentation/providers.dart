@@ -34,7 +34,6 @@ export '../models/subtitle.dart';
 export 'viewmodels/player/playback_viewmodel.dart' show playbackViewModelProvider;
 export 'viewmodels/player/playback_viewmodel.dart' show PlaybackState;
 export 'viewmodels/player/playback_viewmodel.dart' show audioPlayerServiceProvider;
-export 'viewmodels/player/playback_viewmodel.dart' show sharedStorageServiceProvider;
 // QueueViewModel - 播放队列管理
 export 'viewmodels/player/queue_viewmodel.dart' show queueViewModelProvider;
 export 'viewmodels/player/queue_viewmodel.dart' show QueueState;
@@ -45,6 +44,7 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 // ==================== 资源库相关 ====================
 export 'viewmodels/library/playlist_viewmodel.dart' show playlistViewModelProvider;
 export 'viewmodels/library/playlist_viewmodel.dart' show PlaylistState;
+export 'viewmodels/library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show playlistDetailViewModelProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show PlaylistDetailState;
 export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;

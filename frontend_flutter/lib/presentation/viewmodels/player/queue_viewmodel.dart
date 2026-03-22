@@ -13,8 +13,7 @@ import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
 import '../auth/auth_viewmodel.dart' show isLoggedInProvider;
-import '../library/playlist_viewmodel.dart' show playlistViewModelProvider;
-import 'player_viewmodel.dart' show sharedStorageServiceProvider;
+import '../library/playlist_viewmodel.dart' show playlistViewModelProvider, sharedStorageServiceProvider;
 
 part 'queue_viewmodel.freezed.dart';
 part 'queue_viewmodel.g.dart';

@@ -30,9 +30,15 @@ export 'viewmodels/player/subtitle_viewmodel.dart';
 export '../data/repositories/subtitle_repository.dart';
 export '../models/subtitle.dart';
 // ==================== 播放器相关 ====================
-export 'viewmodels/player/player_viewmodel.dart' show playerViewModelProvider;
-export 'viewmodels/player/player_viewmodel.dart' show audioPlayerServiceProvider;
+// PlaybackViewModel - 新的播放控制器
+export 'viewmodels/player/playback_viewmodel.dart' show playbackViewModelProvider;
+export 'viewmodels/player/playback_viewmodel.dart' show PlaybackState;
+export 'viewmodels/player/playback_viewmodel.dart' show audioPlayerServiceProvider;
+export 'viewmodels/player/playback_viewmodel.dart' show sharedStorageServiceProvider;
+// QueueViewModel - 播放队列管理
 export 'viewmodels/player/queue_viewmodel.dart' show queueViewModelProvider;
+export 'viewmodels/player/queue_viewmodel.dart' show QueueState;
+// MetadataViewModel - 元数据提取
 export 'viewmodels/player/metadata_viewmodel.dart' show metadataViewModelProvider;
 export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 

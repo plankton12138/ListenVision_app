@@ -1,4 +1,5 @@
-from typing import Optional, Tuple
+from typing import Optional
+import httpx
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_current_user, get_current_user_optional
 from app.services.bilibili_service import BilibiliService
 from app.services.bilibili_auth_service import BilibiliAuthService
+from app.utils.bilibili import BILIBILI_HEADERS
 from app.schemas.bilibili import (
     VideoInfo, AudioStreamsResponse, SubtitleResponse,
     SearchResponse, QRCodeResponse, QRCodeCheckResponse,
@@ -161,45 +163,51 @@ async def proxy_audio(
         credential = await auth_service.get_credential(current_user.id)
 
     try:
-        # 获取流信息
-        url, content_length, headers = await BilibiliService.get_audio_stream_info(bvid, credential)
+        # 获取流信息（不使用 HEAD 请求的 content-length，因为它可能不准确）
+        streams = await BilibiliService.get_audio_streams(bvid, credential)
+        if not streams.streams:
+            raise ValueError("无可用音频流")
+
+        stream = streams.streams[0]
+        url = stream.url
+
+        # 构建请求头
+        request_headers = BILIBILI_HEADERS.copy()
+        if range_header:
+            request_headers["Range"] = range_header
+
+        # 直接流式代理，透传 B站 CDN 的响应
+        # 不设置 Content-Length，让 StreamingResponse 自动处理
+        async def stream_with_headers():
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("GET", url, headers=request_headers, follow_redirects=True) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes(chunk_size=65536):
+                        yield chunk
 
         # 构建响应头
         response_headers = {
-            "Content-Type": headers["content-type"],
             "Accept-Ranges": "bytes",
             "Cache-Control": "public, max-age=3600",
         }
 
-        # 处理 Range 请求
-        if range_header:
-            # 解析 Range 头
-            start, end = _parse_range_header(range_header, content_length)
-            if start >= content_length:
-                return Response(status_code=416, headers={"Content-Range": f"bytes */{content_length}"})
+        # 直接返回流式响应，不设置 Content-Length
+        # B站 CDN 会正确处理 Range 请求
+        return StreamingResponse(
+            stream_with_headers(),
+            headers=response_headers,
+            media_type="audio/mp4"
+        )
 
-            # 构建子范围请求头
-            range_request_header = f"bytes={start}-{end}"
-            response_headers["Content-Range"] = f"bytes {start}-{end}/{content_length}"
-            response_headers["Content-Length"] = str(end - start + 1)
-
-            logger.info(f"流式代理范围: {range_request_header}")
-
-            return StreamingResponse(
-                BilibiliService.stream_audio_proxy(bvid, credential, range_request_header),
-                status_code=206,
-                headers=response_headers,
-                media_type=headers["content-type"]
-            )
-        else:
-            response_headers["Content-Length"] = str(content_length)
-
-            return StreamingResponse(
-                BilibiliService.stream_audio_proxy(bvid, credential),
-                headers=response_headers,
-                media_type=headers["content-type"]
-            )
-
+    except ValueError as e:
+        logger.warning(f"无效请求: bvid={bvid}, error={e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx.TimeoutException:
+        logger.error(f"B站API超时: bvid={bvid}")
+        raise HTTPException(status_code=504, detail="B站服务超时")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"B站API错误: bvid={bvid}, status={e.response.status_code}")
+        raise HTTPException(status_code=502, detail="B站服务错误")
     except Exception as e:
         logger.error(f"流式音频代理失败: bvid={bvid}, error={e}")
         raise HTTPException(status_code=500, detail=f"音频代理失败: {str(e)}")
@@ -289,30 +297,3 @@ async def refresh_cookie(
     )
 
     return ApiResponse(success=True, message="Cookie 刷新成功")
-
-
-# ==================== 辅助函数 ====================
-
-def _parse_range_header(range_header: str, total_size: int) -> Tuple[int, int]:
-    """
-    解析 Range 请求头
-
-    Args:
-        range_header: Range 头值，如 "bytes=0-1023"
-        total_size: 文件总大小
-
-    Returns:
-        元组 (start, end)
-    """
-    if not range_header.startswith("bytes="):
-        return 0, total_size - 1
-
-    range_spec = range_header[6:]  # 去掉 "bytes="
-    if "-" not in range_spec:
-        return 0, total_size - 1
-
-    parts = range_spec.split("-")
-    start = int(parts[0]) if parts[0] else 0
-    end = int(parts[1]) if parts[1] else total_size - 1
-
-    return start, min(end, total_size - 1)

@@ -113,38 +113,11 @@ class ControlsPanel extends ConsumerWidget {
       );
     }
 
-    // UX改进：显示状态消息（正在播放、正在加载等）
-    if (playerState.statusMessage.isNotEmpty) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            playerState.statusMessage,
-            style: const TextStyle(color: Colors.blue),
-          ),
-        ],
-      );
-    }
-
     // 加载状态（来自 PlaybackController）
     if (playerState.isLoading) {
       return const Text(
         '加载中...',
         style: TextStyle(color: Colors.blue),
-      );
-    }
-
-    // 缓冲状态（audioplayers 不直接提供，通过加载状态推断）
-    if (playerState.isBuffering) {
-      return const Text(
-        '缓冲中...',
-        style: TextStyle(color: Colors.orange),
       );
     }
 
@@ -232,22 +205,8 @@ class ControlsPanel extends ConsumerWidget {
       );
     }
 
-    // UX改进：有状态消息时显示提示（没有有效时长时）
-    if (playerState.statusMessage.isNotEmpty) {
-      return const SizedBox(
-        height: 24,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-
-    // 加载或缓冲时显示进度指示器（没有有效时长时）
-    if (playerState.isLoading || playerState.isBuffering) {
+    // 加载时显示进度指示器（没有有效时长时）
+    if (playerState.isLoading) {
       return const SizedBox(
         height: 24,
         child: Center(

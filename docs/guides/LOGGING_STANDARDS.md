@@ -4,14 +4,14 @@
 
 ## 日志级别
 
-### 后端 (Node.js - Winston)
+### 后端 (Python)
 
 | 级别 | 使用场景 | 示例 |
 |------|---------|------|
-| `error` | 系统错误、异常、外部服务调用失败 | 数据库连接失败、API 调用超时 |
-| `warn` | 可能的问题、降级服务使用、重试操作 | Cookie 解密失败、缓存未命中 |
-| `info` | 用户操作、业务流程开始/完成、关键状态变化 | 用户登录、播放开始、文件下载完成 |
-| `debug` | 详细执行流程、中间变量值、性能数据 | API 响应内容、状态转换详情 |
+| `ERROR` | 系统错误、异常、外部服务调用失败 | 数据库连接失败、API 调用超时 |
+| `WARNING` | 可能的问题、降级服务使用、重试操作 | Cookie 解密失败、缓存未命中 |
+| `INFO` | 用户操作、业务流程开始/完成、关键状态变化 | 用户登录、播放开始、文件下载完成 |
+| `DEBUG` | 详细执行流程、中间变量值、性能数据 | API 响应内容、状态转换详情 |
 
 ### 前端 (Flutter - AppLogger)
 
@@ -24,24 +24,20 @@
 
 ## 日志格式规范
 
-### 后端日志格式
+### 后端日志格式 (Python)
 
-```javascript
-// 基本格式
-logger.info('操作描述', {
-  key1: value1,
-  key2: value2,
-});
+```python
+from app.utils.logger import logger
 
-// 带格式化的日志
-logger.debug('用户信息: %o', userData);
-logger.error('操作失败: %s', error.message);
+# 基本格式
+logger.info("操作描述", extra={"key1": value1, "key2": value2})
 
-// 敏感信息处理
-logger.info('登录成功', {
-  userId: user.id,
-  // password 字段自动脱敏
-});
+# 带异常信息
+logger.error("操作失败", exc_info=True)
+
+# 敏感信息处理
+logger.info("登录成功", extra={"userId": user.id})
+# password 字段不记录
 ```
 
 ### 前端日志格式
@@ -136,12 +132,12 @@ logger.info('用户登录', {
 | 类型 | 位置 |
 |------|------|
 | 前端 | `C:\Users\<用户>\Documents\logs\` |
-| 后端 | `listen-vision_api/logs/` |
+| 后端 | `listen-vision-api-python/logs/` |
 
 查看最新日志：
 ```powershell
 # 后端
-Get-Content "A:\Projects\Projects_ListenVison\listen-vision_api\logs\combined.log" -Tail 50
+Get-Content "listen-vision-api-python/logs/app.log" -Tail 50
 
 # 前端
 Get-Content "$env:USERPROFILE\Documents\logs\app_*.log" -Tail 50

@@ -59,6 +59,8 @@ class SubtitleLine(BaseModel):
 
     class Config:
         populate_by_name = True
+        # 序列化时使用别名，确保返回 "from" 和 "to" 字段（与 B站 API 一致）
+        serialize_by_alias = True
 
 
 class SubtitleInfo(BaseModel):
@@ -73,6 +75,7 @@ class SubtitleResponse(BaseModel):
     bvid: str
     cid: int
     subtitles: List[SubtitleInfo]
+    need_login: bool = False
 
 
 class SearchResultItem(BaseModel):

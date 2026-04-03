@@ -62,7 +62,7 @@ final class PlaylistDetailViewModelProvider
 }
 
 String _$playlistDetailViewModelHash() =>
-    r'899e5b08c3aa6c930d403c9b4937453eb16a6181';
+    r'6268218816ee33bb6f0fd1dd6a2e6e3bae996a8f';
 
 /// 歌单详情 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
 ///
@@ -175,4 +175,4 @@ final class PlaylistRepositoryProvider
 }
 
 String _$playlistRepositoryHash() =>
-    r'd94960eabb81afa084d6e1daccbf2bbd9d327dc5';
+    r'0a26317aff8d4e4c62085bd2cc2f9bcaca55a160';

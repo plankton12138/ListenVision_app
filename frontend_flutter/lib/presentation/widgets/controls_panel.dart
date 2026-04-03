@@ -4,9 +4,6 @@ import 'package:listenvision/presentation/widgets/volume_slider.dart';
 import 'package:listenvision/presentation/widgets/speed_button.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
-import 'package:listenvision/models/playable_audio.dart';
-import 'package:listenvision/models/online_playable.dart';
-import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 
 /// 播放控制面板组件
 ///
@@ -59,12 +56,6 @@ class ControlsPanel extends ConsumerWidget {
   void _playNext(BuildContext context, WidgetRef ref) {
     final playbackNotifier = ref.read(playbackViewModelProvider.notifier);
     playbackNotifier.next();
-  }
-
-  /// 播放可播放音频
-  void _playPlayable(BuildContext context, WidgetRef ref, PlayableAudio playable) {
-    final playerViewModel = ref.read(playbackViewModelProvider.notifier);
-    playerViewModel.play(playable);
   }
 
   /// 构建时间显示

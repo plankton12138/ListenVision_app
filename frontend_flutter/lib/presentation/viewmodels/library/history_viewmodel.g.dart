@@ -64,7 +64,7 @@ final class HistoryViewModelProvider
   HistoryViewModel create() => HistoryViewModel();
 }
 
-String _$historyViewModelHash() => r'd4b234ccca9fe8f47acc5b6285e9bf41ee497818';
+String _$historyViewModelHash() => r'54b275da0128d926364c8ba9b6523686d6608122';
 
 /// 播放历史 ViewModel
 ///
@@ -138,7 +138,7 @@ final class HistoryRepositoryProvider
   }
 }
 
-String _$historyRepositoryHash() => r'a781e03edfae4ec73d85e04829f89408e07227d7';
+String _$historyRepositoryHash() => r'6ebc71d52aebb1c03221b101850ad794485c6f70';
 
 /// 历史状态 Provider - 用于 UI 层监听状态
 

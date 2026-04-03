@@ -12,9 +12,11 @@ part of 'queue_viewmodel.dart';
 ///
 /// 职责：
 /// 1. 播放队列管理（添加、删除、清空）
-/// 2. 当前播放索引
-/// 3. 下一首/上一首
+/// 2. 当前播放索引管理
+/// 3. 播放模式管理
 /// 4. 持久化播放队列
+///
+/// 注意：播放控制逻辑已移至 PlaybackViewModel
 
 @ProviderFor(QueueViewModel)
 final queueViewModelProvider = QueueViewModelProvider._();
@@ -23,18 +25,22 @@ final queueViewModelProvider = QueueViewModelProvider._();
 ///
 /// 职责：
 /// 1. 播放队列管理（添加、删除、清空）
-/// 2. 当前播放索引
-/// 3. 下一首/上一首
+/// 2. 当前播放索引管理
+/// 3. 播放模式管理
 /// 4. 持久化播放队列
+///
+/// 注意：播放控制逻辑已移至 PlaybackViewModel
 final class QueueViewModelProvider
     extends $NotifierProvider<QueueViewModel, QueueState> {
   /// 播放队列 ViewModel（Riverpod 3.0 Notifier 模式）
   ///
   /// 职责：
   /// 1. 播放队列管理（添加、删除、清空）
-  /// 2. 当前播放索引
-  /// 3. 下一首/上一首
+  /// 2. 当前播放索引管理
+  /// 3. 播放模式管理
   /// 4. 持久化播放队列
+  ///
+  /// 注意：播放控制逻辑已移至 PlaybackViewModel
   QueueViewModelProvider._()
     : super(
         from: null,
@@ -62,15 +68,17 @@ final class QueueViewModelProvider
   }
 }
 
-String _$queueViewModelHash() => r'4bba278ad4078b184dcb5be0186095db640cd334';
+String _$queueViewModelHash() => r'519d4c691c64f17a6810fc5267f75c1de1e8bfec';
 
 /// 播放队列 ViewModel（Riverpod 3.0 Notifier 模式）
 ///
 /// 职责：
 /// 1. 播放队列管理（添加、删除、清空）
-/// 2. 当前播放索引
-/// 3. 下一首/上一首
+/// 2. 当前播放索引管理
+/// 3. 播放模式管理
 /// 4. 持久化播放队列
+///
+/// 注意：播放控制逻辑已移至 PlaybackViewModel
 
 abstract class _$QueueViewModel extends $Notifier<QueueState> {
   QueueState build();

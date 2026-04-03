@@ -17,7 +17,7 @@ import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/playlist.dart';
-import '../player/player_viewmodel.dart';
+import '../player/playback_viewmodel.dart';
 import '../player/queue_viewmodel.dart';
 import '../system/download_viewmodel.dart';
 import 'local_music_viewmodel.dart';
@@ -320,12 +320,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
       // 开始播放第一首
       final firstItem = queueItems.first;
-      if (firstItem is OnlinePlayable) {
-        await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(
-          audio: firstItem.original,
-          proxyUrl: firstItem.proxyUrl,
-        );
-      }
+      await ref.read(playbackViewModelProvider.notifier).play(firstItem, index: 0);
 
       return true;
     } catch (e) {
@@ -441,19 +436,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
       // 播放点击的歌曲（使用 startIndex）
       final clickedPlayable = queueItems[startIndex];
-      if (clickedPlayable is OnlinePlayable) {
-        await ref.read(playbackViewModelProvider.notifier).playOnlineAudio(
-          audio: clickedPlayable.original,
-          proxyUrl: clickedPlayable.proxyUrl,
-        );
-      } else if (clickedPlayable is LocalPlayable) {
-        await ref.read(playbackViewModelProvider.notifier).playLocalAudio(
-          clickedPlayable.original.filePath,
-          title: clickedPlayable.original.title,
-          artist: clickedPlayable.original.artist,
-          albumArt: clickedPlayable.original.albumArt,
-        );
-      }
+      await ref.read(playbackViewModelProvider.notifier).play(clickedPlayable, index: startIndex);
 
       return true;
     } catch (e) {

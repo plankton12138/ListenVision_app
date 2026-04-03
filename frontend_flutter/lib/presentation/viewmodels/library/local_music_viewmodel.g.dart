@@ -43,7 +43,7 @@ final class LocalMusicViewModelProvider
 }
 
 String _$localMusicViewModelHash() =>
-    r'2ef83da259520d9ad4ac69b7ab1c3d415f314b35';
+    r'cc11b2273658d5b92cb84caed577734964105638';
 
 /// 本地音乐 ViewModel
 ///

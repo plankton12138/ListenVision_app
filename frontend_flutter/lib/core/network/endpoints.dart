@@ -40,9 +40,9 @@ class Endpoints {
 
   static String bilibiliSubtitle(String bvid, {int? cid}) {
     if (cid != null) {
-      return '/bilibili/subtitle/$bvid?cid=$cid';
+      return '/bilibili/video/$bvid/subtitle?cid=$cid';
     }
-    return '/bilibili/subtitle/$bvid';
+    return '/bilibili/video/$bvid/subtitle';
   }
 
   static String bilibiliVideo(String bvid) => '/bilibili/video/$bvid';

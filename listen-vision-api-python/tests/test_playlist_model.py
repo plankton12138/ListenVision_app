@@ -1,7 +1,13 @@
 import pytest
+import uuid
 from app.db.repositories.playlist_repo import PlaylistRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.database import AsyncSessionLocal, init_db
+
+
+def _unique_email(prefix: str = "playlist") -> str:
+    """生成唯一邮箱，确保测试可重复运行"""
+    return f"{prefix}_{uuid.uuid4().hex[:8]}@example.com"
 
 
 @pytest.mark.asyncio
@@ -11,7 +17,7 @@ async def test_create_playlist():
 
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="playlist@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email(), hashed_password="pass")
 
         repo = PlaylistRepository(session)
         playlist = await repo.create(
@@ -30,7 +36,7 @@ async def test_add_and_get_items():
     """测试添加和获取歌单项"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="items@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("items"), hashed_password="pass")
 
         repo = PlaylistRepository(session)
         playlist = await repo.create(user_id=user.id, name="Test")
@@ -56,7 +62,7 @@ async def test_remove_item():
     """测试移除歌单项"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="remove@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("remove"), hashed_password="pass")
 
         repo = PlaylistRepository(session)
         playlist = await repo.create(user_id=user.id, name="Test")
@@ -75,7 +81,7 @@ async def test_delete_playlist():
     """测试删除歌单"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="del_playlist@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("del"), hashed_password="pass")
 
         repo = PlaylistRepository(session)
         playlist = await repo.create(user_id=user.id, name="To Delete")

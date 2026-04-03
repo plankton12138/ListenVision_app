@@ -42,7 +42,7 @@ final class AuthViewModelProvider
   AuthViewModel create() => AuthViewModel();
 }
 
-String _$authViewModelHash() => r'7e3b0b2ed7a15644989ecd69bf529b425908e94c';
+String _$authViewModelHash() => r'9aedb86f70cf62f3dc2fb86ec0293172ef7086ee';
 
 /// 主账号认证 ViewModel
 ///
@@ -246,4 +246,4 @@ final class IsLoggedInProvider extends $FunctionalProvider<bool, bool, bool>
   }
 }
 
-String _$isLoggedInHash() => r'67b3550ed23708f583a4b1a47b4a05239037cac8';
+String _$isLoggedInHash() => r'ac51926bbbbf15033dabb85bb8c7679ae2420598';

@@ -4,9 +4,8 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.38.5-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.10.4-blue)](https://dart.dev)
-[![Node.js](https://img.shields.io/badge/Node.js-24.13.0-green)](https://nodejs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-orange)](https://sqlite.org)
-[![API Version](https://img.shields.io/badge/API-v1-blueviolet)](listen-vision_api/README.md)
+[![Python](https://img.shields.io/badge/Python-3.11-green)](https://python.org)
+[![SQLite](https://img.shields.io/badge/SQLite-aiosqlite-orange)](https://sqlite.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -38,8 +37,8 @@
 
 - Flutter SDK >= 3.38.5
 - Dart SDK >= 3.10.4
-- Node.js >= 24.13.0
-- FFmpeg (用于后端音频转换)
+- Python >= 3.11
+- uv (Python 包管理器)
 
 ### 1. 克隆项目
 
@@ -52,22 +51,22 @@ cd Projects_ListenVison
 
 ```bash
 # 进入后端目录
-cd listen-vision_api
+cd listen-vision-api-python
 
-# 安装依赖
-pnpm install
+# 安装依赖 (使用 uv)
+uv sync
 
 # 配置环境变量
 cp .env.example .env
 # 编辑 .env 文件，设置 JWT_SECRET 等配置
 
-# 启动服务器（数据库文件将自动创建于 data/listenvision.db）
-node index.js
+# 启动服务器
+uv run uvicorn app.main:app
 ```
 
-后端服务将运行在 `http://localhost:3000`
+后端服务将运行在 `http://localhost:8000`
 
-API 文档: `http://localhost:3000/api-docs`
+API 文档: `http://localhost:8000/docs`
 
 ### 3. 前端设置
 
@@ -263,15 +262,13 @@ ListenVision 采用 **Clean Architecture** 设计原则，遵循清晰的分层�
 - **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
 - **错误处理**: dartz ^0.10.1 (Either 泛型)
 
-#### 后端 (Node.js)
-- **框架**: Express ^5.1.0
-- **数据库**: better-sqlite3 ^12.6.0 (嵌入式 SQLite)
-- **认证**: bcrypt ^5.1.1 + JWT
+#### 后端 (Python - FastAPI)
+- **框架**: FastAPI ^0.115.0
+- **数据库**: SQLAlchemy async + aiosqlite (嵌入式 SQLite)
+- **认证**: PyJWT + bcrypt
 - **加密**: AES-256-CBC (Cookie 加密存储)
-- **B站API**: WBI签名、QR码登录、元数据缓存
-- **邮件**: nodemailer ^7.0.3
-- **跨域**: cors ^2.8.5
-- **日志**: Winston
+- **B站API**: bilibili-api-python 库、WBI签名、QR码登录
+- **日志**: Python logging
 
 ---
 
@@ -307,16 +304,17 @@ Projects_ListenVison/
 │   ├── pubspec.yaml              # 依赖配置
 │   └── README.md                 # 前端文档
 │
-├── listen-vision_api/            # Node.js 后端服务
-│   ├── index.js                  # 应用入口文件
-│   ├── config/                   # 配置文件
-│   ├── middleware/               # 中间件
-│   ├── routes/                   # 路由定义
-│   ├── controllers/              # 控制器
-│   ├── services/                 # 服务层
-│   ├── utils/                    # 工具函数
-│   ├── data/                     # 数据存储目录
-│   └── README.md                 # 后端文档
+├── listen-vision-api-python/     # Python 后端服务
+│   ├── app/
+│   │   ├── main.py               # 应用入口
+│   │   ├── api/routes/           # API 路由
+│   │   ├── services/             # 业务逻辑层
+│   │   ├── db/                   # 数据库模型和仓储
+│   │   ├── models/               # 数据模型
+│   │   ├── schemas/              # 请求/响应模式
+│   │   └── utils/                # 工具函数
+│   ├── tests/                    # 测试文件
+│   └── pyproject.toml            # 依赖配置
 │
 ├── docs/                         # 项目文档
 │   ├── plans/                    # 开发计划
@@ -337,16 +335,15 @@ Projects_ListenVison/
 
 ## 📚 开发文档
 
-- [后端 API 文档](listen-vision_api/README.md) - 后端架构和 API 说明
+- [后端 API 文档](listen-vision-api-python/README.md) - 后端架构和 API 说明
 - [前端开发文档](frontend_flutter/README.md) - Flutter 开发指南
-- [代码注释规范](docs/CODE_COMMENT_STANDARDS.md) - 注释标准
-- [日志规范](docs/LOGGING_STANDARDS.md) - 日志记录规范
+- [代码注释规范](docs/guides/CODE_COMMENT_STANDARDS.md) - 注释标准
+- [日志规范](docs/guides/LOGGING_STANDARDS.md) - 日志记录规范
 - [Claude Code 指导](CLAUDE.md) - AI 开发助手指南
 
 ### 第三方平台 API 文档
 
 - **B站 API**: `references/bilibili-API-collect/docs/` (本地克隆)
-- **QQ音乐 API**: https://developer.y.qq.com/docs/openid#/overview (官方文档)
 
 ---
 

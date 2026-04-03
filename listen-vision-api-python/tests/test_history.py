@@ -1,8 +1,14 @@
 """播放历史测试"""
 import pytest
+import uuid
 from app.db.repositories.history_repo import HistoryRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.database import AsyncSessionLocal, init_db
+
+
+def _unique_email(prefix: str = "history") -> str:
+    """生成唯一邮箱，确保测试可重复运行"""
+    return f"{prefix}_{uuid.uuid4().hex[:8]}@example.com"
 
 
 @pytest.mark.asyncio
@@ -12,7 +18,7 @@ async def test_create_history():
 
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email(), hashed_password="pass")
 
         repo = HistoryRepository(session)
         history = await repo.create(
@@ -35,7 +41,7 @@ async def test_get_by_user_and_bvid():
     """测试根据用户和BVID获取历史"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history_bvid@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("bvid"), hashed_password="pass")
 
         repo = HistoryRepository(session)
         await repo.create(
@@ -57,7 +63,7 @@ async def test_update_play_info():
     """测试更新播放信息"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history_update@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("update"), hashed_password="pass")
 
         repo = HistoryRepository(session)
         history = await repo.create(
@@ -78,7 +84,7 @@ async def test_get_by_user_paginated():
     """测试分页获取用户历史"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history_page@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("page"), hashed_password="pass")
 
         repo = HistoryRepository(session)
         # 创建多条记录
@@ -102,7 +108,7 @@ async def test_delete_history():
     """测试删除播放历史"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history_del@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("del"), hashed_password="pass")
 
         repo = HistoryRepository(session)
         history = await repo.create(
@@ -123,7 +129,7 @@ async def test_delete_by_user():
     """测试清空用户历史"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
-        user = await user_repo.create(email="history_clear@example.com", hashed_password="pass")
+        user = await user_repo.create(email=_unique_email("clear"), hashed_password="pass")
 
         repo = HistoryRepository(session)
         # 创建多条记录

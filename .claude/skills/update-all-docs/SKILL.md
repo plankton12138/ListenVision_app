@@ -24,9 +24,8 @@ description: 更新所有项目文档 (CLAUDE.md, README.md, 阶段文档等)，
 
 | 检查项 | 路径 |
 |--------|------|
-| 后端服务 | `listen-vision_api/services/` |
-| 后端控制器 | `listen-vision_api/controllers/` |
-| 后端路由 | `listen-vision_api/routes/` |
+| 后端服务 | `listen-vision-api-python/app/services/` |
+| 后端路由 | `listen-vision-api-python/app/api/routes/` |
 | 前端服务 | `frontend_flutter/lib/services/` |
 | 阶段文档 | `docs/*.md` |
 | 根文档 | `CLAUDE.md`, `README.md` |

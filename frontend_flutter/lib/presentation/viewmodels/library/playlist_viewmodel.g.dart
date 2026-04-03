@@ -117,7 +117,7 @@ final class PlaylistRepositoryProvider
 }
 
 String _$playlistRepositoryHash() =>
-    r'd94960eabb81afa084d6e1daccbf2bbd9d327dc5';
+    r'0a26317aff8d4e4c62085bd2cc2f9bcaca55a160';
 
 @ProviderFor(sharedStorageService)
 final sharedStorageServiceProvider = SharedStorageServiceProvider._();

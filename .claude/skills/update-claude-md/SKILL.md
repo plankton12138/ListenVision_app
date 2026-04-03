@@ -24,7 +24,7 @@ description: 仅更新 CLAUDE.md 文件，保持项目指导文档与代码实�
 ### 2. 检查实际代码实现
 
 检查以下关键目录：
-- `listen-vision_api/` - 后端实现
+- `listen-vision-api-python/` - 后端实现
 - `frontend_flutter/` - 前端实现
 - `docs/` - 阶段文档
 

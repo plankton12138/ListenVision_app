@@ -183,19 +183,16 @@ if (playerState == PlayerState.playing) { ... }
 
 ## 第三方平台 API 文档
 
-### B站 API
-**优先使用本地文档** `references/bilibili-API-collect/docs/`
-
-### QQ音乐 API
-**官方文档**: https://developer.y.qq.com/docs/openid#/overview
+### B站python库
+**优先使用本地文档** `\references\bilibili-api-python
 
 ---
 
 ## 相关文档
 
-- 📄 [Riverpod 使用指南](./docs/RIVERPOD_GUIDE.md)
-- 📄 [日志记录规范](./docs/LOGGING_STANDARDS.md)
-- 📄 [代码注释规范](./docs/CODE_COMMENT_STANDARDS.md)
+- 📄 [Riverpod 使用指南](docs\guides\RIVERPOD_GUIDE.md)
+- 📄 [日志记录规范](docs\guides\LOGGING_STANDARDS.md)
+- 📄 [代码注释规范](docs\guides\CODE_COMMENT_STANDARDS.md)
 
 ---
 

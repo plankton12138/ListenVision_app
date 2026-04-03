@@ -114,8 +114,8 @@ class AudioActionMenu extends ConsumerWidget {
         );
         return _buildContent(context, ref, isFavorited, isLoggedIn, downloadTask);
       },
-      loading: () => _buildContent(context, ref, false, false, null),
-      error: (_, __) => _buildContent(context, ref, false, false, null),
+      loading: () => _buildContent(context, ref, false, isLoggedIn, null),
+      error: (_, __) => _buildContent(context, ref, false, isLoggedIn, null),
     );
   }
 

@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../../services/resumable_download_service.dart';
+import '../../core/storage/shared_storage_service.dart';
+import '../../services/download_service.dart' hide DownloadStatus;
 import '../../services/bilibili_downloader.dart';
 import 'package:path/path.dart' as p;
 
@@ -246,12 +248,17 @@ class DownloadRepository {
           (task.tempFilePath != null ||
               (task.totalBytes > 0 && task.downloadedBytes < task.totalBytes));
 
+      final downloadFormat = SharedStorageService.instance.getDownloadFormat();
+
       if (canResume) {
         // 使用断点续传下载
         AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
         await _downloadWithResumable(taskId, task, cancelToken);
+      } else if (downloadFormat == 'mp3') {
+        AppLogger.info('DownloadRepository', '使用后端 SSE 下载: format=$downloadFormat');
+        await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
       } else {
-        // 使用新的 BilibiliDownloader（零转换方案）
+        AppLogger.info('DownloadRepository', '使用 BilibiliDownloader 下载: format=$downloadFormat');
         await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
       }
 
@@ -462,6 +469,43 @@ class DownloadRepository {
         downloadedBytes: result.fileSize,
       ));
     }
+  }
+
+  /// 使用 DownloadService 下载（后端 SSE，支持格式转换）
+  Future<void> _downloadWithBackendService(
+    int taskId,
+    DownloadTask task,
+    CancelToken cancelToken,
+    String format,
+  ) async {
+    final service = DownloadService();
+
+    await service.downloadAudio(
+      bvid: task.bvid!,
+      savePath: task.savePath,
+      format: format,
+      onProgress: (progress) {
+        if (cancelToken.isCancelled) {
+          throw TaskCanceledException();
+        }
+
+        _downloadTaskDao.updateProgressPercent(taskId, progress.percent);
+        _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
+
+        _progressController.add(DownloadProgressEvent(
+          taskId: taskId,
+          trackId: task.trackId,
+          bvid: task.bvid!,
+          progress: progress.percent,
+          stage: progress.stage,
+          message: progress.message,
+        ));
+      },
+    ).then((result) {
+      if (!result.success) {
+        throw Exception(result.error ?? '下载失败');
+      }
+    });
   }
 
   /// 获取阶段描述

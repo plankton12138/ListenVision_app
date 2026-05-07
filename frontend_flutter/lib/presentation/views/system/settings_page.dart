@@ -261,9 +261,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           Switch(
             value: currentFormat == 'mp3',
-            onChanged: (isMp3) {
-              storage.setDownloadFormat(isMp3 ? 'mp3' : 'm4a');
-              setState(() {});
+            onChanged: (isMp3) async {
+              final success = await storage.setDownloadFormat(isMp3 ? 'mp3' : 'm4a');
+              if (success) {
+                setState(() {});
+              }
             },
           ),
         ],

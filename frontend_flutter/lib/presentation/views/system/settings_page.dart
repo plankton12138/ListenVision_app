@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../viewmodels/system/theme_viewmodel.dart';
+import '../../../core/storage/shared_storage_service.dart';
 
 /// 设置页面
 ///
@@ -54,6 +55,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildLocalMusicScanCard(context),
           const SizedBox(height: 16),
           _buildDarkModeCard(context, themeMode: themeMode),
+          const SizedBox(height: 16),
+          _buildDownloadFormatCard(context),
           const SizedBox(height: 16),
           if (!isLoggedIn) _buildLoginPromptCard(context),
           if (isLoggedIn) ...[
@@ -222,6 +225,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Switch(
             value: isDarkMode,
             onChanged: (_) => ref.read(themeViewModelProvider.notifier).toggleTheme(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 下载音频格式选择卡片
+  Widget _buildDownloadFormatCard(BuildContext context) {
+    final storage = SharedStorageService.instance;
+    final currentFormat = storage.getDownloadFormat();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '下载音质',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                currentFormat == 'mp3' ? 'MP3 格式（跨平台兼容）' : '默认格式（M4A，零转换）',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          Switch(
+            value: currentFormat == 'mp3',
+            onChanged: (isMp3) {
+              storage.setDownloadFormat(isMp3 ? 'mp3' : 'm4a');
+              setState(() {});
+            },
           ),
         ],
       ),

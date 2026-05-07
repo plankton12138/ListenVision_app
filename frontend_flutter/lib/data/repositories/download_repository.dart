@@ -477,7 +477,7 @@ class DownloadRepository {
     }
   }
 
-  /// 使用 DownloadService 下载（后端 SSE，支持格式转换）
+  /// 使用 DownloadService 下载（后端 HTTP，支持格式选择）
   Future<void> _downloadWithBackendService(
     int taskId,
     DownloadTask task,
@@ -487,25 +487,26 @@ class DownloadRepository {
     final service = DownloadService();
 
     try {
-      final result = await service.downloadAudio(
+      final result = await service.simpleDownload(
         bvid: task.bvid!,
         savePath: task.savePath,
         format: format,
-        onProgress: (progress) {
+        onProgress: (received, total) {
           if (cancelToken.isCancelled) {
             throw TaskCanceledException();
           }
 
-          _downloadTaskDao.updateProgressPercent(taskId, progress.percent);
+          final percent = total > 0 ? (received * 100 ~/ total) : 0;
+          _downloadTaskDao.updateProgressPercent(taskId, percent);
           _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
 
           _progressController.add(DownloadProgressEvent(
             taskId: taskId,
             trackId: task.trackId,
             bvid: task.bvid!,
-            progress: progress.percent,
-            stage: progress.stage,
-            message: progress.message,
+            progress: percent,
+            stage: 'downloading',
+            message: '下载中 $received/$total',
           ));
         },
       );

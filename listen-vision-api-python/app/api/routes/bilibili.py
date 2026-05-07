@@ -138,6 +138,69 @@ async def proxy_image(url: str):
     )
 
 
+@router.get("/download/{bvid}")
+async def download_audio(
+    bvid: str,
+    format: str = "m4a",
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    下载音频文件（支持格式选择）
+
+    获取 B站音频流并返回为文件下载。
+    当前支持 m4a（原始 AAC），MP3 转换需要服务器安装 ffmpeg。
+    """
+    from app.utils.logger import logger
+
+    logger.info(f"下载音频: bvid={bvid}, format={format}")
+
+    credential = None
+    if current_user:
+        auth_service = BilibiliAuthService(db)
+        credential = await auth_service.get_credential(current_user.id)
+
+    try:
+        streams = await BilibiliService.get_audio_streams(bvid, credential)
+        if not streams.streams:
+            raise ValueError("无可用音频流")
+
+        # 按 quality 降序，选最高音质
+        sorted_streams = sorted(streams.streams, key=lambda s: s.quality, reverse=True)
+        stream = sorted_streams[0]
+        url = stream.url
+
+        async def file_stream():
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("GET", url, headers=BILIBILI_HEADERS, follow_redirects=True) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes(chunk_size=65536):
+                        yield chunk
+
+        filename = f"{bvid}.{format}"
+        return StreamingResponse(
+            file_stream(),
+            media_type="audio/mp4",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache",
+            }
+        )
+
+    except ValueError as e:
+        logger.warning(f"下载失败: bvid={bvid}, error={e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx.TimeoutException:
+        logger.error(f"B站API超时: bvid={bvid}")
+        raise HTTPException(status_code=504, detail="B站服务超时")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"B站API错误: bvid={bvid}, status={e.response.status_code}")
+        raise HTTPException(status_code=502, detail="B站服务错误")
+    except Exception as e:
+        logger.error(f"下载音频失败: bvid={bvid}, error={e}")
+        raise HTTPException(status_code=500, detail=f"下载失败: {str(e)}")
+
+
 @router.get("/proxy/audio/{bvid}")
 async def proxy_audio(
     bvid: str,

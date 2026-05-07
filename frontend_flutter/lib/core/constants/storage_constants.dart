@@ -57,6 +57,9 @@ class StorageKeys {
   /// 播放质量
   static const String playQuality = 'play_quality';
 
+  /// 下载音频格式
+  static const String downloadFormat = 'download_format';
+
   // ==================== 缓存相关 ====================
 
   /// 歌单缓存

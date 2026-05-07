@@ -277,4 +277,12 @@ class SharedStorageService {
 
   /// 获取播放倍速
   double? getPlaybackSpeed() => getDouble(StorageKeys.playbackSpeed);
+
+  // ==================== 下载相关快捷方法 ====================
+
+  /// 保存下载音频格式
+  Future<bool> setDownloadFormat(String format) => setString(StorageKeys.downloadFormat, format);
+
+  /// 获取下载音频格式（默认 m4a）
+  String getDownloadFormat() => getString(StorageKeys.downloadFormat) ?? 'm4a';
 }

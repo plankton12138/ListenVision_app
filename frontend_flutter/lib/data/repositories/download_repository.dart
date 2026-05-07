@@ -480,32 +480,36 @@ class DownloadRepository {
   ) async {
     final service = DownloadService();
 
-    await service.downloadAudio(
-      bvid: task.bvid!,
-      savePath: task.savePath,
-      format: format,
-      onProgress: (progress) {
-        if (cancelToken.isCancelled) {
-          throw TaskCanceledException();
-        }
+    try {
+      final result = await service.downloadAudio(
+        bvid: task.bvid!,
+        savePath: task.savePath,
+        format: format,
+        onProgress: (progress) {
+          if (cancelToken.isCancelled) {
+            throw TaskCanceledException();
+          }
 
-        _downloadTaskDao.updateProgressPercent(taskId, progress.percent);
-        _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
+          _downloadTaskDao.updateProgressPercent(taskId, progress.percent);
+          _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
 
-        _progressController.add(DownloadProgressEvent(
-          taskId: taskId,
-          trackId: task.trackId,
-          bvid: task.bvid!,
-          progress: progress.percent,
-          stage: progress.stage,
-          message: progress.message,
-        ));
-      },
-    ).then((result) {
+          _progressController.add(DownloadProgressEvent(
+            taskId: taskId,
+            trackId: task.trackId,
+            bvid: task.bvid!,
+            progress: progress.percent,
+            stage: progress.stage,
+            message: progress.message,
+          ));
+        },
+      );
+
       if (!result.success) {
         throw Exception(result.error ?? '下载失败');
       }
-    });
+    } finally {
+      service.dispose();
+    }
   }
 
   /// 获取阶段描述

@@ -408,7 +408,13 @@ class DownloadRepository {
           lastModified: null,
         );
         await _downloadTaskDao.updateTempFilePath(taskId, null);
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
+        // 回退到全量下载，根据格式设置选择下载路径
+        final downloadFormat = SharedStorageService.instance.getDownloadFormat();
+        if (downloadFormat == 'mp3') {
+          await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
+        } else {
+          await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
+        }
         return;
       }
       throw Exception(result.error ?? '下载失败');
@@ -506,6 +512,19 @@ class DownloadRepository {
 
       if (!result.success) {
         throw Exception(result.error ?? '下载失败');
+      }
+
+      // 更新文件大小到数据库（为未来可能的断点续传做准备）
+      final file = File(task.savePath);
+      if (await file.exists()) {
+        final fileSize = await file.length();
+        final updatedTask = await _downloadTaskDao.getById(taskId);
+        if (updatedTask != null) {
+          await _downloadTaskDao.update(updatedTask.copyWith(
+            totalBytes: fileSize,
+            downloadedBytes: fileSize,
+          ));
+        }
       }
     } finally {
       service.dispose();

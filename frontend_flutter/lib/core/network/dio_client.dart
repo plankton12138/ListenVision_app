@@ -150,7 +150,7 @@ class DioClient {
       // 调用刷新端点
       final refreshResponse = await dio.post(
         Endpoints.authRefresh,
-        data: {'refreshToken': refreshToken},
+        data: {'refresh_token': refreshToken},
         options: Options(
           extra: const {'__skipTokenRefresh': true},
           sendTimeout: const Duration(seconds: 10),
@@ -335,10 +335,28 @@ class DioClient {
         String? errorCode;
 
         if (data is Map<String, dynamic>) {
-          errorMessage = data['error'] as String?
-                      ?? data['message'] as String?
-                      ?? '请求失败';
-          errorCode = data['code'] as String?;
+          // FastAPI 422 错误使用 "detail" 字段
+          if (data['detail'] != null) {
+            if (data['detail'] is List) {
+              final details = data['detail'] as List;
+              if (details.isNotEmpty && details.first is Map) {
+                final first = details.first as Map<String, dynamic>;
+                errorMessage = first['msg'] as String? ?? '参数验证失败';
+                final loc = first['loc'] as List?;
+                if (loc != null && loc.length > 1) {
+                  errorMessage = '${loc.last}: $errorMessage';
+                }
+              }
+            } else if (data['detail'] is String) {
+              errorMessage = data['detail'] as String;
+            }
+            errorCode = 'VALIDATION_ERROR';
+          } else {
+            errorMessage = data['error'] as String?
+                        ?? data['message'] as String?
+                        ?? '请求失败';
+            errorCode = data['code'] as String?;
+          }
         }
 
         // 返回 ApiServerException

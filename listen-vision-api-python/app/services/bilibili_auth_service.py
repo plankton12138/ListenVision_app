@@ -1,7 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from bilibili_api import user, Credential
-from bilibili_api.login_v2 import QrCodeLogin
+from bilibili_api.login_v2 import QrCodeLogin, QrCodeLoginEvents
 from bilibili_api.exceptions import ResponseCodeException, LoginError
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,10 +23,11 @@ class BilibiliAuthService:
         """生成登录二维码"""
         try:
             qr_login = QrCodeLogin()
-            qr_data = await qr_login.get_qrcode()
+            await qr_login.generate_qrcode()
+            # bilibili-api v2 API 不暴露 qr_key/link 的公开 getter，需要通过私有属性获取
             return QRCodeResponse(
-                qrcode_key=qr_data.qrcode_key,
-                qr_url=qr_data.url,
+                qrcode_key=qr_login._QrCodeLogin__qr_key,
+                qr_url=qr_login._QrCodeLogin__qr_link,
                 expires_in=300
             )
         except Exception as e:
@@ -37,33 +38,34 @@ class BilibiliAuthService:
         """检查二维码扫描状态"""
         try:
             qr_login = QrCodeLogin()
-            result = await qr_login.check_qrcode(qrcode_key)
+            # 注入 qr_key 以重用二维码会话（bilibili-api v2 无公开 setter）
+            qr_login._QrCodeLogin__qr_key = qrcode_key
+            event = await qr_login.check_state()
 
-            if result.code == 0:
-                # 登录成功
+            if qr_login.has_done():
                 return QRCodeCheckResponse(
                     status="success",
                     message="登录成功"
-                ), result.credential
-            elif result.code == 86038:
-                return QRCodeCheckResponse(
-                    status="expired",
-                    message="二维码已过期"
-                ), None
-            elif result.code == 86090:
-                return QRCodeCheckResponse(
-                    status="scanned",
-                    message="已扫描，等待确认"
-                ), None
-            elif result.code == 86101:
+                ), qr_login.get_credential()
+            elif event == QrCodeLoginEvents.SCAN:
                 return QRCodeCheckResponse(
                     status="pending",
                     message="等待扫描"
                 ), None
+            elif event == QrCodeLoginEvents.CONF:
+                return QRCodeCheckResponse(
+                    status="scanned",
+                    message="已扫描，等待确认"
+                ), None
+            elif event == QrCodeLoginEvents.TIMEOUT:
+                return QRCodeCheckResponse(
+                    status="expired",
+                    message="二维码已过期"
+                ), None
             else:
                 return QRCodeCheckResponse(
                     status="error",
-                    message=f"未知错误: {result.code}"
+                    message=f"未知状态: {event}"
                 ), None
         except Exception as e:
             logger.error(f"检查二维码失败: {e}")

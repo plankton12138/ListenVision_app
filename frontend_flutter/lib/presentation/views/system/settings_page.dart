@@ -912,7 +912,9 @@ class _QRCodeDialogState extends State<_QRCodeDialog> {
       error: (_, __) => false,
     );
     if (!isBound) {
-      widget.ref.read(platformAuthViewModelProvider.notifier).cancelQRLogin();
+      Future(() {
+        widget.ref.read(platformAuthViewModelProvider.notifier).cancelQRLogin();
+      });
     }
     super.dispose();
   }

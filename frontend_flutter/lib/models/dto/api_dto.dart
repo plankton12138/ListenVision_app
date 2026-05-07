@@ -133,12 +133,14 @@ class BilibiliQRCodeDto {
 
   BilibiliQRCodeDto.fromJson(Map<String, dynamic> json)
       : qrcodeKey = json['qrcode_key'] as String? ?? json['qrcodeKey'] as String,
-        qrcodeUrl = json['qrcode_url'] as String? ?? json['qrCodeUrl'] as String,
+        qrcodeUrl = json['qr_url'] as String? ?? json['qrcode_url'] as String? ?? json['qrCodeUrl'] as String,
         expiresAt = json['expires_at'] != null
             ? DateTime.parse(json['expires_at'] as String)
             : json['expiresAt'] != null
                 ? DateTime.parse(json['expiresAt'] as String)
-                : DateTime.now().add(const Duration(minutes: 3));
+                : json['expires_in'] != null
+                    ? DateTime.now().add(Duration(seconds: (json['expires_in'] as num).toInt()))
+                    : DateTime.now().add(const Duration(minutes: 3));
 }
 
 class BilibiliQRStatusDto {

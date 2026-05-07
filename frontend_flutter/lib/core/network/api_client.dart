@@ -100,9 +100,9 @@ class ApiClient {
   /// 检查B站QR码登录状态
   Future<BilibiliQRStatusDto> checkBilibiliQRStatus(String qrcodeKey) async {
     try {
-      final response = await _dioClient.post(
+      final response = await _dioClient.get(
         Endpoints.bilibiliQrcodeCheck,
-        data: {'qrcodeKey': qrcodeKey},
+        queryParameters: {'qrcode_key': qrcodeKey},
       );
       final data = response['data'] as Map<String, dynamic>?;
       return BilibiliQRStatusDto.fromJson(data ?? {});

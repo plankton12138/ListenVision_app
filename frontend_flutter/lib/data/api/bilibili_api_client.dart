@@ -47,9 +47,9 @@ class BilibiliApiClient {
   /// 检查QR码登录状态
   Future<Map<String, dynamic>> checkQRLoginStatus(String qrcodeKey) async {
     try {
-      final response = await _dioClient.post(
+      final response = await _dioClient.get(
         BilibiliEndpoints.qrcodeCheck,
-        data: {'qrcodeKey': qrcodeKey},
+        queryParameters: {'qrcode_key': qrcodeKey},
       );
       final data = response['data'] as Map<String, dynamic>?;
       final status = data?['status'] ?? 'pending';
@@ -178,7 +178,7 @@ class BilibiliApiClient {
 
   /// 获取音频下载URL（用于流式播放或下载）
   String getDownloadUrl(String bvid, {String format = 'm4a'}) {
-    return '${ApiConstants.fullBaseUrl}/bilibili/audio/$bvid';
+    return '${ApiConstants.fullBaseUrl}/bilibili/video/$bvid/audio';
   }
 
   // ==================== 资源代理URL ====================

@@ -69,15 +69,25 @@ class BilibiliDownloader {
 
       AppLogger.info('BilibiliDownloader', '获取视频信息: $title - $artist');
 
-      // 步骤2: 获取音频流 URL（使用 fnval=16 获取纯音频流）
+      // 步骤2: 获取音频流 URL（从 AudioStreamsResponse.streams 选取最高音质）
       onProgress?.call(10, 'fetching_audio');
       final audioStream = await _api.getAudioStream(bvid);
 
-      if (audioStream['baseUrl'] == null) {
+      final rawStreams = audioStream['streams'] as List<dynamic>?;
+      if (rawStreams == null || rawStreams.isEmpty) {
         throw Exception('无法获取音频流 URL');
       }
 
-      final audioUrl = audioStream['baseUrl'] as String;
+      // 按 quality 降序排序，选最高音质
+      final streams = rawStreams
+          .cast<Map<String, dynamic>>()
+          .toList()
+        ..sort((a, b) => (b['quality'] as int? ?? 0).compareTo(a['quality'] as int? ?? 0));
+
+      final audioUrl = streams.first['url'] as String?;
+      if (audioUrl == null || audioUrl.isEmpty) {
+        throw Exception('无法获取音频流 URL');
+      }
       AppLogger.info('BilibiliDownloader', '获取音频流 URL: ${audioUrl.substring(0, audioUrl.length > 50 ? 50 : audioUrl.length)}...');
 
       // 步骤3: 下载 m4s 音频文件（50% 进度）

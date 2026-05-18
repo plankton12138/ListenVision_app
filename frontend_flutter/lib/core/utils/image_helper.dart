@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../constants/api_constants.dart';
 import '../config/app_config.dart';
+import '../network/endpoints.dart';
 
 /// 图片缓存工具类
 ///
@@ -41,7 +41,7 @@ class ImageHelper {
       if (url.contains(cdnDomain)) {
         // 构建代理 URL
         final encodedUrl = Uri.encodeComponent(url);
-        return '${appConfig.fullApiBaseUrl}${BilibiliEndpoints.proxyImage}?url=$encodedUrl';
+        return '${appConfig.fullApiBaseUrl}${Endpoints.bilibiliProxyImage}?url=$encodedUrl';
       }
     }
 

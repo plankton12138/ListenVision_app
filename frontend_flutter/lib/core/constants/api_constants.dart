@@ -41,69 +41,6 @@ class ApiConstants {
   static bool get enableLogging => config.enableApiLogging;
 }
 
-// ==================== 用户端点 ====================
-
-class UserEndpoints {
-  static const String users = '/users';
-  static String userById(dynamic id) => '/users/$id';
-  static String userProfile(dynamic id) => '/users/$id/profile';
-}
-
-// ==================== 歌单端点 ====================
-
-class PlaylistEndpoints {
-  static const String playlists = '/playlists';
-  static String playlistById(dynamic id) => '/playlists/$id';
-  static String playlistItems(dynamic id) => '/playlists/$id/items';
-  static String playlistItem(dynamic id, String bvid) => '/playlists/$id/items/$bvid';
-  static String sortPlaylist(dynamic id) => '/playlists/$id/sort';
-  static const String favorites = '/playlists/favorites';
-  static const String favoritesToggle = '/playlists/favorites/toggle';
-  static String favoritesCheck(String bvid) => '/playlists/favorites/check/$bvid';
-}
-
-// ==================== 播放历史端点 ====================
-
-class HistoryEndpoints {
-  static const String history = '/history';
-  static String historyById(dynamic id) => '/history/$id';
-}
-
-// ==================== 搜索端点 ====================
-
-class SearchEndpoints {
-  static const String searchLocal = '/search/local';
-  static const String searchSuggestions = '/search/suggestions';
-  static const String searchTrending = '/search/trending';
-  static const String searchHistory = '/search/history';
-}
-
-// ==================== 推荐端点 ====================
-
-class RecommendationEndpoints {
-  static const String hotPlaylists = '/recommendations/hot-playlists';
-  static const String rank = '/recommendations/rank';
-  static const String personalized = '/recommendations/personalized';
-}
-
-// ==================== B站端点 ====================
-
-class BilibiliEndpoints {
-  static const String qrcode = '/bilibili/qrcode';
-  static const String qrcodeCheck = '/bilibili/qrcode/check';
-  static const String unbind = '/bilibili/unbind';
-  static const String status = '/bilibili/status';
-  static String video(String bvid) => '/bilibili/video/$bvid';
-  static String audio(String bvid) => '/bilibili/video/$bvid/audio';
-  static String uploader(dynamic mid) => '/bilibili/uploader/$mid';
-  static const String search = '/bilibili/search';
-  static const String searchSuggest = '/bilibili/search/suggest';
-  static const String searchRecent = '/bilibili/search/recent';
-  static const String proxyImage = '/bilibili/proxy/image';
-  static const String proxyAudio = '/bilibili/proxy/audio';
-  static const String recommend = '/bilibili/recommend';
-}
-
 /// B站相关常量
 class BilibiliConstants {
   /// QR码状态 - 未扫描
@@ -123,33 +60,6 @@ class BilibiliConstants {
 
   /// B站音频URL前缀
   static const String audioUrlPrefix = 'https://audio.';
-}
-
-/// 端点路径扩展
-///
-/// 为字符串添加 bvid 替换功能
-extension EndpointPathExtension on String {
-  /// 替换路径中的 bvid 占位符
-  String withBvid(String bvid) {
-    return replaceFirst('{bvid}', bvid);
-  }
-}
-
-// ==================== 音频元数据端点 ====================
-
-class AudioEndpoints {
-  static const String metadata = '/audio/metadata';
-  static String metadataById(String bvid) => '/audio/metadata/$bvid';
-  static String metadataRefresh(String bvid) => '/audio/metadata/$bvid/refresh';
-  static String metadataDelete(String bvid) => '/audio/metadata/$bvid';
-  static const String metadataBatch = '/audio/metadata/batch';
-  static String stream(String bvid) => '/audio/stream/$bvid';
-  static const String searchHistory = '/audio/search/history';
-  static const String searchRecent = '/audio/search/recent';
-  static const String historyDelete = '/audio/search/history';
-  static String searchKeywordDelete(String keyword) => '/audio/search/$keyword';
-  static const String stats = '/audio/stats';
-  static const String clean = '/audio/clean';
 }
 
 // ==================== HTTP 头部 ====================
@@ -195,52 +105,4 @@ enum AudioFormat {
   final String value;
   final String contentType;
   final String description;
-}
-
-/// 平台特定的音频格式偏好
-///
-/// Windows: 优先MP3 (just_audio对m4s支持不如移动端)
-/// macOS: 优先MP3
-/// Linux: 优先MP3
-/// Android/iOS: 优先m4s (原生支持)
-/// Web: 优先mp3 (浏览器兼容性)
-class PlatformAudioFormat {
-  /// 判断当前是否需要转换格式
-  static bool needsConversion(String platform) {
-    return _platformPreferredFormat(platform) != 'm4s';
-  }
-
-  /// 获取平台的默认音频格式
-  static String getDefaultFormat(String platform) {
-    return _platformPreferredFormat(platform);
-  }
-
-  /// 获取代理音频的完整URL（带格式参数）
-  static String getProxyAudioUrl(String baseUrl, String audioUrl, String platform) {
-    final format = _platformPreferredFormat(platform);
-    if (format == 'm4s') {
-      return '$baseUrl?url=${Uri.encodeComponent(audioUrl)}';
-    }
-    return '$baseUrl?url=${Uri.encodeComponent(audioUrl)}&format=$format';
-  }
-
-  /// 平台首选项映射
-  static String _platformPreferredFormat(String platform) {
-    switch (platform.toLowerCase()) {
-      case 'android':
-      case 'ios':
-      case 'mobile':
-        return 'm4s'; // 移动端原生支持m4s
-      case 'windows':
-      case 'macos':
-      case 'linux':
-      case 'desktop':
-        return 'mp3'; // 桌面端需要转换
-      case 'web':
-      case 'browser':
-        return 'mp3'; // Web浏览器兼容性
-      default:
-        return 'm4s';
-    }
-  }
 }

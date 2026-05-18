@@ -1,9 +1,10 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../core/network/endpoints.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../data/api/backend_api_client.dart';
 import '../../../models/search_suggestion.dart';
 import '../auth/auth_viewmodel.dart';
 
@@ -77,11 +78,11 @@ class SearchResultItem {
 /// 3. 搜索建议
 @Riverpod(keepAlive: true)
 class SearchViewModel extends _$SearchViewModel {
-  BackendApiClient? _apiClient;
+  ApiClient? _apiClient;
 
   @override
   Future<SearchState> build() async {
-    _apiClient = ref.watch(searchBackendApiClientProvider);
+    _apiClient = ref.watch(apiClientProvider);
 
     try {
       AppLogger.debug('SearchViewModel', '初始化');
@@ -307,7 +308,7 @@ class SearchViewModel extends _$SearchViewModel {
   /// 清空搜索历史
   Future<void> clearSearchHistory() async {
     try {
-      await _apiClient!.clearBilibiliSearchHistory();
+      await _apiClient!.delete(Endpoints.bilibiliSearchRecent);
 
       final current = state.valueOrNull;
       if (current is SearchStateIdle) {
@@ -340,7 +341,10 @@ class SearchViewModel extends _$SearchViewModel {
 
   Future<List<String>> _loadSearchHistoryFromServer() async {
     try {
-      return await _apiClient!.getBilibiliSearchHistory();
+      final response = await _apiClient!.get(Endpoints.bilibiliSearchRecent);
+      final data = response['data'] ?? response;
+      final keywords = data['keywords'] as List?;
+      return keywords?.map((e) => e.toString()).toList() ?? [];
     } catch (e) {
       AppLogger.error('SearchViewModel', '加载搜索历史失败: $e');
       return const [];
@@ -381,8 +385,4 @@ class SearchViewModel extends _$SearchViewModel {
   }
 }
 
-/// BackendApiClient Provider
-@riverpod
-BackendApiClient searchBackendApiClient(Ref ref) {
-  return BackendApiClient();
-}
+

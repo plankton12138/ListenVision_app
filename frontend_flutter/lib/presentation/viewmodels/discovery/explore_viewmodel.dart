@@ -4,8 +4,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/app_logger.dart';
 
-// 保留 BackendApiClient 以向后兼容，新代码应使用 ApiClient
-import '../../../data/api/backend_api_client.dart';
 export '../../../core/network/api_client.dart' show apiClientProvider;
 
 part 'explore_viewmodel.freezed.dart';
@@ -145,8 +143,8 @@ class ExploreViewModel extends _$ExploreViewModel {
 
       // 热门歌单接口暂通过通用 GET 调用，后续可补充专用封装
       // 临时使用通用 get 方法
-      final data = await _apiClient!.get('/api/v1/recommendations/hot-playlists', 
-        queryParameters: {
+      final data = await _apiClient!.get('/api/v1/recommendations/hot-playlists',
+        queryParams: {
           'page': page,
           'pageSize': _pageSize,
         },
@@ -352,11 +350,11 @@ class ExploreViewModel extends _$ExploreViewModel {
 
 @Riverpod(keepAlive: true)
 class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
-  BackendApiClient? _apiClient;
+  ApiClient? _apiClient;
 
   @override
   Future<NeteaseExploreState> build() async {
-    _apiClient = BackendApiClient();
+    _apiClient = ref.watch(apiClientProvider);
     return const NeteaseExploreState.initial();
   }
 
@@ -367,7 +365,7 @@ class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      final data = await _apiClient!.getNeteaseRecommendedPlaylists();
+      final data = await _apiClient!.get('/netease/recommendations/playlists');
       final playlistsData = data['playlists'] as List? ?? [];
 
       final playlists = playlistsData.map((p) {
@@ -400,9 +398,4 @@ class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
       state = const AsyncData(NeteaseExploreState.initial());
     }
   }
-}
-
-@riverpod
-BackendApiClient exploreBackendApiClient(Ref ref) {
-  return BackendApiClient();
 }

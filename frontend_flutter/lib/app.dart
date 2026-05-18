@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/network/dio_client.dart';
+import 'core/network/dio_provider.dart';
 import 'core/utils/app_logger.dart';
 import 'presentation/providers.dart';
 import 'presentation/routes/router.dart';
@@ -53,7 +53,7 @@ class _AppState extends ConsumerState<App> {
     ref.listen<String?>(
       authTokenProvider,
       (previous, next) {
-        DioClient.instance.updateToken(next);
+        DioProvider.instance.updateToken(next);
         AppLogger.debug('App', 'Token 同步到 DioClient: ${next != null ? "已设置" : "已清除"}');
       },
     );

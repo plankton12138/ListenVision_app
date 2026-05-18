@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:listenvision/core/constants/api_constants.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/core/network/endpoints.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/player/queue_bottom_sheet.dart';
@@ -114,7 +115,7 @@ class AudioInfo extends ConsumerWidget {
     final isBilibiliImageHost = host.contains('hdslb.com') || host.contains('bilibili.com');
     if (!isBilibiliImageHost) return originalUrl;
 
-    return '${ApiConstants.fullBaseUrl}${BilibiliEndpoints.proxyImage}?url=${Uri.encodeComponent(originalUrl)}';
+    return '${ApiConstants.fullBaseUrl}${Endpoints.bilibiliProxyImage}?url=${Uri.encodeComponent(originalUrl)}';
   }
 
   /// 构建音频信息（标题和艺术家）

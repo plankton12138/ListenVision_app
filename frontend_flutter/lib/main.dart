@@ -1,7 +1,7 @@
 import 'dart:io';
 
 // ========== Core Imports ==========
-import 'package:listenvision/core/network/dio_client.dart';
+import 'package:listenvision/core/network/dio_provider.dart';
 import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/permission_helper.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
@@ -63,7 +63,7 @@ void main() async {
   final savedToken = prefs.getString('auth_token');
   if (savedToken != null) {
     // 设置全局 Dio token
-    DioClient.instance.updateToken(savedToken);
+    DioProvider.instance.updateToken(savedToken);
     AppLogger.info('Main', 'Token restored from storage');
   }
 

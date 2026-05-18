@@ -5,7 +5,7 @@ import '../../models/search_suggestion.dart';
 import '../../models/subtitle.dart';
 import '../errors/exceptions.dart';
 import '../utils/app_logger.dart';
-import 'dio_client.dart';
+import 'dio_provider.dart';
 import 'endpoints.dart';
 
 /// 统一 API 客户端 Provider
@@ -15,10 +15,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 /// 统一 API 客户端
 ///
-/// 封装所有后端 API 调用，使用 DioClient 单例
-/// 替代 BackendApiClient 和 BilibiliApiClient
+/// 封装所有后端 API 调用
 class ApiClient {
-  final DioClient _dioClient = DioClient.instance;
+  final DioProvider _dioProvider = DioProvider.instance;
 
   // ==================== 响应处理 ====================
 
@@ -49,9 +48,9 @@ class ApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.bilibiliSearch,
-        queryParameters: {
+        queryParams: {
           'keyword': keyword,
           'page': page,
           'pageSize': pageSize,
@@ -69,9 +68,9 @@ class ApiClient {
     String keyword,
   ) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.bilibiliSearchSuggest,
-        queryParameters: {'keyword': keyword},
+        queryParams: {'keyword': keyword},
       );
       final data = _handleResponse(response) as Map<String, dynamic>;
       final suggestions = data['suggestions'] as List? ?? const [];
@@ -87,7 +86,7 @@ class ApiClient {
   /// 获取B站视频信息
   Future<BilibiliVideoDto> getBilibiliVideoInfo(String bvid) async {
     try {
-      final response = await _dioClient.get(Endpoints.bilibiliVideo(bvid));
+      final response = await _dioProvider.get(Endpoints.bilibiliVideo(bvid));
       final data = _handleResponse(response) as Map<String, dynamic>;
       return BilibiliVideoDto.fromJson(data);
     } catch (e) {
@@ -99,7 +98,7 @@ class ApiClient {
   /// 获取B站音频流
   Future<BilibiliAudioDto> getBilibiliAudio(String bvid) async {
     try {
-      final response = await _dioClient.get(Endpoints.bilibiliAudio(bvid));
+      final response = await _dioProvider.get(Endpoints.bilibiliAudio(bvid));
       final data = _handleResponse(response) as Map<String, dynamic>;
       return BilibiliAudioDto.fromJson(data);
     } catch (e) {
@@ -114,9 +113,9 @@ class ApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.bilibiliRecommend,
-        queryParameters: {
+        queryParams: {
           'page': page,
           'pageSize': pageSize,
         },
@@ -132,8 +131,8 @@ class ApiClient {
   /// [cid] 可选，用于多P视频获取指定分P的字幕
   Future<SubtitleData> getBilibiliSubtitle(String bvid, {int? cid}) async {
     try {
-      AppLogger.debug('ApiClient', '请求字幕: $bvid, cid=$cid, token: ${DioClient.instance.currentToken != null ? "已设置" : "未设置"}');
-      final response = await _dioClient.get(Endpoints.bilibiliSubtitle(bvid, cid: cid));
+      AppLogger.debug('ApiClient', '请求字幕: $bvid, cid=$cid');
+      final response = await _dioProvider.get(Endpoints.bilibiliSubtitle(bvid, cid: cid));
       final data = _handleResponse(response) as Map<String, dynamic>;
       AppLogger.info('ApiClient', '获取字幕成功: $bvid, cid=$cid, subtitles: ${(data['subtitles'] as List?)?.length ?? 0}');
       return SubtitleData.fromJson(data);
@@ -151,9 +150,9 @@ class ApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.playlistsList,
-        queryParameters: {
+        queryParams: {
           'page': page,
           'pageSize': pageSize,
         },
@@ -168,7 +167,7 @@ class ApiClient {
   /// 获取歌单详情
   Future<Map<String, dynamic>> getPlaylistDetail(String id) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
       );
       return _handleResponse(response) as Map<String, dynamic>;
@@ -181,7 +180,7 @@ class ApiClient {
   /// 获取歌单项
   Future<Map<String, dynamic>> getPlaylistItems(String id) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.playlistsItems(int.tryParse(id) ?? int.parse(id)),
       );
       return _handleResponse(response) as Map<String, dynamic>;
@@ -198,7 +197,7 @@ class ApiClient {
     String? coverUrl,
   }) async {
     try {
-      final response = await _dioClient.post(
+      final response = await _dioProvider.post(
         Endpoints.playlistsList,
         data: {
           'name': name,
@@ -221,7 +220,7 @@ class ApiClient {
     String? coverUrl,
   }) async {
     try {
-      final response = await _dioClient.put(
+      final response = await _dioProvider.put(
         Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
         data: {
           if (name != null) 'name': name,
@@ -239,7 +238,7 @@ class ApiClient {
   /// 删除歌单
   Future<void> deletePlaylist(String id) async {
     try {
-      await _dioClient.delete(
+      await _dioProvider.delete(
         Endpoints.playlistsDetail(int.tryParse(id) ?? int.parse(id)),
       );
       AppLogger.info('ApiClient', '删除歌单成功: $id');
@@ -260,7 +259,7 @@ class ApiClient {
     int? position,
   }) async {
     try {
-      await _dioClient.post(
+      await _dioProvider.post(
         Endpoints.playlistsItems(int.tryParse(playlistId) ?? int.parse(playlistId)),
         data: {
           'bvid': bvid,
@@ -285,7 +284,7 @@ class ApiClient {
   }) async {
     try {
       final playlistIdInt = int.tryParse(playlistId) ?? int.parse(playlistId);
-      await _dioClient.delete(
+      await _dioProvider.delete(
         '${Endpoints.playlistsItems(playlistIdInt)}/$bvid',
       );
       AppLogger.info('ApiClient', '删除歌单项成功: $bvid from $playlistId');
@@ -301,9 +300,9 @@ class ApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.playlistsFavorites,
-        queryParameters: {
+        queryParams: {
           'page': page,
           'pageSize': pageSize,
         },
@@ -318,7 +317,7 @@ class ApiClient {
   /// 保存播放队列到后端
   Future<void> saveNowPlaying(List<Map<String, dynamic>> items) async {
     try {
-      await _dioClient.post(
+      await _dioProvider.post(
         Endpoints.playlistsNowPlaying,
         data: {'items': items},
       );
@@ -332,7 +331,7 @@ class ApiClient {
   /// 切换收藏状态（返回操作结果）
   Future<Map<String, dynamic>> toggleFavorite(String bvid) async {
     try {
-      final response = await _dioClient.post(
+      final response = await _dioProvider.post(
         Endpoints.playlistsFavoritesToggle,
         data: {'bvid': bvid},
       );
@@ -348,7 +347,7 @@ class ApiClient {
   /// 检查收藏状态
   Future<bool> checkFavorite(String bvid) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         Endpoints.playlistsFavoritesCheck(bvid),
       );
       final data = _handleResponse(response) as Map<String, dynamic>;
@@ -364,12 +363,12 @@ class ApiClient {
   /// 通用 GET 请求
   Future<Map<String, dynamic>> get(
     String endpoint, {
-    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? queryParams,
   }) async {
     try {
-      final response = await _dioClient.get(
+      final response = await _dioProvider.get(
         endpoint,
-        queryParameters: queryParameters,
+        queryParams: queryParams,
       );
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
@@ -384,7 +383,7 @@ class ApiClient {
     dynamic data,
   }) async {
     try {
-      final response = await _dioClient.post(endpoint, data: data);
+      final response = await _dioProvider.post(endpoint, data: data);
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('ApiClient', 'POST 请求失败 ($endpoint): $e');
@@ -398,7 +397,7 @@ class ApiClient {
     dynamic data,
   }) async {
     try {
-      final response = await _dioClient.put(endpoint, data: data);
+      final response = await _dioProvider.put(endpoint, data: data);
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('ApiClient', 'PUT 请求失败 ($endpoint): $e');
@@ -409,7 +408,7 @@ class ApiClient {
   /// 通用 DELETE 请求
   Future<Map<String, dynamic>> delete(String endpoint) async {
     try {
-      final response = await _dioClient.delete(endpoint);
+      final response = await _dioProvider.delete(endpoint);
       return _handleResponse(response) as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('ApiClient', 'DELETE 请求失败 ($endpoint): $e');

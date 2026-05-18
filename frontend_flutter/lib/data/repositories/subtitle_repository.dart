@@ -1,28 +1,27 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/network/api_client.dart';
 import '../../core/utils/app_logger.dart';
 import '../../models/subtitle.dart';
+import '../../services/bilibili_api_service.dart';
 import '../database/app_database.dart';
 import '../database/subtitle_dao.dart';
 
 final subtitleRepositoryProvider = Provider<SubtitleRepository>((ref) {
-  final apiClient = ref.read(apiClientProvider);
-  return SubtitleRepository(apiClient);
+  return SubtitleRepository();
 });
 
 /// 字幕仓库 — 本地优先，网络回退
 class SubtitleRepository {
-  final ApiClient _apiClient;
+  final BilibiliApiService _bilibiliApi;
   SubtitleDao? _dao;
 
-  SubtitleRepository(this._apiClient);
+  SubtitleRepository({BilibiliApiService? bilibiliApi})
+      : _bilibiliApi = bilibiliApi ?? BilibiliApiService();
 
   Future<SubtitleDao> _getDao() async {
     if (_dao != null) return _dao!;
     final db = await AppDatabase.instance.database;
     _dao = SubtitleDao(db);
-    // ignore: null_check_always_fails
     return _dao!;
   }
 
@@ -31,7 +30,7 @@ class SubtitleRepository {
   /// [cid] 可选，用于多 P 视频获取指定分 P 的字幕
   ///
   /// 注意：如果 cid 为 null，跳过本地缓存直接请求网络，
-  /// 因为缓存键可能不匹配（后端会返回正确的 cid）
+  /// 因为缓存键可能不匹配
   Future<SubtitleData?> getSubtitle(String bvid, {int? cid}) async {
     final dao = await _getDao();
 
@@ -51,9 +50,10 @@ class SubtitleRepository {
     // 2. 网络获取
     try {
       AppLogger.info('SubtitleRepository', '请求字幕：bvid=$bvid, cid=$cid');
-      final data = await _apiClient.getBilibiliSubtitle(bvid, cid: cid);
+      final cookies = await _bilibiliApi.getStoredCookies();
+      final data = await _bilibiliApi.getSubtitles(bvid, cookies: cookies);
 
-      // 使用后端返回的实际 cid 作为缓存键（修复缓存键不匹配问题）
+      // 使用返回的实际 cid 作为缓存键
       final actualCid = data.cid;
       AppLogger.info('SubtitleRepository', '获取字幕成功：bvid=$bvid, cid=$actualCid, 字幕数：${data.subtitles.length}, needLogin: ${data.needLogin}');
 

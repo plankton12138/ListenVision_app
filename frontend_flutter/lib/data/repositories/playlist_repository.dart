@@ -1,92 +1,82 @@
 import '../../core/utils/app_logger.dart';
 import '../../models/playlist.dart';
-import '../../core/network/api_client.dart';
 import '../database/app_database.dart';
 import '../database/playlist_dao.dart';
 
 /// 歌单仓库
 ///
-/// 负责歌单相关的数据操作
+/// 负责歌单相关的本地数据操作
 class PlaylistRepository {
-  final ApiClient _apiClient;
   final PlaylistDao _playlistDao;
 
   PlaylistRepository({
-    ApiClient? apiClient,
     PlaylistDao? playlistDao,
-  })  : _apiClient = apiClient ?? ApiClient(),
-        _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
+  }) : _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
 
-  // ==================== 歌单操作 ====================
+  // ==================== 歌单详情 ====================
 
-  /// 获取用户歌单列表
-  Future<List<Playlist>> getUserPlaylists({
-    int page = 1,
-    int pageSize = 20,
-  }) async {
-    try {
-      final data = await _apiClient.getUserPlaylists(
-        page: page,
-        pageSize: pageSize,
-      );
-      final playlistsJson = data['playlists'] as List?;
-      return playlistsJson
-              ?.map((json) => Playlist.fromDto(json as Map<String, dynamic>))
-              .toList() ??
-          [];
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '获取歌单列表失败: $e');
-      rethrow;
-    }
-  }
-
-  /// 获取歌单详情
+  /// 获取歌单详情（本地）
   Future<PlaylistDetail> getPlaylistDetail(String id) async {
     try {
-      final data = await _apiClient.getPlaylistDetail(id);
-      return PlaylistDetail.fromDto(data);
+      final idInt = int.tryParse(id) ?? 0;
+      final playlistMap = await _playlistDao.getPlaylistById(idInt);
+      if (playlistMap == null) {
+        throw Exception('歌单不存在: $id');
+      }
+      final playlist = Playlist.fromDto(playlistMap);
+      final itemsMap = await _playlistDao.getPlaylistItems(idInt);
+      final items = itemsMap.map((m) {
+        return PlaylistItem(
+          id: m['id']?.toString(),
+          playlistId: id,
+          bvid: m['source_id'] as String? ?? m['bvid'] as String? ?? '',
+          title: m['title'] as String?,
+          artist: m['artist'] as String?,
+          duration: m['duration'] as int?,
+          coverUrl: m['cover_url'] as String?,
+          localPath: m['local_path'] as String?,
+          position: m['position'] as int? ?? 0,
+          addedAt: m['added_at'] != null
+              ? DateTime.tryParse(m['added_at'] as String)
+              : null,
+        );
+      }).toList();
+      return PlaylistDetail(playlist: playlist, items: items);
     } catch (e) {
       AppLogger.error('PlaylistRepository', '获取歌单详情失败: $e');
       rethrow;
     }
   }
 
-  /// 获取歌单项
-  Future<List<PlaylistItem>> getPlaylistItems(String id) async {
-    try {
-      final data = await _apiClient.getPlaylistItems(id);
-      final itemsJson = data['items'] as List?;
-      return itemsJson
-              ?.map((json) => PlaylistItem.fromDto(json as Map<String, dynamic>))
-              .toList() ??
-          [];
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '获取歌单项失败: $e');
-      rethrow;
-    }
-  }
-
-  /// 创建歌单
-  Future<Playlist?> createPlaylist({
-    required String name,
-    String? description,
-    String? coverUrl,
+  /// 从歌单中移除歌曲（本地）
+  Future<bool> removePlaylistItem({
+    required String playlistId,
+    required String bvid,
   }) async {
     try {
-      final data = await _apiClient.createPlaylist(
-        name: name,
-        description: description,
-        coverUrl: coverUrl,
+      final idInt = int.tryParse(playlistId) ?? 0;
+      final db = await AppDatabase.instance.database;
+      final trackMaps = await db.query(
+        'tracks',
+        where: 'source_id = ?',
+        whereArgs: [bvid],
+        limit: 1,
       );
-      AppLogger.info('PlaylistRepository', '创建歌单成功: $name');
-      return Playlist.fromDto(data);
+      if (trackMaps.isEmpty) {
+        AppLogger.warn('PlaylistRepository', '未找到歌曲: $bvid');
+        return false;
+      }
+      final trackId = trackMaps.first['id'] as int;
+      await _playlistDao.removeItemFromPlaylist(idInt, trackId);
+      AppLogger.info('PlaylistRepository', '移除歌单项成功: $bvid from $playlistId');
+      return true;
     } catch (e) {
-      AppLogger.error('PlaylistRepository', '创建歌单失败: $e');
-      rethrow;
+      AppLogger.error('PlaylistRepository', '移除歌单项失败: $e');
+      return false;
     }
   }
 
-  /// 更新歌单
+  /// 更新歌单（本地）
   Future<Playlist?> updatePlaylist({
     required String id,
     String? name,
@@ -94,24 +84,26 @@ class PlaylistRepository {
     String? coverUrl,
   }) async {
     try {
-      final data = await _apiClient.updatePlaylist(
-        id: id,
-        name: name,
-        description: description,
-        coverUrl: coverUrl,
-      );
+      final idInt = int.tryParse(id) ?? 0;
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (description != null) data['description'] = description;
+      if (coverUrl != null) data['cover_url'] = coverUrl;
+      await _playlistDao.updatePlaylist(idInt, data);
+      final updated = await _playlistDao.getPlaylistById(idInt);
       AppLogger.info('PlaylistRepository', '更新歌单成功: $id');
-      return Playlist.fromDto(data);
+      return updated != null ? Playlist.fromDto(updated) : null;
     } catch (e) {
       AppLogger.error('PlaylistRepository', '更新歌单失败: $e');
       rethrow;
     }
   }
 
-  /// 删除歌单
+  /// 删除歌单（本地）
   Future<bool> deletePlaylist(String id) async {
     try {
-      await _apiClient.deletePlaylist(id);
+      final idInt = int.tryParse(id) ?? 0;
+      await _playlistDao.deletePlaylist(idInt);
       AppLogger.info('PlaylistRepository', '删除歌单成功: $id');
       return true;
     } catch (e) {
@@ -120,7 +112,63 @@ class PlaylistRepository {
     }
   }
 
-  /// 添加歌单项
+  // ==================== 本地歌单读取 ====================
+
+  /// 获取用户歌单列表（等同于本地用户歌单）
+  Future<List<Playlist>> getUserPlaylists() async {
+    return getLocalUserPlaylists();
+  }
+
+  /// 获取歌单项（本地）
+  Future<List<PlaylistItem>> getPlaylistItems(String id) async {
+    try {
+      final idInt = int.tryParse(id) ?? 0;
+      final itemsMap = await _playlistDao.getPlaylistItems(idInt);
+      return itemsMap.map((m) {
+        return PlaylistItem(
+          id: m['id']?.toString(),
+          playlistId: id,
+          bvid: m['source_id'] as String? ?? m['bvid'] as String? ?? '',
+          title: m['title'] as String?,
+          artist: m['artist'] as String?,
+          duration: m['duration'] as int?,
+          coverUrl: m['cover_url'] as String?,
+          localPath: m['local_path'] as String?,
+          position: m['position'] as int? ?? 0,
+          addedAt: m['added_at'] != null
+              ? DateTime.tryParse(m['added_at'] as String)
+              : null,
+        );
+      }).toList();
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '获取歌单项失败: $e');
+      return [];
+    }
+  }
+
+  /// 创建歌单（本地）
+  Future<Playlist?> createPlaylist({
+    required String name,
+    String? description,
+    String? coverUrl,
+  }) async {
+    try {
+      final id = await _playlistDao.insertPlaylist({
+        'name': name,
+        'description': description,
+        'cover_url': coverUrl,
+        'type': 'user',
+      });
+      final playlistMap = await _playlistDao.getPlaylistById(id);
+      AppLogger.info('PlaylistRepository', '创建歌单成功: $name');
+      return playlistMap != null ? Playlist.fromDto(playlistMap) : null;
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '创建歌单失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 添加歌单项（本地）
   Future<bool> addPlaylistItem({
     required String playlistId,
     required String bvid,
@@ -131,15 +179,36 @@ class PlaylistRepository {
     int? position,
   }) async {
     try {
-      await _apiClient.addPlaylistItem(
-        playlistId: playlistId,
-        bvid: bvid,
-        title: title,
-        artist: artist,
-        duration: duration,
-        coverUrl: coverUrl,
-        position: position,
+      final pidInt = int.tryParse(playlistId) ?? 0;
+      final db = await AppDatabase.instance.database;
+
+      // 查找或创建 track
+      final trackMaps = await db.query(
+        'tracks',
+        where: 'source_id = ?',
+        whereArgs: [bvid],
+        limit: 1,
       );
+
+      int trackId;
+      if (trackMaps.isNotEmpty) {
+        trackId = trackMaps.first['id'] as int;
+      } else {
+        trackId = await db.insert('tracks', {
+          'source_id': bvid,
+          'source_type': 'bilibili',
+          'title': title ?? bvid,
+          'artist': artist,
+          'cover_url': coverUrl,
+          'duration': duration ?? 0,
+          'bvid': bvid,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      final pos = position ?? 0;
+      await _playlistDao.addItemToPlaylist(pidInt, trackId, pos);
       AppLogger.info('PlaylistRepository', '添加歌单项成功: $bvid -> $playlistId');
       return true;
     } catch (e) {
@@ -148,75 +217,44 @@ class PlaylistRepository {
     }
   }
 
-  /// 删除歌单项
-  Future<bool> removePlaylistItem({
-    required String playlistId,
-    required String bvid,
-  }) async {
-    try {
-      await _apiClient.removePlaylistItem(
-        playlistId: playlistId,
-        bvid: bvid,
-      );
-      AppLogger.info('PlaylistRepository', '删除歌单项成功: $bvid from $playlistId');
-      return true;
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '删除歌单项失败: $e');
-      rethrow;
-    }
-  }
-
-  // ==================== 收藏操作 ====================
-
-  /// 获取收藏列表
+  /// 获取收藏列表（本地，从 tracks 表中获取 is_favorite=1 的记录）
   Future<List<PlaylistItem>> getFavorites({
     int page = 1,
     int pageSize = 20,
   }) async {
     try {
-      final data = await _apiClient.getFavorites(
-        page: page,
-        pageSize: pageSize,
+      final db = await AppDatabase.instance.database;
+      final offset = (page - 1) * pageSize;
+      final tracks = await db.query(
+        'tracks',
+        where: 'is_favorite = ?',
+        whereArgs: [1],
+        orderBy: 'updated_at DESC',
+        limit: pageSize,
+        offset: offset,
       );
-      final itemsJson = data['items'] as List?;
-      return itemsJson
-              ?.map((json) => PlaylistItem.fromDto(json as Map<String, dynamic>))
-              .toList() ??
-          [];
+      return tracks.map((m) {
+        return PlaylistItem(
+          bvid: m['source_id'] as String? ?? m['bvid'] as String? ?? '',
+          title: m['title'] as String?,
+          artist: m['artist'] as String?,
+          duration: m['duration'] as int?,
+          coverUrl: m['cover_url'] as String?,
+          localPath: m['local_path'] as String?,
+          position: 0,
+        );
+      }).toList();
     } catch (e) {
       AppLogger.error('PlaylistRepository', '获取收藏列表失败: $e');
       return [];
     }
   }
 
-  /// 切换收藏状态（移除预检查）
-  ///
-  /// 返回 true 表示添加收藏，false 表示取消收藏
-  Future<bool> toggleFavorite(String bvid) async {
-    try {
-      // 直接调用后端，后端返回操作结果
-      final result = await _apiClient.toggleFavorite(bvid);
-      final added = result['added'] as bool? ?? result['is_added'] as bool? ?? false;
-
-      AppLogger.info('PlaylistRepository', '切换收藏状态: $bvid, added=$added');
-      return added;
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '切换收藏失败: $e');
-      rethrow;
-    }
+  /// 保存播放队列（本地，暂不实现服务端同步）
+  Future<void> saveNowPlaying(List<PlaylistItem> items) async {
+    // 本地模式下暂不实现
+    AppLogger.debug('PlaylistRepository', 'saveNowPlaying: 本地模式下暂不实现');
   }
-
-  /// 检查是否已收藏
-  Future<bool> isFavorite(String bvid) async {
-    try {
-      return await _apiClient.checkFavorite(bvid);
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '检查收藏状态失败: $e');
-      return false;
-    }
-  }
-
-  // ==================== 本地歌单读取 ====================
 
   /// 获取本地歌单列表（离线支持）
   Future<List<Playlist>> getLocalPlaylists() async {
@@ -248,39 +286,6 @@ class PlaylistRepository {
     } catch (e) {
       AppLogger.error('PlaylistRepository', '获取本地系统歌单失败: $e');
       return [];
-    }
-  }
-
-  /// 同步歌单列表到本地
-  Future<void> syncPlaylistsToLocal(List<Playlist> playlists) async {
-    try {
-      for (final playlist in playlists) {
-        await _playlistDao.upsertPlaylistFromServer(playlist.toDto());
-      }
-      AppLogger.info('PlaylistRepository', '同步 ${playlists.length} 个歌单到本地');
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '同步歌单到本地失败: $e');
-      rethrow;
-    }
-  }
-
-  // ==================== 播放队列同步 ====================
-
-  /// 保存播放队列到后端
-  Future<void> saveNowPlaying(List<PlaylistItem> items) async {
-    try {
-      final itemsData = items.map((item) => {
-        'bvid': item.bvid,
-        'title': item.title,
-        'artist': item.artist,
-        'duration': item.duration,
-        'coverUrl': item.coverUrl,
-      }).toList();
-
-      await _apiClient.saveNowPlaying(itemsData);
-      AppLogger.info('PlaylistRepository', '保存播放队列成功: ${items.length}个');
-    } catch (e) {
-      AppLogger.error('PlaylistRepository', '保存播放队列失败: $e');
     }
   }
 }

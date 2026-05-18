@@ -280,7 +280,6 @@ class DownloadViewModel extends _$DownloadViewModel {
 
       final taskId = await _repository!.addDownloadTask(
         bvid: bvid,
-        url: _repository!.getDownloadUrl(bvid),
         savePath: savePath,
         title: title,
         artist: artist,

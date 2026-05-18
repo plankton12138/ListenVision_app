@@ -3,7 +3,6 @@ import 'package:listenvision/presentation/views/account/login_page.dart';
 import 'package:listenvision/presentation/views/account/register_page.dart';
 import 'package:listenvision/presentation/views/account/reset_password_page.dart';
 import 'package:listenvision/presentation/views/discovery/explore_page.dart';
-import 'package:listenvision/presentation/views/discovery/netease_playlist_detail_page.dart';
 import 'package:listenvision/presentation/views/discovery/search_page.dart';
 import 'package:listenvision/presentation/views/library/local_music_playlist_page.dart';
 import 'package:listenvision/presentation/views/library/playlist_library_page.dart';
@@ -36,7 +35,6 @@ class AppRoutes {
   static const String playlistsName = 'playlists';
   static const String playlistDetailName = 'playlist_detail';
   static const String historyName = 'history';
-  static const String neteasePlaylistDetailName = 'netease_playlist_detail';
 
   // 公开页面（无需登录）
   static const String home = '/';
@@ -157,16 +155,6 @@ final GoRouter routerConfig = GoRouter(
       name: AppRoutes.exploreName,
       path: AppRoutes.explore,
       builder: (context, state) => const ExplorePage(),
-      routes: [
-        GoRoute(
-          name: AppRoutes.neteasePlaylistDetailName,
-          path: 'playlist/:id',
-          builder: (context, state) {
-            final playlistId = state.pathParameters['id'] ?? '0';
-            return NeteasePlaylistDetailPage(playlistId: playlistId);
-          },
-        ),
-      ],
     ),
 
     // 播放列表页（本地播放列表，游客可用）

@@ -5,6 +5,13 @@
 class Endpoints {
   Endpoints._();
 
+  // ==================== 认证相关 ====================
+  static const String login = '/auth/login';
+  static const String register = '/auth/register';
+  static const String sendVerificationCode = '/auth/send-code';
+  static const String resetPassword = '/auth/reset-password';
+  static const String deleteAccount = '/auth/delete-account';
+
   // ==================== 歌单相关 ====================
   static const String playlistsList = '/playlists';
   static String playlistsDetail(int id) => '/playlists/$id';

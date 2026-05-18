@@ -6,7 +6,7 @@ import '../../../core/network/endpoints.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../models/search_suggestion.dart';
-import '../auth/auth_viewmodel.dart';
+import '../auth/auth_provider.dart';
 
 part 'search_viewmodel.freezed.dart';
 part 'search_viewmodel.g.dart';

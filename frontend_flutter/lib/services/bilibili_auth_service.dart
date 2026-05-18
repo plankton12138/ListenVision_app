@@ -134,7 +134,7 @@ class BilibiliAuthService {
     };
   }
 
-  void _saveAccount(BilibiliAccount account) async {
+  Future<void> _saveAccount(BilibiliAccount account) async {
     await _secureStorage.write(
         key: 'bilibili_sessdata', value: account.sessdata);
     await _secureStorage.write(key: 'bilibili_jct', value: account.biliJct);

@@ -51,11 +51,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       } else {
         final authState = ref.read(authViewModelProvider);
         String errorMsg = '登录失败，请检查用户名和密码';
-        authState.whenOrNull(
-          error: (err, stack) {
-            errorMsg = err.toString();
-          },
-        );
+        if (authState.error != null) {
+          errorMsg = authState.error!;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
         );

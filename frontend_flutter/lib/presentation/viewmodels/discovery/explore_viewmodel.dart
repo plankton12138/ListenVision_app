@@ -4,8 +4,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/app_logger.dart';
 
-export '../../../core/network/api_client.dart' show apiClientProvider;
-
 part 'explore_viewmodel.freezed.dart';
 part 'explore_viewmodel.g.dart';
 
@@ -77,45 +75,6 @@ class ExploreItem {
   }
 }
 
-class NeteasePlaylistItem {
-  final String id;
-  final String name;
-  final String cover;
-  final int trackCount;
-  final int? playCount;
-
-  NeteasePlaylistItem({
-    required this.id,
-    required this.name,
-    required this.cover,
-    required this.trackCount,
-    this.playCount,
-  });
-
-  factory NeteasePlaylistItem.fromJson(Map<String, dynamic> json) {
-    return NeteasePlaylistItem(
-      id: json['id'].toString(),
-      name: json['name'] as String? ?? '',
-      cover: json['cover'] as String? ?? '',
-      trackCount: json['trackCount'] as int? ?? 0,
-      playCount: json['playCount'] as int?,
-    );
-  }
-}
-
-@freezed
-abstract class NeteaseExploreState with _$NeteaseExploreState {
-  const factory NeteaseExploreState.initial() = NeteaseExploreStateInitial;
-  const factory NeteaseExploreState.loading() = NeteaseExploreStateLoading;
-  const factory NeteaseExploreState.notBound() = NeteaseExploreStateNotBound;
-  const factory NeteaseExploreState.loaded({
-    required List<NeteasePlaylistItem> playlists,
-  }) = NeteaseExploreStateLoaded;
-  const factory NeteaseExploreState.error({
-    required String message,
-  }) = NeteaseExploreStateError;
-}
-
 @Riverpod(keepAlive: true)
 class ExploreViewModel extends _$ExploreViewModel {
   ApiClient? _apiClient;
@@ -141,8 +100,6 @@ class ExploreViewModel extends _$ExploreViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      // 热门歌单接口暂通过通用 GET 调用，后续可补充专用封装
-      // 临时使用通用 get 方法
       final data = await _apiClient!.get('/api/v1/recommendations/hot-playlists',
         queryParams: {
           'page': page,
@@ -211,7 +168,6 @@ class ExploreViewModel extends _$ExploreViewModel {
         state = const AsyncLoading();
       }
 
-      // 使用新的 ApiClient 方法获取B站推荐
       final data = await _apiClient!.getBilibiliRecommendations(
         page: page,
         pageSize: _pageSize,
@@ -314,8 +270,6 @@ class ExploreViewModel extends _$ExploreViewModel {
         return await loadRecommended(page: nextPage, append: true);
       case ExploreType.latest:
         return await loadLatest(page: nextPage);
-      default:
-        return false;
     }
   }
 
@@ -344,58 +298,6 @@ class ExploreViewModel extends _$ExploreViewModel {
   void clearError() {
     if (state.value is ExploreStateError) {
       state = const AsyncData(ExploreState.initial());
-    }
-  }
-}
-
-@Riverpod(keepAlive: true)
-class NeteaseExploreViewModel extends _$NeteaseExploreViewModel {
-  ApiClient? _apiClient;
-
-  @override
-  Future<NeteaseExploreState> build() async {
-    _apiClient = ref.watch(apiClientProvider);
-    return const NeteaseExploreState.initial();
-  }
-
-  Future<bool> loadRecommendedPlaylists() async {
-    try {
-      AppLogger.info('NeteaseExploreViewModel', '加载网易云每日推荐歌单');
-
-      if (!ref.mounted) return false;
-      state = const AsyncLoading();
-
-      final data = await _apiClient!.get('/netease/recommendations/playlists');
-      final playlistsData = data['playlists'] as List? ?? [];
-
-      final playlists = playlistsData.map((p) {
-        return NeteasePlaylistItem.fromJson(p as Map<String, dynamic>);
-      }).toList();
-
-      if (!ref.mounted) return false;
-      state = AsyncData(NeteaseExploreState.loaded(playlists: playlists));
-
-      AppLogger.info('NeteaseExploreViewModel', '网易云每日推荐歌单加载成功: ${playlists.length}个');
-      return true;
-    } catch (e) {
-      AppLogger.error('NeteaseExploreViewModel', '加载网易云每日推荐歌单失败: $e');
-      if (!ref.mounted) return false;
-      state = AsyncError(e, StackTrace.current);
-      return false;
-    }
-  }
-
-  Future<bool> loadPlaylists(String uid) async {
-    return loadRecommendedPlaylists();
-  }
-
-  void setNotBound() {
-    state = const AsyncData(NeteaseExploreState.notBound());
-  }
-
-  void clearError() {
-    if (state.value is NeteaseExploreStateError) {
-      state = const AsyncData(NeteaseExploreState.initial());
     }
   }
 }

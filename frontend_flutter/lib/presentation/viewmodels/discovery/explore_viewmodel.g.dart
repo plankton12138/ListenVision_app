@@ -33,7 +33,7 @@ final class ExploreViewModelProvider
   ExploreViewModel create() => ExploreViewModel();
 }
 
-String _$exploreViewModelHash() => r'8ca775c0cedc5ad3496de4d3f3f4c1639d0c9456';
+String _$exploreViewModelHash() => r'633e4303a3d8c2cf8512e2d5bfc769fa87fa1fc5';
 
 abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
   FutureOr<ExploreState> build();
@@ -52,98 +52,3 @@ abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
     element.handleCreate(ref, build);
   }
 }
-
-@ProviderFor(NeteaseExploreViewModel)
-final neteaseExploreViewModelProvider = NeteaseExploreViewModelProvider._();
-
-final class NeteaseExploreViewModelProvider
-    extends
-        $AsyncNotifierProvider<NeteaseExploreViewModel, NeteaseExploreState> {
-  NeteaseExploreViewModelProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'neteaseExploreViewModelProvider',
-        isAutoDispose: false,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$neteaseExploreViewModelHash();
-
-  @$internal
-  @override
-  NeteaseExploreViewModel create() => NeteaseExploreViewModel();
-}
-
-String _$neteaseExploreViewModelHash() =>
-    r'c3d097431645ccebae117a1325735f258a95b2ae';
-
-abstract class _$NeteaseExploreViewModel
-    extends $AsyncNotifier<NeteaseExploreState> {
-  FutureOr<NeteaseExploreState> build();
-  @$mustCallSuper
-  @override
-  void runBuild() {
-    final ref =
-        this.ref as $Ref<AsyncValue<NeteaseExploreState>, NeteaseExploreState>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<AsyncValue<NeteaseExploreState>, NeteaseExploreState>,
-              AsyncValue<NeteaseExploreState>,
-              Object?,
-              Object?
-            >;
-    element.handleCreate(ref, build);
-  }
-}
-
-@ProviderFor(exploreBackendApiClient)
-final exploreBackendApiClientProvider = ExploreBackendApiClientProvider._();
-
-final class ExploreBackendApiClientProvider
-    extends
-        $FunctionalProvider<
-          BackendApiClient,
-          BackendApiClient,
-          BackendApiClient
-        >
-    with $Provider<BackendApiClient> {
-  ExploreBackendApiClientProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'exploreBackendApiClientProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$exploreBackendApiClientHash();
-
-  @$internal
-  @override
-  $ProviderElement<BackendApiClient> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
-
-  @override
-  BackendApiClient create(Ref ref) {
-    return exploreBackendApiClient(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(BackendApiClient value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<BackendApiClient>(value),
-    );
-  }
-}
-
-String _$exploreBackendApiClientHash() =>
-    r'7805fa58748128a739020cd7748c0cb77d04b253';

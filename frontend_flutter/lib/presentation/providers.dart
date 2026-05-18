@@ -6,6 +6,11 @@ library;
 // ==================== Repository 层（本地优先架构）====================
 export '../data/repositories/repository_providers.dart';
 
+// ==================== 认证相关 ====================
+export 'viewmodels/auth/auth_provider.dart';
+export 'viewmodels/auth/auth_viewmodel.dart';
+export '../../services/bilibili_auth_service.dart';
+
 // ==================== 字幕 ====================
 export 'viewmodels/player/subtitle_viewmodel.dart';
 export '../data/repositories/subtitle_repository.dart';

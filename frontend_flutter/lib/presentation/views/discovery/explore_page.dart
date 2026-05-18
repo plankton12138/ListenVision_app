@@ -22,7 +22,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const List<String> _tabs = ['B站音乐区', '网易云歌单'];
+  static const List<String> _tabs = ['B站音乐区'];
 
   @override
   void initState() {
@@ -34,12 +34,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
 
-    final currentIndex = _tabController.index;
-    if (currentIndex == 0) {
-      _loadRecommendIfNeed();
-    } else if (currentIndex == 1) {
-      _loadNeteaseIfNeed();
-    }
+    _loadRecommendIfNeed();
   }
 
   void _loadRecommendIfNeed() {
@@ -49,10 +44,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         ref.read(exploreViewModelProvider.notifier).loadRecommended();
       }
     });
-  }
-
-  void _loadNeteaseIfNeed() {
-    // 网易云功能待开发，暂不加载
   }
 
   @override
@@ -65,15 +56,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(isLoggedInProvider);
-    final authState = ref.watch(platformAuthViewModelProvider);
     final exploreState = ref.watch(exploreViewModelProvider);
-
-    if (authState.isLoading) {
-      return _buildLoadingView();
-    }
-
-    final authData = authState.value;
-    final isBilibiliBound = authData != null && authData is PlatformAuthStateBound;
+    final bilibiliBound = ref.watch(bilibiliBoundProvider);
+    final isBilibiliBound = bilibiliBound.value ?? false;
 
     if (!isLoggedIn) {
       return _buildNotLoggedInPrompt();
@@ -118,7 +103,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         controller: _tabController,
         children: [
           _buildBilibiliTab(exploreState, isBilibiliBound),
-          _buildNeteaseTab(),
         ],
       ),
     );
@@ -343,56 +327,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         break;
 
     }
-  }
-
-  Widget _buildNeteaseTab() {
-    // 网易云功能待开发
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.music_note,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '网易云音乐',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-            ),
-            child: const Text(
-              '待开发',
-              style: TextStyle(
-                color: Colors.orange,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '网易云音乐功能正在开发中，敬请期待',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildLoadingView() {

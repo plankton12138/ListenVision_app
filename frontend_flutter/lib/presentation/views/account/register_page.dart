@@ -64,11 +64,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       } else {
         final authState = ref.read(authViewModelProvider);
         String errorMsg = '发送验证码失败';
-        authState.whenOrNull(
-          error: (err, stack) {
-            errorMsg = err.toString();
-          },
-        );
+        if (authState.error != null) {
+          errorMsg = authState.error!;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
         );
@@ -118,12 +116,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       } else {
         final authState = ref.read(authViewModelProvider);
         String errorMsg = '验证失败';
-        authState.whenOrNull(
-          error: (err, stack) {
-            errorMsg = err.toString();
-          },
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (authState.error != null) {
+          errorMsg = authState.error!;
+        }
+ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
         );
       }

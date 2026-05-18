@@ -19,12 +19,7 @@ export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBoundProvid
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
 export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthStateBound;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show neteaseAuthViewModelProvider;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show boundNeteaseAccount;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show isNeteaseBound;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseQRLoginStatus;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthState;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthStateBound;
+
 // ==================== 字幕 ====================
 export 'viewmodels/player/subtitle_viewmodel.dart';
 export '../data/repositories/subtitle_repository.dart';

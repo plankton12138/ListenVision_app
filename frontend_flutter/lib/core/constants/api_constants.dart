@@ -117,23 +117,6 @@ class BilibiliEndpoints {
   static const String recommend = '/bilibili/recommend';
 }
 
-// ==================== 网易云音乐端点 ====================
-
-class NeteaseEndpoints {
-  static const String qrcode = '/netease/qrcode';
-  static const String qrcodeCheck = '/netease/qrcode/check';
-  static const String loginCellphone = '/netease/login/cellphone';
-  static const String status = '/netease/status';
-  static const String unbind = '/netease/unbind';
-  static const String search = '/netease/search';
-  static const String songDetail = '/netease/song/detail';
-  static const String songUrl = '/netease/song/url';
-  static String songLyric(String id) => '/netease/song/lyric/$id';
-  static String playlistDetail(String id) => '/netease/playlist/detail/$id';
-  static String userPlaylist(String uid) => '/netease/user/playlist/$uid';
-  static const String recommendPlaylists = '/netease/recommend/playlists';
-}
-
 /// B站相关常量
 class BilibiliConstants {
   /// QR码状态 - 未扫描

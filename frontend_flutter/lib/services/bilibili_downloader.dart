@@ -2,10 +2,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import '../core/utils/app_logger.dart';
-import '../data/api/bilibili_api_client.dart';
+import 'bilibili_api_service.dart';
+import 'bilibili_headers.dart';
+import 'ffmpeg_service.dart';
 import 'metadata_writer.dart';
 
-/// 下载结果
 class DownloadResult {
   final bool success;
   final String? filePath;
@@ -22,31 +23,17 @@ class DownloadResult {
   });
 }
 
-/// B站音频下载器（零转换版本）
-///
-/// 流程：
-/// 1. 调用后端 /audio/:bvid 获取音频流 URL (fnval=16)
-/// 2. 直接下载 m4s 音频文件
-/// 3. 下载封面图片
-/// 4. 重命名 m4s → m4a（零转换！）
-/// 5. 使用 metadata_god 写入元数据
-/// 6. 保存到目标路径
 class BilibiliDownloader {
-  final BilibiliApiClient _api;
+  final BilibiliApiService _api;
   final Dio _dio;
 
   BilibiliDownloader(this._api) : _dio = Dio();
 
-  /// 下载音频（零转换版本）
-  ///
-  /// [bvid] 视频 BVID
-  /// [saveDir] 保存目录
-  /// [fileName] 文件名（不含扩展名）
-  /// [onProgress] 进度回调 (百分比, 阶段) - 已节流，避免主线程消息溢出
   Future<DownloadResult> download({
     required String bvid,
     required String saveDir,
     required String fileName,
+    AudioOutputFormat? format,
     void Function(int percent, String stage)? onProgress,
   }) async {
     // 临时文件目录
@@ -58,7 +45,6 @@ class BilibiliDownloader {
     try {
       AppLogger.info('BilibiliDownloader', '开始下载: $bvid');
 
-      // 步骤1: 获取视频信息
       onProgress?.call(5, 'fetching_info');
       final videoInfo = await _api.getVideoInfo(bvid);
 
@@ -69,23 +55,18 @@ class BilibiliDownloader {
 
       AppLogger.info('BilibiliDownloader', '获取视频信息: $title - $artist');
 
-      // 步骤2: 获取音频流 URL（从 AudioStreamsResponse.streams 选取最高音质）
       onProgress?.call(10, 'fetching_audio');
-      final audioStream = await _api.getAudioStream(bvid);
+      final audioStream = await _api.getAudioStreams(bvid);
 
-      final rawStreams = audioStream['streams'] as List<dynamic>?;
-      if (rawStreams == null || rawStreams.isEmpty) {
+      if (audioStream.streams.isEmpty) {
         throw Exception('无法获取音频流 URL');
       }
 
-      // 按 quality 降序排序，选最高音质
-      final streams = rawStreams
-          .cast<Map<String, dynamic>>()
-          .toList()
-        ..sort((a, b) => (b['quality'] as int? ?? 0).compareTo(a['quality'] as int? ?? 0));
+      final streams = audioStream.streams
+        ..sort((a, b) => b.qualityId.compareTo(a.qualityId));
 
-      final audioUrl = streams.first['url'] as String?;
-      if (audioUrl == null || audioUrl.isEmpty) {
+      final audioUrl = streams.first.url;
+      if (audioUrl.isEmpty) {
         throw Exception('无法获取音频流 URL');
       }
       AppLogger.info('BilibiliDownloader', '获取音频流 URL: ${audioUrl.substring(0, audioUrl.length > 50 ? 50 : audioUrl.length)}...');
@@ -146,19 +127,36 @@ class BilibiliDownloader {
         AppLogger.warn('BilibiliDownloader', '元数据写入失败: ${metadataResult.error}');
       }
 
-      // 步骤7: 完成
+      String audioPath = m4aPath;
+      String resultFormat = 'm4a';
+
+      if (format != null && format != AudioOutputFormat.m4a) {
+        onProgress?.call(85, 'converting');
+        final ffmpeg = FfmpegService();
+        try {
+          final convertedPath = await ffmpeg.convert(
+            inputPath: m4aPath,
+            outputFormat: format,
+          );
+          await File(m4aPath).delete();
+          audioPath = convertedPath;
+          resultFormat = format.extension;
+        } finally {
+        }
+      }
+
       onProgress?.call(100, 'completed');
 
-      final finalFile = File(m4aPath);
+      final finalFile = File(audioPath);
       final finalSize = await finalFile.length();
 
-      AppLogger.info('BilibiliDownloader', '下载完成: $m4aPath ($finalSize bytes)');
+      AppLogger.info('BilibiliDownloader', '下载完成: $audioPath ($finalSize bytes)');
 
       return DownloadResult(
         success: true,
-        filePath: m4aPath,
+        filePath: audioPath,
         fileSize: finalSize,
-        format: 'm4a',
+        format: resultFormat,
       );
     } catch (e) {
       AppLogger.error('BilibiliDownloader', '下载失败: $e');

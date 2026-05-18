@@ -53,25 +53,6 @@ class Endpoints {
   static String bilibiliProxyAudioByBvid(String bvid) =>
       '/bilibili/proxy/audio/$bvid';
 
-  // ==================== 网易云相关 ====================
-  static const String neteaseQrcode = '/netease/qrcode';
-  static const String neteaseQrcodeCheck = '/netease/qrcode/check';
-  static const String neteaseCellphoneLogin = '/netease/login/cellphone';
-  static const String neteaseStatus = '/netease/status';
-  static const String neteaseUnbind = '/netease/unbind';
-  static const String neteaseSearch = '/netease/search';
-  static const String neteaseRecommendedPlaylists =
-      '/netease/recommended-playlists';
-
-  static String neteaseSongDetail(String ids) =>
-      '/netease/song/detail?ids=$ids';
-  static String neteaseSongUrl(String id) => '/netease/song/url?id=$id';
-  static String neteaseSongLyric(String id) => '/netease/song/lyric/$id';
-  static String neteasePlaylistDetail(String id) =>
-      '/netease/playlist/detail/$id';
-  static String neteaseUserPlaylist(String uid) =>
-      '/netease/user/playlist/$uid';
-
   // ==================== 播放历史相关 ====================
   static const String historyList = '/history';
   static String historyDelete(int id) => '/history/$id';

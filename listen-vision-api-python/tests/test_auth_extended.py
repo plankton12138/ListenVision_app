@@ -171,7 +171,7 @@ async def test_delete_account():
         # 尝试登录应该失败
         with pytest.raises(Exception) as exc_info:
             await service.login(email, "password123")
-        assert "邮箱或密码错误" in str(exc_info.value)
+        assert "用户不存在" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

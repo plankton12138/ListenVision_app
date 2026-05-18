@@ -5,9 +5,9 @@ from app.api.deps import get_db, get_current_user
 from app.services.auth_service import AuthService
 from app.schemas.auth import (
     UserCreate, UserResponse, LoginRequest, TokenResponse,
-    RefreshRequest, UserMeResponse
+    RefreshRequest, UserMeResponse, VerifyAndRegisterRequest
 )
-from app.schemas.email import SendCodeRequest, VerifyEmailRequest, ResetPasswordRequest
+from app.schemas.email import SendCodeRequest, ResetPasswordRequest
 from app.schemas.common import ApiResponse
 from app.models import User
 
@@ -44,29 +44,29 @@ async def send_verification_code(
     )
 
 
-@router.post("/verify-email", response_model=ApiResponse[UserResponse])
+@router.post("/verify-email")
 async def verify_email_and_register(
-    request: VerifyEmailRequest,
-    password: str,
-    db: AsyncSession = Depends(get_db),
-    username: str = None
+    request: VerifyAndRegisterRequest,
+    db: AsyncSession = Depends(get_db)
 ):
     """
     验证邮箱并完成注册
 
     - **email**: 邮箱地址
     - **code**: 验证码
-    - **password**: 密码（必需，通过 form-data 传递）
-    - **username**: 用户名（可选，通过 form-data 传递）
+    - **password**: 密码
+    - **username**: 用户名（可选）
+
+    注册成功后直接返回 access_token / refresh_token
     """
     service = AuthService(db)
-    user = await service.verify_email_and_register(
+    result = await service.verify_email_and_register(
         email=request.email,
         code=request.code,
-        password=password,
-        username=username
+        password=request.password,
+        username=request.username
     )
-    return ApiResponse(success=True, message="注册成功", data=user)
+    return ApiResponse(success=True, message="注册成功", data=result)
 
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])

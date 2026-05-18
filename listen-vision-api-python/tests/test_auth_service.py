@@ -83,4 +83,4 @@ async def test_wrong_password():
 
         with pytest.raises(Exception) as exc_info:
             await service.login(email, "wrongpassword")
-        assert "邮箱或密码错误" in str(exc_info.value)
+        assert "密码错误" in str(exc_info.value)

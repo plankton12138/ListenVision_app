@@ -66,10 +66,16 @@ class EmailService:
             msg["To"] = to_email
             msg.attach(MIMEText(body, "html", "utf-8"))
 
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_pass)
-                server.sendmail(self.smtp_user, to_email, msg.as_string())
+            # QQ 邮箱使用 465 (SSL)，其他用 587 (STARTTLS)
+            if self.smtp_port == 465:
+                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as server:
+                    server.login(self.smtp_user, self.smtp_pass)
+                    server.sendmail(self.smtp_user, to_email, msg.as_string())
+            else:
+                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_pass)
+                    server.sendmail(self.smtp_user, to_email, msg.as_string())
 
             logger.info(f"验证码邮件已发送: {to_email}, purpose={purpose}")
             return True

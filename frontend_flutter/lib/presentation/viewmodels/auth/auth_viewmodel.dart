@@ -132,12 +132,19 @@ class AuthViewModel extends _$AuthViewModel {
   Future<bool> verifyEmail({
     required String email,
     required String code,
+    required String password,
+    String? username,
   }) async {
     state = const AsyncLoading();
     try {
       AppLogger.info('AuthViewModel', '验证邮箱: $email');
 
-      final user = await _repository!.verifyEmail(email: email, code: code);
+      final user = await _repository!.verifyEmail(
+        email: email,
+        code: code,
+        password: password,
+        username: username,
+      );
 
       AppLogger.logUserAction(
         'Auth',

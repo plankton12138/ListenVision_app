@@ -107,7 +107,7 @@ class BilibiliEndpoints {
   static const String unbind = '/bilibili/unbind';
   static const String status = '/bilibili/status';
   static String video(String bvid) => '/bilibili/video/$bvid';
-  static String audio(String bvid) => '/bilibili/audio/$bvid';
+  static String audio(String bvid) => '/bilibili/video/$bvid/audio';
   static String uploader(dynamic mid) => '/bilibili/uploader/$mid';
   static const String search = '/bilibili/search';
   static const String searchSuggest = '/bilibili/search/suggest';

@@ -25,9 +25,17 @@ class UserResponse(UserBase):
 
 
 class LoginRequest(BaseModel):
-    """登录请求"""
-    email: EmailStr
+    """登录请求（支持邮箱或用户名）"""
+    email: str = Field(..., description="邮箱或用户名")
     password: str
+
+
+class VerifyAndRegisterRequest(BaseModel):
+    """验证邮箱并完成注册请求"""
+    email: EmailStr
+    code: str
+    password: str = Field(..., min_length=6)
+    username: Optional[str] = None
 
 
 class TokenResponse(BaseModel):

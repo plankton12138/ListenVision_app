@@ -46,7 +46,7 @@ class Endpoints {
   }
 
   static String bilibiliVideo(String bvid) => '/bilibili/video/$bvid';
-  static String bilibiliAudio(String bvid) => '/bilibili/audio/$bvid';
+  static String bilibiliAudio(String bvid) => '/bilibili/video/$bvid/audio';
   static String bilibiliUploader(String mid) => '/bilibili/uploader/$mid';
   static const String bilibiliProxyImage = '/bilibili/proxy/image';
   static const String bilibiliProxyAudio = '/bilibili/proxy/audio';

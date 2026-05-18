@@ -80,10 +80,17 @@ class AuthRepository {
   Future<User> verifyEmail({
     required String email,
     required String code,
+    required String password,
+    String? username,
   }) async {
     try {
       AppLogger.info('AuthRepository', '验证邮箱: $email');
-      final data = await _apiClient.verifyEmail(email: email, code: code);
+      final data = await _apiClient.verifyEmail(
+        email: email,
+        code: code,
+        password: password,
+        username: username,
+      );
 
       final user = User.fromDto({
         ...?data['user'] as Map<String, dynamic>?,

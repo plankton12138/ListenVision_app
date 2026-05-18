@@ -45,11 +45,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     });
 
     try {
-      final success = await ref.read(authViewModelProvider.notifier).register(
-        username: _usernameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
+      final success = await ref.read(authViewModelProvider.notifier)
+          .sendVerificationCode(_emailController.text);
 
       if (!mounted) return;
 
@@ -104,6 +101,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       final success = await ref.read(authViewModelProvider.notifier).verifyEmail(
         email: _emailController.text,
         code: _verifyCodeController.text,
+        password: _passwordController.text,
+        username: _usernameController.text,
       );
 
       if (!mounted) return;

@@ -32,6 +32,11 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def get_by_username(self, username: str) -> Optional[User]:
+        """根据用户名获取用户"""
+        result = await self.db.execute(select(User).where(User.username == username))
+        return result.scalar_one_or_none()
+
     async def exists_by_email(self, email: str) -> bool:
         """检查邮箱是否已存在"""
         result = await self.db.execute(select(User).where(User.email == email))

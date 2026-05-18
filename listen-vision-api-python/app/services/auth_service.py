@@ -148,12 +148,19 @@ class AuthService:
         return UserResponse.model_validate(user)
 
     async def login(self, email: str, password: str) -> TokenResponse:
-        """用户登录"""
+        """用户登录（支持邮箱或用户名）"""
         user = await self.user_repo.get_by_email(email)
-        if not user or not verify_password(password, user.hashed_password):
+        if not user and '@' not in email:
+            user = await self.user_repo.get_by_username(email)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="邮箱或密码错误"
+                detail="用户不存在"
+            )
+        if not verify_password(password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="密码错误"
             )
 
         if not user.is_active:
@@ -273,8 +280,18 @@ class AuthService:
             username=username
         )
 
+        # 生成 Token，注册后直接登录
+        access_token = create_access_token({"sub": str(user.id)})
+        refresh_token = create_refresh_token({"sub": str(user.id)})
+
         logger.info(f"User registered with email verification: {user.email}")
-        return UserResponse.model_validate(user)
+        return {
+            "user": UserResponse.model_validate(user).model_dump(),
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.access_token_expire_minutes * 60,
+        }
 
     async def reset_password(
         self,

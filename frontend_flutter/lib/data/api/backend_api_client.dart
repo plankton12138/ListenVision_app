@@ -102,11 +102,18 @@ class BackendApiClient {
   Future<Map<String, dynamic>> verifyEmail({
     required String email,
     required String code,
+    required String password,
+    String? username,
   }) async {
     try {
       final response = await _dioClient.post(
         AuthEndpoints.verifyEmail,
-        data: {'email': email, 'code': code},
+        data: {
+          'email': email,
+          'code': code,
+          'password': password,
+          if (username != null) 'username': username,
+        },
       );
       AppLogger.info('BackendApiClient', '邮箱验证成功: $email');
       return _handleResponse(response);

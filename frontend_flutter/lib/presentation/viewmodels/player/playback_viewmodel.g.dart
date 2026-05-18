@@ -77,7 +77,7 @@ final class PlaybackViewModelProvider
   }
 }
 
-String _$playbackViewModelHash() => r'e1efdeea521b6d88d2c3f872e24352a9bba7eb45';
+String _$playbackViewModelHash() => r'a022ec1ee00222ecbdaedd26ca9beb0791d41afe';
 
 /// 播放控制器 ViewModel
 ///

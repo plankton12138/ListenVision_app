@@ -1,6 +1,0 @@
-ignoredBuiltDependencies:
-  - '@scarf/scarf'
-  - bcrypt
-  - unrs-resolver
-onlyBuiltDependencies:
- - better-sqlite3

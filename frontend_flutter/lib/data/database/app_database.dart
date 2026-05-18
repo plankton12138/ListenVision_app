@@ -31,7 +31,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -83,8 +83,7 @@ class AppDatabase {
         playlist_id $textNullableType,
         added_at $textNullableType,
         updated_at $textNullableType,
-        created_at $textNullableType,
-        synced_at $textNullableType
+        created_at $textNullableType
       )
     ''');
 
@@ -208,6 +207,9 @@ class AppDatabase {
     }
 
     // 未来版本升级在这里继续
+    if (oldVersion < 9) {
+      await _upgradeToV9(db);
+    }
   }
 
   /// 升级到版本 2：添加断点续传支持字段
@@ -591,6 +593,91 @@ class AppDatabase {
       AppLogger.error('AppDatabase', 'subtitle_cache 表结构更新失败：$e');
       rethrow;
     }
+  }
+
+  Future<void> _upgradeToV9(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V9：删除服务端同步字段');
+
+    await db.execute('''
+      CREATE TABLE tracks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT NULL UNIQUE,
+        source_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        artist TEXT,
+        album TEXT,
+        duration INTEGER,
+        cover_url TEXT,
+        cover_blob BLOB,
+        bvid TEXT,
+        uploader TEXT,
+        uploader_mid TEXT,
+        play_count INTEGER,
+        local_path TEXT,
+        is_downloaded INTEGER DEFAULT 0,
+        download_status TEXT DEFAULT '',
+        download_progress INTEGER DEFAULT 0,
+        is_favorite INTEGER DEFAULT 0,
+        local_play_count INTEGER DEFAULT 0,
+        last_played_at TEXT,
+        position INTEGER,
+        playlist_id TEXT,
+        added_at TEXT,
+        updated_at TEXT,
+        created_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      INSERT INTO tracks_new
+      SELECT id, source_id, source_type, title, artist, album, duration,
+             cover_url, cover_blob, bvid, uploader, uploader_mid, play_count,
+             local_path, is_downloaded, download_status, download_progress,
+             is_favorite, local_play_count, last_played_at, position,
+             playlist_id, added_at, updated_at, created_at
+      FROM tracks
+    ''');
+
+    await db.execute('DROP TABLE tracks');
+    await db.execute('ALTER TABLE tracks_new RENAME TO tracks');
+
+    await db.execute('CREATE INDEX idx_tracks_source_id ON tracks(source_id)');
+    await db.execute('CREATE INDEX idx_tracks_source_type ON tracks(source_type)');
+    await db.execute('CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)');
+    await db.execute('CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)');
+    await db.execute('CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)');
+
+    await db.execute('''
+      CREATE TABLE playlists_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        cover_url TEXT,
+        cover_blob BLOB,
+        type TEXT DEFAULT 'user',
+        system_type TEXT,
+        is_public INTEGER DEFAULT 0,
+        play_count INTEGER DEFAULT 0,
+        item_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      INSERT INTO playlists_new
+      SELECT id, name, description, cover_url, cover_blob, type, system_type,
+             is_public, play_count, item_count, created_at, updated_at
+      FROM playlists
+    ''');
+
+    await db.execute('DROP TABLE playlists');
+    await db.execute('ALTER TABLE playlists_new RENAME TO playlists');
+
+    await db.execute('CREATE INDEX idx_playlists_type ON playlists(type)');
+    await db.execute('CREATE INDEX idx_playlists_system_type ON playlists(system_type)');
+
+    AppLogger.info('AppDatabase', 'V9 迁移完成');
   }
 
   // ==================== Tracks CRUD ====================

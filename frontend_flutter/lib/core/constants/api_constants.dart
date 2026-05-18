@@ -41,19 +41,6 @@ class ApiConstants {
   static bool get enableLogging => config.enableApiLogging;
 }
 
-// ==================== 认证端点 ====================
-
-class AuthEndpoints {
-  static const String register = '/auth/register';
-  static const String verifyEmail = '/auth/verify-email';
-  static const String login = '/auth/login';
-  static const String logout = '/auth/logout';
-  static const String me = '/auth/me';
-  static const String sendCode = '/auth/send-code';
-  static const String resetPassword = '/auth/reset-pwd';
-  static const String deleteAccount = '/auth/account';
-}
-
 // ==================== 用户端点 ====================
 
 class UserEndpoints {

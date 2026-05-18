@@ -6,20 +6,6 @@ library;
 // ==================== Repository 层（本地优先架构）====================
 export '../data/repositories/repository_providers.dart';
 
-// ==================== 认证相关 ====================
-export 'viewmodels/auth/auth_viewmodel.dart' show authViewModelProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show currentUserProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show authTokenProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show isLoggedInProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show AuthState;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show platformAuthViewModelProvider;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundBilibiliAccount;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBoundProvider;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthStateBound;
-
 // ==================== 字幕 ====================
 export 'viewmodels/player/subtitle_viewmodel.dart';
 export '../data/repositories/subtitle_repository.dart';

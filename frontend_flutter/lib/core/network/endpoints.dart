@@ -5,17 +5,6 @@
 class Endpoints {
   Endpoints._();
 
-  // ==================== 认证相关 ====================
-  static const String authLogin = '/auth/login';
-  static const String authRegister = '/auth/register';
-  static const String authVerifyEmail = '/auth/verify-email';
-  static const String authLogout = '/auth/logout';
-  static const String authMe = '/auth/me';
-    static const String authRefresh = '/auth/refresh';
-  static const String authSendCode = '/auth/send-code';
-  static const String authResetPassword = '/auth/reset-pwd';
-  static const String authVerifyCode = '/auth/verify-code';
-
   // ==================== 歌单相关 ====================
   static const String playlistsList = '/playlists';
   static String playlistsDetail(int id) => '/playlists/$id';
@@ -80,10 +69,4 @@ class Endpoints {
   static const String audioStats = '/audio/stats';
   static const String audioClean = '/audio/clean';
 
-  // ==================== 同步相关 ====================
-  static const String syncFavorites = '/sync/favorites';
-  static const String syncPlaylists = '/sync/playlists';
-  static const String syncHistory = '/sync/history';
-  static const String syncChanges = '/sync/changes';
-  static const String syncStatus = '/sync/status';
 }

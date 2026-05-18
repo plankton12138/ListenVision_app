@@ -10,7 +10,6 @@
 |------|------|
 | OS | Windows 11 24H2 |
 | Shell | PowerShell（优先用 PowerShell 命令） |
-| Node.js | 24.13.0（固定版本，better-sqlite3 需要） |
 | Flutter | 3.38.5 (Dart 3.10.4) |
 
 ---
@@ -22,17 +21,16 @@ listen-vision-audio-app/
 ├── references/                    # 参考文档
 │   ├── bilibili-API-collect/     # B站API文档（本地克隆）
 │   └── riverpod/                 # Riverpod官方文档（本地克隆）
-├── frontend_flutter/              # Flutter 前端（主项目）
-│   └── lib/
-│       ├── core/                  # 基础设施（常量、网络、存储）
-│       ├── models/                # 数据模型（DTO、实体）
-│       ├── data/                  # 数据层（API、DAO、Repository）
-│       ├── services/              # 有状态服务（播放器、元数据）
-│       └── presentation/          # UI 层（ViewModel、View、Widget）
-└── listen-vision-api-python/      # Python 后端（主后端）
+└── frontend_flutter/              # Flutter 前端（纯前端架构）
+    └── lib/
+        ├── core/                  # 基础设施（常量、网络、存储）
+        ├── models/                # 数据模型（实体）
+        ├── data/                  # 数据层（DAO、Repository）
+        ├── services/              # 有状态服务（播放器、B站API、认证）
+        └── presentation/          # UI 层（ViewModel、View、Widget）
 ```
 
-> **注意**：`listen-vision_api/`（Node.js 后端）已声明为遗留，不再主动维护。
+> **无后端架构**：App 直接调用 B站 REST API，所有数据存储在本地 SQLite。
 
 ---
 
@@ -70,18 +68,10 @@ listen-vision-audio-app/
 | 类型 | 位置 |
 |------|------|
 | 前端 | `C:\Users\<用户>\Documents\logs\` |
-| 后端 | `listen-vision-api-python/logs/` |
 
 ---
 
 ## 常用命令
-
-### 后端
-```bash
-cd listen-vision-api-python
-uv run uvicorn app.main:app     # 启动
-uv run pytest tests/ -v         # 测试
-```
 
 ### 前端
 ```bash
@@ -117,7 +107,7 @@ dart run build_runner build --delete-conflicting-outputs  # 代码生成
 
 1. **分层解耦**：ViewModel 不直接依赖第三方库，通过 Service 层封装
 2. **单向数据流**：UI → ViewModel → Service → 底层库
-3. **本地优先**：写操作先更新本地，异步同步到网络
+3. **本地优先**：所有数据存储在本地 SQLite，无云端同步
 
 ### Service 层封装规范
 
@@ -141,28 +131,9 @@ if (playerState == PlayerState.playing) { ... }
 
 ---
 
-## 本地优先同步机制
-
-### 核心原则
-
-1. **本地优先**：所有写操作先更新本地数据库，UI 立即响应
-2. **异步同步**：网络操作放入同步队列，由 SyncWorker 后台处理
-3. **失败重试**：最多重试 3 次，间隔 30 秒
-4. **持久化**：App 重启后自动恢复未完成的同步任务
-
-### 数据流
-
-```
-用户操作 → 立即更新本地数据库 → UI 刷新
-         ↘ 加入同步队列 → SyncWorker → 网络同步
-```
-
----
-
 ## 代码规范
 
 ### 日志记录
-- **后端**：Winston logger（error/warn/info/debug 四级）
 - **前端**：AppLogger 单例（DEBUG/INFO/WARN/ERROR 四级）
 
 ### 开发原则
@@ -175,9 +146,7 @@ if (playerState == PlayerState.playing) { ... }
 
 ## 认证架构
 
-1. **主账号** (Email/Password + JWT)
-2. **平台绑定** (B站QR码，Cookie加密存储)
-3. **游客模式** (本地播放，无需登录)
+B站 QR 码登录（可选），Cookie 加密存储在 `flutter_secure_storage`。无需注册/登录，全部功能本地可用。
 
 ---
 
@@ -198,7 +167,6 @@ if (playerState == PlayerState.playing) { ... }
 
 ## 架构决策记录
 
+- **[2026-05-18]** 删除 Python 后端，纯前端架构：BilibiliApiService 直连 B站 REST API，BilibiliAuthService 管理 QR 码登录，FfmpegService (ffmpeg_kit_flutter) 音频格式转换。
 - **[2026-03-22]** 播放器架构重构：定义 `AudioPlaybackState` 抽象枚举，Service 层封装 audioplayers 库细节，ViewModel 只依赖抽象状态。
-- **[2026-03-22]** Node.js 后端声明为遗留，主要后端迁移至 Python。
-- **[2026-03-14]** Token 自动刷新机制：401 拦截器自动刷新 token 并重试。
 - **[2026-02-16]** 文件完整性检测：启动扫描 + 30分钟轮询 + 播放前验证的三层机制（`DownloadIntegrityService`）。

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/utils/app_logger.dart';
@@ -323,7 +322,7 @@ class BilibiliApiService {
       '$_passportUrl/x/passport-login/web/cookie/refresh',
       options: Options(headers: _buildHeaders(cookies: cookies)),
     );
-    final setCookie = response.headers['set-cookie'] as List<String>?;
+    final setCookie = response.headers['set-cookie'];
     return _parseCookies(setCookie ?? [], cookies);
   }
 

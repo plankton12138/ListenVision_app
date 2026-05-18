@@ -152,7 +152,7 @@ class BilibiliAuthService {
 
   Map<String, String> _extractCookies(Response response) {
     final result = <String, String>{};
-    final setCookie = response.headers['set-cookie'] as List<String>? ?? [];
+    final setCookie = response.headers['set-cookie'] ?? [];
     for (final header in setCookie) {
       for (final part in header.split(';')) {
         final trimmed = part.trim();

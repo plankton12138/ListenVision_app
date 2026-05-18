@@ -251,12 +251,8 @@ class DownloadRepository {
       final downloadFormat = SharedStorageService.instance.getDownloadFormat();
 
       if (canResume) {
-        // 使用断点续传下载
         AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
         await _downloadWithResumable(taskId, task, cancelToken);
-      } else if (downloadFormat == 'mp3') {
-        AppLogger.info('DownloadRepository', '使用后端 SSE 下载: format=$downloadFormat');
-        await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
       } else {
         AppLogger.info('DownloadRepository', '使用 BilibiliDownloader 下载: format=$downloadFormat');
         await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
@@ -408,13 +404,7 @@ class DownloadRepository {
           lastModified: null,
         );
         await _downloadTaskDao.updateTempFilePath(taskId, null);
-        // 回退到全量下载，根据格式设置选择下载路径
-        final downloadFormat = SharedStorageService.instance.getDownloadFormat();
-        if (downloadFormat == 'mp3') {
-          await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
-        } else {
-          await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
-        }
+        await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
         return;
       }
       throw Exception(result.error ?? '下载失败');
@@ -474,61 +464,6 @@ class DownloadRepository {
         totalBytes: result.fileSize,
         downloadedBytes: result.fileSize,
       ));
-    }
-  }
-
-  /// 使用 DownloadService 下载（后端 HTTP，支持格式选择）
-  Future<void> _downloadWithBackendService(
-    int taskId,
-    DownloadTask task,
-    CancelToken cancelToken,
-    String format,
-  ) async {
-    final service = DownloadService();
-
-    try {
-      final result = await service.simpleDownload(
-        bvid: task.bvid!,
-        savePath: task.savePath,
-        format: format,
-        onProgress: (received, total) {
-          if (cancelToken.isCancelled) {
-            throw TaskCanceledException();
-          }
-
-          final percent = total > 0 ? (received * 100 ~/ total) : 0;
-          _downloadTaskDao.updateProgressPercent(taskId, percent);
-          _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-
-          _progressController.add(DownloadProgressEvent(
-            taskId: taskId,
-            trackId: task.trackId,
-            bvid: task.bvid!,
-            progress: percent,
-            stage: 'downloading',
-            message: '下载中 $received/$total',
-          ));
-        },
-      );
-
-      if (!result.success) {
-        throw Exception(result.error ?? '下载失败');
-      }
-
-      // 更新文件大小到数据库（为未来可能的断点续传做准备）
-      final file = File(task.savePath);
-      if (await file.exists()) {
-        final fileSize = await file.length();
-        final updatedTask = await _downloadTaskDao.getById(taskId);
-        if (updatedTask != null) {
-          await _downloadTaskDao.update(updatedTask.copyWith(
-            totalBytes: fileSize,
-            downloadedBytes: fileSize,
-          ));
-        }
-      }
-    } finally {
-      service.dispose();
     }
   }
 

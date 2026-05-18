@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import '../core/utils/app_logger.dart';
 import 'bilibili_api_service.dart';
-import 'bilibili_headers.dart';
 import 'ffmpeg_service.dart';
 import 'metadata_writer.dart';
 

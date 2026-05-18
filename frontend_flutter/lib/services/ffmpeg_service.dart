@@ -47,7 +47,7 @@ class FfmpegService {
 
   Future<bool> isAvailable() async {
     try {
-      final version = await FFmpegKit.listSessions();
+      await FFmpegKit.cancel();
       return true;
     } catch (_) {
       return false;

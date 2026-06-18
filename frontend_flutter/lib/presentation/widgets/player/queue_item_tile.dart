@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_logger.dart';
-import '../../../core/storage/shared_storage_service.dart';
+
 import '../../../models/playable_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/local_playable.dart';
@@ -176,19 +176,8 @@ class QueueItemTile extends ConsumerWidget {
     AppLogger.logButtonClick('切换收藏', 'QueueItemTile',
       parameters: {'bvid': bvid, 'title': playable.title});
 
-    // 获取 token
-    final token = SharedStorageService.instance.getString('auth_token');
-
-    if (token == null || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先登录')),
-      );
-      return;
-    }
-
     final notifier = ref.read(playlistViewModelProvider.notifier);
     final added = await notifier.toggleFavorite(
-      token,
       bvid,
       title: playable.title,
       artist: playable.artist,
@@ -272,9 +261,7 @@ class QueueItemTile extends ConsumerWidget {
       final audio = playable.original;
 
       // 根据音频 ID 前缀判断来源
-      if (audio.id.startsWith('netease_')) {
-        return '网易云';
-      } else if (audio.id.startsWith('BV') || audio.id.startsWith('bv')) {
+      if (audio.id.startsWith('BV') || audio.id.startsWith('bv')) {
         return 'B站';
       }
     }

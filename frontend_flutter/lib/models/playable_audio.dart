@@ -5,7 +5,7 @@ import 'dart:typed_data';
 /// 使用 Strategy 模式统一本地音频和在线音频的播放接口
 /// 支持混合播放列表，在线和本地音频可在同一列表中播放
 ///
-/// 迁移说明：从 just_audio 迁移到 audioplayers
+/// 迁移说明：从 just_audio 迁移到 media_kit
 /// - 移除了 AudioSource 相关方法
 /// - 使用 url 属性直接传递音频路径/URL
 abstract class PlayableAudio {
@@ -30,7 +30,7 @@ abstract class PlayableAudio {
   /// 是否为在线音频
   bool get isOnline;
 
-  /// 获取音频 URL 或文件路径（用于 audioplayers）
+  /// 获取音频 URL 或文件路径（用于 media_kit）
   ///
   /// 多态核心方法：
   /// - LocalPlayable 返回本地文件路径

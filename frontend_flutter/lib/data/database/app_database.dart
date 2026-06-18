@@ -3,7 +3,6 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../../models/download_task.dart';
-import 'subtitle_dao.dart';
 
 /// 应用数据库 - 统一的本地数据存储
 ///
@@ -31,7 +30,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -137,8 +136,37 @@ class AppDatabase {
       )
     ''');
 
-    // 创建 subtitle_cache 表
-    await db.execute(SubtitleDao.createTableSql);
+    // 创建 playlists 表
+    await db.execute('''
+      CREATE TABLE playlists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        cover_url TEXT,
+        cover_blob BLOB,
+        type TEXT DEFAULT 'user',
+        system_type TEXT,
+        is_public INTEGER DEFAULT 0,
+        play_count INTEGER DEFAULT 0,
+        item_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      )
+    ''');
+
+    // 创建 playlist_items 表
+    await db.execute('''
+      CREATE TABLE playlist_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        playlist_id INTEGER NOT NULL,
+        track_id INTEGER NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        added_at TEXT NOT NULL,
+        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+        FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+        UNIQUE(playlist_id, track_id)
+      )
+    ''');
 
     // 创建索引
     await db.execute('''
@@ -164,6 +192,18 @@ class AppDatabase {
     ''');
     await db.execute('''
       CREATE INDEX idx_play_history_played_at ON play_history(played_at)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_playlists_type ON playlists(type)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_playlists_system_type ON playlists(system_type)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_playlist_items_playlist ON playlist_items(playlist_id, position)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_playlist_items_track ON playlist_items(track_id)
     ''');
 
     AppLogger.info('AppDatabase', '数据库表创建完成');
@@ -196,19 +236,14 @@ class AppDatabase {
       await _upgradeToV6(db);
     }
 
-    // 版本 6 -> 7: 添加 subtitle_cache 表
-    if (oldVersion < 7) {
-      await _upgradeToV7(db);
-    }
-
-    // 版本 7 -> 8: 更新 subtitle_cache 表结构，添加 cid 字段
-    if (oldVersion < 8) {
-      await _upgradeToV8(db);
-    }
-
     // 未来版本升级在这里继续
     if (oldVersion < 9) {
       await _upgradeToV9(db);
+    }
+
+    // 版本 9 -> 10: 确保 playlists/playlist_items 表存在（修复 v9 新建DB缺少这两张表的问题）
+    if (oldVersion < 10) {
+      await _upgradeToV10(db);
     }
   }
 
@@ -547,54 +582,6 @@ class AppDatabase {
     }
   }
 
-  /// 升级到版本 7：添加字幕缓存表
-  Future<void> _upgradeToV7(Database db) async {
-    AppLogger.info('AppDatabase', '升级数据库到 V7：添加字幕缓存表');
-    try {
-      await db.execute(SubtitleDao.createTableSql);
-      AppLogger.info('AppDatabase', '字幕缓存表创建成功');
-    } catch (e) {
-      AppLogger.error('AppDatabase', '字幕缓存表创建失败: $e');
-      rethrow;
-    }
-  }
-
-  /// 升级到版本 8：更新 subtitle_cache 表结构，添加 cid 字段
-  Future<void> _upgradeToV8(Database db) async {
-    AppLogger.info('AppDatabase', '升级数据库到 V8：更新 subtitle_cache 表结构');
-    try {
-      // 尝试添加 cid 字段（如果不存在）
-      try {
-        await db.execute('ALTER TABLE subtitle_cache ADD COLUMN cid INTEGER DEFAULT 0');
-        AppLogger.info('AppDatabase', 'subtitle_cache.cid 字段添加成功');
-      } catch (e) {
-        // 字段已存在，忽略
-        AppLogger.debug('AppDatabase', 'cid 字段可能已存在：$e');
-      }
-
-      // 更新旧数据，将 NULL 值设置为 0
-      await db.execute('UPDATE subtitle_cache SET cid = 0 WHERE cid IS NULL');
-
-      // 删除旧的唯一索引（基于 bvid, lan）
-      try {
-        await db.execute('DROP INDEX IF EXISTS idx_subtitle_cache_bvid_lan');
-      } catch (e) {
-        AppLogger.debug('AppDatabase', '旧索引不存在：$e');
-      }
-
-      // 创建新的唯一索引（基于 bvid, cid, lan）
-      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_subtitle_cache_bvid_cid_lan ON subtitle_cache(bvid, cid, lan)');
-
-      // 创建 cid 索引以优化查询性能
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_subtitle_cache_cid ON subtitle_cache(cid)');
-
-      AppLogger.info('AppDatabase', 'subtitle_cache 表结构更新成功');
-    } catch (e) {
-      AppLogger.error('AppDatabase', 'subtitle_cache 表结构更新失败：$e');
-      rethrow;
-    }
-  }
-
   Future<void> _upgradeToV9(Database db) async {
     AppLogger.info('AppDatabase', '升级数据库到 V9：删除服务端同步字段');
 
@@ -678,6 +665,65 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_playlists_system_type ON playlists(system_type)');
 
     AppLogger.info('AppDatabase', 'V9 迁移完成');
+  }
+
+  /// 升级到版本 10：确保 playlists/playlist_items 表存在
+  ///
+  /// 修复 v9 中 `_createDB` 缺少这两张表的问题。
+  Future<void> _upgradeToV10(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V10：确保 playlists/playlist_items 表存在');
+
+    // 创建 playlists 表（如果不存在）
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS playlists (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          cover_url TEXT,
+          cover_blob BLOB,
+          type TEXT DEFAULT 'user',
+          system_type TEXT,
+          is_public INTEGER DEFAULT 0,
+          play_count INTEGER DEFAULT 0,
+          item_count INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT
+        )
+      ''');
+      AppLogger.info('AppDatabase', 'playlists 表就绪');
+    } catch (e) {
+      AppLogger.error('AppDatabase', '创建 playlists 表失败: $e');
+      rethrow;
+    }
+
+    // 创建 playlist_items 表（如果不存在）
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS playlist_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          playlist_id INTEGER NOT NULL,
+          track_id INTEGER NOT NULL,
+          position INTEGER NOT NULL DEFAULT 0,
+          added_at TEXT NOT NULL,
+          FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+          FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+          UNIQUE(playlist_id, track_id)
+        )
+      ''');
+      AppLogger.info('AppDatabase', 'playlist_items 表就绪');
+    } catch (e) {
+      AppLogger.error('AppDatabase', '创建 playlist_items 表失败: $e');
+      rethrow;
+    }
+
+    // 创建索引（如果不存在）
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlists_type ON playlists(type)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlists_system_type ON playlists(system_type)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, position)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlist_items_track ON playlist_items(track_id)');
+
+    AppLogger.info('AppDatabase', 'V10 迁移完成');
   }
 
   // ==================== Tracks CRUD ====================

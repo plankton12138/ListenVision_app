@@ -140,7 +140,8 @@ class BilibiliDownloader {
           await File(m4aPath).delete();
           audioPath = convertedPath;
           resultFormat = format.extension;
-        } finally {
+        } catch (e) {
+          AppLogger.warn('BilibiliDownloader', '格式转换不可用，将保留 m4a 格式: $e');
         }
       }
 

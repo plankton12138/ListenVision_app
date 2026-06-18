@@ -581,12 +581,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final bvid = item.bvid as String?;
     if (bvid == null) return;
 
-    final token = ref.read(authTokenProvider) ?? '';
-
     try {
       final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
       final added = await playlistNotifier.toggleFavorite(
-        token,
         bvid,
         title: item.title,
         artist: item.artist,

@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../core/utils/app_logger.dart';
 import '../models/audio.dart';
-import '../models/subtitle.dart';
 import '../models/recommendation.dart';
 import 'bilibili_headers.dart';
+
+final bilibiliApiServiceProvider = Provider<BilibiliApiService>((ref) {
+  return BilibiliApiService();
+});
 
 class AudioStreamInfo {
   final String url;
@@ -128,67 +131,6 @@ class BilibiliApiService {
       title: videoInfo['title'] ?? '',
       streams: streams,
     );
-  }
-
-  Future<SubtitleData> getSubtitles(
-    String bvid, {
-    Map<String, String>? cookies,
-  }) async {
-    try {
-      final videoInfo = await getVideoInfo(bvid);
-      final cid = videoInfo['cid'];
-      if (cid == null) {
-        return SubtitleData(bvid: bvid, cid: 0, subtitles: []);
-      }
-
-      final playerResponse = await _dio.get(
-        '$_baseUrl/x/player/v2',
-        queryParameters: {'bvid': bvid, 'cid': cid},
-        options: Options(headers: _buildHeaders(cookies: cookies)),
-      );
-      final playerData = _extractData(playerResponse.data);
-      final subtitleMeta =
-          playerData['subtitle']?['subtitles'] as List<dynamic>? ?? [];
-
-      final subtitles = <SubtitleTrack>[];
-      for (final meta in subtitleMeta) {
-        final url = normalizeBilibiliUrl(meta['subtitle_url'] ?? '');
-        if (url.isEmpty) continue;
-
-        final subResponse = await _dio.get(
-          url,
-          options: Options(headers: bilibiliHeaders),
-        );
-        final body = subResponse.data['body'] as List<dynamic>? ?? [];
-        final lines = body.map((line) {
-          return SubtitleLine(
-            from: (line['from'] as num?)?.toDouble() ?? 0.0,
-            to: (line['to'] as num?)?.toDouble() ?? 0.0,
-            content: line['content'] ?? '',
-          );
-        }).toList();
-
-        subtitles.add(SubtitleTrack(
-          lan: meta['lan'] ?? '',
-          lanDoc: meta['lan_doc'] ?? '',
-          lines: lines,
-        ));
-      }
-
-      return SubtitleData(
-        bvid: bvid,
-        cid: cid,
-        subtitles: subtitles,
-      );
-    } catch (e) {
-      AppLogger.warn('BilibiliApiService', '获取字幕失败 (可能需要登录): $e');
-      return SubtitleData(
-        bvid: bvid,
-        cid: 0,
-        subtitles: [],
-        needLogin: true,
-      );
-    }
   }
 
   Future<List<Audio>> search({
@@ -338,8 +280,37 @@ class BilibiliApiService {
     return responseBody['data'] as Map<String, dynamic>? ?? {};
   }
 
+  /// 清理 HTML 标签并解码 HTML 实体
+  ///
+  /// B站 API 返回的标题等字段可能包含 HTML 标签和实体编码
+  /// （如 &amp; &lt; &#39; 等），需要清理后才能用于 UI 展示。
   String _cleanHtmlTags(String text) {
-    return text.replaceAll(RegExp(r'<[^>]*>'), '');
+    var result = text.replaceAll(RegExp(r'<[^>]*>'), '');
+    result = _decodeHtmlEntities(result);
+    return result;
+  }
+
+  /// 解码常见 HTML 实体
+  ///
+  /// 处理 B站 API 返回数据中常见的 HTML 实体编码。
+  /// 覆盖：命名实体（&amp; &lt; &gt; &quot; &nbsp; &apos;）
+  /// 以及十进制/十六进制数字实体（&#39; &#x27; 等）。
+  String _decodeHtmlEntities(String text) {
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&apos;', "'")
+        .replaceAllMapped(
+          RegExp(r'&#(\d+);'),
+          (m) => String.fromCharCode(int.parse(m.group(1)!)),
+        )
+        .replaceAllMapped(
+          RegExp(r'&#x([0-9a-fA-F]+);'),
+          (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)),
+        );
   }
 
   Recommendation _parseRecommendation(Map<String, dynamic> item) {

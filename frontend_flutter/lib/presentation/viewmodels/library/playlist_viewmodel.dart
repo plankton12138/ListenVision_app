@@ -65,57 +65,24 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     _repository = ref.watch(playlistRepositoryProvider);
     _storage = ref.watch(sharedStorageServiceProvider);
 
-    final token = _storage!.getString('auth_token');
-    if (token != null) {
-      return await _initialize(token);
-    }
-
-    // 未登录：仍然提供系统歌单（我喜欢/正在播放），并从本地 tracks.is_favorite 构建我喜欢列表
-    final baseState = PlaylistState.loaded(
-      playlists: const [Playlist.favorites, Playlist.nowPlaying],
-      userPlaylists: const [],
-      systemPlaylists: const [Playlist.favorites, Playlist.nowPlaying],
-      favoritesPlaylist: Playlist.favorites,
-      nowPlayingPlaylist: Playlist.nowPlaying,
-      favoritesItems: const [],
-      nowPlayingItems: const [],
-    );
-
-    if (!ref.mounted) return baseState;
-    state = AsyncData(baseState);
-    await _loadFavoritesFromLocal();
-
-    return state.valueOrNull ?? baseState;
-  }
-
-  /// 初始化（用户登录后调用）
-  Future<PlaylistState> _initialize(String token) async {
     try {
       AppLogger.info('PlaylistViewModel', '初始化歌单管理');
-
-      await _loadPlaylists(token);
+      await _loadPlaylists();
       await _loadFavoritesFromLocal();
-
-      // 如果系统歌单已创建，加载播放队列
-      final nowPlayingId = this.state.valueOrNull?.nowPlayingPlaylist?.id;
-      if (nowPlayingId != null) {
-        await loadNowPlaying(token);
-      }
-
-      return this.state.valueOrNull ?? const PlaylistState.initial();
     } catch (e) {
       AppLogger.error('PlaylistViewModel', '初始化失败: $e');
-      return PlaylistState.error(message: e.toString());
     }
+
+    return state.valueOrNull ?? const PlaylistState.initial();
   }
 
-  /// 从服务器加载歌单列表
-  Future<void> loadPlaylists(String token) async {
+  /// 从本地加载歌单列表
+  Future<void> loadPlaylists() async {
     state = const AsyncLoading();
-    await _loadPlaylists(token);
+    await _loadPlaylists();
   }
 
-  Future<PlaylistState> _loadPlaylists(String token) async {
+  Future<PlaylistState> _loadPlaylists() async {
     try {
       final playlists = await _repository!.getUserPlaylists();
 
@@ -160,27 +127,13 @@ class PlaylistViewModel extends _$PlaylistViewModel {
     }
   }
 
-  /// 加载收藏列表
-  /// 
-  /// 优先从本地 tracks.is_favorite 加载，确保与详情页数据一致
-  Future<void> loadFavorites(String token) async {
-    // 直接使用本地数据，避免后端 playlist_items 与本地 tracks 数据不一致
+  /// 从本地加载收藏列表
+  Future<void> loadFavorites() async {
     await _loadFavoritesFromLocal();
-
-    // 可选：在后台尝试同步到后端（但不影响本地显示）
-    // 这部分可以根据需要启用，用于将本地收藏同步到服务器
-    /*
-    try {
-      final items = await _repository!.getFavorites();
-      AppLogger.info('PlaylistViewModel', '从后端加载收藏: ${items.length}个');
-    } catch (e) {
-      AppLogger.warn('PlaylistViewModel', '从后端加载收藏失败（使用本地数据）: $e');
-    }
-    */
   }
 
   /// 加载播放队列
-  Future<void> loadNowPlaying(String token) async {
+  Future<void> loadNowPlaying() async {
     try {
       final nowPlayingId = state.valueOrNull?.nowPlayingPlaylist?.id;
       if (nowPlayingId == null) return;
@@ -291,8 +244,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   }
 
   /// 创建新歌单
-  Future<Playlist?> createPlaylist(
-    String token, {
+  Future<Playlist?> createPlaylist({
     required String name,
     String? description,
     String? coverUrl,
@@ -332,7 +284,6 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   /// 更新歌单
   Future<bool> updatePlaylist(
-    String token,
     String id, {
     String? name,
     String? description,
@@ -387,7 +338,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   }
 
   /// 删除歌单
-  Future<bool> deletePlaylist(String token, String id) async {
+  Future<bool> deletePlaylist(String id) async {
     try {
       AppLogger.info('PlaylistViewModel', '删除歌单: $id');
 
@@ -430,7 +381,6 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   /// 添加音频到歌单
   Future<bool> addItem(
-    String token,
     String playlistId,
     String bvid, {
     String? title,
@@ -525,7 +475,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
   }
 
   /// 从歌单移除音频
-  Future<bool> removeItem(String token, String playlistId, String bvid) async {
+  Future<bool> removeItem(String playlistId, String bvid) async {
     try {
       AppLogger.info('PlaylistViewModel', '从歌单移除音频: $bvid from $playlistId');
 
@@ -598,14 +548,13 @@ class PlaylistViewModel extends _$PlaylistViewModel {
 
   /// 切换收藏状态
   Future<bool> toggleFavorite(
-    String token,
     String bvid, {
     String? title,
     String? artist,
     int? duration,
     String? coverUrl,
     String? localPath,
-  }) async { 
+  }) async {
     try {
       AppLogger.info('PlaylistViewModel', '切换收藏状态: $bvid');
 

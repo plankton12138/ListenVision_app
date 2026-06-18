@@ -311,7 +311,7 @@ as DateTime?,
 /// @nodoc
 mixin _$PlaylistItem {
 
- String? get id; String? get playlistId; String get bvid; int? get cid;// B站视频分P ID（用于获取字幕）
+ String? get id; String? get playlistId; String get bvid; int? get cid;// B站视频分P ID
  String? get title; String? get artist; int? get duration; String? get coverUrl; String? get localPath; int get position; DateTime? get addedAt;
 /// Create a copy of PlaylistItem
 /// with the given fields replaced by the non-null parameter values.
@@ -523,7 +523,7 @@ class _PlaylistItem extends PlaylistItem {
 @override final  String? playlistId;
 @override final  String bvid;
 @override final  int? cid;
-// B站视频分P ID（用于获取字幕）
+// B站视频分P ID
 @override final  String? title;
 @override final  String? artist;
 @override final  int? duration;

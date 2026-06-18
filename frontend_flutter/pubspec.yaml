@@ -36,11 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   # 已移除 provider 包，完全迁移至 Riverpod
   go_router: ^17.1.0
-  # P0: 音频播放 - 从 just_audio 迁移到 audioplayers（2026-01-28）
-  # 原因：just_audio_windows 存在平台通道线程错误，导致切换歌曲时闪退
-  # audioplayers Windows 实现更稳定，功能完全覆盖
-  audioplayers: ^6.4.0
-  audio_session: ^0.2.1
+  # P0: 音频播放 - 从 audioplayers 迁移到 media_kit（2026-05-20）
+  # 原因：audioplayers 无法设置自定义 HTTP 请求头，B站CDN返回403
+  # media_kit 支持自定义 httpHeaders，底层使用 libmpv，Windows 线程安全
+  media_kit: ^1.2.6
+  media_kit_libs_audio: ^1.0.7
   html: ^0.15.5+1
   # 音频元数据读写：使用 audio_metadata_reader（纯 Dart，跨平台稳定）
   # 性能：3392首歌曲 <200ms（不含封面）
@@ -78,7 +78,7 @@ dependencies:
   on_audio_query: ^2.9.0
   # P1: 网络状态监测
   connectivity_plus: ^6.1.3
-  ffmpeg_kit_flutter: ^6.0.3
+  # ffmpeg_kit_flutter 已移除：Maven 仓库被墙，且默认 m4a 下载无需转换
 
 # setup for flutter_launcher_icons
 flutter_launcher_icons:
@@ -110,6 +110,12 @@ dev_dependencies:
   # P0: MVVM + Riverpod 重构 (Phase 1: 升级到 Riverpod 3.0)
   riverpod_generator: ^4.0.0
   riverpod_lint: ^3.1.0
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+      name_windows: winsqlite3
 
 dependency_overrides:
   analyzer_plugin: ^0.13.0

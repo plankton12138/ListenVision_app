@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/return_code.dart';
 import '../core/utils/app_logger.dart';
 
 enum AudioOutputFormat {
@@ -13,6 +11,9 @@ enum AudioOutputFormat {
 }
 
 class FfmpegService {
+  /// FFmpeg 转换不可用（ffmpeg_kit_flutter 已移除）。
+  /// 当前 PDF 能直接从 .m4s 重命名为 .m4a（同容器格式零转换）。
+  /// 如需 mp3/aac 输出，考虑替代的转换方案。
   Future<String> convert({
     required String inputPath,
     required AudioOutputFormat outputFormat,
@@ -27,32 +28,12 @@ class FfmpegService {
       return inputPath;
     }
 
-    final arguments = _buildArguments(inputPath, outputPath, outputFormat);
-    AppLogger.info('FfmpegService', '开始转换: $inputPath → $outputPath');
-
-    final session = await FFmpegKit.executeWithArguments(arguments);
-    final returnCode = await session.getReturnCode();
-
-    if (!ReturnCode.isSuccess(returnCode)) {
-      throw FfmpegException('音频格式转换失败，返回码: $returnCode');
-    }
-
-    AppLogger.info('FfmpegService', '转换完成: $outputPath');
-    return outputPath;
+    throw FfmpegException('FFmpeg 不可用，无法转换格式。请使用默认 m4a 格式。');
   }
 
-  Future<void> cancel() async {
-    await FFmpegKit.cancel();
-  }
+  Future<void> cancel() async {}
 
-  Future<bool> isAvailable() async {
-    try {
-      await FFmpegKit.cancel();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> isAvailable() async => false;
 
   String _buildOutputPath(String inputPath, AudioOutputFormat format) {
     final dir = Directory(inputPath).parent.path;
@@ -60,29 +41,6 @@ class FfmpegService {
     final nameWithoutExt =
         baseName.contains('.') ? baseName.substring(0, baseName.lastIndexOf('.')) : baseName;
     return '$dir${Platform.pathSeparator}$nameWithoutExt.${format.extension}';
-  }
-
-  List<String> _buildArguments(
-    String inputPath,
-    String outputPath,
-    AudioOutputFormat format,
-  ) {
-    final args = <String>['-i', inputPath, '-y'];
-
-    switch (format) {
-      case AudioOutputFormat.mp3:
-        args.addAll(['-c:a', 'libmp3lame', '-b:a', '192k']);
-        break;
-      case AudioOutputFormat.aac:
-        args.addAll(['-c:a', 'aac', '-b:a', '192k']);
-        break;
-      case AudioOutputFormat.m4a:
-        args.addAll(['-c:a', 'copy']);
-        break;
-    }
-
-    args.add(outputPath);
-    return args;
   }
 }
 

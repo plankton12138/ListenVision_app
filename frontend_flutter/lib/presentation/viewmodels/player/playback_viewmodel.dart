@@ -13,10 +13,11 @@ import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/play_mode.dart';
 import '../../../services/audio_player_service.dart';
+import '../../../services/bilibili_api_service.dart';
+import '../../../services/bilibili_headers.dart';
 import '../library/history_viewmodel.dart';
 import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
 import 'queue_viewmodel.dart';
-import 'subtitle_viewmodel.dart';
 
 part 'playback_viewmodel.freezed.dart';
 part 'playback_viewmodel.g.dart';
@@ -83,7 +84,6 @@ abstract class PlaybackState with _$PlaybackState {
 /// 依赖：
 /// - AudioPlayerService: 底层播放器
 /// - QueueViewModel: 队列数据（只读取，不修改）
-/// - SubtitleViewModel: 字幕管理
 @Riverpod(keepAlive: true)
 class PlaybackViewModel extends _$PlaybackViewModel {
   AudioPlayerService? _audioService;
@@ -166,7 +166,6 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       _audioService!.positionStream.listen((position) {
         if (_disposed) return;
         state = state.copyWith(position: position);
-        ref.read(subtitleViewModelProvider.notifier).updatePosition(position);
       }),
     );
 
@@ -270,26 +269,42 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   Future<void> _playOnline(OnlinePlayable playable) async {
-    final url = playable.url;
+    final url = await _resolveOnlineStreamUrl(playable);
     AppLogger.debug('PlaybackViewModel', '播放在线URL: $url');
-    await _audioService!.playUrl(url);
+    final headers = playable.httpHeaders ?? bilibiliHeaders;
+    await _audioService!.playUrl(url, httpHeaders: headers);
+  }
 
-    // 加载字幕
-    ref.read(subtitleViewModelProvider.notifier).loadSubtitle(
-          playable.original.id,
-          cid: playable.original.cid,
-        );
+  /// 解析在线音频的实际播放 URL
+  ///
+  /// 优先使用已有的 streamUrl，否则通过 B站 API 获取。
+  Future<String> _resolveOnlineStreamUrl(OnlinePlayable playable) async {
+    if (playable.url.isNotEmpty) return playable.url;
+
+    final bvid = playable.original.id;
+    AppLogger.info('PlaybackViewModel', '解析B站音频流: $bvid');
+
+    final api = ref.read(bilibiliApiServiceProvider);
+    final streamsData = await api.getAudioStreams(bvid);
+
+    if (streamsData.streams.isEmpty) {
+      throw Exception('无法获取音频流，该视频可能不支持播放');
+    }
+
+    final stream = streamsData.streams.first;
+    AppLogger.info('PlaybackViewModel', '解析完成: ${stream.url}');
+    return stream.url;
   }
 
   Future<void> _playLocal(LocalPlayable playable) async {
     AppLogger.debug('PlaybackViewModel', '播放本地文件: ${playable.url}');
     await _audioService!.playFile(playable.url);
-    ref.read(subtitleViewModelProvider.notifier).clear();
   }
 
   /// 暂停
   Future<void> pause() async {
     if (_disposed) return;
+    await _savePosition(); // 暂停前先保存当前播放位置
     await _audioService!.pause();
     _stopPositionSaveTimer();
     state = state.copyWith(isPlaying: false, isPaused: true);
@@ -300,15 +315,28 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   /// 恢复播放
   Future<void> resume() async {
     if (_disposed) return;
-    await _audioService!.play();
+    try {
+      await _audioService!.play();
+    } catch (e) {
+      AppLogger.error('PlaybackViewModel', '恢复播放失败: $e');
+      final errorType = classifyError(e);
+      state = state.copyWith(
+        errorMessage: getUserFriendlyMessage(errorType),
+      );
+      return;
+    }
     _startPositionSaveTimer();
-    state = state.copyWith(isPlaying: true, isPaused: false);
+    state = state.copyWith(isPlaying: true, isPaused: false, isLoading: false);
     _validateState();
     AppLogger.debug('PlaybackViewModel', '恢复播放');
   }
 
   /// 切换播放/暂停
   Future<void> togglePlayPause() async {
+    if (state.currentPlayable == null) {
+      AppLogger.warn('PlaybackViewModel', '无可播放内容，忽略播放操作');
+      return;
+    }
     if (state.isPlaying) {
       await pause();
     } else {
@@ -415,8 +443,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   /// 从队列准备当前音频（不自动播放）
   ///
-  /// 用于应用启动时恢复上次播放位置
-  /// 依赖 QueueViewModel 已恢复完成
+  /// 用于应用启动时恢复上次播放位置。
+  /// 依赖 QueueViewModel 已恢复完成。
+  ///
+  /// 如果当前音频源已就绪（相同 ID 且播放器已加载有效时长），
+  /// 则跳过重复准备，仅恢复到保存的播放位置。
   Future<void> prepareCurrentFromQueue() async {
     if (_disposed) return;
 
@@ -431,6 +462,20 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     }
 
     final playable = queueState.queue[currentIndex];
+
+    // 如果当前音频源已就绪且为同一音频项，仅恢复播放位置
+    // isReady: _currentSourceUrl != null && duration > 0
+    if (state.currentPlayable?.id == playable.id &&
+        _audioService != null &&
+        _audioService!.isReady) {
+      final savedPosition = await queueNotifier.restorePosition() ?? 0;
+      AppLogger.info('PlaybackViewModel', '音频源已就绪，恢复位置: ${savedPosition}s');
+      if (savedPosition > 0) {
+        await _audioService!.seek(Duration(seconds: savedPosition));
+      }
+      return;
+    }
+
     final savedPosition = await queueNotifier.restorePosition() ?? 0;
 
     AppLogger.info('PlaybackViewModel', '恢复队列项: ${playable.title}, 位置: ${savedPosition}s');
@@ -452,16 +497,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     try {
       if (playable.isOnline && playable is OnlinePlayable) {
-        await _audioService!.setUrlSource(playable.url);
-        // 加载字幕
-        ref.read(subtitleViewModelProvider.notifier).loadSubtitle(
-              playable.original.id,
-              cid: playable.original.cid,
-              initialPosition: Duration(seconds: startPosition),
-            );
+        final resolvedUrl = await _resolveOnlineStreamUrl(playable);
+        final headers = playable.httpHeaders ?? bilibiliHeaders;
+        await _audioService!.setUrlSource(resolvedUrl, httpHeaders: headers);
       } else if (playable is LocalPlayable) {
         await _audioService!.setSource(playable.url);
-        ref.read(subtitleViewModelProvider.notifier).clear();
       }
 
       if (startPosition > 0) {
@@ -496,7 +536,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   Future<void> _savePosition() async {
     if (_disposed || state.currentPlayable == null) return;
-    await _storage!.setInt(StorageKeys.playbackPosition, state.position.inSeconds);
+    await _storage!.setInt(StorageKeys.currentPlaybackPosition, state.position.inSeconds);
   }
 
   void _recordHistory(PlayableAudio playable) {

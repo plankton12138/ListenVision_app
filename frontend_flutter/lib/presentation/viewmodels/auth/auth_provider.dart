@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/shared_storage_service.dart';
 import '../../../services/bilibili_auth_service.dart';
 
 class CurrentUser {
@@ -9,27 +8,17 @@ class CurrentUser {
   CurrentUser({required this.username, this.email});
 }
 
-final _storageProvider = Provider<SharedStorageService>((ref) {
-  return SharedStorageService.instance;
-});
-
 final _bilibiliAuthProvider = Provider<BilibiliAuthService>((ref) {
   return BilibiliAuthService();
 });
 
-final isLoggedInProvider = Provider<bool>((ref) {
-  final storage = ref.watch(_storageProvider);
-  final token = storage.getString('auth_token');
-  return token != null && token.isNotEmpty;
-});
+/// 纯前端架构：无需登录，全部功能本地可用。
+/// B站绑定为可选功能，不影响应用使用。
+final isLoggedInProvider = Provider<bool>((ref) => true);
 
+/// 当前用户信息（基于B站绑定状态）
 final currentUserProvider = Provider<CurrentUser?>((ref) {
-  final storage = ref.watch(_storageProvider);
-  final token = storage.getString('auth_token');
-  if (token == null || token.isEmpty) return null;
-  final username = storage.getString('current_username') ?? '用户';
-  final email = storage.getString('current_email');
-  return CurrentUser(username: username, email: email);
+  return CurrentUser(username: '本地用户');
 });
 
 final bilibiliAccountProvider = FutureProvider<BilibiliAccount?>((ref) {
@@ -40,9 +29,4 @@ final bilibiliAccountProvider = FutureProvider<BilibiliAccount?>((ref) {
 final bilibiliBoundProvider = FutureProvider<bool>((ref) {
   final bilibiliAuth = ref.watch(_bilibiliAuthProvider);
   return bilibiliAuth.isBound();
-});
-
-final authTokenProvider = Provider<String?>((ref) {
-  final storage = ref.watch(_storageProvider);
-  return storage.getString('auth_token');
 });

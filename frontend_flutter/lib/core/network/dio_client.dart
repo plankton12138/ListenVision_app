@@ -43,7 +43,6 @@ class DioClient {
   /// 创建 Dio 实例
   Dio _createDio() {
     final dio = Dio(BaseOptions(
-      baseUrl: ApiConstants.fullBaseUrl,
       connectTimeout: _networkManager.getConnectTimeout(),
       receiveTimeout: _networkManager.getReceiveTimeout(),
       sendTimeout: _networkManager.getConnectTimeout(),

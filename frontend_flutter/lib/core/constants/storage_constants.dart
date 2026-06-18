@@ -82,7 +82,8 @@ class StorageKeys {
   /// 最后播放的音频
   static const String lastPlayedAudio = 'last_played_audio';
 
-  /// 播放位置
+  /// @deprecated 使用 [currentPlaybackPosition] 代替
+  /// 播放位置（旧键，保留以兼容历史数据迁移）
   static const String playbackPosition = 'playback_position';
 
   // ==================== Phase 2 遗留问题: 统一播放列表持久化 ====================

@@ -62,32 +62,16 @@ class PlayerActionBar extends ConsumerWidget {
 
   /// 处理收藏按钮点击
   ///
-  /// 切换当前播放歌曲的收藏状态。
+  /// 切换当前播放歌曲的收藏状态（本地操作，无需登录）。
   Future<void> _handleFavorite(
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final isLoggedIn = ref.read(isLoggedInProvider);
     final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
     final playerState = ref.read(playbackViewModelProvider);
-    final token = ref.read(authTokenProvider);
-
-    if (!isLoggedIn) {
-      if (context.mounted) {
-        _showSnackBar(context, '请先登录后收藏', Colors.orange);
-      }
-      return;
-    }
 
     final currentPlayable = playerState.currentPlayable;
     if (currentPlayable == null) return;
-
-    if (token == null) {
-      if (context.mounted) {
-        _showSnackBar(context, '请先登录后收藏', Colors.orange);
-      }
-      return;
-    }
 
     final bvid = currentPlayable.id;
 
@@ -99,7 +83,6 @@ class PlayerActionBar extends ConsumerWidget {
 
     try {
       final added = await playlistNotifier.toggleFavorite(
-        token,
         bvid,
         title: currentPlayable.title,
         artist: currentPlayable.artist,
@@ -398,22 +381,13 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
 
               Navigator.pop(context);
 
-              final token = ref.read(authTokenProvider);
+              final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+              final newPlaylist = await playlistNotifier.createPlaylist(
+                name: name,
+              );
 
-              if (token != null) {
-                final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-                final newPlaylist = await playlistNotifier.createPlaylist(
-                      token,
-                      name: name,
-                    );
-
-                if (newPlaylist != null && mounted) {
-                  _addToPlaylist(newPlaylist.id);
-                }
-              } else {
-                if (mounted) {
-                  _showSnackBar('请先登录', Colors.orange);
-                }
+              if (newPlaylist != null && mounted) {
+                _addToPlaylist(newPlaylist.id);
               }
             },
             child: const Text('创建'),
@@ -429,26 +403,16 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
 
       Navigator.pop(context);
 
-      final token = ref.read(authTokenProvider);
-
-      if (token == null) {
-        if (mounted) {
-          _showSnackBar('请先登录', Colors.orange);
-        }
-        return;
-      }
-
       final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
       final success = await playlistNotifier.addItem(
-            token,
-            playlistId,
-            widget.bvid,
-            title: widget.title,
-            artist: widget.artist,
-            duration: widget.duration,
-            coverUrl: widget.coverUrl,
-          );
+        playlistId,
+        widget.bvid,
+        title: widget.title,
+        artist: widget.artist,
+        duration: widget.duration,
+        coverUrl: widget.coverUrl,
+      );
 
       if (mounted) {
         if (success) {

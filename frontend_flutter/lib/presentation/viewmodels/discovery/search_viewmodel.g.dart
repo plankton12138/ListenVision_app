@@ -10,28 +10,19 @@ part of 'search_viewmodel.dart';
 // ignore_for_file: type=lint, type=warning
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 
 @ProviderFor(SearchViewModel)
 final searchViewModelProvider = SearchViewModelProvider._();
 
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 final class SearchViewModelProvider
     extends $AsyncNotifierProvider<SearchViewModel, SearchState> {
   /// 搜索 ViewModel
   ///
-  /// 职责：
-  /// 1. B站网络搜索
-  /// 2. 搜索历史管理
-  /// 3. 搜索建议
+  /// 直接调用 B站 API，搜索历史本地存储。
   SearchViewModelProvider._()
     : super(
         from: null,
@@ -51,14 +42,11 @@ final class SearchViewModelProvider
   SearchViewModel create() => SearchViewModel();
 }
 
-String _$searchViewModelHash() => r'fb462a1bd8d27327facdaafcdb05de54b6029e51';
+String _$searchViewModelHash() => r'ba78148db35d7dbdc1a929a9a9554f838aa8dfd1';
 
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 
 abstract class _$SearchViewModel extends $AsyncNotifier<SearchState> {
   FutureOr<SearchState> build();

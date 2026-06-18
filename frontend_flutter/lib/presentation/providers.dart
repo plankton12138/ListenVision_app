@@ -6,15 +6,13 @@ library;
 // ==================== Repository 层（本地优先架构）====================
 export '../data/repositories/repository_providers.dart';
 
-// ==================== 认证相关 ====================
-export 'viewmodels/auth/auth_provider.dart';
-export 'viewmodels/auth/auth_viewmodel.dart';
+// ==================== 服务层 ====================
+export '../../services/bilibili_api_service.dart' show bilibiliApiServiceProvider;
 export '../../services/bilibili_auth_service.dart';
 
-// ==================== 字幕 ====================
-export 'viewmodels/player/subtitle_viewmodel.dart';
-export '../data/repositories/subtitle_repository.dart';
-export '../models/subtitle.dart';
+// ==================== 认证相关（B站绑定）====================
+export 'viewmodels/auth/auth_provider.dart';
+
 // ==================== 播放器相关 ====================
 // PlaybackViewModel - 新的播放控制器
 export 'viewmodels/player/playback_viewmodel.dart' show playbackViewModelProvider;

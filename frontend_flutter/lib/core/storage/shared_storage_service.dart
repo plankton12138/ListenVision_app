@@ -261,10 +261,10 @@ class SharedStorageService {
   // ==================== 播放相关快捷方法 ====================
 
   /// 保存播放位置
-  Future<bool> setPlaybackPosition(int position) => setInt(StorageKeys.playbackPosition, position);
+  Future<bool> setPlaybackPosition(int position) => setInt(StorageKeys.currentPlaybackPosition, position);
 
   /// 获取播放位置
-  int? getPlaybackPosition() => getInt(StorageKeys.playbackPosition);
+  int? getPlaybackPosition() => getInt(StorageKeys.currentPlaybackPosition);
 
   /// 保存播放音量
   Future<bool> setPlaybackVolume(double volume) => setDouble(StorageKeys.playbackVolume, volume);

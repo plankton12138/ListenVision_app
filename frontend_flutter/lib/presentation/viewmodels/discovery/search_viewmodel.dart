@@ -1,33 +1,26 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/network/api_client.dart';
-import '../../../core/network/endpoints.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../models/search_suggestion.dart';
-import '../auth/auth_provider.dart';
+import '../../../services/bilibili_api_service.dart';
 
 part 'search_viewmodel.freezed.dart';
 part 'search_viewmodel.g.dart';
 
 /// 搜索平台枚举（预留扩展）
 enum SearchPlatform {
-  bilibili, // B站（当前唯一可用）
-  // netease,   // 网易云音乐（未来扩展）
-  // qqmusic,   // QQ音乐（未来扩展）
+  bilibili,
 }
 
 /// 搜索状态
 @freezed
 abstract class SearchState with _$SearchState {
-  /// 初始状态
   const factory SearchState.initial() = SearchStateInitial;
 
-  /// 加载中
   const factory SearchState.loading() = SearchStateLoading;
 
-  /// 搜索结果已加载
   const factory SearchState.resultsLoaded({
     required List<SearchResultItem> results,
     required String query,
@@ -38,14 +31,12 @@ abstract class SearchState with _$SearchState {
     @Default(false) bool hasMore,
   }) = SearchStateResultsLoaded;
 
-  /// 空闲状态
   const factory SearchState.idle({
     @Default([]) List<String> searchHistory,
     @Default([]) List<SearchSuggestion> suggestions,
     @Default(SearchPlatform.bilibili) SearchPlatform platform,
   }) = SearchStateIdle;
 
-  /// 错误
   const factory SearchState.error({
     required String message,
   }) = SearchStateError;
@@ -72,30 +63,18 @@ class SearchResultItem {
 
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 @Riverpod(keepAlive: true)
 class SearchViewModel extends _$SearchViewModel {
-  ApiClient? _apiClient;
+  BilibiliApiService? _api;
 
   @override
   Future<SearchState> build() async {
-    _apiClient = ref.watch(apiClientProvider);
+    _api = ref.watch(bilibiliApiServiceProvider);
 
     try {
       AppLogger.debug('SearchViewModel', '初始化');
-
-      // 检查登录状态，未登录时不加载搜索历史
-      final isLoggedIn = ref.read(isLoggedInProvider);
-      final history = isLoggedIn ? await _loadSearchHistoryFromServer() : const <String>[];
-
-      AppLogger.debug('SearchViewModel', '初始化完成，登录状态: $isLoggedIn');
-      return SearchState.idle(
-        searchHistory: history,
-        suggestions: const [],
-      );
+      return const SearchState.idle();
     } catch (e) {
       AppLogger.error('SearchViewModel', '初始化失败: $e');
       return const SearchState.idle();
@@ -103,10 +82,6 @@ class SearchViewModel extends _$SearchViewModel {
   }
 
   /// 执行B站搜索
-  ///
-  /// @param keyword 搜索关键词
-  /// @param page 页码（从1开始，默认1）
-  /// @returns 是否成功
   Future<bool> search(String keyword, {int page = 1}) async {
     if (keyword.trim().isEmpty) {
       if (!ref.mounted) return false;
@@ -128,34 +103,18 @@ class SearchViewModel extends _$SearchViewModel {
       if (!ref.mounted) return false;
       state = const AsyncLoading();
 
-      final data = await _apiClient!.searchBilibili(keyword, page: page);
-      final videos = data['videos'] as List? ?? [];
-      // 优先使用后端返回的 total，如果没有则根据结果数量判断
-      final totalCount = data['total'] as int? ?? 0;
-      final pageSize = data['pageSize'] as int? ?? 20;
-      final backendPage = data['page'] as int? ?? page;
+      final audios = await _api!.search(keyword: keyword, page: page, pageSize: 20);
 
-      final results = videos
-          .map((v) => SearchResultItem(
-                bvid: v['bvid'] as String,
-                title: v['title'] as String,
-                author: v['author'] as String?,
-                coverUrl: v['cover'] as String?,
-                duration: _parseDuration(v['duration']),
-                platform: SearchPlatform.bilibili,
-              ))
-          .toList();
+      final results = audios.map((audio) => SearchResultItem(
+        bvid: audio.id,
+        title: audio.title,
+        author: audio.artist,
+        coverUrl: audio.coverUrl,
+        duration: audio.duration,
+        platform: SearchPlatform.bilibili,
+      )).toList();
 
-      // 判断是否有更多结果：
-      // 1. 如果后端返回了 total，使用 total 判断
-      // 2. 否则，如果返回结果数等于 pageSize，假设还有更多（B站API行为）
-      // 判断是否有更多结果：
-      // 1. 如果后端返回了 total > 0，使用 total 判断
-      // 2. 否则，首次搜索(page=1)有结果就显示按钮（让用户尝试）
-      // 3. 后续页面根据返回结果数判断
-      final hasMore = totalCount > 0
-          ? (backendPage * pageSize < totalCount)
-          : (page == 1 ? results.isNotEmpty : (results.length >= pageSize));
+      final hasMore = results.length >= 20;
 
       if (!ref.mounted) return false;
       state = AsyncData(SearchState.resultsLoaded(
@@ -163,12 +122,12 @@ class SearchViewModel extends _$SearchViewModel {
         query: keyword,
         platform: SearchPlatform.bilibili,
         currentPage: page,
-        pageSize: pageSize,
-        totalCount: totalCount,
+        pageSize: 20,
+        totalCount: 0,
         hasMore: hasMore,
       ));
 
-      AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果, total=$totalCount, hasMore=$hasMore');
+      AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果, hasMore=$hasMore');
       return true;
     } catch (e) {
       AppLogger.error('SearchViewModel', '搜索失败: $e');
@@ -179,8 +138,6 @@ class SearchViewModel extends _$SearchViewModel {
   }
 
   /// 加载下一页搜索结果
-  ///
-  /// @returns 是否成功
   Future<bool> loadNextPage() async {
     final currentState = state.valueOrNull;
     if (currentState is! SearchStateResultsLoaded) {
@@ -197,37 +154,28 @@ class SearchViewModel extends _$SearchViewModel {
     AppLogger.info('SearchViewModel', '加载下一页: $nextPage');
 
     try {
-      final data = await _apiClient!.searchBilibili(
-        currentState.query,
+      final audios = await _api!.search(
+        keyword: currentState.query,
         page: nextPage,
+        pageSize: currentState.pageSize,
       );
-      final videos = data['videos'] as List? ?? [];
-      final totalCount = data['total'] as int? ?? currentState.totalCount;
-      final pageSize = data['pageSize'] as int? ?? currentState.pageSize;
 
-      final newResults = videos
-          .map((v) => SearchResultItem(
-                bvid: v['bvid'] as String,
-                title: v['title'] as String,
-                author: v['author'] as String?,
-                coverUrl: v['cover'] as String?,
-                duration: _parseDuration(v['duration']),
-                platform: SearchPlatform.bilibili,
-              ))
-          .toList();
+      final newResults = audios.map((audio) => SearchResultItem(
+        bvid: audio.id,
+        title: audio.title,
+        author: audio.artist,
+        coverUrl: audio.coverUrl,
+        duration: audio.duration,
+        platform: SearchPlatform.bilibili,
+      )).toList();
 
-      // 合并结果
       final mergedResults = [...currentState.results, ...newResults];
-      // 判断是否还有更多：如果返回空结果，则没有更多了
-      final hasMore = totalCount > 0
-          ? (nextPage * pageSize < totalCount)
-          : (newResults.length >= pageSize);
+      final hasMore = newResults.length >= currentState.pageSize;
 
       if (!ref.mounted) return false;
       state = AsyncData(currentState.copyWith(
         results: mergedResults,
         currentPage: nextPage,
-        totalCount: totalCount,
         hasMore: hasMore,
       ));
 
@@ -249,9 +197,12 @@ class SearchViewModel extends _$SearchViewModel {
     try {
       AppLogger.debug('SearchViewModel', '获取搜索建议: $prefix');
 
-      // B站搜索建议（可接入B站API）
-      final suggestions =
-          await _apiClient!.getBilibiliSearchSuggestions(prefix);
+      final rawSuggestions = await _api!.getSearchSuggestions(prefix);
+
+      final suggestions = rawSuggestions.map((s) => SearchSuggestion(
+        value: s,
+        name: s,
+      )).toList();
 
       _updateIdleState(suggestions: suggestions);
 
@@ -268,65 +219,26 @@ class SearchViewModel extends _$SearchViewModel {
     _updateIdleState(suggestions: const []);
   }
 
-  /// 加载用户搜索历史
-  Future<bool> loadSearchHistory() async {
-    try {
-      AppLogger.debug('SearchViewModel', '加载搜索历史');
-
-      final history = await _loadSearchHistoryFromServer();
-
-      final current = state.valueOrNull;
-      if (current is SearchStateIdle) {
-        if (!ref.mounted) return false;
-        state = AsyncData(current.copyWith(searchHistory: history));
-      } else {
-        if (!ref.mounted) return false;
-        state = AsyncData(SearchState.idle(
-          searchHistory: history,
-          suggestions: const [],
-        ));
-      }
-
-      AppLogger.debug('SearchViewModel', '搜索历史: ${history.length}条');
-      return true;
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '加载搜索历史失败: $e');
-      return false;
+  /// 清空搜索结果
+  void clearSearchResults() {
+    final current = state.valueOrNull;
+    if (current is SearchStateResultsLoaded) {
+      state = const AsyncData(SearchState.idle());
     }
+  }
+
+  /// 清空搜索历史
+  Future<void> clearSearchHistory() async {
+    _updateIdleState(searchHistory: const []);
+    AppLogger.info('SearchViewModel', '清空搜索历史成功');
   }
 
   /// 从搜索历史中删除关键词
   void removeFromHistory(String keyword) {
     final current = state.valueOrNull;
     if (current is SearchStateIdle) {
-      state = AsyncData(current.copyWith(
-        searchHistory: [...current.searchHistory]..remove(keyword),
-      ));
-    }
-  }
-
-  /// 清空搜索历史
-  Future<void> clearSearchHistory() async {
-    try {
-      await _apiClient!.delete(Endpoints.bilibiliSearchRecent);
-
-      final current = state.valueOrNull;
-      if (current is SearchStateIdle) {
-        if (!ref.mounted) return;
-        state = AsyncData(current.copyWith(searchHistory: const []));
-      }
-
-      AppLogger.info('SearchViewModel', '清空搜索历史成功');
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '清空搜索历史失败: $e');
-    }
-  }
-
-  /// 清空搜索结果
-  void clearSearchResults() {
-    final current = state.valueOrNull;
-    if (current is SearchStateResultsLoaded) {
-      state = const AsyncData(SearchState.idle());
+      final updated = [...current.searchHistory]..remove(keyword);
+      state = AsyncData(current.copyWith(searchHistory: updated));
     }
   }
 
@@ -338,18 +250,6 @@ class SearchViewModel extends _$SearchViewModel {
   }
 
   // ==================== 私有方法 ====================
-
-  Future<List<String>> _loadSearchHistoryFromServer() async {
-    try {
-      final response = await _apiClient!.get(Endpoints.bilibiliSearchRecent);
-      final data = response['data'] ?? response;
-      final keywords = data['keywords'] as List?;
-      return keywords?.map((e) => e.toString()).toList() ?? [];
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '加载搜索历史失败: $e');
-      return const [];
-    }
-  }
 
   void _updateIdleState({
     List<String>? searchHistory,
@@ -368,21 +268,4 @@ class SearchViewModel extends _$SearchViewModel {
       ));
     }
   }
-
-  /// 解析时长字符串（如 "03:45" -> 225秒）
-  int? _parseDuration(dynamic duration) {
-    if (duration == null) return null;
-    if (duration is int) return duration;
-    if (duration is String) {
-      final parts = duration.split(':');
-      if (parts.length == 2) {
-        final minutes = int.tryParse(parts[0]) ?? 0;
-        final seconds = int.tryParse(parts[1]) ?? 0;
-        return minutes * 60 + seconds;
-      }
-    }
-    return null;
-  }
 }
-
-

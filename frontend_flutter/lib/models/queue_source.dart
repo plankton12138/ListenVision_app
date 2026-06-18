@@ -12,9 +12,6 @@ enum SourceType {
   /// 搜索结果
   search,
 
-  /// 网易云歌单
-  neteasePlaylist,
-
   /// 手动添加
   manual,
 }
@@ -80,20 +77,6 @@ class QueueSource {
       id: 'search_$query',
       name: '搜索: $query',
       type: SourceType.search,
-    );
-  }
-
-  /// 网易云歌单
-  factory QueueSource.neteasePlaylist(
-    String id,
-    String name, {
-    String? coverUrl,
-  }) {
-    return QueueSource(
-      id: 'netease_$id',
-      name: '网易云歌单: $name',
-      coverUrl: coverUrl,
-      type: SourceType.neteasePlaylist,
     );
   }
 

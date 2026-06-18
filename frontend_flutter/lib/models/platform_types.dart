@@ -1,9 +1,8 @@
-/// 平台账号枚举 - 支持未来扩展到微信、QQ、网易音乐等
+/// 平台账号枚举
 enum PlatformType {
   bilibili,
   wechat,
   qq,
-  neteaseMusic,
 }
 
 extension PlatformTypeExtension on PlatformType {
@@ -15,8 +14,6 @@ extension PlatformTypeExtension on PlatformType {
         return 'wechat';
       case PlatformType.qq:
         return 'qq';
-      case PlatformType.neteaseMusic:
-        return 'netease_music';
     }
   }
 
@@ -28,8 +25,6 @@ extension PlatformTypeExtension on PlatformType {
         return '微信';
       case PlatformType.qq:
         return 'QQ';
-      case PlatformType.neteaseMusic:
-        return '网易音乐';
     }
   }
 
@@ -41,8 +36,6 @@ extension PlatformTypeExtension on PlatformType {
         return PlatformType.wechat;
       case 'qq':
         return PlatformType.qq;
-      case 'netease_music':
-        return PlatformType.neteaseMusic;
       default:
         throw ArgumentError('Unknown platform type: $value');
     }

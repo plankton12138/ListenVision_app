@@ -33,7 +33,7 @@ final class ExploreViewModelProvider
   ExploreViewModel create() => ExploreViewModel();
 }
 
-String _$exploreViewModelHash() => r'633e4303a3d8c2cf8512e2d5bfc769fa87fa1fc5';
+String _$exploreViewModelHash() => r'71b5f9c558afe5e4d0be2198e5a747b9731dd38d';
 
 abstract class _$ExploreViewModel extends $AsyncNotifier<ExploreState> {
   FutureOr<ExploreState> build();

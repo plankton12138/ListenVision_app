@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/network/dio_provider.dart';
 import 'core/utils/app_logger.dart';
 import 'presentation/providers.dart';
 import 'presentation/routes/router.dart';
@@ -48,15 +47,6 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeViewModelProvider);
-
-    // 监听 token 变化，同步到 DioClient
-    ref.listen<String?>(
-      authTokenProvider,
-      (previous, next) {
-        DioProvider.instance.updateToken(next);
-        AppLogger.debug('App', 'Token 同步到 DioClient: ${next != null ? "已设置" : "已清除"}');
-      },
-    );
 
     // 监听主题变化日志
     ref.listen<AppThemeMode>(themeViewModelProvider, (previous, next) {

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/utils/app_logger.dart';
@@ -177,19 +177,19 @@ class WindowsMediaScanner implements MediaScannerPlatform {
       AppLogger.warn('WindowsMediaScanner', '读取元数据失败: $filePath - $e');
     }
 
-    // 2. 后备方案：如果时长为 0，使用 audioplayers 获取
+    // 2. 后备方案：如果时长为 0，使用 media_kit 获取
     if (durationSec == 0) {
       try {
-        final player = AudioPlayer();
-        await player.setSource(DeviceFileSource(filePath));
-        final duration = await player.getDuration();
+        final player = Player();
+        await player.open(Media(filePath), play: false);
+        final duration = player.state.duration;
         await player.dispose();
         if (duration != null && duration.inSeconds > 0) {
           durationSec = duration.inSeconds;
-          AppLogger.debug('WindowsMediaScanner', '从 audioplayers 获取时长: ${durationSec}s');
+          AppLogger.debug('WindowsMediaScanner', '从 media_kit 获取时长: ${durationSec}s');
         }
       } catch (e) {
-        AppLogger.warn('WindowsMediaScanner', 'audioplayers 获取时长失败: $filePath - $e');
+        AppLogger.warn('WindowsMediaScanner', 'media_kit 获取时长失败: $filePath - $e');
       }
     }
 

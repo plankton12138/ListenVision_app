@@ -1,51 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../config/app_config.dart';
-import '../network/endpoints.dart';
-
 /// 图片缓存工具类
 ///
 /// 使用 cached_network_image 提供图片缓存功能
 /// 减少网络请求，提升加载速度，降低流量消耗
 /// 从 utils/image_helper.dart 迁移到 core/utils/
 class ImageHelper {
-  /// B站 CDN 域名列表
-  static const List<String> _bilibiliCdnDomains = [
-    'i0.hdslb.com',
-    'i1.hdslb.com',
-    'i2.hdslb.com',
-    'i3.hdslb.com',
-    'bfs.archive.bilibili.com',
-    'bos.bilivideo.com',
-  ];
-
-  /// 将 B站 CDN URL 转换为后端代理 URL
-  ///
-  /// 用于解决线上 Web 环境的 CORS 问题
-  /// 本地开发环境（flutter run）直接返回原 URL
+  /// 返回图片URL（纯前端架构：直接返回原始URL）
   static String convertToProxyUrl(String url) {
-    // 检查是否为 debug 模式或非 Web 平台，如果是则直接返回原 URL
-    // 因为本地开发不需要代理，生产环境需要
-    if (!appConfig.isProd && !appConfig.isStaging) {
-      return url;
-    }
-
-    // 处理 // 开头的 URL
     if (url.startsWith('//')) {
-      url = 'https:$url';
+      return 'https:$url';
     }
-
-    // 检查是否为 B站 CDN 域名
-    for (final cdnDomain in _bilibiliCdnDomains) {
-      if (url.contains(cdnDomain)) {
-        // 构建代理 URL
-        final encodedUrl = Uri.encodeComponent(url);
-        return '${appConfig.fullApiBaseUrl}${Endpoints.bilibiliProxyImage}?url=$encodedUrl';
-      }
-    }
-
-    // 非 B站 CDN 图片，直接返回原 URL
     return url;
   }
 

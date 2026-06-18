@@ -42,7 +42,7 @@ final class PlaylistViewModelProvider
   PlaylistViewModel create() => PlaylistViewModel();
 }
 
-String _$playlistViewModelHash() => r'f84aabd66d5f94084dfca199b39762205e115166';
+String _$playlistViewModelHash() => r'f053d4ec59d821aa884a6858229cfd3a5d9a315d';
 
 /// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
 ///

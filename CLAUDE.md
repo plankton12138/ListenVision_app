@@ -8,9 +8,9 @@
 
 | 项目 | 版本 |
 |------|------|
-| OS | Windows 11 24H2 |
+| OS | Windows 11 25H2 |
 | Shell | PowerShell（优先用 PowerShell 命令） |
-| Flutter | 3.38.5 (Dart 3.10.4) |
+| Flutter | 3.41.9 (Dart 3.11.5) |
 
 ---
 

@@ -76,7 +76,6 @@ class CachedTrack {
   // 时间戳
   final DateTime? addedAt;
   final DateTime? updatedAt;
-  final DateTime? syncedAt;
 
   const CachedTrack({
     required this.id,
@@ -101,7 +100,6 @@ class CachedTrack {
     this.playlistId,
     this.addedAt,
     this.updatedAt,
-    this.syncedAt,
   });
 
   /// 是否可离线播放
@@ -158,9 +156,6 @@ class CachedTrack {
       updatedAt: map['updated_at'] != null
           ? DateTime.tryParse(map['updated_at'] as String)
           : null,
-      syncedAt: map['synced_at'] != null
-          ? DateTime.tryParse(map['synced_at'] as String)
-          : null,
     );
   }
 
@@ -187,7 +182,6 @@ class CachedTrack {
       'last_played_at': lastPlayedAt?.toIso8601String(),
       'added_at': addedAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
-      'synced_at': syncedAt?.toIso8601String(),
     };
   }
 
@@ -222,7 +216,6 @@ class CachedTrack {
     String? playlistId,
     DateTime? addedAt,
     DateTime? updatedAt,
-    DateTime? syncedAt,
   }) {
     return CachedTrack(
       id: id ?? this.id,
@@ -247,7 +240,6 @@ class CachedTrack {
       playlistId: playlistId ?? this.playlistId,
       addedAt: addedAt ?? this.addedAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      syncedAt: syncedAt ?? this.syncedAt,
     );
   }
 

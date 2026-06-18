@@ -2,33 +2,25 @@ import 'dart:typed_data';
 import 'playable_audio.dart';
 import 'audio.dart';
 import 'playlist.dart';
-import '../core/constants/api_constants.dart';
 
 /// 在线音频的 Playable 实现
 ///
 /// 包装 Audio 实体，实现 PlayableAudio 接口
 /// 用于统一播放列表中的在线音频播放（通过后端代理）
 ///
-/// 迁移说明：从 just_audio 迁移到 audioplayers
+/// 迁移说明：从 just_audio 迁移到 media_kit
+/// - 支持自定义 HTTP 请求头（httpHeaders），解决 B站CDN防盗链问题
 /// - 移除了 AudioSource 相关代码
-/// - 直接使用代理 URL 作为播放地址
 class OnlinePlayable extends PlayableAudio {
   final Audio _audio;
   final String? _proxyUrl; // 后端代理URL
+  final Map<String, String>? httpHeaders; // 自定义HTTP请求头
 
-  OnlinePlayable(this._audio, [this._proxyUrl]);
+  OnlinePlayable(this._audio, [this._proxyUrl, this.httpHeaders]);
 
-  /// 从 Audio 创建，自动生成代理 URL
+  /// 从 Audio 创建
   factory OnlinePlayable.withProxyUrl(Audio audio) {
-    final audioId = audio.id;
-    if (audioId.startsWith('netease_')) {
-      // 网易云播放链接使用原始 streamUrl
-      return OnlinePlayable(audio);
-    }
-    // 自动生成代理 URL
-    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$audioId?format=auto';
-    return OnlinePlayable(audio, proxyUrl);
+    return OnlinePlayable(audio);
   }
 
   /// 从 Audio 创建
@@ -37,24 +29,9 @@ class OnlinePlayable extends PlayableAudio {
   }
 
   /// 从 Map 创建（用于反序列化）
-  ///
-  /// 动态生成代理 URL，避免硬编码 IP 地址
   factory OnlinePlayable.fromMap(Map<String, dynamic> map) {
     final audio = Audio.fromDto(map);
-    final audioId = audio.id;
-
-    if (audioId.startsWith('netease_')) {
-      // 网易云播放链接使用原始 streamUrl
-      return OnlinePlayable(audio);
-    }
-
-    // 动态生成代理 URL，使用当前的 API 基础 URL
-    // 不使用保存的旧 proxyUrl（可能包含过期的 IP 地址）
-    // 使用 127.0.0.1 替代 localhost（MPV 兼容性）
-    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$audioId?format=auto';
-
-    return OnlinePlayable(audio, proxyUrl);
+    return OnlinePlayable(audio);
   }
 
   @override
@@ -111,7 +88,7 @@ class OnlinePlayable extends PlayableAudio {
       duration: item.duration,
       coverUrl: item.coverUrl,
       streamUrl: null,
-      cid: item.cid,  // 传递 cid 用于字幕加载
+      cid: item.cid,
     );
     return OnlinePlayable.fromAudio(audio, null);
   }

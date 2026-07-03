@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:listenvision/core/constants/api_constants.dart';
+import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/download_task.dart';
@@ -429,7 +430,8 @@ class AudioActionMenu extends ConsumerWidget {
       final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
       final downloadDir = await _getDownloadDirectory();
       final sanitizedTitle = _sanitizeTitle(title);
-      final savePath = '$downloadDir$sanitizedTitle.mp3';
+      final ext = SharedStorageService.instance.getDownloadFormat();
+      final savePath = '$downloadDir$sanitizedTitle.$ext';
 
       await downloadNotifier.addDownload(
         bvid: bvid,

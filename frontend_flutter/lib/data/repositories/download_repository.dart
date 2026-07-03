@@ -9,6 +9,7 @@ import '../../core/storage/shared_storage_service.dart';
 import '../../services/download_service.dart' hide DownloadStatus;
 import '../../services/bilibili_api_service.dart';
 import '../../services/bilibili_downloader.dart';
+import '../../services/ffmpeg_service.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/errors/exceptions.dart';
@@ -248,14 +249,19 @@ class DownloadRepository {
           (task.tempFilePath != null ||
               (task.totalBytes > 0 && task.downloadedBytes < task.totalBytes));
 
-      final downloadFormat = SharedStorageService.instance.getDownloadFormat();
+      final downloadFormatStr = SharedStorageService.instance.getDownloadFormat();
+      final downloadFormat = AudioOutputFormat.values.firstWhere(
+        (f) => f.extension == downloadFormatStr,
+        orElse: () => AudioOutputFormat.m4a,
+      );
 
       if (canResume) {
         AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
-        await _downloadWithResumable(taskId, task, cancelToken);
+        await _downloadWithResumable(taskId, task, cancelToken, downloadFormat);
       } else {
-        AppLogger.info('DownloadRepository', '使用 BilibiliDownloader 下载: format=$downloadFormat');
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
+        AppLogger.info('DownloadRepository',
+            '使用 BilibiliDownloader 下载: format=${downloadFormat.extension}');
+        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, downloadFormat);
       }
 
       // 下载完成
@@ -357,6 +363,7 @@ class DownloadRepository {
     int taskId,
     DownloadTask task,
     CancelToken cancelToken,
+    AudioOutputFormat format,
   ) async {
     final result = await _resumableDownloadService.downloadAudio(
       bvid: task.bvid!,
@@ -404,7 +411,7 @@ class DownloadRepository {
           lastModified: null,
         );
         await _downloadTaskDao.updateTempFilePath(taskId, null);
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
+        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, format);
         return;
       }
       throw Exception(result.error ?? '下载失败');
@@ -416,6 +423,7 @@ class DownloadRepository {
     int taskId,
     DownloadTask task,
     CancelToken cancelToken,
+    AudioOutputFormat format,
   ) async {
     final downloader = BilibiliDownloader(_bilibiliApi);
 
@@ -432,6 +440,7 @@ class DownloadRepository {
       bvid: task.bvid!,
       saveDir: saveDir,
       fileName: fileName,
+      format: format,
       onProgress: (percent, stage) {
         if (cancelToken.isCancelled) {
           cancelToken.cancel('用户取消');

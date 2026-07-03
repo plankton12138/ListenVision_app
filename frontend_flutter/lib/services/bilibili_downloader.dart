@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import '../core/utils/app_logger.dart';
+import '../presentation/widgets/common/snackbar_helper.dart';
 import 'bilibili_api_service.dart';
 import 'ffmpeg_service.dart';
 import 'metadata_writer.dart';
@@ -141,7 +142,11 @@ class BilibiliDownloader {
           audioPath = convertedPath;
           resultFormat = format.extension;
         } catch (e) {
-          AppLogger.warn('BilibiliDownloader', '格式转换不可用，将保留 m4a 格式: $e');
+          AppLogger.warn('BilibiliDownloader', '格式转换失败，保留 m4a: $e');
+          final msg = e is ProcessException
+              ? 'FFmpeg 未安装或不在 PATH 中，已保留 M4A 格式'
+              : '格式转换失败，已保留 M4A 格式';
+          SnackbarHelper.showToast(msg);
         }
       }
 

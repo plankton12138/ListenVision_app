@@ -17,6 +17,7 @@ import '../../../services/bilibili_api_service.dart';
 import '../../../services/bilibili_headers.dart';
 import '../library/history_viewmodel.dart';
 import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
+import '../../widgets/common/snackbar_helper.dart';
 import 'queue_viewmodel.dart';
 
 part 'playback_viewmodel.freezed.dart';
@@ -221,6 +222,8 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   /// 统一设置元数据字段，确保 play() 和 prepareSource() 的一致性。
   /// 包括：currentPlayable、title、artist、coverUrl、coverData、currentIndex，
   /// 并清除 errorMessage。
+  ///
+  /// 切换歌曲时重置位置和时长，避免 UI 短暂显示旧歌的进度。
   void _updatePlayableState(PlayableAudio playable, {int index = -1}) {
     state = state.copyWith(
       currentPlayable: playable,
@@ -230,6 +233,8 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       coverData: playable.coverData,
       currentIndex: index,
       errorMessage: null,
+      position: Duration.zero,
+      duration: null,
     );
   }
 
@@ -367,15 +372,25 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   /// 播放下一首
+  ///
+  /// 如果已是列表最后一首，则循环到第一首开始播放并弹出提示。
   Future<void> next() async {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    if (!queueNotifier.hasNext) return;
-
     final queueState = ref.read(queueViewModelProvider);
-    final nextIndex = queueState.currentIndex + 1;
-    final nextPlayable = queueState.queue[nextIndex];
 
-    // 更新队列索引
+    if (queueState.queue.isEmpty) return;
+
+    final nextIndex = queueNotifier.hasNext
+        ? queueState.currentIndex + 1
+        : 0;
+
+    // 循环到第一首时弹出提示
+    if (!queueNotifier.hasNext) {
+      SnackbarHelper.showToast('列表播放完，从列表第一首开始播放');
+      AppLogger.info('PlaybackViewModel', '列表循环：最后一首 → 第一首');
+    }
+
+    final nextPlayable = queueState.queue[nextIndex];
     queueNotifier.setCurrentIndex(nextIndex);
 
     await play(nextPlayable, index: nextIndex);
@@ -383,14 +398,25 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   /// 播放上一首
+  ///
+  /// 如果已是列表第一首，则循环到最后一首并弹出提示。
   Future<void> previous() async {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    if (!queueNotifier.hasPrevious) return;
-
     final queueState = ref.read(queueViewModelProvider);
-    final prevIndex = queueState.currentIndex - 1;
-    final prevPlayable = queueState.queue[prevIndex];
 
+    if (queueState.queue.isEmpty) return;
+
+    final prevIndex = queueNotifier.hasPrevious
+        ? queueState.currentIndex - 1
+        : queueState.queue.length - 1;
+
+    // 循环到最后一首时弹出提示
+    if (!queueNotifier.hasPrevious) {
+      SnackbarHelper.showToast('列表播到头，从列表最后一首开始播放');
+      AppLogger.info('PlaybackViewModel', '列表循环：第一首 → 最后一首');
+    }
+
+    final prevPlayable = queueState.queue[prevIndex];
     queueNotifier.setCurrentIndex(prevIndex);
 
     await play(prevPlayable, index: prevIndex);
@@ -399,12 +425,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   void _playNextAutomatically() async {
     try {
-      final queueNotifier = ref.read(queueViewModelProvider.notifier);
       final queueState = ref.read(queueViewModelProvider);
-      if (queueState.playMode == PlayMode.sequence && !queueNotifier.hasNext) {
-        AppLogger.debug('PlaybackViewModel', '已是最后一首，停止');
-        return;
-      }
 
       if (queueState.playMode == PlayMode.loopOne) {
         // 单曲循环
@@ -463,16 +484,12 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     final playable = queueState.queue[currentIndex];
 
-    // 如果当前音频源已就绪且为同一音频项，仅恢复播放位置
+    // 如果当前音频源已就绪且为同一音频项，无需重复准备
     // isReady: _currentSourceUrl != null && duration > 0
     if (state.currentPlayable?.id == playable.id &&
         _audioService != null &&
         _audioService!.isReady) {
-      final savedPosition = await queueNotifier.restorePosition() ?? 0;
-      AppLogger.info('PlaybackViewModel', '音频源已就绪，恢复位置: ${savedPosition}s');
-      if (savedPosition > 0) {
-        await _audioService!.seek(Duration(seconds: savedPosition));
-      }
+      AppLogger.info('PlaybackViewModel', '音频源已就绪，无需恢复');
       return;
     }
 

@@ -17,6 +17,10 @@ import 'data/database/track_dao.dart';
 class App extends ConsumerStatefulWidget {
   const App({super.key});
 
+  /// 全局 ScaffoldMessenger Key，供 ViewModel 等无 Context 的层显示 SnackBar
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   @override
   ConsumerState<App> createState() => _AppState();
 }
@@ -56,6 +60,7 @@ class _AppState extends ConsumerState<App> {
     return MaterialApp.router(
       title: 'ListenVision',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: App.scaffoldMessengerKey,
       themeMode: themeMode.flutterThemeMode,
       theme: lightMode,
       darkTheme: darkMode,

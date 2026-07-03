@@ -31,6 +31,9 @@ class DialogHelper {
     );
   }
 
+  /// 半透明度
+  static const int _alpha = 200;
+
   /// 显示提示消息
   ///
   /// 在屏幕底部显示一个短暂的提示消息
@@ -47,7 +50,7 @@ class DialogHelper {
       SnackBar(
         duration: Duration(milliseconds: duration),
         content: Text(message),
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor?.withAlpha(_alpha),
       ),
     );
   }

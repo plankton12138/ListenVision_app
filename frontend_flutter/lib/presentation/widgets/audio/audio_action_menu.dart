@@ -317,7 +317,7 @@ class AudioActionMenu extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor.withAlpha(200),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -674,7 +674,7 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor.withAlpha(200),
         duration: const Duration(seconds: 2),
       ),
     );

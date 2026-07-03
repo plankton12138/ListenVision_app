@@ -87,6 +87,12 @@ ThemeData lightMode = ThemeData(
     ),
   ),
 
+  // SnackBar 主题 — 半透明背景
+  snackBarTheme: SnackBarThemeData(
+    backgroundColor: Colors.grey[850]!.withAlpha(200),
+    behavior: SnackBarBehavior.floating,
+  ),
+
   // AppBar 主题
   appBarTheme: const AppBarTheme(
     backgroundColor: Colors.white,

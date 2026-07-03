@@ -19,7 +19,6 @@ import 'dart:io' show Platform;
 
 import '../../../core/utils/blob_url.dart';
 import '../../widgets/common/network_status_listener.dart';
-import '../../widgets/player/subtitle_view.dart';
 
 /// 首页
 ///
@@ -423,16 +422,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             const Flexible(
               flex: 3,
               child: AudioInfo(),
-            ),
-
-            // 字幕展示区 - 固定高度
-            SizedBox(
-              height: 100,
-              child: SubtitleView(
-                onSeek: (position) {
-                  ref.read(playbackViewModelProvider.notifier).seek(position);
-                },
-              ),
             ),
 
             // 控制面板（进度条、播放控制）

@@ -41,11 +41,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
               icon: const Icon(Icons.refresh),
               iconSize: UIConstants.iconMedium,
               onPressed: () {
-                final storage = ref.read(sharedStorageServiceProvider);
-                final token = storage.getString('auth_token');
-                if (token != null) {
-                  ref.read(playlistViewModelProvider.notifier).loadPlaylists(token);
-                }
+                ref.read(playlistViewModelProvider.notifier).loadPlaylists();
               },
             ),
           // 返回首页按钮
@@ -95,18 +91,13 @@ class PlaylistLibraryPage extends ConsumerWidget {
                 return;
               }
               Navigator.pop(context);
-              final storage = ref.read(sharedStorageServiceProvider);
-              final token = storage.getString('auth_token');
-              if (token != null) {
-                await ref.read(playlistViewModelProvider.notifier).createPlaylist(
-                      token,
-                      name: name,
-                    );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('歌单 "$name" 创建成功')),
-                  );
-                }
+              await ref.read(playlistViewModelProvider.notifier).createPlaylist(
+                name: name,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('歌单 "$name" 创建成功')),
+                );
               }
             },
             child: const Text('创建'),
@@ -241,17 +232,13 @@ class PlaylistLibraryPage extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      final storage = ref.read(sharedStorageServiceProvider);
-      final token = storage.getString('auth_token');
-      if (token != null) {
-        await ref
-            .read(playlistViewModelProvider.notifier)
-            .deletePlaylist(token, playlist.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('歌单已删除')),
-          );
-        }
+      await ref
+          .read(playlistViewModelProvider.notifier)
+          .deletePlaylist(playlist.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单已删除')),
+        );
       }
     }
   }

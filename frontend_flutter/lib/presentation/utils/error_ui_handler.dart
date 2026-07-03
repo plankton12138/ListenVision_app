@@ -469,7 +469,7 @@ class ErrorUIHandler {
           ],
         ),
         duration: duration,
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor.withAlpha(200),
         action: action,
         behavior: SnackBarBehavior.fixed,
       ),

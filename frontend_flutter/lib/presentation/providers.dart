@@ -6,29 +6,13 @@ library;
 // ==================== Repository 层（本地优先架构）====================
 export '../data/repositories/repository_providers.dart';
 
-// ==================== 认证相关 ====================
-export 'viewmodels/auth/auth_viewmodel.dart' show authViewModelProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show currentUserProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show authTokenProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show isLoggedInProvider;
-export 'viewmodels/auth/auth_viewmodel.dart' show AuthState;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show platformAuthViewModelProvider;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show boundBilibiliAccount;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBound;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show isBilibiliBoundProvider;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show QRLoginStatus;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthState;
-export 'viewmodels/auth/platform_auth_viewmodel.dart' show PlatformAuthStateBound;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show neteaseAuthViewModelProvider;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show boundNeteaseAccount;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show isNeteaseBound;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseQRLoginStatus;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthState;
-export 'viewmodels/auth/netease_auth_viewmodel.dart' show NeteaseAuthStateBound;
-// ==================== 字幕 ====================
-export 'viewmodels/player/subtitle_viewmodel.dart';
-export '../data/repositories/subtitle_repository.dart';
-export '../models/subtitle.dart';
+// ==================== 服务层 ====================
+export '../../services/bilibili_api_service.dart' show bilibiliApiServiceProvider;
+export '../../services/bilibili_auth_service.dart';
+
+// ==================== 认证相关（B站绑定）====================
+export 'viewmodels/auth/auth_provider.dart';
+
 // ==================== 播放器相关 ====================
 // PlaybackViewModel - 新的播放控制器
 export 'viewmodels/player/playback_viewmodel.dart' show playbackViewModelProvider;

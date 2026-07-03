@@ -42,31 +42,6 @@ class BilibiliUserInfo {
   }
 }
 
-/// 网易云音乐用户信息模型
-class NeteaseUserInfo {
-  final String id;
-  final String username;
-
-  NeteaseUserInfo({
-    required this.id,
-    required this.username,
-  });
-
-  factory NeteaseUserInfo.fromJson(Map<String, dynamic> json) {
-    return NeteaseUserInfo(
-      id: json['id']?.toString() ?? '',
-      username: json['username']?.toString() ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'username': username,
-    };
-  }
-}
-
 /// Bilibili 账号模型 - 实现 PlatformAccount 接口
 class BilibiliAccount implements PlatformAccount {
   final String _platformUserId;

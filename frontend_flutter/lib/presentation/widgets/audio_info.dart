@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:listenvision/core/constants/api_constants.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
@@ -103,18 +102,9 @@ class AudioInfo extends ConsumerWidget {
     );
   }
 
-  /// 构建图片代理URL
+  /// 返回图片URL（纯前端架构：直接使用原始URL）
   String _buildProxyImageUrl(String originalUrl) {
-    if (originalUrl.contains('/proxy/image')) return originalUrl;
-
-    final uri = Uri.tryParse(originalUrl);
-    final host = uri?.host.toLowerCase() ?? '';
-
-    // 仅对 B 站图片做代理（防盗链），避免对普通站点/测试用例造成不必要依赖。
-    final isBilibiliImageHost = host.contains('hdslb.com') || host.contains('bilibili.com');
-    if (!isBilibiliImageHost) return originalUrl;
-
-    return '${ApiConstants.fullBaseUrl}${BilibiliEndpoints.proxyImage}?url=${Uri.encodeComponent(originalUrl)}';
+    return originalUrl;
   }
 
   /// 构建音频信息（标题和艺术家）

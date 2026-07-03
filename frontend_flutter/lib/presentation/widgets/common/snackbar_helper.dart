@@ -1,14 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:listenvision/app.dart';
 
 /// SnackBar 辅助类
 ///
-/// 从 utils/show_notes.dart 迁移到 presentation/widgets/common/
-///
 /// 统一项目中的 SnackBar 风格：
-/// - 使用 floating 样式
+/// - 使用 floating 样式 + 半透明背景
 /// - 默认 2 秒时长
 /// - 统一的颜色语义
+/// - 支持通过全局 key（无需 BuildContext）和 Context 两种方式调用
 class SnackbarHelper {
+  /// 半透明度（0-255，值越小越透明）
+  static const int _alpha = 200;
+
+  /// 通过全局 ScaffoldMessengerKey 显示提示（无需 BuildContext）
+  ///
+  /// 供 ViewModel 等无 Context 的层使用。
+  static void showToast(
+    String message, {
+    Color color = Colors.blue,
+    int duration = 2000,
+  }) {
+    final state = App.scaffoldMessengerKey.currentState;
+    if (state == null) return;
+    state.showSnackBar(
+      SnackBar(
+        duration: Duration(milliseconds: duration),
+        content: Text(message),
+        backgroundColor: color.withAlpha(_alpha),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   /// 显示提示消息
   ///
   /// 在屏幕底部显示一个短暂的提示消息
@@ -27,7 +50,7 @@ class SnackbarHelper {
       SnackBar(
         duration: Duration(milliseconds: duration),
         content: Text(message),
-        backgroundColor: color,
+        backgroundColor: color.withAlpha(_alpha),
         behavior: behavior ?? SnackBarBehavior.floating,
       ),
     );

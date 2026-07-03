@@ -1,4 +1,5 @@
 import 'package:listenvision/core/constants/app_constants.dart';
+import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
@@ -514,7 +515,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     try {
       final downloadDir = await _getDownloadDirectory();
       final sanitizedTitle = _sanitizeTitle(item.title as String? ?? '未知');
-      final savePath = '$downloadDir$sanitizedTitle.mp3';
+      final ext = SharedStorageService.instance.getDownloadFormat();
+      final savePath = '$downloadDir$sanitizedTitle.$ext';
 
       await ref
           .read(downloadViewModelProvider.notifier)
@@ -581,12 +583,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final bvid = item.bvid as String?;
     if (bvid == null) return;
 
-    final token = ref.read(authTokenProvider) ?? '';
-
     try {
       final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
       final added = await playlistNotifier.toggleFavorite(
-        token,
         bvid,
         title: item.title,
         artist: item.artist,

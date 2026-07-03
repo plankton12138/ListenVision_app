@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:listenvision/core/constants/api_constants.dart';
+import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/download_task.dart';
@@ -93,8 +94,6 @@ class AudioActionMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playlistState = ref.watch(playlistViewModelProvider);
     final downloadState = ref.watch(downloadViewModelProvider);
-    final isLoggedIn = ref.watch(isLoggedInProvider);
-
     return playlistState.when(
       data: (state) {
         final isFavorited = state.map(
@@ -112,10 +111,10 @@ class AudioActionMenu extends ConsumerWidget {
             }
           },
         );
-        return _buildContent(context, ref, isFavorited, isLoggedIn, downloadTask);
+        return _buildContent(context, ref, isFavorited, downloadTask);
       },
-      loading: () => _buildContent(context, ref, false, isLoggedIn, null),
-      error: (_, __) => _buildContent(context, ref, false, isLoggedIn, null),
+      loading: () => _buildContent(context, ref, false, null),
+      error: (_, __) => _buildContent(context, ref, false, null),
     );
   }
 
@@ -123,7 +122,6 @@ class AudioActionMenu extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     bool isFavorited,
-    bool isLoggedIn,
     DownloadTask? downloadTask,
   ) {
     return SafeArea(
@@ -207,12 +205,9 @@ class AudioActionMenu extends ConsumerWidget {
                 try {
                   AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
 
-                  final token = ref.read(authTokenProvider) ?? '';
-
                   final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
                   await playlistNotifier.toggleFavorite(
-                    token,
                     bvid,
                     title: title,
                     artist: artist,
@@ -227,7 +222,7 @@ class AudioActionMenu extends ConsumerWidget {
             ),
 
           // 加入歌单（仅登录用户可见）
-          if (showAddToPlaylist && isLoggedIn)
+          if (showAddToPlaylist)
             ListTile(
               leading: const Icon(Icons.playlist_add),
               title: const Text('加入歌单'),
@@ -323,7 +318,7 @@ class AudioActionMenu extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor.withAlpha(200),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -435,7 +430,8 @@ class AudioActionMenu extends ConsumerWidget {
       final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
       final downloadDir = await _getDownloadDirectory();
       final sanitizedTitle = _sanitizeTitle(title);
-      final savePath = '$downloadDir$sanitizedTitle.mp3';
+      final ext = SharedStorageService.instance.getDownloadFormat();
+      final savePath = '$downloadDir$sanitizedTitle.$ext';
 
       await downloadNotifier.addDownload(
         bvid: bvid,
@@ -625,23 +621,14 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
               Navigator.pop(context);
 
-              final token = ref.read(authTokenProvider);
+              final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+              final newPlaylist = await playlistNotifier.createPlaylist(
+                name: name,
+              );
 
-              if (token != null) {
-                final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-                final newPlaylist = await playlistNotifier.createPlaylist(
-                      token,
-                      name: name,
-                    );
-
-                if (newPlaylist != null && mounted) {
-                  // 自动添加到新创建的歌单
-                  _addToPlaylist(newPlaylist.id);
-                }
-              } else {
-                if (mounted) {
-                  _showSnackBar('请先登录', Colors.orange);
-                }
+              if (newPlaylist != null && mounted) {
+                // 自动添加到新创建的歌单
+                _addToPlaylist(newPlaylist.id);
               }
             },
             child: const Text('创建'),
@@ -658,26 +645,16 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
       Navigator.pop(context);
 
-      final token = ref.read(authTokenProvider);
-
-      if (token == null) {
-        if (mounted) {
-          _showSnackBar('请先登录', Colors.orange);
-        }
-        return;
-      }
-
       final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
       final success = await playlistNotifier.addItem(
-            token,
-            playlistId,
-            widget.bvid,
-            title: widget.title,
-            artist: widget.artist,
-            duration: widget.duration,
-            coverUrl: widget.coverUrl,
-          );
+        playlistId,
+        widget.bvid,
+        title: widget.title,
+        artist: widget.artist,
+        duration: widget.duration,
+        coverUrl: widget.coverUrl,
+      );
 
       if (mounted) {
         if (success) {
@@ -699,7 +676,7 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: backgroundColor,
+        backgroundColor: backgroundColor.withAlpha(200),
         duration: const Duration(seconds: 2),
       ),
     );

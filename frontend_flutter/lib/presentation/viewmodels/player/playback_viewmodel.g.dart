@@ -19,7 +19,6 @@ part of 'playback_viewmodel.dart';
 /// 依赖：
 /// - AudioPlayerService: 底层播放器
 /// - QueueViewModel: 队列数据（只读取，不修改）
-/// - SubtitleViewModel: 字幕管理
 
 @ProviderFor(PlaybackViewModel)
 final playbackViewModelProvider = PlaybackViewModelProvider._();
@@ -35,7 +34,6 @@ final playbackViewModelProvider = PlaybackViewModelProvider._();
 /// 依赖：
 /// - AudioPlayerService: 底层播放器
 /// - QueueViewModel: 队列数据（只读取，不修改）
-/// - SubtitleViewModel: 字幕管理
 final class PlaybackViewModelProvider
     extends $NotifierProvider<PlaybackViewModel, PlaybackState> {
   /// 播放控制器 ViewModel
@@ -49,7 +47,6 @@ final class PlaybackViewModelProvider
   /// 依赖：
   /// - AudioPlayerService: 底层播放器
   /// - QueueViewModel: 队列数据（只读取，不修改）
-  /// - SubtitleViewModel: 字幕管理
   PlaybackViewModelProvider._()
     : super(
         from: null,
@@ -77,7 +74,7 @@ final class PlaybackViewModelProvider
   }
 }
 
-String _$playbackViewModelHash() => r'e1efdeea521b6d88d2c3f872e24352a9bba7eb45';
+String _$playbackViewModelHash() => r'ad2307f7a9576d01ea03a3650ac5606f503744a4';
 
 /// 播放控制器 ViewModel
 ///
@@ -90,7 +87,6 @@ String _$playbackViewModelHash() => r'e1efdeea521b6d88d2c3f872e24352a9bba7eb45';
 /// 依赖：
 /// - AudioPlayerService: 底层播放器
 /// - QueueViewModel: 队列数据（只读取，不修改）
-/// - SubtitleViewModel: 字幕管理
 
 abstract class _$PlaybackViewModel extends $Notifier<PlaybackState> {
   PlaybackState build();

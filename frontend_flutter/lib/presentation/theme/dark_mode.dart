@@ -89,6 +89,12 @@ ThemeData darkMode = ThemeData(
     ),
   ),
 
+  // SnackBar 主题 — 半透明背景
+  snackBarTheme: SnackBarThemeData(
+    backgroundColor: Colors.grey[300]!.withAlpha(200),
+    behavior: SnackBarBehavior.floating,
+  ),
+
   // AppBar 主题
   appBarTheme: const AppBarTheme(
     backgroundColor: Color(0xFF121212),

@@ -1,10 +1,10 @@
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/presentation/providers.dart';
-import 'package:listenvision/presentation/viewmodels/auth/platform_auth_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/settings/scan_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:listenvision/core/utils/dialog_helper.dart';
+import 'package:listenvision/services/bilibili_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +16,7 @@ import '../../../core/storage/shared_storage_service.dart';
 /// 设置页面
 ///
 /// 提供主题切换、B站账号绑定等应用设置选项
-/// 使用 Riverpod 的 ThemeViewModel 和 PlatformAuthViewModel
+/// 使用 Riverpod 的 ThemeViewModel 和 BilibiliAuthService
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -61,11 +61,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           if (!isLoggedIn) _buildLoginPromptCard(context),
           if (isLoggedIn) ...[
             const SizedBox(height: 16),
-            _buildBilibiliBindCard(context, isLoggedIn),
+            _buildBilibiliBindCard(context),
             const SizedBox(height: 16),
-            _buildNeteaseBindCard(context, isLoggedIn),
-            const SizedBox(height: 16),
-            _buildSyncStatusCard(context, isLoggedIn),
+            _buildSyncStatusCard(context),
             const SizedBox(height: 16),
             _buildAccountActionsCard(context),
           ],
@@ -331,255 +329,146 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// B站账号绑定卡片
-  Widget _buildBilibiliBindCard(BuildContext context, bool isLoggedIn) {
+  Widget _buildBilibiliBindCard(BuildContext context) {
     const bilibiliPink = Color(0xFFFB7299);
-    
-    if (!isLoggedIn) {
-      return Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [bilibiliPink.withValues(alpha: 0.15), bilibiliPink.withValues(alpha: 0.05)],
-          ),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: bilibiliPink.withValues(alpha: 0.3)),
+    final bilibiliBound = ref.watch(bilibiliBoundProvider);
+    final bilibiliAccount = ref.watch(bilibiliAccountProvider);
+
+    final isBound = bilibiliBound.value ?? false;
+    final account = bilibiliAccount.value;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBound
+              ? [bilibiliPink.withValues(alpha: 0.2), bilibiliPink.withValues(alpha: 0.1)]
+              : [bilibiliPink.withValues(alpha: 0.15), bilibiliPink.withValues(alpha: 0.05)],
         ),
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: bilibiliPink.withValues(alpha: isBound ? 0.4 : 0.3)),
+      ),
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: bilibiliPink.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.play_circle_outline, size: 20, color: bilibiliPink),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'B站账号绑定',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isBound ? Colors.green.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isBound ? '已绑定' : '未绑定',
+                  style: TextStyle(
+                    color: isBound ? Colors.green : Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isBound && account != null) ...[
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: bilibiliPink.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: bilibiliPink, width: 2),
                   ),
-                  child: const Icon(Icons.play_circle_outline, size: 20, color: bilibiliPink),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'B站账号绑定',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                  child: ClipOval(
+                    child: account.avatarUrl != null && account.avatarUrl!.isNotEmpty
+                        ? Image.network(
+                            account.avatarUrl!,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 50,
+                                height: 50,
+                                color: bilibiliPink.withValues(alpha: 0.2),
+                                child: const Icon(Icons.person, size: 30, color: bilibiliPink),
+                              );
+                            },
+                          )
+                        : Container(
+                            width: 50,
+                            height: 50,
+                            color: bilibiliPink.withValues(alpha: 0.2),
+                            child: const Icon(Icons.person, size: 30, color: bilibiliPink),
+                          ),
                   ),
-                  child: const Text(
-                    '需要登录',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        account.username ?? 'B站用户',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'UID: ${account.dedeuserid}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Text(
-              '请先登录后才能绑定B站账号',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _confirmUnbind(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[700],
+                  side: BorderSide(color: Colors.grey[400]!),
+                ),
+                child: const Text('解绑账号'),
               ),
+            ),
+          ] else ...[
+            Text(
+              '绑定B站账号后可使用推荐、UP主更新等功能',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.go('/login'),
+                onPressed: () => _showQRCodeDialog(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: bilibiliPink,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('去登录'),
+                child: const Text('绑定账号'),
               ),
             ),
           ],
-        ),
-      );
-    }
-
-    return Consumer(
-      builder: (context, ref, child) {
-        return ref.watch(platformAuthViewModelProvider).when(
-          data: (platformAuthState) {
-            final isBound = platformAuthState.maybeWhen(
-              bound: (_) => true,
-              orElse: () => false,
-            );
-            final userInfo = platformAuthState.maybeWhen(
-              bound: (account) => account,
-              orElse: () => null,
-            );
-            final isLoading = platformAuthState.maybeWhen(
-              qrLogin: (_, __, ___, ____) => true,
-              orElse: () => false,
-            );
-
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isBound 
-                      ? [bilibiliPink.withValues(alpha: 0.2), bilibiliPink.withValues(alpha: 0.1)]
-                      : [bilibiliPink.withValues(alpha: 0.15), bilibiliPink.withValues(alpha: 0.05)],
-                ),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: bilibiliPink.withValues(alpha: isBound ? 0.4 : 0.3)),
-              ),
-              padding: const EdgeInsets.all(15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: bilibiliPink.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.play_circle_outline, size: 20, color: bilibiliPink),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'B站账号绑定',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isBound ? Colors.green.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          isBound ? '已绑定' : '未绑定',
-                          style: TextStyle(
-                            color: isBound ? Colors.green : Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (isBound && userInfo != null) ...[
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: bilibiliPink, width: 2),
-                          ),
-                          child: ClipOval(
-                            child: Image.network(
-                              userInfo.avatar,
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 50,
-                                  height: 50,
-                                  color: bilibiliPink.withValues(alpha: 0.2),
-                                  child: const Icon(Icons.person, size: 30, color: bilibiliPink),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                userInfo.uname,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'UID: ${userInfo.mid}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: isLoading ? null : () => _confirmUnbind(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey[700],
-                          side: BorderSide(color: Colors.grey[400]!),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('解绑账号'),
-                      ),
-                    ),
-                  ] else ...[
-                    Text(
-                      '绑定B站账号后可使用推荐、UP主更新等功能',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : () => _showQRCodeDialog(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: bilibiliPink,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('绑定账号'),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-          loading: () => Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            padding: const EdgeInsets.all(15),
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-          error: (_, __) => Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            padding: const EdgeInsets.all(15),
-            child: const Text('加载失败'),
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -589,7 +478,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => _QRCodeDialog(
-        ref: ref,
         onClose: () => Navigator.of(context).pop(),
       ),
     );
@@ -617,99 +505,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await ref.read(platformAuthViewModelProvider.notifier).unbind();
+      final bilibiliAuth = BilibiliAuthService();
+      await bilibiliAuth.unbind();
+      ref.invalidate(bilibiliBoundProvider);
+      ref.invalidate(bilibiliAccountProvider);
       if (mounted) {
-        if (success) {
-          DialogHelper.showSnackBar(context, '解绑成功', backgroundColor: Colors.green, duration: 1500);
-        } else {
-          final errorMsg = ref.read(platformAuthViewModelProvider).when(
-            data: (state) => state.maybeWhen(
-              error: (msg) => msg,
-              orElse: () => '解绑失败',
-            ),
-            loading: () => '解绑失败',
-            error: (err, _) => err.toString(),
-          );
-          DialogHelper.showSnackBar(context, errorMsg, backgroundColor: Colors.red, duration: 2000);
-        }
+        DialogHelper.showSnackBar(context, '解绑成功', backgroundColor: Colors.green, duration: 1500);
       }
     }
   }
 
-  /// 网易云账号绑定卡片（待开发）
-  Widget _buildNeteaseBindCard(BuildContext context, bool isLoggedIn) {
-    const neteaseRed = Color(0xFFC20C0C);
-
-    if (!isLoggedIn) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            neteaseRed.withValues(alpha: 0.08),
-            neteaseRed.withValues(alpha: 0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: neteaseRed.withValues(alpha: 0.2)),
-      ),
-      padding: const EdgeInsets.all(15),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: neteaseRed.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.music_note, size: 20, color: neteaseRed),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                '网易云音乐',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '待开发',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '网易云音乐功能正在开发中，敬请期待',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 数据同步状态卡片
-  Widget _buildSyncStatusCard(BuildContext context, bool isLoggedIn) {
-    if (!isLoggedIn) {
-      return const SizedBox.shrink();
-    }
-
+  /// 数据同步状态卡片
+  Widget _buildSyncStatusCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.secondary,
@@ -825,7 +633,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
 
     if (confirmed == true && mounted) {
-      await ref.read(authViewModelProvider.notifier).logout();
+      final storage = SharedStorageService.instance;
+      await storage.remove('auth_token');
+      await storage.remove('current_username');
+      await storage.remove('current_email');
       if (mounted) {
         DialogHelper.showSnackBar(context, '已退出登录', backgroundColor: Colors.green);
         context.go('/');
@@ -861,14 +672,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await ref.read(authViewModelProvider.notifier).deleteAccount();
+      final storage = SharedStorageService.instance;
+      await storage.remove('auth_token');
+      await storage.remove('current_username');
+      await storage.remove('current_email');
       if (mounted) {
-        if (success) {
-          DialogHelper.showSnackBar(context, '账号已注销', backgroundColor: Colors.green);
-          context.go('/');
-        } else {
-          DialogHelper.showSnackBar(context, '注销失败，请稍后重试', backgroundColor: Colors.red);
-        }
+        DialogHelper.showSnackBar(context, '账号已注销', backgroundColor: Colors.green);
+        context.go('/');
       }
     }
   }
@@ -876,11 +686,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
 /// QR码登录对话框
 class _QRCodeDialog extends StatefulWidget {
-  final WidgetRef ref;
   final VoidCallback onClose;
 
   const _QRCodeDialog({
-    required this.ref,
     required this.onClose,
   });
 
@@ -889,226 +697,212 @@ class _QRCodeDialog extends StatefulWidget {
 }
 
 class _QRCodeDialogState extends State<_QRCodeDialog> {
-  bool _dialogClosed = false;
+  final BilibiliAuthService _bilibiliAuth = BilibiliAuthService();
+  String? _qrUrl;
+  BilibiliQRStatus _status = BilibiliQRStatus.pending;
+  String? _qrcodeKey;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    // 开始QR码登录
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.ref.read(platformAuthViewModelProvider.notifier).startQRLogin();
-    });
+    _generateQRCode();
   }
 
   @override
   void dispose() {
-    // 对话框关闭时取消QR码登录
-    final isBound = widget.ref.read(platformAuthViewModelProvider).when(
-      data: (state) => state.maybeWhen(
-        bound: (_) => true,
-        orElse: () => false,
-      ),
-      loading: () => false,
-      error: (_, __) => false,
-    );
-    if (!isBound) {
-      Future(() {
-        widget.ref.read(platformAuthViewModelProvider.notifier).cancelQRLogin();
-      });
-    }
+    _disposed = true;
     super.dispose();
   }
 
-  String _getStatusText(QRLoginStatus status) {
+  Future<void> _generateQRCode() async {
+    try {
+      final result = await _bilibiliAuth.generateQRCode();
+      if (_disposed) return;
+      setState(() {
+        _qrcodeKey = result['qrcode_key'];
+        _qrUrl = result['qr_url'];
+        _status = BilibiliQRStatus.pending;
+      });
+      _pollQRStatus();
+    } catch (e) {
+      if (_disposed) return;
+      setState(() {
+        _status = BilibiliQRStatus.error;
+      });
+    }
+  }
+
+  Future<void> _pollQRStatus() async {
+    if (_qrcodeKey == null || _disposed) return;
+
+    while (!_disposed) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (_disposed) return;
+
+      try {
+        final (status, account) = await _bilibiliAuth.checkQRCode(_qrcodeKey!);
+        if (_disposed) return;
+
+        setState(() {
+          _status = status;
+        });
+
+        if (status == BilibiliQRStatus.success) {
+          widget.onClose();
+          return;
+        }
+
+        if (status == BilibiliQRStatus.expired || status == BilibiliQRStatus.error) {
+          return;
+        }
+      } catch (e) {
+        if (_disposed) return;
+      }
+    }
+  }
+
+  String _getStatusText(BilibiliQRStatus status) {
     switch (status) {
-      case QRLoginStatus.none:
-        return '初始化中...';
-      case QRLoginStatus.pending:
+      case BilibiliQRStatus.pending:
         return '请使用B站APP扫描二维码';
-      case QRLoginStatus.scanned:
+      case BilibiliQRStatus.scanned:
         return '已扫描，请在手机上确认';
-      case QRLoginStatus.success:
+      case BilibiliQRStatus.success:
         return '登录成功！';
-      case QRLoginStatus.expired:
+      case BilibiliQRStatus.expired:
         return '二维码已过期';
-      case QRLoginStatus.failed:
+      case BilibiliQRStatus.error:
         return '登录失败';
     }
   }
 
-  Color _getStatusColor(QRLoginStatus status) {
+  Color _getStatusColor(BilibiliQRStatus status) {
     switch (status) {
-      case QRLoginStatus.pending:
+      case BilibiliQRStatus.pending:
         return Colors.blue;
-      case QRLoginStatus.scanned:
+      case BilibiliQRStatus.scanned:
         return Colors.orange;
-      case QRLoginStatus.success:
+      case BilibiliQRStatus.success:
         return Colors.green;
-      case QRLoginStatus.expired:
+      case BilibiliQRStatus.expired:
         return Colors.red;
-      case QRLoginStatus.failed:
+      case BilibiliQRStatus.error:
         return Colors.red;
-      default:
-        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) {
-        return ref.watch(platformAuthViewModelProvider).when(
-          data: (platformAuthState) {
-            final qrUrl = platformAuthState.maybeWhen(
-              qrLogin: (_, url, __, ___) => url,
-              orElse: () => null,
-            );
-            final status = platformAuthState.maybeWhen(
-              qrLogin: (status, _, __, ___) => status,
-              orElse: () => QRLoginStatus.none,
-            );
-            final isBound = platformAuthState.maybeWhen(
-              bound: (_) => true,
-              orElse: () => false,
-            );
-            final isExpired = status == QRLoginStatus.expired;
-            final isSuccess = status == QRLoginStatus.success || isBound;
+    final isExpired = _status == BilibiliQRStatus.expired;
+    final isSuccess = _status == BilibiliQRStatus.success;
 
-            // 登录成功后自动关闭对话框（只执行一次）
-            if (isSuccess && !_dialogClosed) {
-              _dialogClosed = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && Navigator.of(context).canPop()) {
-                  widget.onClose();
-                  // 延迟显示SnackBar，确保对话框完全关闭后再显示
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (context.mounted) {
-                      DialogHelper.showSnackBar(context, 'B站账号绑定成功！', backgroundColor: Colors.green, duration: 2000);
-                    }
-                  });
-                }
-              });
-            }
+    if (isSuccess && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          DialogHelper.showSnackBar(context, 'B站账号绑定成功！', backgroundColor: Colors.green, duration: 2000);
+        }
+      });
+    }
 
-            return AlertDialog(
-              title: const Text('B站账号绑定'),
-              content: SizedBox(
-                width: 280,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // QR码显示
-                    if (qrUrl != null && !isExpired)
-                      SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: QrImageView(
-                          data: qrUrl,
-                          version: QrVersions.auto,
-                          size: 200,
-                        ),
-                      )
-                    else
-                      SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: Container(
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: Icon(
-                              isExpired ? Icons.qr_code_2 : Icons.hourglass_empty,
-                              size: 80,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    // 状态提示
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (status == QRLoginStatus.pending)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          else
-                            Icon(
-                              status == QRLoginStatus.scanned
-                                  ? Icons.qr_code_scanner
-                                  : status == QRLoginStatus.success
-                                      ? Icons.check_circle
-                                      : status == QRLoginStatus.expired || status == QRLoginStatus.failed
-                                          ? Icons.error
-                                          : Icons.info,
-                              size: 16,
-                              color: _getStatusColor(status),
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getStatusText(status),
-                            style: TextStyle(
-                              color: _getStatusColor(status),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+    return AlertDialog(
+      title: const Text('B站账号绑定'),
+      content: SizedBox(
+        width: 280,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_qrUrl != null && !isExpired)
+              SizedBox(
+                width: 200,
+                height: 200,
+                child: QrImageView(
+                  data: _qrUrl!,
+                  version: QrVersions.auto,
+                  size: 200,
+                ),
+              )
+            else
+              SizedBox(
+                width: 200,
+                height: 200,
+                child: Container(
+                  color: Colors.grey[200],
+                  child: Center(
+                    child: Icon(
+                      isExpired ? Icons.qr_code_2 : Icons.hourglass_empty,
+                      size: 80,
+                      color: Colors.grey,
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // 说明文字
-                    Text(
-                      '打开B站APP，扫描二维码登录',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
-                ),
-              ],
-            );
-          },
-          loading: () => const AlertDialog(
-            title: Text('B站账号绑定'),
-            content: SizedBox(
-              width: 280,
-              height: 300,
-              child: Center(
-                child: CircularProgressIndicator(),
+
+            const SizedBox(height: 16),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _getStatusColor(_status).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_status == BilibiliQRStatus.pending)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    Icon(
+                      _status == BilibiliQRStatus.scanned
+                          ? Icons.qr_code_scanner
+                          : _status == BilibiliQRStatus.success
+                              ? Icons.check_circle
+                              : _status == BilibiliQRStatus.expired || _status == BilibiliQRStatus.error
+                                  ? Icons.error
+                                  : Icons.info,
+                      size: 16,
+                      color: _getStatusColor(_status),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _getStatusText(_status),
+                    style: TextStyle(
+                      color: _getStatusColor(_status),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          error: (err, _) => AlertDialog(
-            title: const Text('B站账号绑定'),
-            content: Text('加载失败: $err'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('关闭'),
+
+            const SizedBox(height: 16),
+
+            Text(
+              '打开B站APP，扫描二维码登录',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 11,
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (isExpired)
+          TextButton(
+            onPressed: () => _generateQRCode(),
+            child: const Text('刷新二维码'),
           ),
-        );
-      },
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
     );
   }
 }

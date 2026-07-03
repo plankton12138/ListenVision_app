@@ -149,7 +149,7 @@ abstract class PlaylistItem with _$PlaylistItem {
     String? id,
     String? playlistId,
     required String bvid,
-    int? cid,  // B站视频分P ID（用于获取字幕）
+    int? cid,  // B站视频分P ID
     String? title,
     String? artist,
     int? duration,

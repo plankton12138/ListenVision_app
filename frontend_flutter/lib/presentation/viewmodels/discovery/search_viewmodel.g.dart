@@ -10,28 +10,19 @@ part of 'search_viewmodel.dart';
 // ignore_for_file: type=lint, type=warning
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 
 @ProviderFor(SearchViewModel)
 final searchViewModelProvider = SearchViewModelProvider._();
 
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 final class SearchViewModelProvider
     extends $AsyncNotifierProvider<SearchViewModel, SearchState> {
   /// 搜索 ViewModel
   ///
-  /// 职责：
-  /// 1. B站网络搜索
-  /// 2. 搜索历史管理
-  /// 3. 搜索建议
+  /// 直接调用 B站 API，搜索历史本地存储。
   SearchViewModelProvider._()
     : super(
         from: null,
@@ -51,14 +42,11 @@ final class SearchViewModelProvider
   SearchViewModel create() => SearchViewModel();
 }
 
-String _$searchViewModelHash() => r'f3caaca711c11169c79c14fc599b72360f177664';
+String _$searchViewModelHash() => r'ba78148db35d7dbdc1a929a9a9554f838aa8dfd1';
 
 /// 搜索 ViewModel
 ///
-/// 职责：
-/// 1. B站网络搜索
-/// 2. 搜索历史管理
-/// 3. 搜索建议
+/// 直接调用 B站 API，搜索历史本地存储。
 
 abstract class _$SearchViewModel extends $AsyncNotifier<SearchState> {
   FutureOr<SearchState> build();
@@ -77,55 +65,3 @@ abstract class _$SearchViewModel extends $AsyncNotifier<SearchState> {
     element.handleCreate(ref, build);
   }
 }
-
-/// BackendApiClient Provider
-
-@ProviderFor(searchBackendApiClient)
-final searchBackendApiClientProvider = SearchBackendApiClientProvider._();
-
-/// BackendApiClient Provider
-
-final class SearchBackendApiClientProvider
-    extends
-        $FunctionalProvider<
-          BackendApiClient,
-          BackendApiClient,
-          BackendApiClient
-        >
-    with $Provider<BackendApiClient> {
-  /// BackendApiClient Provider
-  SearchBackendApiClientProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'searchBackendApiClientProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$searchBackendApiClientHash();
-
-  @$internal
-  @override
-  $ProviderElement<BackendApiClient> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
-
-  @override
-  BackendApiClient create(Ref ref) {
-    return searchBackendApiClient(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(BackendApiClient value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<BackendApiClient>(value),
-    );
-  }
-}
-
-String _$searchBackendApiClientHash() =>
-    r'400a9c22fe4f28b72107667ce448b4202bc3e579';

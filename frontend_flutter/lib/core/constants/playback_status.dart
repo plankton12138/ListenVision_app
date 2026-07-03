@@ -1,6 +1,6 @@
 /// 播放状态枚举
 ///
-/// 统一定义应用的播放状态，与 audioplayers 的 PlayerState 解耦
+/// 统一定义应用的播放状态，与 media_kit 的 Player.state 解耦
 enum PlaybackStatus {
   /// 空闲状态 - 未加载任何音频
   idle,

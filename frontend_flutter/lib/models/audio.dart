@@ -25,7 +25,7 @@ abstract class Audio with _$Audio {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? localPath, // 本地音频文件路径（仅本地音频使用）
-    int? cid, // B站视频分P ID（用于获取字幕）
+    int? cid, // B站视频分P ID
   }) = _Audio;
 
   /// 从 JSON 创建
@@ -155,7 +155,7 @@ abstract class Audio with _$Audio {
   PlaylistItem toPlaylistItem({required String playlistId, required int position}) {
     return PlaylistItem(
       bvid: id,
-      cid: cid,  // 传递 cid 用于字幕加载
+      cid: cid,
       title: title,
       artist: artist,
       duration: duration,

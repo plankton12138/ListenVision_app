@@ -5,7 +5,7 @@ import '../../core/utils/app_logger.dart';
 import '../../models/audio.dart';
 import '../../models/cached_track.dart';
 import '../../models/local_audio.dart';
-import '../api/bilibili_api_client.dart';
+import '../../services/bilibili_api_service.dart';
 import '../database/app_database.dart';
 import '../database/download_task_dao.dart';
 import '../database/track_dao.dart';
@@ -18,7 +18,7 @@ import '../database/track_dao.dart';
 class TrackRepository {
   final TrackDao _trackDao;
   final DownloadTaskDao _downloadTaskDao;
-  final BilibiliApiClient _bilibiliApi;
+  final BilibiliApiService _bilibiliApi;
 
   // 用于通知下载进度的事件流
   final _downloadProgressController =
@@ -27,12 +27,11 @@ class TrackRepository {
   TrackRepository({
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
-    BilibiliApiClient? bilibiliApi,
-    BackendApiClient? backendApi, // 保留参数用于向后兼容，但不使用
+    BilibiliApiService? bilibiliApi,
   })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
         _downloadTaskDao = downloadTaskDao ??
             DownloadTaskDao(AppDatabase.instance),
-        _bilibiliApi = bilibiliApi ?? BilibiliApiClient();
+        _bilibiliApi = bilibiliApi ?? BilibiliApiService();
 
   /// 下载进度事件流
   Stream<DownloadProgressEvent> get downloadProgressStream =>
@@ -102,14 +101,12 @@ class TrackRepository {
 
     // 本地没有，搜索网络
     AppLogger.info('TrackRepository', '从网络搜索: $keyword');
-    final response = await _bilibiliApi.searchBilibili(keyword);
-    final results = response['result'] as List<dynamic>? ?? [];
+    final results = await _bilibiliApi.search(keyword: keyword);
 
     // 转换为 Audio 并缓存到本地
     final tracks = <CachedTrack>[];
-    for (final item in results) {
+    for (final audio in results) {
       try {
-        final audio = Audio.fromDto(item as Map<String, dynamic>);
         final track = await _trackDao.saveFromAudio(audio);
         tracks.add(track);
       } catch (e) {
@@ -127,8 +124,7 @@ class TrackRepository {
   /// 1. 获取或创建 Track
   /// 2. 检查是否已下载
   /// 3. 创建下载任务
-  /// 4. 执行下载
-  /// 5. 更新 Track 状态
+  /// 4. 实际下载由 DownloadRepository 处理
   Future<String> downloadAudio(String bvid) async {
     // 1. 获取或创建 Track
     final track = await getTrackByBvid(bvid);
@@ -149,10 +145,10 @@ class TrackRepository {
       return existingTask.savePath;
     }
 
-    // 4. 创建下载任务（URL 现在只是占位符，实际下载由 DownloadRepository 处理）
+    // 4. 创建下载任务
     final savePath = await _getSavePath(track);
     await _downloadTaskDao.create(
-      url: _bilibiliApi.getDownloadUrl(bvid),
+      url: '',
       savePath: savePath,
       trackId: track.id,
       bvid: bvid,
@@ -161,15 +157,10 @@ class TrackRepository {
       coverUrl: track.coverUrl,
     );
 
-    // 注意：实际下载由 DownloadRepository 处理
-    // 需要调用 DownloadRepository.startDownload(taskId) 来启动下载
-
     return savePath;
   }
 
   /// 根据任务 ID 执行下载（已废弃，请使用 DownloadRepository.startDownload）
-  ///
-  /// 此方法保留用于向后兼容，现在直接抛出错误提示使用正确的 API。
   Future<void> downloadByTaskId(int taskId) async {
     throw UnimplementedError(
       '请使用 DownloadRepository.startDownload($taskId) 来启动下载。'
@@ -179,8 +170,6 @@ class TrackRepository {
 
   /// 获取下载保存路径
   Future<String> _getSavePath(CachedTrack track) async {
-    // 这里可以根据需要修改保存路径逻辑
-    // 例如使用应用的文档目录
     final sanitizedTitle = track.title
         .replaceAll(RegExp(r'[<>:"/\|?*]'), '_')
         .trim()
@@ -191,9 +180,6 @@ class TrackRepository {
   // ==================== 收藏 ====================
 
   /// 切换收藏状态（本地优先）
-  ///
-  /// 本地优先策略：
-  /// 1. 立即更新本地数据库
   Future<void> toggleFavorite(
     int trackId,
     bool isFavorite, {
@@ -202,7 +188,6 @@ class TrackRepository {
     int? duration,
     String? coverUrl,
   }) async {
-    // 本地优先：立即更新本地
     await _trackDao.toggleFavorite(trackId, isFavorite);
     AppLogger.debug('TrackRepository', '收藏状态已更新: trackId=$trackId, isFavorite=$isFavorite');
   }
@@ -236,18 +221,13 @@ class TrackRepository {
   // ==================== 播放历史 ====================
 
   /// 记录播放历史（本地优先）
-  ///
-  /// 本地优先策略：
-  /// 1. 立即更新本地数据库
   Future<void> recordPlayHistory(int trackId) async {
-    // 本地优先：立即更新本地
     await _trackDao.incrementPlayCount(trackId);
     AppLogger.debug('TrackRepository', '播放历史已记录: trackId=$trackId');
   }
 
   /// 获取最近播放
   Future<List<CachedTrack>> getRecentlyPlayed({int limit = 20}) async {
-    // 从播放历史表获取
     final db = await AppDatabase.instance.database;
     final history = await db.query(
       'play_history',
@@ -289,19 +269,15 @@ Future<bool> isDownloaded(String bvid) async {
 }
 
 /// 根据 sourceId 获取本地文件路径（如果文件有效）
-///
-/// 返回本地文件路径，如果文件不存在或无效则返回 null
 Future<String?> getLocalPath(String sourceId) async {
   final track = await _trackDao.getBySourceId(sourceId);
   if (track == null || track.localPath == null) return null;
 
-  // 验证文件存在性
   final file = File(track.localPath!);
   final exists = await file.exists();
   final isValid = exists && await file.length() > 0;
 
   if (!isValid && track.isDownloaded) {
-    // 文件被删除，更新状态
     await _trackDao.markAsNotDownloaded(sourceId);
     return null;
   }
@@ -319,7 +295,6 @@ Future<bool> validateLocalFile(String sourceId) async {
   final isValid = exists && await file.length() > 0;
 
   if (!isValid && track.isDownloaded) {
-    // 更新状态为未下载
     await _trackDao.markAsNotDownloaded(sourceId);
   }
 
@@ -351,14 +326,14 @@ class DownloadProgressEvent {
   final int taskId;
   final int? trackId;
   final String bvid;
-  final int progress;           // 进度百分比 (0-100)
-  final String stage;           // 阶段标识
-  final String message;         // 用户友好的状态描述
-  final int? downloadedBytes;   // 已下载字节数
-  final int? totalBytes;        // 总字节数
-  final double? speed;          // 下载速度 (bytes/s)
-  final String? speedDisplay;   // 速度显示文本 (如 "1.2 MB/s")
-  final String? timeRemaining;  // 预计剩余时间 (如 "00:30")
+  final int progress;
+  final String stage;
+  final String message;
+  final int? downloadedBytes;
+  final int? totalBytes;
+  final double? speed;
+  final String? speedDisplay;
+  final String? timeRemaining;
 
   DownloadProgressEvent({
     required this.taskId,
@@ -432,7 +407,3 @@ class DownloadProgressEvent {
     );
   }
 }
-
-/// BackendApiClient 占位符，用于向后兼容
-/// 实际不使用，仅保留类型声明
-class BackendApiClient {}

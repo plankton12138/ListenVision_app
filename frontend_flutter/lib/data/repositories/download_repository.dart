@@ -7,13 +7,14 @@ import '../../core/utils/app_logger.dart';
 import '../../services/resumable_download_service.dart';
 import '../../core/storage/shared_storage_service.dart';
 import '../../services/download_service.dart' hide DownloadStatus;
+import '../../services/bilibili_api_service.dart';
 import '../../services/bilibili_downloader.dart';
+import '../../services/ffmpeg_service.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/errors/exceptions.dart';
 import '../../models/download_task.dart';
 import 'track_repository.dart' show DownloadProgressEvent;
-import '../api/bilibili_api_client.dart';
 import '../database/app_database.dart';
 import '../database/download_task_dao.dart' show InvalidStateTransitionError, DownloadTaskDao;
 import '../database/track_dao.dart';
@@ -29,7 +30,7 @@ import 'download_slot_manager.dart';
 class DownloadRepository {
   final TrackDao _trackDao;
   final DownloadTaskDao _downloadTaskDao;
-  final BilibiliApiClient _bilibiliApi;
+  final BilibiliApiService _bilibiliApi;
   final ResumableDownloadService _resumableDownloadService;
   final DownloadSlotManager _slotManager;
 
@@ -60,13 +61,13 @@ class DownloadRepository {
   DownloadRepository({
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
-    BilibiliApiClient? bilibiliApi,
+    BilibiliApiService? bilibiliApi,
     ResumableDownloadService? resumableDownloadService,
     DownloadSlotManager? slotManager,
   })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
         _downloadTaskDao = downloadTaskDao ??
             DownloadTaskDao(AppDatabase.instance),
-        _bilibiliApi = bilibiliApi ?? BilibiliApiClient(),
+        _bilibiliApi = bilibiliApi ?? BilibiliApiService(),
         _resumableDownloadService = resumableDownloadService ??
             ResumableDownloadService(),
         _slotManager = slotManager ?? DownloadSlotManager(maxSlots: _maxConcurrentDownloads) {
@@ -104,7 +105,7 @@ class DownloadRepository {
   /// 使用事务确保所有数据库操作原子性，避免数据库锁定。
   Future<int> addDownloadTask({
     required String bvid,
-    required String url,
+    String url = '',
     required String savePath,
     String? title,
     String? artist,
@@ -248,18 +249,19 @@ class DownloadRepository {
           (task.tempFilePath != null ||
               (task.totalBytes > 0 && task.downloadedBytes < task.totalBytes));
 
-      final downloadFormat = SharedStorageService.instance.getDownloadFormat();
+      final downloadFormatStr = SharedStorageService.instance.getDownloadFormat();
+      final downloadFormat = AudioOutputFormat.values.firstWhere(
+        (f) => f.extension == downloadFormatStr,
+        orElse: () => AudioOutputFormat.m4a,
+      );
 
       if (canResume) {
-        // 使用断点续传下载
         AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
-        await _downloadWithResumable(taskId, task, cancelToken);
-      } else if (downloadFormat == 'mp3') {
-        AppLogger.info('DownloadRepository', '使用后端 SSE 下载: format=$downloadFormat');
-        await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
+        await _downloadWithResumable(taskId, task, cancelToken, downloadFormat);
       } else {
-        AppLogger.info('DownloadRepository', '使用 BilibiliDownloader 下载: format=$downloadFormat');
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
+        AppLogger.info('DownloadRepository',
+            '使用 BilibiliDownloader 下载: format=${downloadFormat.extension}');
+        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, downloadFormat);
       }
 
       // 下载完成
@@ -361,6 +363,7 @@ class DownloadRepository {
     int taskId,
     DownloadTask task,
     CancelToken cancelToken,
+    AudioOutputFormat format,
   ) async {
     final result = await _resumableDownloadService.downloadAudio(
       bvid: task.bvid!,
@@ -408,13 +411,7 @@ class DownloadRepository {
           lastModified: null,
         );
         await _downloadTaskDao.updateTempFilePath(taskId, null);
-        // 回退到全量下载，根据格式设置选择下载路径
-        final downloadFormat = SharedStorageService.instance.getDownloadFormat();
-        if (downloadFormat == 'mp3') {
-          await _downloadWithBackendService(taskId, task, cancelToken, downloadFormat);
-        } else {
-          await _downloadWithBilibiliDownloader(taskId, task, cancelToken);
-        }
+        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, format);
         return;
       }
       throw Exception(result.error ?? '下载失败');
@@ -426,6 +423,7 @@ class DownloadRepository {
     int taskId,
     DownloadTask task,
     CancelToken cancelToken,
+    AudioOutputFormat format,
   ) async {
     final downloader = BilibiliDownloader(_bilibiliApi);
 
@@ -442,6 +440,7 @@ class DownloadRepository {
       bvid: task.bvid!,
       saveDir: saveDir,
       fileName: fileName,
+      format: format,
       onProgress: (percent, stage) {
         if (cancelToken.isCancelled) {
           cancelToken.cancel('用户取消');
@@ -474,61 +473,6 @@ class DownloadRepository {
         totalBytes: result.fileSize,
         downloadedBytes: result.fileSize,
       ));
-    }
-  }
-
-  /// 使用 DownloadService 下载（后端 HTTP，支持格式选择）
-  Future<void> _downloadWithBackendService(
-    int taskId,
-    DownloadTask task,
-    CancelToken cancelToken,
-    String format,
-  ) async {
-    final service = DownloadService();
-
-    try {
-      final result = await service.simpleDownload(
-        bvid: task.bvid!,
-        savePath: task.savePath,
-        format: format,
-        onProgress: (received, total) {
-          if (cancelToken.isCancelled) {
-            throw TaskCanceledException();
-          }
-
-          final percent = total > 0 ? (received * 100 ~/ total) : 0;
-          _downloadTaskDao.updateProgressPercent(taskId, percent);
-          _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-
-          _progressController.add(DownloadProgressEvent(
-            taskId: taskId,
-            trackId: task.trackId,
-            bvid: task.bvid!,
-            progress: percent,
-            stage: 'downloading',
-            message: '下载中 $received/$total',
-          ));
-        },
-      );
-
-      if (!result.success) {
-        throw Exception(result.error ?? '下载失败');
-      }
-
-      // 更新文件大小到数据库（为未来可能的断点续传做准备）
-      final file = File(task.savePath);
-      if (await file.exists()) {
-        final fileSize = await file.length();
-        final updatedTask = await _downloadTaskDao.getById(taskId);
-        if (updatedTask != null) {
-          await _downloadTaskDao.update(updatedTask.copyWith(
-            totalBytes: fileSize,
-            downloadedBytes: fileSize,
-          ));
-        }
-      }
-    } finally {
-      service.dispose();
     }
   }
 
@@ -1081,23 +1025,6 @@ class DownloadRepository {
       await _downloadTaskDao.markAsPending(taskId);
       await startDownload(taskId);
     });
-  }
-
-  // ==================== URL 获取 ====================
-
-  /// 获取下载 URL
-  String getDownloadUrl(String bvid, {String format = 'mp3'}) {
-    return _bilibiliApi.getDownloadUrl(bvid, format: format);
-  }
-
-  /// 获取音频代理 URL（用于流式播放）
-  String getProxyAudioUrl(String originalUrl) {
-    return _bilibiliApi.getProxyAudioUrl(originalUrl);
-  }
-
-  /// 获取图片代理 URL
-  String getProxyImageUrl(String originalUrl) {
-    return _bilibiliApi.getProxyImageUrl(originalUrl);
   }
 
   // ==================== 资源释放 ====================

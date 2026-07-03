@@ -13,10 +13,12 @@ import '../../../models/online_playable.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/play_mode.dart';
 import '../../../services/audio_player_service.dart';
+import '../../../services/bilibili_api_service.dart';
+import '../../../services/bilibili_headers.dart';
 import '../library/history_viewmodel.dart';
 import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
+import '../../widgets/common/snackbar_helper.dart';
 import 'queue_viewmodel.dart';
-import 'subtitle_viewmodel.dart';
 
 part 'playback_viewmodel.freezed.dart';
 part 'playback_viewmodel.g.dart';
@@ -83,7 +85,6 @@ abstract class PlaybackState with _$PlaybackState {
 /// 依赖：
 /// - AudioPlayerService: 底层播放器
 /// - QueueViewModel: 队列数据（只读取，不修改）
-/// - SubtitleViewModel: 字幕管理
 @Riverpod(keepAlive: true)
 class PlaybackViewModel extends _$PlaybackViewModel {
   AudioPlayerService? _audioService;
@@ -166,7 +167,6 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       _audioService!.positionStream.listen((position) {
         if (_disposed) return;
         state = state.copyWith(position: position);
-        ref.read(subtitleViewModelProvider.notifier).updatePosition(position);
       }),
     );
 
@@ -222,6 +222,8 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   /// 统一设置元数据字段，确保 play() 和 prepareSource() 的一致性。
   /// 包括：currentPlayable、title、artist、coverUrl、coverData、currentIndex，
   /// 并清除 errorMessage。
+  ///
+  /// 切换歌曲时重置位置和时长，避免 UI 短暂显示旧歌的进度。
   void _updatePlayableState(PlayableAudio playable, {int index = -1}) {
     state = state.copyWith(
       currentPlayable: playable,
@@ -231,6 +233,8 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       coverData: playable.coverData,
       currentIndex: index,
       errorMessage: null,
+      position: Duration.zero,
+      duration: null,
     );
   }
 
@@ -270,26 +274,42 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   Future<void> _playOnline(OnlinePlayable playable) async {
-    final url = playable.url;
+    final url = await _resolveOnlineStreamUrl(playable);
     AppLogger.debug('PlaybackViewModel', '播放在线URL: $url');
-    await _audioService!.playUrl(url);
+    final headers = playable.httpHeaders ?? bilibiliHeaders;
+    await _audioService!.playUrl(url, httpHeaders: headers);
+  }
 
-    // 加载字幕
-    ref.read(subtitleViewModelProvider.notifier).loadSubtitle(
-          playable.original.id,
-          cid: playable.original.cid,
-        );
+  /// 解析在线音频的实际播放 URL
+  ///
+  /// 优先使用已有的 streamUrl，否则通过 B站 API 获取。
+  Future<String> _resolveOnlineStreamUrl(OnlinePlayable playable) async {
+    if (playable.url.isNotEmpty) return playable.url;
+
+    final bvid = playable.original.id;
+    AppLogger.info('PlaybackViewModel', '解析B站音频流: $bvid');
+
+    final api = ref.read(bilibiliApiServiceProvider);
+    final streamsData = await api.getAudioStreams(bvid);
+
+    if (streamsData.streams.isEmpty) {
+      throw Exception('无法获取音频流，该视频可能不支持播放');
+    }
+
+    final stream = streamsData.streams.first;
+    AppLogger.info('PlaybackViewModel', '解析完成: ${stream.url}');
+    return stream.url;
   }
 
   Future<void> _playLocal(LocalPlayable playable) async {
     AppLogger.debug('PlaybackViewModel', '播放本地文件: ${playable.url}');
     await _audioService!.playFile(playable.url);
-    ref.read(subtitleViewModelProvider.notifier).clear();
   }
 
   /// 暂停
   Future<void> pause() async {
     if (_disposed) return;
+    await _savePosition(); // 暂停前先保存当前播放位置
     await _audioService!.pause();
     _stopPositionSaveTimer();
     state = state.copyWith(isPlaying: false, isPaused: true);
@@ -300,15 +320,28 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   /// 恢复播放
   Future<void> resume() async {
     if (_disposed) return;
-    await _audioService!.play();
+    try {
+      await _audioService!.play();
+    } catch (e) {
+      AppLogger.error('PlaybackViewModel', '恢复播放失败: $e');
+      final errorType = classifyError(e);
+      state = state.copyWith(
+        errorMessage: getUserFriendlyMessage(errorType),
+      );
+      return;
+    }
     _startPositionSaveTimer();
-    state = state.copyWith(isPlaying: true, isPaused: false);
+    state = state.copyWith(isPlaying: true, isPaused: false, isLoading: false);
     _validateState();
     AppLogger.debug('PlaybackViewModel', '恢复播放');
   }
 
   /// 切换播放/暂停
   Future<void> togglePlayPause() async {
+    if (state.currentPlayable == null) {
+      AppLogger.warn('PlaybackViewModel', '无可播放内容，忽略播放操作');
+      return;
+    }
     if (state.isPlaying) {
       await pause();
     } else {
@@ -339,15 +372,25 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   /// 播放下一首
+  ///
+  /// 如果已是列表最后一首，则循环到第一首开始播放并弹出提示。
   Future<void> next() async {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    if (!queueNotifier.hasNext) return;
-
     final queueState = ref.read(queueViewModelProvider);
-    final nextIndex = queueState.currentIndex + 1;
-    final nextPlayable = queueState.queue[nextIndex];
 
-    // 更新队列索引
+    if (queueState.queue.isEmpty) return;
+
+    final nextIndex = queueNotifier.hasNext
+        ? queueState.currentIndex + 1
+        : 0;
+
+    // 循环到第一首时弹出提示
+    if (!queueNotifier.hasNext) {
+      SnackbarHelper.showToast('列表播放完，从列表第一首开始播放');
+      AppLogger.info('PlaybackViewModel', '列表循环：最后一首 → 第一首');
+    }
+
+    final nextPlayable = queueState.queue[nextIndex];
     queueNotifier.setCurrentIndex(nextIndex);
 
     await play(nextPlayable, index: nextIndex);
@@ -355,14 +398,25 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   }
 
   /// 播放上一首
+  ///
+  /// 如果已是列表第一首，则循环到最后一首并弹出提示。
   Future<void> previous() async {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
-    if (!queueNotifier.hasPrevious) return;
-
     final queueState = ref.read(queueViewModelProvider);
-    final prevIndex = queueState.currentIndex - 1;
-    final prevPlayable = queueState.queue[prevIndex];
 
+    if (queueState.queue.isEmpty) return;
+
+    final prevIndex = queueNotifier.hasPrevious
+        ? queueState.currentIndex - 1
+        : queueState.queue.length - 1;
+
+    // 循环到最后一首时弹出提示
+    if (!queueNotifier.hasPrevious) {
+      SnackbarHelper.showToast('列表播到头，从列表最后一首开始播放');
+      AppLogger.info('PlaybackViewModel', '列表循环：第一首 → 最后一首');
+    }
+
+    final prevPlayable = queueState.queue[prevIndex];
     queueNotifier.setCurrentIndex(prevIndex);
 
     await play(prevPlayable, index: prevIndex);
@@ -371,12 +425,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   void _playNextAutomatically() async {
     try {
-      final queueNotifier = ref.read(queueViewModelProvider.notifier);
       final queueState = ref.read(queueViewModelProvider);
-      if (queueState.playMode == PlayMode.sequence && !queueNotifier.hasNext) {
-        AppLogger.debug('PlaybackViewModel', '已是最后一首，停止');
-        return;
-      }
 
       if (queueState.playMode == PlayMode.loopOne) {
         // 单曲循环
@@ -415,8 +464,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   /// 从队列准备当前音频（不自动播放）
   ///
-  /// 用于应用启动时恢复上次播放位置
-  /// 依赖 QueueViewModel 已恢复完成
+  /// 用于应用启动时恢复上次播放位置。
+  /// 依赖 QueueViewModel 已恢复完成。
+  ///
+  /// 如果当前音频源已就绪（相同 ID 且播放器已加载有效时长），
+  /// 则跳过重复准备，仅恢复到保存的播放位置。
   Future<void> prepareCurrentFromQueue() async {
     if (_disposed) return;
 
@@ -431,6 +483,16 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     }
 
     final playable = queueState.queue[currentIndex];
+
+    // 如果当前音频源已就绪且为同一音频项，无需重复准备
+    // isReady: _currentSourceUrl != null && duration > 0
+    if (state.currentPlayable?.id == playable.id &&
+        _audioService != null &&
+        _audioService!.isReady) {
+      AppLogger.info('PlaybackViewModel', '音频源已就绪，无需恢复');
+      return;
+    }
+
     final savedPosition = await queueNotifier.restorePosition() ?? 0;
 
     AppLogger.info('PlaybackViewModel', '恢复队列项: ${playable.title}, 位置: ${savedPosition}s');
@@ -452,16 +514,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     try {
       if (playable.isOnline && playable is OnlinePlayable) {
-        await _audioService!.setUrlSource(playable.url);
-        // 加载字幕
-        ref.read(subtitleViewModelProvider.notifier).loadSubtitle(
-              playable.original.id,
-              cid: playable.original.cid,
-              initialPosition: Duration(seconds: startPosition),
-            );
+        final resolvedUrl = await _resolveOnlineStreamUrl(playable);
+        final headers = playable.httpHeaders ?? bilibiliHeaders;
+        await _audioService!.setUrlSource(resolvedUrl, httpHeaders: headers);
       } else if (playable is LocalPlayable) {
         await _audioService!.setSource(playable.url);
-        ref.read(subtitleViewModelProvider.notifier).clear();
       }
 
       if (startPosition > 0) {
@@ -496,7 +553,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   Future<void> _savePosition() async {
     if (_disposed || state.currentPlayable == null) return;
-    await _storage!.setInt(StorageKeys.playbackPosition, state.position.inSeconds);
+    await _storage!.setInt(StorageKeys.currentPlaybackPosition, state.position.inSeconds);
   }
 
   void _recordHistory(PlayableAudio playable) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/core/storage/shared_storage_service.dart';
 
 /// 应用侧边栏抽屉
 ///
@@ -149,11 +150,14 @@ class MyDrawer extends ConsumerWidget {
             context: context,
             title: '退出登录',
             icon: Icons.exit_to_app,
-            onTap: () {
-              ref.read(authViewModelProvider.notifier).logout();
-              Navigator.pop(context);
-              context.go('/');
-            },
+            onTap: () async {
+                final storage = SharedStorageService.instance;
+                await storage.remove('auth_token');
+                await storage.remove('current_username');
+                await storage.remove('current_email');
+                Navigator.pop(context);
+                context.go('/');
+              },
           )
         else
           _buildListTile(

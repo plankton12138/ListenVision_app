@@ -227,12 +227,6 @@ class QueueTabView extends ConsumerWidget {
       case SourceType.search:
         // 后续可跳转到搜索页
         break;
-      case SourceType.neteasePlaylist:
-        // 后续可跳转到网易云歌单详情页
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('即将跳转到网易云歌单: ${source.name}')),
-        );
-        break;
       case SourceType.manual:
         // 手动添加不跳转
         break;

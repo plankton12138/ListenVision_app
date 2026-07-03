@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/core/network/adaptive_network_manager.dart';
 
-import '../constants/api_constants.dart';
 import '../errors/exceptions.dart';
 
 /// Dio 单例管理
@@ -37,8 +36,6 @@ class DioProvider {
     final networkManager = AdaptiveNetworkManager();
 
     final dio = Dio(BaseOptions(
-      baseUrl: ApiConstants.fullBaseUrl,
-      // 使用自适应超时配置
       connectTimeout: networkManager.getConnectTimeout(),
       receiveTimeout: networkManager.getReceiveTimeout(),
       sendTimeout: networkManager.getConnectTimeout(),
@@ -79,24 +76,6 @@ class DioProvider {
     ));
 
     return dio;
-  }
-
-  /// 更新认证 Token
-  ///
-  /// 当用户登录/登出时调用，全局更新 Authorization header
-  void updateToken(String? token) {
-    if (token != null && token.isNotEmpty) {
-      dio.options.headers['Authorization'] = 'Bearer $token';
-      AppLogger.info('Dio', 'Token 已更新');
-    } else {
-      dio.options.headers.remove('Authorization');
-      AppLogger.info('Dio', 'Token 已清除');
-    }
-  }
-
-  /// 获取当前 Token
-  String? get currentToken {
-    return dio.options.headers['Authorization']?.toString().replaceFirst('Bearer ', '');
   }
 
   /// 通用 GET 请求

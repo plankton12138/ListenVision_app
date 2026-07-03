@@ -146,32 +146,21 @@ void main() {
       expect(service, isNotNull);
     });
 
-    test('should generate download URL', () {
-      final url = service.getDownloadUrl('BV1xx411c7mD');
-      expect(url, contains('/bilibili/download/BV1xx411c7mD'));
-      expect(url, contains('format=mp3'));
-    });
-
-    test('should generate download URL with custom format', () {
-      final url = service.getDownloadUrl('BV1xx411c7mD', format: 'm4a');
-      expect(url, contains('format=m4a'));
-    });
-
     test('should sanitize filename when generating', () {
       expect(
         DownloadService.generateFileName('Test/Song:Name'),
-        'Test_Song_Name.mp3',
+        'Test_Song_Name.m4a',
       );
       expect(
         DownloadService.generateFileName('Test<>Song|Name?'),
-        'Test__Song_Name_.mp3',
+        'Test__Song_Name_.m4a',
       );
     });
 
     test('should add extension to filename if missing', () {
       expect(
         DownloadService.generateFileName('TestSong'),
-        'TestSong.mp3',
+        'TestSong.m4a',
       );
       expect(
         DownloadService.generateFileName('TestSong', format: '.mp3'),

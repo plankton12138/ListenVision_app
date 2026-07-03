@@ -441,10 +441,10 @@ class AudioActionMenu extends ConsumerWidget {
         artist: artist,
         coverUrl: coverUrl,
       );
-      SnackbarHelper.showSuccess(context, '已添加到下载队列');
+      SnackbarHelper.showToast('已添加到下载队列', color: Colors.green);
     } catch (e) {
       AppLogger.error('AudioActionMenu', '下载操作失败: $e');
-      SnackbarHelper.showError(context, '下载失败: $e');
+      SnackbarHelper.showToast('下载失败: $e', color: Colors.red);
     }
   }
 }

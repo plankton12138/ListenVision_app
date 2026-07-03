@@ -1,8 +1,5 @@
 import 'dart:io';
 
-import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
-
 import '../core/utils/app_logger.dart';
 
 enum AudioOutputFormat {
@@ -37,45 +34,37 @@ class FfmpegService {
       return outputPath;
     }
 
-    String command;
-    switch (outputFormat) {
-      case AudioOutputFormat.mp3:
-        command = '-i "$inputPath" -codec:a libmp3lame -q:a 2 "$outputPath"';
-        break;
-      case AudioOutputFormat.aac:
-        command = '-i "$inputPath" -codec:a aac -b:a 256k "$outputPath"';
-        break;
-      case AudioOutputFormat.m4a:
-        return inputPath;
-    }
+    final args = <String>[
+      '-i', inputPath,
+      '-codec:a',
+      outputFormat == AudioOutputFormat.mp3 ? 'libmp3lame' : 'aac',
+      if (outputFormat == AudioOutputFormat.mp3) ...['-q:a', '2'],
+      if (outputFormat == AudioOutputFormat.aac) ...['-b:a', '256k'],
+      '-y',
+      outputPath,
+    ];
 
     AppLogger.info('FfmpegService', '开始转换: $inputPath → $outputPath');
+    final result = await Process.run('ffmpeg', args);
 
-    final session = await FFmpegKit.execute(command);
-    final returnCode = await session.getReturnCode();
-
-    if (ReturnCode.isSuccess(returnCode)) {
+    if (result.exitCode == 0) {
       AppLogger.info('FfmpegService', '转换完成: $outputPath');
       return outputPath;
     } else {
-      final output = await session.getOutput();
-      final error = 'FFmpeg 转换失败: $output';
+      final error = 'FFmpeg 转换失败: ${result.stderr}';
       AppLogger.error('FfmpegService', error);
       throw FfmpegException(error);
     }
   }
 
-  /// 取消当前转换任务
-  Future<void> cancel() async {
-    await FFmpegKit.cancel();
-  }
+  /// 取消当前转换任务（Process.run 不支持取消，保留接口兼容性）
+  Future<void> cancel() async {}
 
-  /// 检查 FFmpeg 是否可用
+  /// 检查系统 FFmpeg 是否可用
   Future<bool> isAvailable() async {
     try {
-      final session = await FFmpegKit.execute('-version');
-      final returnCode = await session.getReturnCode();
-      return ReturnCode.isSuccess(returnCode);
+      final result = await Process.run('ffmpeg', ['-version']);
+      return result.exitCode == 0;
     } catch (e) {
       AppLogger.warn('FfmpegService', 'FFmpeg 不可用: $e');
       return false;

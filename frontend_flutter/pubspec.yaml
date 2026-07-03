@@ -78,8 +78,7 @@ dependencies:
   on_audio_query: ^2.9.0
   # P1: 网络状态监测
   connectivity_plus: ^6.1.3
-  # FFmpeg 音频格式转换（MP3 编码需要 libmp3lame，使用 min_gpl 变体）
-  ffmpeg_kit_flutter_min_gpl: ^6.0.3
+  # FFmpeg 音频格式转换：桌面平台调用系统 ffmpeg 命令行，移动端使用 ffmpeg_kit
 
 # setup for flutter_launcher_icons
 flutter_launcher_icons:

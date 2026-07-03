@@ -9,6 +9,7 @@ import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/playlist.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
+import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:listenvision/presentation/viewmodels/system/download_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -440,8 +441,10 @@ class AudioActionMenu extends ConsumerWidget {
         artist: artist,
         coverUrl: coverUrl,
       );
+      SnackbarHelper.showSuccess(context, '已添加到下载队列');
     } catch (e) {
       AppLogger.error('AudioActionMenu', '下载操作失败: $e');
+      SnackbarHelper.showError(context, '下载失败: $e');
     }
   }
 }

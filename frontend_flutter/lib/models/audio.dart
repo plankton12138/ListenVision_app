@@ -55,7 +55,6 @@ abstract class Audio with _$Audio {
     String? localPath, // 本地音频文件路径（仅本地音频使用）
     int? cid, // B站视频分P ID
     @Default(1) int videos, // 分P总数，默认1
-    @JsonKey(includeFromJson: false, includeToJson: false) List<AudioPage>? pages, // 分P列表，单P时为null
   }) = _Audio;
 
   /// 从 JSON 创建

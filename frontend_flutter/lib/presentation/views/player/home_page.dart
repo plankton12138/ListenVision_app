@@ -340,9 +340,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
 
     // 注册队列恢复完成回调
-    ref.read(queueViewModelProvider.notifier).onQueueRestored(() {
+    ref.read(queueViewModelProvider.notifier).onQueueRestored(() async {
       // 准备当前音频（不自动播放）
-      ref.read(playbackViewModelProvider.notifier).prepareCurrentFromQueue();
+      await ref.read(playbackViewModelProvider.notifier).prepareCurrentFromQueue();
+      // 启动时音乐应处于暂停状态
+      await ref.read(playbackViewModelProvider.notifier).pause();
     });
 
     // 延迟处理，等待页面构建完成

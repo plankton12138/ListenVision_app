@@ -290,7 +290,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     AppLogger.info('PlaybackViewModel', '解析B站音频流: $bvid');
 
     final api = ref.read(bilibiliApiServiceProvider);
-    final streamsData = await api.getAudioStreams(bvid);
+    final streamsData = await api.getAudioStreams(bvid, cid: playable.original.cid);
 
     if (streamsData.streams.isEmpty) {
       throw Exception('无法获取音频流，该视频可能不支持播放');

@@ -4,6 +4,34 @@ import 'playlist.dart' hide PlaylistDetail;
 part 'audio.freezed.dart';
 part 'audio.g.dart';
 
+/// 视频分P信息
+class AudioPage {
+  final int cid;
+  final String title;
+  final int duration; // 秒
+
+  const AudioPage({
+    required this.cid,
+    required this.title,
+    required this.duration,
+  });
+
+  /// 格式化时长（mm:ss）
+  String get formattedDuration {
+    final minutes = duration ~/ 60;
+    final seconds = duration % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// 静态格式化（供外部使用）
+  static String formatDuration(int? seconds) {
+    if (seconds == null) return '--:--';
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+}
+
 /// 音频实体
 @freezed
 abstract class Audio with _$Audio {
@@ -26,6 +54,8 @@ abstract class Audio with _$Audio {
     DateTime? updatedAt,
     String? localPath, // 本地音频文件路径（仅本地音频使用）
     int? cid, // B站视频分P ID
+    @Default(1) int videos, // 分P总数，默认1
+    @JsonKey(includeFromJson: false, includeToJson: false) List<AudioPage>? pages, // 分P列表，单P时为null
   }) = _Audio;
 
   /// 从 JSON 创建
@@ -88,6 +118,7 @@ abstract class Audio with _$Audio {
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
       localPath: safeString(json['local_path'] ?? json['localPath']),
       cid: _parseCid(json['cid']),
+      videos: _parseIntWithDefault(json['videos'], 1),
     );
   }
 
@@ -215,5 +246,14 @@ abstract class Audio with _$Audio {
     if (value is double) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  /// 解析整数（带默认值）
+  static int _parseIntWithDefault(dynamic value, int defaultValue) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
   }
 }

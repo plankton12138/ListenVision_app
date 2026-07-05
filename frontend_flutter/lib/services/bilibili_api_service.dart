@@ -146,7 +146,7 @@ class BilibiliApiService {
   /// 获取视频的分P列表
   ///
   /// 调用 x/web-interface/view 获取 pages 数组
-  /// 返回空列表表示单P视频
+  /// 返回视频的全部分P信息，单P视频返回1个元素的列表
   Future<List<AudioPage>> getVideoPages(String bvid) async {
     final videoInfo = await getVideoInfo(bvid);
     final pages = videoInfo['pages'] as List<dynamic>? ?? [];

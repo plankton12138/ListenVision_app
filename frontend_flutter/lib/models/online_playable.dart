@@ -35,7 +35,7 @@ class OnlinePlayable extends PlayableAudio {
   }
 
   @override
-  String get id => _audio.id;
+  String get id => _audio.cid != null ? '${_audio.id}_${_audio.cid}' : _audio.id;
 
   @override
   String get title => _audio.title;

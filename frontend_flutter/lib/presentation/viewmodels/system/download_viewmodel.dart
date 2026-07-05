@@ -257,17 +257,18 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 添加下载任务（新架构 - 持久化到数据库）
   Future<DownloadTask?> addDownload({
     required String bvid,
+    int? cid,
     required String savePath,
     String? title,
     String? artist,
     String? coverUrl,
   }) async {
     try {
-      AppLogger.info('DownloadViewModel', '添加下载任务: $bvid');
+      AppLogger.info('DownloadViewModel', '添加下载任务: $bvid, cid: $cid');
 
-      final existingTask = await _repository!.getTaskByBvid(bvid);
+      final existingTask = await _repository!.getTaskByBvid(bvid, cid: cid);
       if (existingTask != null) {
-        AppLogger.info('DownloadViewModel', '任务已存在: $bvid, 状态: ${existingTask.status}');
+        AppLogger.info('DownloadViewModel', '任务已存在: $bvid cid=$cid, 状态: ${existingTask.status}');
 
         if (existingTask.isCompleted) {
           throw DownloadTaskException('任务已完成，保存在: ${existingTask.savePath}');
@@ -280,6 +281,7 @@ class DownloadViewModel extends _$DownloadViewModel {
 
       final taskId = await _repository!.addDownloadTask(
         bvid: bvid,
+        cid: cid,
         savePath: savePath,
         title: title,
         artist: artist,

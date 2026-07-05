@@ -4,13 +4,15 @@ import '../../models/audio.dart';
 /// 分P选择底部面板
 ///
 /// 当用户点击搜索结果中的多P视频时弹出。
-/// 显示所有分P列表和"播放全部"按钮。
+/// 显示所有分P列表和"播放全部"/"下载全部"按钮。
 class VideoPagesSheet extends StatelessWidget {
   final String title;
   final List<AudioPage> pages;
   final int? totalDuration;
   final void Function(AudioPage page) onPlayPage;
   final VoidCallback onPlayAll;
+  final void Function(AudioPage page)? onDownloadPage;
+  final VoidCallback? onDownloadAll;
 
   const VideoPagesSheet({
     super.key,
@@ -19,6 +21,8 @@ class VideoPagesSheet extends StatelessWidget {
     this.totalDuration,
     required this.onPlayPage,
     required this.onPlayAll,
+    this.onDownloadPage,
+    this.onDownloadAll,
   });
 
   /// 弹出分P选择面板
@@ -29,6 +33,8 @@ class VideoPagesSheet extends StatelessWidget {
     int? totalDuration,
     required void Function(AudioPage page) onPlayPage,
     required VoidCallback onPlayAll,
+    void Function(AudioPage page)? onDownloadPage,
+    VoidCallback? onDownloadAll,
   }) {
     showModalBottomSheet(
       context: context,
@@ -42,6 +48,8 @@ class VideoPagesSheet extends StatelessWidget {
         totalDuration: totalDuration,
         onPlayPage: onPlayPage,
         onPlayAll: onPlayAll,
+        onDownloadPage: onDownloadPage,
+        onDownloadAll: onDownloadAll,
       ),
     );
   }
@@ -107,12 +115,32 @@ class VideoPagesSheet extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: Text(
-                    page.formattedDuration,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        page.formattedDuration,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (onDownloadPage != null) ...[
+                        const SizedBox(width: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => onDownloadPage!(page),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.download,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -123,26 +151,47 @@ class VideoPagesSheet extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          // 播放全部按钮
+          // 底部操作按钮
           Padding(
             padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.playlist_play),
-                label: Text(
-                  totalDuration != null
-                      ? '播放全部 (${AudioPage.formatDuration(totalDuration)})'
-                      : '播放全部',
+            child: Row(
+              children: [
+                // 播放全部
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.playlist_play, size: 18),
+                    label: Text(
+                      totalDuration != null
+                          ? '播放全部 (${AudioPage.formatDuration(totalDuration)})'
+                          : '播放全部',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      onPlayAll();
+                    },
+                  ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  onPlayAll();
-                },
-              ),
+                if (onDownloadAll != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.download, size: 18),
+                      label: const Text('下载全部', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        onDownloadAll!();
+                      },
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

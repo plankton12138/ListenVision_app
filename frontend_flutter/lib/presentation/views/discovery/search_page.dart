@@ -13,6 +13,10 @@ import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/download_status_indicator.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -93,6 +97,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             coverUrl: item.coverUrl,
             pages: pages,
             videos: videoCount,
+          );
+        },
+        onDownloadPage: (page) {
+          _downloadPage(
+            bvid: item.bvid,
+            cid: page.cid,
+            title: '${item.title} - ${page.title}',
+            artist: item.author,
+            coverUrl: item.coverUrl,
+          );
+        },
+        onDownloadAll: () {
+          _downloadAllPages(
+            bvid: item.bvid,
+            title: item.title,
+            artist: item.author,
+            coverUrl: item.coverUrl,
+            pages: pages,
           );
         },
       );
@@ -189,6 +211,101 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     } catch (e) {
       if (mounted) {
         SnackbarHelper.showError(context, '播放失败: $e');
+      }
+    }
+  }
+
+  /// 获取下载目录路径
+  Future<String> _getDownloadDirectory() async {
+    final downloadDir = await getDownloadsDirectory();
+    if (downloadDir == null) {
+      throw Exception('系统下载目录不可用');
+    }
+    final appDownloadDir = Directory('${downloadDir.path}${p.separator}ListenVision');
+    if (!await appDownloadDir.exists()) {
+      await appDownloadDir.create(recursive: true);
+    }
+    return '${appDownloadDir.path}${p.separator}';
+  }
+
+  /// 下载单P音频
+  Future<void> _downloadPage({
+    required String bvid,
+    required int cid,
+    required String title,
+    String? artist,
+    String? coverUrl,
+  }) async {
+    try {
+      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
+      final sanitizedTitle = title
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+          .trim();
+      final ext = SharedStorageService.instance.getDownloadFormat();
+      final downloadDir = await _getDownloadDirectory();
+      final savePath = '$downloadDir$sanitizedTitle.$ext';
+
+      await downloadNotifier.addDownload(
+        bvid: bvid,
+        cid: cid,
+        savePath: savePath,
+        title: title,
+        artist: artist,
+        coverUrl: coverUrl,
+      );
+      if (mounted) {
+        SnackbarHelper.showToast('已添加到下载队列', color: Colors.green);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '下载失败: $e');
+      }
+    }
+  }
+
+  /// 下载所有分P
+  Future<void> _downloadAllPages({
+    required String bvid,
+    required String title,
+    String? artist,
+    String? coverUrl,
+    required List<AudioPage> pages,
+  }) async {
+    try {
+      final downloadNotifier = ref.read(downloadViewModelProvider.notifier);
+      final ext = SharedStorageService.instance.getDownloadFormat();
+      final downloadDir = await _getDownloadDirectory();
+      int successCount = 0;
+
+      for (int i = 0; i < pages.length; i++) {
+        final page = pages[i];
+        final pageTitle = '$title - ${page.title}';
+        final sanitizedTitle = pageTitle
+            .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+            .trim();
+        final savePath = '$downloadDir$sanitizedTitle.$ext';
+
+        try {
+          await downloadNotifier.addDownload(
+            bvid: bvid,
+            cid: page.cid,
+            savePath: savePath,
+            title: pageTitle,
+            artist: artist,
+            coverUrl: coverUrl,
+          );
+          successCount++;
+        } catch (_) {
+          // 单P失败不影响其他分P
+        }
+      }
+
+      if (mounted) {
+        SnackbarHelper.showToast('已添加 $successCount/${pages.length} 首到下载队列');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '下载失败: $e');
       }
     }
   }

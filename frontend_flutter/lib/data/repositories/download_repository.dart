@@ -105,6 +105,7 @@ class DownloadRepository {
   /// 使用事务确保所有数据库操作原子性，避免数据库锁定。
   Future<int> addDownloadTask({
     required String bvid,
+    int? cid,
     String url = '',
     required String savePath,
     String? title,
@@ -112,11 +113,14 @@ class DownloadRepository {
     String? coverUrl,
   }) async {
     return await AppDatabase.instance.transaction<int>((txn) async {
+      // 用 bvid+cid 组合作为 source_id，使不同分P被视为独立 track
+      final sourceId = cid != null ? '${bvid}_p$cid' : bvid;
+
       int trackId;
       final existingTrack = await txn.query(
         'tracks',
         where: 'source_id = ?',
-        whereArgs: [bvid],
+        whereArgs: [sourceId],
         limit: 1,
       );
 
@@ -124,7 +128,7 @@ class DownloadRepository {
         trackId = existingTrack.first['id'] as int;
       } else {
         trackId = await txn.insert('tracks', {
-          'source_id': bvid,
+          'source_id': sourceId,
           'source_type': 'bilibili',
           'title': title ?? bvid,
           'artist': artist,
@@ -133,9 +137,10 @@ class DownloadRepository {
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
-        AppLogger.info('DownloadRepository', '为搜索结果创建 Track: $bvid -> $trackId');
+        AppLogger.info('DownloadRepository', '为搜索结果创建 Track: $sourceId -> $trackId');
       }
 
+      // 按 track_id 查找已有下载任务
       final existingTask = await txn.query(
         'download_tasks',
         where: 'track_id = ?',
@@ -150,6 +155,7 @@ class DownloadRepository {
       final taskId = await txn.insert('download_tasks', {
         'track_id': trackId,
         'bvid': bvid,
+        'cid': cid,
         'url': url,
         'save_path': savePath,
         'title': title,
@@ -164,7 +170,7 @@ class DownloadRepository {
         'updated_at': now,
       });
 
-      AppLogger.info('DownloadRepository', '创建下载任务: $taskId, trackId: $trackId, bvid: $bvid');
+      AppLogger.info('DownloadRepository', '创建下载任务: $taskId, trackId: $trackId, bvid: $bvid, cid: $cid');
       return taskId;
     });
   }
@@ -438,6 +444,7 @@ class DownloadRepository {
 
     final result = await downloader.download(
       bvid: task.bvid!,
+      cid: task.cid,
       saveDir: saveDir,
       fileName: fileName,
       format: format,
@@ -731,8 +738,13 @@ class DownloadRepository {
   }
 
   /// 根据 BVID 获取任务
-  Future<DownloadTask?> getTaskByBvid(String bvid) async {
-    return await _downloadTaskDao.getByBvid(bvid);
+  Future<DownloadTask?> getTaskByBvid(String bvid, {int? cid}) async {
+    final tasks = await _downloadTaskDao.getAll();
+    // 按 bvid + cid 匹配：cid 都为 null 时匹配，或都为相同值时匹配
+    return tasks.cast<DownloadTask?>().firstWhere(
+      (t) => t?.bvid == bvid && t?.cid == cid,
+      orElse: () => null,
+    );
   }
 
   Future<DownloadTask?> getTaskByTrackId(int trackId) async {

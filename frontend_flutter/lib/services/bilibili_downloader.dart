@@ -31,6 +31,7 @@ class BilibiliDownloader {
 
   Future<DownloadResult> download({
     required String bvid,
+    int? cid,
     required String saveDir,
     required String fileName,
     AudioOutputFormat? format,
@@ -56,7 +57,7 @@ class BilibiliDownloader {
       AppLogger.info('BilibiliDownloader', '获取视频信息: $title - $artist');
 
       onProgress?.call(10, 'fetching_audio');
-      final audioStream = await _api.getAudioStreams(bvid);
+      final audioStream = await _api.getAudioStreams(bvid, cid: cid);
 
       if (audioStream.streams.isEmpty) {
         throw Exception('无法获取音频流 URL');

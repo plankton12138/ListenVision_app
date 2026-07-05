@@ -61,6 +61,7 @@ class DownloadTask {
   final String? artist;
   final String? coverUrl;
   final String? bvid;
+  final int? cid; // B站分P ID（单P为null）
   final String? errorMessage;
   final String? tempFilePath; // 临时文件路径（断点续传使用）
   final String? etag; // ETag 用于验证文件是否更改
@@ -89,6 +90,7 @@ class DownloadTask {
     this.artist,
     this.coverUrl,
     this.bvid,
+    this.cid,
     this.errorMessage,
     this.tempFilePath,
     this.etag,
@@ -135,6 +137,7 @@ class DownloadTask {
       artist: map['artist'] as String?,
       coverUrl: map['cover_url'] as String?,
       bvid: map['bvid'] as String?,
+      cid: map['cid'] as int?,
       errorMessage: map['error_message'] as String?,
       tempFilePath: map['temp_file_path'] as String?,
       etag: map['etag'] as String?,
@@ -173,6 +176,7 @@ class DownloadTask {
       if (artist != null) 'artist': artist,
       if (coverUrl != null) 'cover_url': coverUrl,
       if (bvid != null) 'bvid': bvid,
+      if (cid != null) 'cid': cid,
       if (errorMessage != null) 'error_message': errorMessage,
       if (tempFilePath != null) 'temp_file_path': tempFilePath,
       if (etag != null) 'etag': etag,
@@ -201,6 +205,7 @@ class DownloadTask {
     String? artist,
     String? coverUrl,
     String? bvid,
+    int? cid,
     String? errorMessage,
     String? tempFilePath,
     String? etag,
@@ -225,6 +230,7 @@ class DownloadTask {
       artist: artist ?? this.artist,
       coverUrl: coverUrl ?? this.coverUrl,
       bvid: bvid ?? this.bvid,
+      cid: cid ?? this.cid,
       errorMessage: errorMessage ?? this.errorMessage,
       tempFilePath: tempFilePath ?? this.tempFilePath,
       etag: etag ?? this.etag,

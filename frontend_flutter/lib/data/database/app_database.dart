@@ -30,7 +30,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -95,6 +95,7 @@ class AppDatabase {
         save_path $textType,
         original_url $textNullableType,
         bvid $textNullableType,
+        cid $intType,
         title $textNullableType,
         artist $textNullableType,
         cover_url $textNullableType,
@@ -244,6 +245,11 @@ class AppDatabase {
     // 版本 9 -> 10: 确保 playlists/playlist_items 表存在（修复 v9 新建DB缺少这两张表的问题）
     if (oldVersion < 10) {
       await _upgradeToV10(db);
+    }
+
+    // 版本 10 -> 11: 添加 cid 字段到 download_tasks 表（多P下载支持）
+    if (oldVersion < 11) {
+      await _upgradeToV11(db);
     }
   }
 
@@ -724,6 +730,21 @@ class AppDatabase {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_playlist_items_track ON playlist_items(track_id)');
 
     AppLogger.info('AppDatabase', 'V10 迁移完成');
+  }
+
+  /// 升级到版本 11：添加 cid 字段到 download_tasks 表（多P下载支持）
+  Future<void> _upgradeToV11(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V11：添加 cid 字段');
+
+    try {
+      await db.execute('''
+        ALTER TABLE download_tasks
+        ADD COLUMN cid INTEGER
+      ''');
+      AppLogger.info('AppDatabase', '添加 cid 字段成功');
+    } catch (e) {
+      AppLogger.debug('AppDatabase', 'cid 字段可能已存在: $e');
+    }
   }
 
   // ==================== Tracks CRUD ====================

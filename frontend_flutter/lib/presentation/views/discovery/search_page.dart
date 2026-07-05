@@ -80,9 +80,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         pages: pages,
         totalDuration: item.duration,
         onPlayPage: (page) {
+          final episodeTitle = _extractEpisodeTitle(item.title, page.title);
           _playSingleAudio(
             bvid: item.bvid,
-            title: page.title,
+            title: episodeTitle,
             albumTitle: item.title,
             artist: item.author,
             coverUrl: item.coverUrl,
@@ -102,10 +103,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           );
         },
         onDownloadPage: (page) {
+          final episodeTitle = _extractEpisodeTitle(item.title, page.title);
           _downloadPage(
             bvid: item.bvid,
             cid: page.cid,
-            title: page.title,
+            title: episodeTitle,
             albumTitle: item.title,
             artist: item.author,
             coverUrl: item.coverUrl,
@@ -197,9 +199,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       for (int i = 0; i < pages.length; i++) {
         final page = pages[i];
+        final episodeTitle = _extractEpisodeTitle(albumTitle, page.title);
         final audio = Audio(
           id: bvid,
-          title: page.title,
+          title: episodeTitle,
           albumTitle: albumTitle,
           artist: artist,
           coverUrl: coverUrl,
@@ -288,7 +291,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       for (int i = 0; i < pages.length; i++) {
         final page = pages[i];
-        final sanitizedTitle = page.title
+        final episodeTitle = _extractEpisodeTitle(title, page.title);
+        final sanitizedTitle = episodeTitle
             .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
             .trim();
         final savePath = '$downloadDir$sanitizedTitle.$ext';
@@ -298,7 +302,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             bvid: bvid,
             cid: page.cid,
             savePath: savePath,
-            title: page.title,
+            title: episodeTitle,
             albumTitle: title,
             artist: artist,
             coverUrl: coverUrl,
@@ -317,6 +321,34 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         SnackbarHelper.showError(context, '下载失败: $e');
       }
     }
+  }
+
+  /// 从分集标题中提取纯净的分集名（移除视频标题的前缀）
+  ///
+  /// 部分UP主在每集的 part 前加了视频标题，例如：
+  ///   视频标题: "【陶喆】华语R&B...合集 - 无损音乐合集"
+  ///   分集标题: "【陶喆】华语R&B...合集 - 005. 陶喆-Melody"
+  ///   提取后:   "005. 陶喆-Melody"
+  String _extractEpisodeTitle(String videoTitle, String pageTitle) {
+    if (pageTitle == videoTitle) return pageTitle;
+
+    // 找到最长公共前缀
+    int commonLen = 0;
+    final maxLen =
+        pageTitle.length < videoTitle.length ? pageTitle.length : videoTitle.length;
+    for (int i = 0; i < maxLen; i++) {
+      if (pageTitle[i] != videoTitle[i]) break;
+      commonLen = i + 1;
+    }
+
+    // 公共前缀足够长（≥5字符）且剩余部分非空，则剥离
+    if (commonLen >= 5) {
+      String episode = pageTitle.substring(commonLen).trimLeft();
+      episode = episode.replaceFirst(RegExp(r'^[-–—\s]+'), '').trim();
+      if (episode.isNotEmpty) return episode;
+    }
+
+    return pageTitle;
   }
 
   /// 显示操作菜单

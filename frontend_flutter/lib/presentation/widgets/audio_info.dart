@@ -110,16 +110,18 @@ class AudioInfo extends ConsumerWidget {
 
   /// 构建音频信息（三行：标题 / 副标题 / 艺术家）
   Widget _buildAudioInfo(BuildContext context, playerState) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 第1行：主标题（分集名/视频标题）
+          // 第1行：主标题（分集名/视频标题）— 最大最粗
           Text(
             playerState.title,
             style: const TextStyle(
-              fontSize: UIConstants.fontSizeMedium,
+              fontSize: UIConstants.fontSizeLarge,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
@@ -127,7 +129,7 @@ class AudioInfo extends ConsumerWidget {
             maxLines: 1,
           ),
 
-          // 第2行：副标题（仅分P音频）
+          // 第2行：副标题（仅分P音频）— 小字灰色
           if (playerState.albumTitle != null && playerState.albumTitle!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -145,12 +147,13 @@ class AudioInfo extends ConsumerWidget {
 
           const SizedBox(height: 4),
 
-          // 第3行：作者（artist/UP主）
+          // 第3行：作者（artist/UP主）— 主题色 + 斜体
           Text(
             playerState.artist.isNotEmpty ? playerState.artist : '未知艺术家',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: UIConstants.fontSizeSmall,
-              color: Colors.grey,
+              color: primaryColor,
+              fontStyle: FontStyle.italic,
             ),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,

@@ -83,6 +83,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           _playSingleAudio(
             bvid: item.bvid,
             title: page.title,
+            albumTitle: item.title,
             artist: item.author,
             coverUrl: item.coverUrl,
             duration: page.duration,
@@ -93,6 +94,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         onPlayAll: () {
           _playAllPages(
             bvid: item.bvid,
+            albumTitle: item.title,
             artist: item.author,
             coverUrl: item.coverUrl,
             pages: pages,
@@ -137,6 +139,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Future<void> _playSingleAudio({
     required String bvid,
     required String title,
+    String? albumTitle,
     String? artist,
     String? coverUrl,
     int? duration,
@@ -147,6 +150,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final audio = Audio(
         id: bvid,
         title: title,
+        albumTitle: albumTitle,
         artist: artist,
         coverUrl: coverUrl,
         duration: duration,
@@ -182,6 +186,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 播放所有分P
   Future<void> _playAllPages({
     required String bvid,
+    required String albumTitle,
     String? artist,
     String? coverUrl,
     required List<AudioPage> pages,
@@ -195,6 +200,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         final audio = Audio(
           id: bvid,
           title: page.title,
+          albumTitle: albumTitle,
           artist: artist,
           coverUrl: coverUrl,
           duration: page.duration,

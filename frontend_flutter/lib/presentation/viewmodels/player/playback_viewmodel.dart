@@ -32,6 +32,8 @@ abstract class PlaybackState with _$PlaybackState {
 
     /// 标题
     @Default('未知标题') String title,
+    /// 副标题（多P视频的视频标题）
+    String? albumTitle,
 
     /// 艺术家
     @Default('未知艺术家') String artist,
@@ -228,6 +230,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     state = state.copyWith(
       currentPlayable: playable,
       title: playable.title,
+      albumTitle: playable.albumTitle,
       artist: playable.artist ?? '未知艺术家',
       coverUrl: playable.coverUrl,
       coverData: playable.coverData,

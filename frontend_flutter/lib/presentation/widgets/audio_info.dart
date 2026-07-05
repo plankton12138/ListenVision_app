@@ -107,14 +107,15 @@ class AudioInfo extends ConsumerWidget {
     return originalUrl;
   }
 
-  /// 构建音频信息（标题和艺术家）
+
+  /// 构建音频信息（三行：标题 / 副标题 / 艺术家）
   Widget _buildAudioInfo(BuildContext context, playerState) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 标题
+          // 第1行：主标题（分集名/视频标题）
           Text(
             playerState.title,
             style: const TextStyle(
@@ -123,14 +124,30 @@ class AudioInfo extends ConsumerWidget {
             ),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            maxLines: 2,
+            maxLines: 1,
           ),
+
+          // 第2行：副标题（仅分P音频）
+          if (playerState.albumTitle != null && playerState.albumTitle!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                playerState.albumTitle!,
+                style: const TextStyle(
+                  fontSize: UIConstants.fontSizeSmall,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
 
           const SizedBox(height: 4),
 
-          // 艺术家
+          // 第3行：作者（artist/UP主）
           Text(
-            playerState.artist,
+            playerState.artist.isNotEmpty ? playerState.artist : '未知艺术家',
             style: const TextStyle(
               fontSize: UIConstants.fontSizeSmall,
               color: Colors.grey,

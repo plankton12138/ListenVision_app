@@ -50,6 +50,7 @@ class SearchResultItem {
   final String? coverUrl;
   final int? duration;
   final SearchPlatform platform;
+  final int videos;
 
   SearchResultItem({
     required this.bvid,
@@ -58,6 +59,7 @@ class SearchResultItem {
     this.coverUrl,
     this.duration,
     required this.platform,
+    this.videos = 1,
   });
 }
 
@@ -112,6 +114,7 @@ class SearchViewModel extends _$SearchViewModel {
         coverUrl: audio.coverUrl,
         duration: audio.duration,
         platform: SearchPlatform.bilibili,
+        videos: audio.videos,
       )).toList();
 
       final hasMore = results.length >= 20;
@@ -167,6 +170,7 @@ class SearchViewModel extends _$SearchViewModel {
         coverUrl: audio.coverUrl,
         duration: audio.duration,
         platform: SearchPlatform.bilibili,
+        videos: audio.videos,
       )).toList();
 
       final mergedResults = [...currentState.results, ...newResults];

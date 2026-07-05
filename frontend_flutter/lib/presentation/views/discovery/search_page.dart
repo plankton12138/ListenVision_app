@@ -2,6 +2,8 @@ import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/state/state_utils.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
+import 'package:listenvision/services/bilibili_api_service.dart';
+import 'package:listenvision/presentation/widgets/video_pages_sheet.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/search_suggestion.dart';
 import 'package:listenvision/presentation/providers.dart';
@@ -47,28 +49,101 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onResultTap(SearchResultItem item) async {
-    try {
-      // 创建 Audio 对象
-      final audio = Audio(
-        id: item.bvid,
+    if (item.videos > 1) {
+      await _showVideoPagesSheet(item);
+    } else {
+      await _playSingleAudio(
+        bvid: item.bvid,
         title: item.title,
         artist: item.author,
         coverUrl: item.coverUrl,
         duration: item.duration,
       );
+    }
+  }
 
-      // 创建 OnlinePlayable 对象（自动生成代理 URL）并添加到队列
+  /// 弹出分P选择面板
+  Future<void> _showVideoPagesSheet(SearchResultItem item) async {
+    try {
+      final api = ref.read(bilibiliApiServiceProvider);
+      final pages = await api.getVideoPages(item.bvid);
+
+      if (!mounted) return;
+
+      if (pages.isEmpty) {
+        // 降级：API 返回空 pages，作为单P处理
+        await _playSingleAudio(
+          bvid: item.bvid,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.coverUrl,
+          duration: item.duration,
+        );
+        return;
+      }
+
+      VideoPagesSheet.show(
+        context: context,
+        title: item.title,
+        pages: pages,
+        totalDuration: item.duration,
+        onPlayPage: (page) {
+          _playSingleAudio(
+            bvid: item.bvid,
+            title: page.title,
+            artist: item.author,
+            coverUrl: item.coverUrl,
+            duration: page.duration,
+            cid: page.cid,
+            videos: item.videos,
+          );
+        },
+        onPlayAll: () {
+          _playAllPages(
+            bvid: item.bvid,
+            artist: item.author,
+            coverUrl: item.coverUrl,
+            pages: pages,
+            videos: item.videos,
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '获取分P列表失败: $e');
+      }
+    }
+  }
+
+  /// 播放单首音频
+  Future<void> _playSingleAudio({
+    required String bvid,
+    required String title,
+    String? artist,
+    String? coverUrl,
+    int? duration,
+    int? cid,
+    int videos = 1,
+  }) async {
+    try {
+      final audio = Audio(
+        id: bvid,
+        title: title,
+        artist: artist,
+        coverUrl: coverUrl,
+        duration: duration,
+        cid: cid,
+        videos: videos,
+      );
+
       final playable = OnlinePlayable.withProxyUrl(audio);
       final queueNotifier = ref.read(queueViewModelProvider.notifier);
       await queueNotifier.add(playable, playImmediately: true);
 
-      // 播放当前实际选中的队列项。
-      // 不能使用 queue.length - 1，因为去重命中时当前项可能不是末尾。
       final queueIndex = ref.read(queueViewModelProvider).currentIndex;
       if (queueIndex >= 0) {
         final queueState = ref.read(queueViewModelProvider);
         if (queueIndex < queueState.queue.length) {
-          // 使用 PlaybackViewModel 播放
           ref.read(playbackViewModelProvider.notifier).play(
             queueState.queue[queueIndex],
             index: queueIndex,
@@ -76,9 +151,45 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         }
       }
 
-      // 显示播放提示
       if (mounted) {
-        SnackbarHelper.showPlaying(context, item.title, artist: item.author);
+        SnackbarHelper.showPlaying(context, title, artist: artist);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, '播放失败: $e');
+      }
+    }
+  }
+
+  /// 播放所有分P
+  Future<void> _playAllPages({
+    required String bvid,
+    String? artist,
+    String? coverUrl,
+    required List<AudioPage> pages,
+    int videos = 1,
+  }) async {
+    try {
+      final queueNotifier = ref.read(queueViewModelProvider.notifier);
+
+      for (int i = 0; i < pages.length; i++) {
+        final page = pages[i];
+        final audio = Audio(
+          id: bvid,
+          title: page.title,
+          artist: artist,
+          coverUrl: coverUrl,
+          duration: page.duration,
+          cid: page.cid,
+          videos: videos,
+        );
+        final playable = OnlinePlayable.withProxyUrl(audio);
+        // 第一首立即播放，其余仅加入队列
+        await queueNotifier.add(playable, playImmediately: i == 0);
+      }
+
+      if (mounted) {
+        SnackbarHelper.showToast('已添加 ${pages.length} 首到播放队列');
       }
     } catch (e) {
       if (mounted) {
@@ -293,10 +404,37 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         color: Colors.grey[300],
                         child: const Icon(Icons.music_note),
                       ),
-                title: Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (item.videos > 1)
+                      Container(
+                        margin: const EdgeInsets.only(left: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .secondaryContainer,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          '共${item.videos}P',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 subtitle: Row(
                   children: [
@@ -501,10 +639,5 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   /// 格式化时长
-  String _formatDuration(int? seconds) {
-    if (seconds == null) return '--:--';
-    final minutes = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-  }
+  String _formatDuration(int? seconds) => AudioPage.formatDuration(seconds);
 }

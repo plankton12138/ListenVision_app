@@ -179,6 +179,7 @@ abstract class Audio with _$Audio {
       if (uploaderMid != null) 'mid': int.tryParse(uploaderMid!) ?? uploaderMid,
       if (localPath != null) 'local_path': localPath,
       if (cid != null) 'cid': cid,
+      if (videos != 1) 'videos': videos,
     };
   }
 

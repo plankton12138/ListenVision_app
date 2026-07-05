@@ -49,29 +49,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onResultTap(SearchResultItem item) async {
-    if (item.videos > 1) {
-      await _showVideoPagesSheet(item);
-    } else {
-      await _playSingleAudio(
-        bvid: item.bvid,
-        title: item.title,
-        artist: item.author,
-        coverUrl: item.coverUrl,
-        duration: item.duration,
-      );
-    }
-  }
-
-  /// 弹出分P选择面板
-  Future<void> _showVideoPagesSheet(SearchResultItem item) async {
     try {
+      // B站搜索 API 不返回 videos 字段，需通过视频详情 API 获取分P数量
       final api = ref.read(bilibiliApiServiceProvider);
       final pages = await api.getVideoPages(item.bvid);
 
       if (!mounted) return;
 
-      if (pages.isEmpty) {
-        // 降级：API 返回空 pages，作为单P处理
+      if (pages.length <= 1) {
+        // 单P视频，直接播放
         await _playSingleAudio(
           bvid: item.bvid,
           title: item.title,
@@ -82,6 +68,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         return;
       }
 
+      // 多P视频，弹出分P选择面板
+      final videoCount = pages.length;
       VideoPagesSheet.show(
         context: context,
         title: item.title,
@@ -95,7 +83,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             coverUrl: item.coverUrl,
             duration: page.duration,
             cid: page.cid,
-            videos: item.videos,
+            videos: videoCount,
           );
         },
         onPlayAll: () {
@@ -104,13 +92,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             artist: item.author,
             coverUrl: item.coverUrl,
             pages: pages,
-            videos: item.videos,
+            videos: videoCount,
           );
         },
       );
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(context, '获取分P列表失败: $e');
+        // 降级：API 失败时作为单P播放
+        await _playSingleAudio(
+          bvid: item.bvid,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.coverUrl,
+          duration: item.duration,
+        );
       }
     }
   }

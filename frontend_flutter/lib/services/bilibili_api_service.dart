@@ -94,17 +94,27 @@ class BilibiliApiService {
 
   Future<AudioStreamsData> getAudioStreams(
     String bvid, {
+    int? cid,
     Map<String, String>? cookies,
   }) async {
-    final videoInfo = await getVideoInfo(bvid);
-    final cid = videoInfo['cid'];
-    if (cid == null) throw Exception('无法获取 cid');
+    int resolvedCid;
+    String title = '';
+
+    if (cid != null) {
+      resolvedCid = cid;
+    } else {
+      final videoInfo = await getVideoInfo(bvid);
+      final c = videoInfo['cid'];
+      if (c == null) throw Exception('无法获取 cid');
+      resolvedCid = c is int ? c : int.parse('$c');
+      title = videoInfo['title'] ?? '';
+    }
 
     final response = await _dio.get(
       '$_baseUrl/x/player/wbi/playurl',
       queryParameters: {
         'bvid': bvid,
-        'cid': cid,
+        'cid': resolvedCid,
         'fnval': 16,
         'fnver': 0,
         'fourk': 1,
@@ -127,10 +137,28 @@ class BilibiliApiService {
 
     return AudioStreamsData(
       bvid: bvid,
-      cid: cid ?? 0,
-      title: videoInfo['title'] ?? '',
+      cid: resolvedCid,
+      title: title,
       streams: streams,
     );
+  }
+
+  /// 获取视频的分P列表
+  ///
+  /// 调用 x/web-interface/view 获取 pages 数组
+  /// 返回空列表表示单P视频
+  Future<List<AudioPage>> getVideoPages(String bvid) async {
+    final videoInfo = await getVideoInfo(bvid);
+    final pages = videoInfo['pages'] as List<dynamic>? ?? [];
+    return pages.map((page) {
+      final cid = page['cid'];
+      final duration = page['duration'];
+      return AudioPage(
+        cid: cid is int ? cid : int.parse('$cid'),
+        title: _cleanHtmlTags(page['part'] ?? ''),
+        duration: duration is int ? duration : int.parse('$duration'),
+      );
+    }).toList();
   }
 
   Future<List<Audio>> search({
@@ -161,6 +189,7 @@ class BilibiliApiService {
         'pic': normalizeBilibiliUrl(item['pic'] ?? ''),
         'duration': parseBilibiliDuration(item['duration']),
         'play': item['play'] ?? 0,
+        'videos': item['videos'] ?? 1,
       });
     }).toList();
   }

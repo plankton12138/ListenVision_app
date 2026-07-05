@@ -47,13 +47,10 @@ class QueueItemTile extends ConsumerWidget {
     final isOnline = playable.isOnline;
     final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
-    // 获取 bvid（仅在线音频）
-    String? bvid;
-    if (isOnline && playable is OnlinePlayable) {
-      bvid = playable.id;  // PlayableAudio.id 就是 bvid
-    }
+    // 获取纯 BVID（OnlinePlayable.id 现已包含 cid，需用 original.id 取纯 BVID）
+    final bvid = (playable is OnlinePlayable) ? (playable as OnlinePlayable).original.id : playable.id;
 
-    final isFavorited = bvid != null && playlistNotifier.isFavorited(bvid);
+    final isFavorited = playlistNotifier.isFavorited(bvid);
 
     return Container(
       decoration: BoxDecoration(
@@ -91,14 +88,14 @@ class QueueItemTile extends ConsumerWidget {
             const SizedBox(width: 8),
 
             // 收藏按钮（仅在线音频）
-            if (isOnline && bvid != null)
+            if (isOnline)
               IconButton(
                 icon: Icon(
                   isFavorited ? Icons.favorite : Icons.favorite_border,
                   color: isFavorited ? Colors.red : null,
                 ),
                 tooltip: isFavorited ? '取消收藏' : '收藏',
-                onPressed: () => _toggleFavorite(context, ref, bvid!),
+                onPressed: () => _toggleFavorite(context, ref, bvid),
               ),
 
             // 下一首播放按钮
@@ -305,8 +302,8 @@ class QueueItemTile extends ConsumerWidget {
       );
     }
 
-    // 在线音频：判断是否已下载
-    final bvid = playable.id;
+    // 在线音频：判断是否已下载（使用纯 BVID）
+    final bvid = (playable is OnlinePlayable) ? (playable as OnlinePlayable).original.id : playable.id;
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(bvid));
 
     return isDownloadedAsync.when(

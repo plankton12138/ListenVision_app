@@ -312,7 +312,7 @@ as DateTime?,
 mixin _$PlaylistItem {
 
  String? get id; String? get playlistId; String get bvid; int? get cid;// B站视频分P ID
- String? get title; String? get artist; int? get duration; String? get coverUrl; String? get localPath; int get position; DateTime? get addedAt;
+ String? get title; String? get artist; String? get albumTitle; int? get duration; String? get coverUrl; String? get localPath; int get position; DateTime? get addedAt;
 /// Create a copy of PlaylistItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -325,16 +325,16 @@ $PlaylistItemCopyWith<PlaylistItem> get copyWith => _$PlaylistItemCopyWithImpl<P
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaylistItem&&(identical(other.id, id) || other.id == id)&&(identical(other.playlistId, playlistId) || other.playlistId == playlistId)&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.position, position) || other.position == position)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaylistItem&&(identical(other.id, id) || other.id == id)&&(identical(other.playlistId, playlistId) || other.playlistId == playlistId)&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.albumTitle, albumTitle) || other.albumTitle == albumTitle)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.position, position) || other.position == position)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,playlistId,bvid,cid,title,artist,duration,coverUrl,localPath,position,addedAt);
+int get hashCode => Object.hash(runtimeType,id,playlistId,bvid,cid,title,artist,albumTitle,duration,coverUrl,localPath,position,addedAt);
 
 @override
 String toString() {
-  return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, cid: $cid, title: $title, artist: $artist, duration: $duration, coverUrl: $coverUrl, localPath: $localPath, position: $position, addedAt: $addedAt)';
+  return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, cid: $cid, title: $title, artist: $artist, albumTitle: $albumTitle, duration: $duration, coverUrl: $coverUrl, localPath: $localPath, position: $position, addedAt: $addedAt)';
 }
 
 
@@ -345,7 +345,7 @@ abstract mixin class $PlaylistItemCopyWith<$Res>  {
   factory $PlaylistItemCopyWith(PlaylistItem value, $Res Function(PlaylistItem) _then) = _$PlaylistItemCopyWithImpl;
 @useResult
 $Res call({
- String? id, String? playlistId, String bvid, int? cid, String? title, String? artist, int? duration, String? coverUrl, String? localPath, int position, DateTime? addedAt
+ String? id, String? playlistId, String bvid, int? cid, String? title, String? artist, String? albumTitle, int? duration, String? coverUrl, String? localPath, int position, DateTime? addedAt
 });
 
 
@@ -362,7 +362,7 @@ class _$PlaylistItemCopyWithImpl<$Res>
 
 /// Create a copy of PlaylistItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? playlistId = freezed,Object? bvid = null,Object? cid = freezed,Object? title = freezed,Object? artist = freezed,Object? duration = freezed,Object? coverUrl = freezed,Object? localPath = freezed,Object? position = null,Object? addedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? playlistId = freezed,Object? bvid = null,Object? cid = freezed,Object? title = freezed,Object? artist = freezed,Object? albumTitle = freezed,Object? duration = freezed,Object? coverUrl = freezed,Object? localPath = freezed,Object? position = null,Object? addedAt = freezed,}) {
   return _then(_self.copyWith(
 id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String?,playlistId: freezed == playlistId ? _self.playlistId : playlistId // ignore: cast_nullable_to_non_nullable
@@ -370,6 +370,7 @@ as String?,bvid: null == bvid ? _self.bvid : bvid // ignore: cast_nullable_to_no
 as String,cid: freezed == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
 as int?,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String?,artist: freezed == artist ? _self.artist : artist // ignore: cast_nullable_to_non_nullable
+as String?,albumTitle: freezed == albumTitle ? _self.albumTitle : albumTitle // ignore: cast_nullable_to_non_nullable
 as String?,duration: freezed == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as int?,coverUrl: freezed == coverUrl ? _self.coverUrl : coverUrl // ignore: cast_nullable_to_non_nullable
 as String?,localPath: freezed == localPath ? _self.localPath : localPath // ignore: cast_nullable_to_non_nullable
@@ -460,10 +461,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  String? albumTitle,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlaylistItem() when $default != null:
-return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
+return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.albumTitle,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
   return orElse();
 
 }
@@ -481,10 +482,10 @@ return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  String? albumTitle,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)  $default,) {final _that = this;
 switch (_that) {
 case _PlaylistItem():
-return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
+return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.albumTitle,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -501,10 +502,10 @@ return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? id,  String? playlistId,  String bvid,  int? cid,  String? title,  String? artist,  String? albumTitle,  int? duration,  String? coverUrl,  String? localPath,  int position,  DateTime? addedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _PlaylistItem() when $default != null:
-return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
+return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that.artist,_that.albumTitle,_that.duration,_that.coverUrl,_that.localPath,_that.position,_that.addedAt);case _:
   return null;
 
 }
@@ -516,7 +517,7 @@ return $default(_that.id,_that.playlistId,_that.bvid,_that.cid,_that.title,_that
 @JsonSerializable()
 
 class _PlaylistItem extends PlaylistItem {
-  const _PlaylistItem({this.id, this.playlistId, required this.bvid, this.cid, this.title, this.artist, this.duration, this.coverUrl, this.localPath, required this.position, this.addedAt}): super._();
+  const _PlaylistItem({this.id, this.playlistId, required this.bvid, this.cid, this.title, this.artist, this.albumTitle, this.duration, this.coverUrl, this.localPath, required this.position, this.addedAt}): super._();
   factory _PlaylistItem.fromJson(Map<String, dynamic> json) => _$PlaylistItemFromJson(json);
 
 @override final  String? id;
@@ -526,6 +527,7 @@ class _PlaylistItem extends PlaylistItem {
 // B站视频分P ID
 @override final  String? title;
 @override final  String? artist;
+@override final  String? albumTitle;
 @override final  int? duration;
 @override final  String? coverUrl;
 @override final  String? localPath;
@@ -545,16 +547,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaylistItem&&(identical(other.id, id) || other.id == id)&&(identical(other.playlistId, playlistId) || other.playlistId == playlistId)&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.position, position) || other.position == position)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaylistItem&&(identical(other.id, id) || other.id == id)&&(identical(other.playlistId, playlistId) || other.playlistId == playlistId)&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&(identical(other.title, title) || other.title == title)&&(identical(other.artist, artist) || other.artist == artist)&&(identical(other.albumTitle, albumTitle) || other.albumTitle == albumTitle)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.position, position) || other.position == position)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,playlistId,bvid,cid,title,artist,duration,coverUrl,localPath,position,addedAt);
+int get hashCode => Object.hash(runtimeType,id,playlistId,bvid,cid,title,artist,albumTitle,duration,coverUrl,localPath,position,addedAt);
 
 @override
 String toString() {
-  return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, cid: $cid, title: $title, artist: $artist, duration: $duration, coverUrl: $coverUrl, localPath: $localPath, position: $position, addedAt: $addedAt)';
+  return 'PlaylistItem(id: $id, playlistId: $playlistId, bvid: $bvid, cid: $cid, title: $title, artist: $artist, albumTitle: $albumTitle, duration: $duration, coverUrl: $coverUrl, localPath: $localPath, position: $position, addedAt: $addedAt)';
 }
 
 
@@ -565,7 +567,7 @@ abstract mixin class _$PlaylistItemCopyWith<$Res> implements $PlaylistItemCopyWi
   factory _$PlaylistItemCopyWith(_PlaylistItem value, $Res Function(_PlaylistItem) _then) = __$PlaylistItemCopyWithImpl;
 @override @useResult
 $Res call({
- String? id, String? playlistId, String bvid, int? cid, String? title, String? artist, int? duration, String? coverUrl, String? localPath, int position, DateTime? addedAt
+ String? id, String? playlistId, String bvid, int? cid, String? title, String? artist, String? albumTitle, int? duration, String? coverUrl, String? localPath, int position, DateTime? addedAt
 });
 
 
@@ -582,7 +584,7 @@ class __$PlaylistItemCopyWithImpl<$Res>
 
 /// Create a copy of PlaylistItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? playlistId = freezed,Object? bvid = null,Object? cid = freezed,Object? title = freezed,Object? artist = freezed,Object? duration = freezed,Object? coverUrl = freezed,Object? localPath = freezed,Object? position = null,Object? addedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? playlistId = freezed,Object? bvid = null,Object? cid = freezed,Object? title = freezed,Object? artist = freezed,Object? albumTitle = freezed,Object? duration = freezed,Object? coverUrl = freezed,Object? localPath = freezed,Object? position = null,Object? addedAt = freezed,}) {
   return _then(_PlaylistItem(
 id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String?,playlistId: freezed == playlistId ? _self.playlistId : playlistId // ignore: cast_nullable_to_non_nullable
@@ -590,6 +592,7 @@ as String?,bvid: null == bvid ? _self.bvid : bvid // ignore: cast_nullable_to_no
 as String,cid: freezed == cid ? _self.cid : cid // ignore: cast_nullable_to_non_nullable
 as int?,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String?,artist: freezed == artist ? _self.artist : artist // ignore: cast_nullable_to_non_nullable
+as String?,albumTitle: freezed == albumTitle ? _self.albumTitle : albumTitle // ignore: cast_nullable_to_non_nullable
 as String?,duration: freezed == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as int?,coverUrl: freezed == coverUrl ? _self.coverUrl : coverUrl // ignore: cast_nullable_to_non_nullable
 as String?,localPath: freezed == localPath ? _self.localPath : localPath // ignore: cast_nullable_to_non_nullable

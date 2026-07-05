@@ -59,6 +59,7 @@ class DownloadTask {
   final String? originalUrl;
   final String? title;
   final String? artist;
+  final String? albumTitle;
   final String? coverUrl;
   final String? bvid;
   final int? cid; // B站分P ID（单P为null）
@@ -88,6 +89,7 @@ class DownloadTask {
     this.originalUrl,
     this.title,
     this.artist,
+    this.albumTitle,
     this.coverUrl,
     this.bvid,
     this.cid,
@@ -135,6 +137,7 @@ class DownloadTask {
       originalUrl: map['original_url'] as String?,
       title: map['title'] as String?,
       artist: map['artist'] as String?,
+      albumTitle: map['album_title'] as String?,
       coverUrl: map['cover_url'] as String?,
       bvid: map['bvid'] as String?,
       cid: map['cid'] as int?,
@@ -174,6 +177,7 @@ class DownloadTask {
       if (originalUrl != null) 'original_url': originalUrl,
       if (title != null) 'title': title,
       if (artist != null) 'artist': artist,
+      if (albumTitle != null) 'album_title': albumTitle,
       if (coverUrl != null) 'cover_url': coverUrl,
       if (bvid != null) 'bvid': bvid,
       if (cid != null) 'cid': cid,
@@ -203,6 +207,7 @@ class DownloadTask {
     String? originalUrl,
     String? title,
     String? artist,
+    String? albumTitle,
     String? coverUrl,
     String? bvid,
     int? cid,
@@ -228,6 +233,7 @@ class DownloadTask {
       originalUrl: originalUrl ?? this.originalUrl,
       title: title ?? this.title,
       artist: artist ?? this.artist,
+      albumTitle: albumTitle ?? this.albumTitle,
       coverUrl: coverUrl ?? this.coverUrl,
       bvid: bvid ?? this.bvid,
       cid: cid ?? this.cid,

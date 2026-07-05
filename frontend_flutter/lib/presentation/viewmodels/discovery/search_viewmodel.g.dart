@@ -42,7 +42,7 @@ final class SearchViewModelProvider
   SearchViewModel create() => SearchViewModel();
 }
 
-String _$searchViewModelHash() => r'ba78148db35d7dbdc1a929a9a9554f838aa8dfd1';
+String _$searchViewModelHash() => r'01087feabe11c7a69d3e9c2abe8597b6f627ba86';
 
 /// 搜索 ViewModel
 ///

@@ -152,6 +152,7 @@ abstract class PlaylistItem with _$PlaylistItem {
     int? cid,  // B站视频分P ID
     String? title,
     String? artist,
+    String? albumTitle,
     int? duration,
     String? coverUrl,
     String? localPath,
@@ -171,6 +172,7 @@ abstract class PlaylistItem with _$PlaylistItem {
       cid: json['cid'] as int?,
       title: json['title'] as String?,
       artist: json['artist'] as String? ?? json['author'] as String?,
+      albumTitle: json['album_title'] as String? ?? json['albumTitle'] as String?,
       duration: json['duration'] as int?,
       coverUrl: json['cover_url'] as String? ?? json['coverUrl'] as String?,
       localPath: json['local_path'] as String? ?? json['localPath'] as String?,
@@ -210,6 +212,7 @@ abstract class PlaylistItem with _$PlaylistItem {
       if (cid != null) 'cid': cid,
       if (title != null) 'title': title,
       if (artist != null) 'artist': artist,
+      if (albumTitle != null) 'album_title': albumTitle,
       if (duration != null) 'duration': duration,
       if (coverUrl != null) 'cover_url': coverUrl,
       if (localPath != null) 'local_path': localPath,

@@ -12,6 +12,9 @@ abstract class PlayableAudio {
   /// 音频唯一标识
   String get id;
 
+  /// 专辑/父标题（分P视频的父标题）
+  String? get albumTitle;
+
   /// 显示标题
   String get title;
 

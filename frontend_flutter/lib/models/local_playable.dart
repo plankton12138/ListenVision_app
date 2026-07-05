@@ -32,6 +32,9 @@ class LocalPlayable extends PlayableAudio {
   String get id => localIdFromPath(_audio.filePath);
 
   @override
+  String? get albumTitle => _audio.albumTitle;
+
+  @override
   String get title => _audio.title;
 
   @override

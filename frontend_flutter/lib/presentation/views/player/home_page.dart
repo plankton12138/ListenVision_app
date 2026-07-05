@@ -86,6 +86,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: metadata.title.isNotEmpty ? metadata.title : _getFileName(storageKey),
             artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
             duration: metadata.duration ?? 0,
+            albumTitle: metadata.album.isNotEmpty ? metadata.album : null,
             albumArt: metadata.cover,
           );
           
@@ -148,6 +149,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         title: metadata.title.isNotEmpty ? metadata.title : _getFileName(storageKey),
         artist: metadata.artist.isNotEmpty ? metadata.artist : '未知艺术家',
         duration: metadata.duration ?? 0,
+        albumTitle: metadata.album.isNotEmpty ? metadata.album : null,
         albumArt: metadata.cover,
       );
 

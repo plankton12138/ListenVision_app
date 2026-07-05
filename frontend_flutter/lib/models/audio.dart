@@ -42,6 +42,7 @@ abstract class Audio with _$Audio {
     required String title,
     String? artist,
     String? album,
+    String? albumTitle,    // video title (parent title for multi-P audio, used for subtitle line on home page)
     String? coverUrl,
     String? streamUrl,
     int? duration, // 秒
@@ -105,6 +106,7 @@ abstract class Audio with _$Audio {
       title: safeString(json['title']) ?? '',
       artist: safeString(json['artist'] ?? json['author'] ?? json['uname']),
       album: safeString(json['album']),
+      albumTitle: safeString(json['album_title'] ?? json['albumTitle']),
       coverUrl: safeCoverUrl(),  // ✅ 统一封面字段解析
       streamUrl: safeString(json['stream_url'] ?? json['streamUrl']),
       duration: _parseDuration(json['duration']),
@@ -169,6 +171,7 @@ abstract class Audio with _$Audio {
       'title': title,
       if (artist != null) 'artist': artist,
       if (album != null) 'album': album,
+      if (albumTitle != null) 'album_title': albumTitle,
       if (coverUrl != null) 'cover': coverUrl,
       if (streamUrl != null) 'stream_url': streamUrl,
       if (duration != null) 'duration': duration,
@@ -189,6 +192,7 @@ abstract class Audio with _$Audio {
       cid: cid,
       title: title,
       artist: artist,
+      albumTitle: albumTitle,
       duration: duration,
       coverUrl: coverUrl,
       position: position,

@@ -38,6 +38,9 @@ class OnlinePlayable extends PlayableAudio {
   String get id => _audio.cid != null ? '${_audio.id}_${_audio.cid}' : _audio.id;
 
   @override
+  String? get albumTitle => _audio.albumTitle;
+
+  @override
   String get title => _audio.title;
 
   @override
@@ -85,6 +88,7 @@ class OnlinePlayable extends PlayableAudio {
       id: item.bvid,
       title: item.title ?? '未知标题',
       artist: item.artist,
+      albumTitle: item.albumTitle,
       duration: item.duration,
       coverUrl: item.coverUrl,
       streamUrl: null,

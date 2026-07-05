@@ -7,6 +7,7 @@ import 'dart:typed_data';
 class LocalAudio {
   final int? id;
   final String filePath;
+  final String? albumTitle;
   final String title;
   final String artist;
   final int duration;
@@ -19,6 +20,7 @@ class LocalAudio {
     required this.filePath,
     required this.title,
     required this.artist,
+    this.albumTitle,
     required this.duration,
     this.albumArt,
     this.url,
@@ -35,6 +37,7 @@ class LocalAudio {
     Uint8List? albumArt,
     String? url,
     bool? isFavorite,
+    String? albumTitle,
   }) {
     return LocalAudio(
       id: id ?? this.id,
@@ -45,6 +48,7 @@ class LocalAudio {
       albumArt: albumArt ?? this.albumArt,
       url: url ?? this.url,
       isFavorite: isFavorite ?? this.isFavorite,
+      albumTitle: albumTitle ?? this.albumTitle,
     );
   }
 
@@ -56,6 +60,7 @@ class LocalAudio {
       'title': title,
       'artist': artist,
       'duration': duration,
+      if (albumTitle != null) 'albumTitle': albumTitle,
       'albumArt': albumArt,
       'url': url,
       'isFavorite': isFavorite ? 1 : 0,
@@ -81,6 +86,7 @@ class LocalAudio {
       title: map['title'] ?? '未知标题',
       artist: map['artist'] ?? '未知艺术家',
       duration: map['duration'] ?? 0,
+      albumTitle: map['albumTitle'] as String?,
       albumArt: albumArtData,
       url: map['url'],
       isFavorite: map['isFavorite'] == 1,

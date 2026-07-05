@@ -154,9 +154,9 @@ class BilibiliApiService {
       final cid = page['cid'];
       final duration = page['duration'];
       return AudioPage(
-        cid: cid is int ? cid : int.parse('$cid'),
+        cid: cid is int ? cid : (int.tryParse('$cid') ?? 0),
         title: _cleanHtmlTags(page['part'] ?? ''),
-        duration: duration is int ? duration : int.parse('$duration'),
+        duration: duration is int ? duration : (int.tryParse('$duration') ?? 0),
       );
     }).toList();
   }

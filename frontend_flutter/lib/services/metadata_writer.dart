@@ -78,7 +78,7 @@ class MetadataWriter {
         metadata: Metadata(
           title: metadata.title,
           artist: metadata.artist,
-          album: metadata.album ?? 'Bilibili',
+          album: metadata.album,
           picture: picture,
         ),
       );

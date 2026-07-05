@@ -262,6 +262,7 @@ class DownloadViewModel extends _$DownloadViewModel {
     String? title,
     String? artist,
     String? coverUrl,
+    String? albumTitle,
   }) async {
     try {
       AppLogger.info('DownloadViewModel', '添加下载任务: $bvid, cid: $cid');
@@ -286,6 +287,7 @@ class DownloadViewModel extends _$DownloadViewModel {
         title: title,
         artist: artist,
         coverUrl: coverUrl,
+        albumTitle: albumTitle,
       );
 
       final tasks = await _repository!.getAllTasks();

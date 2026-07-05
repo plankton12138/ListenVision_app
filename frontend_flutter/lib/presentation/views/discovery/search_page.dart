@@ -103,7 +103,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           _downloadPage(
             bvid: item.bvid,
             cid: page.cid,
-            title: '${item.title} - ${page.title}',
+            title: page.title,
+            albumTitle: item.title,
             artist: item.author,
             coverUrl: item.coverUrl,
           );
@@ -233,6 +234,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     required String bvid,
     required int cid,
     required String title,
+    String? albumTitle,
     String? artist,
     String? coverUrl,
   }) async {
@@ -250,6 +252,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         cid: cid,
         savePath: savePath,
         title: title,
+        albumTitle: albumTitle,
         artist: artist,
         coverUrl: coverUrl,
       );
@@ -279,9 +282,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       for (int i = 0; i < pages.length; i++) {
         final page = pages[i];
-        final pageTitle = '$title - ${page.title}';
-        final sanitizedTitle = pageTitle
-            .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+        final sanitizedTitle = page.title
+            .replaceAll(RegExp(r'[<>:"/\|?*]'), '_')
             .trim();
         final savePath = '$downloadDir$sanitizedTitle.$ext';
 
@@ -290,7 +292,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             bvid: bvid,
             cid: page.cid,
             savePath: savePath,
-            title: pageTitle,
+            title: page.title,
+            albumTitle: title,
             artist: artist,
             coverUrl: coverUrl,
           );

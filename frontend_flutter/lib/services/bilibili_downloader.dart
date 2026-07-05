@@ -34,6 +34,7 @@ class BilibiliDownloader {
     int? cid,
     required String saveDir,
     required String fileName,
+    String? albumTitle,
     AudioOutputFormat? format,
     void Function(int percent, String stage)? onProgress,
   }) async {
@@ -114,12 +115,15 @@ class BilibiliDownloader {
 
       // 步骤6: 写入元数据（20% 进度）
       onProgress?.call(80, 'writing_metadata');
+      final metadataTitle = albumTitle != null ? fileName : title;
+      final metadataAlbum = albumTitle;
+
       final metadataResult = await MetadataWriter.writeMetadata(
         filePath: m4aPath,
         metadata: AudioMetadata(
-          title: title,
+          title: metadataTitle,
           artist: artist,
-          album: 'https://www.bilibili.com/video/$bvid',
+          album: metadataAlbum,
           coverFile: coverFile,
         ),
       );

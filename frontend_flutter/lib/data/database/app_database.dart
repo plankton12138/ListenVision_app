@@ -30,7 +30,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -97,6 +97,7 @@ class AppDatabase {
         bvid $textNullableType,
         cid $intType,
         title $textNullableType,
+        album_title $textNullableType,
         artist $textNullableType,
         cover_url $textNullableType,
         status $textNullableType DEFAULT 'pending',
@@ -250,6 +251,11 @@ class AppDatabase {
     // 版本 10 -> 11: 添加 cid 字段到 download_tasks 表（多P下载支持）
     if (oldVersion < 11) {
       await _upgradeToV11(db);
+    }
+
+    // 版本 11 -> 12: 添加 album_title 字段到 download_tasks 表
+    if (oldVersion < 12) {
+      await _upgradeToV12(db);
     }
   }
 
@@ -744,6 +750,21 @@ class AppDatabase {
       AppLogger.info('AppDatabase', '添加 cid 字段成功');
     } catch (e) {
       AppLogger.debug('AppDatabase', 'cid 字段可能已存在: $e');
+    }
+  }
+
+  /// 升级到版本 12：添加 album_title 字段到 download_tasks 表
+  Future<void> _upgradeToV12(Database db) async {
+    AppLogger.info("AppDatabase", "升级数据库到 V12：添加 album_title 字段");
+
+    try {
+      await db.execute("""
+        ALTER TABLE download_tasks
+        ADD COLUMN album_title TEXT
+      """);
+      AppLogger.info("AppDatabase", "添加 album_title 字段成功");
+    } catch (e) {
+      AppLogger.debug("AppDatabase", "album_title 字段可能已存在: $e");
     }
   }
 

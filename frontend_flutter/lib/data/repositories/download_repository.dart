@@ -111,6 +111,7 @@ class DownloadRepository {
     String? title,
     String? artist,
     String? coverUrl,
+    String? albumTitle,
   }) async {
     return await AppDatabase.instance.transaction<int>((txn) async {
       // 用 bvid+cid 组合作为 source_id，使不同分P被视为独立 track
@@ -161,6 +162,7 @@ class DownloadRepository {
         'title': title,
         'artist': artist,
         'cover_url': coverUrl,
+        'album_title': albumTitle,
         'status': DownloadStatus.pending.value,
         'downloaded_bytes': 0,
         'total_bytes': 0,
@@ -447,6 +449,7 @@ class DownloadRepository {
       cid: task.cid,
       saveDir: saveDir,
       fileName: fileName,
+      albumTitle: task.albumTitle,
       format: format,
       onProgress: (percent, stage) {
         if (cancelToken.isCancelled) {

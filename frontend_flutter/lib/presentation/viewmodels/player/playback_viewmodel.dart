@@ -567,6 +567,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
             bvid: playable.original.id,
             title: playable.title,
             artist: playable.artist,
+            albumTitle: playable.albumTitle,
             duration: playable.original.duration,
             coverUrl: playable.coverUrl,
             progress: 0,

@@ -289,7 +289,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       for (int i = 0; i < pages.length; i++) {
         final page = pages[i];
         final sanitizedTitle = page.title
-            .replaceAll(RegExp(r'[<>:"/\|?*]'), '_')
+            .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
             .trim();
         final savePath = '$downloadDir$sanitizedTitle.$ext';
 

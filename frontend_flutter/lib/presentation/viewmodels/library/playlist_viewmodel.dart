@@ -229,6 +229,7 @@ class PlaylistViewModel extends _$PlaylistViewModel {
               bvid: item['bvid'] as String,
               title: item['title'] as String?,
               artist: item['artist'] as String?,
+              albumTitle: item["albumTitle"] as String?,
               duration: item['duration'] as int?,
               coverUrl: item['coverUrl'] as String?,
               position: 0,

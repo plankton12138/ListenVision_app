@@ -293,6 +293,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
             id: bvid,
             title: item.title ?? '未知标题',
             artist: item.artist,
+            albumTitle: item.albumTitle,
             duration: item.duration,
             coverUrl: item.coverUrl,
           );
@@ -411,6 +412,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
             id: itemBvid,
             title: item.title ?? '未知标题',
             artist: item.artist,
+            albumTitle: item.albumTitle,
             duration: item.duration,
             coverUrl: item.coverUrl,
           );

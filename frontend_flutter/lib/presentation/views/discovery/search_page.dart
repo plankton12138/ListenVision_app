@@ -521,11 +521,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return const Center(child: Text('未找到结果'));
     }
 
-    // 计算总页数
-    final totalPages = totalCount > 0
-        ? (totalCount / pageSize).ceil()
-        : (hasMore ? currentPage + 1 : currentPage);
-
     return Column(
       children: [
         // 结果列表
@@ -612,13 +607,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
         ),
         // 分页控制栏
-        _buildPaginationBar(currentPage, totalPages, hasMore),
+        _buildPaginationBar(currentPage, totalCount, pageSize, hasMore),
       ],
     );
   }
 
   /// 分页控制栏
-  Widget _buildPaginationBar(int currentPage, int totalPages, bool hasMore) {
+  Widget _buildPaginationBar(int currentPage, int totalCount, int pageSize, bool hasMore) {
+    // 格式化页码显示
+    String pageText;
+    if (totalCount > 0) {
+      final totalPages = (totalCount / pageSize).ceil();
+      pageText = '$currentPage/$totalPages';
+    } else if (hasMore) {
+      pageText = '$currentPage / ...';
+    } else {
+      pageText = '$currentPage';
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -643,7 +648,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
           // 页码信息
           Text(
-            '$currentPage/$totalPages',
+            pageText,
             style: const TextStyle(fontSize: 16),
           ),
           // 下一页按钮

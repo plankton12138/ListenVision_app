@@ -9,6 +9,7 @@ import 'presentation/theme/light_mode.dart';
 import 'presentation/theme/dark_mode.dart';
 import 'presentation/viewmodels/system/theme_viewmodel.dart';
 import 'presentation/widgets/common/network_status_listener.dart';
+import 'presentation/widgets/player/floating_player_bar.dart';
 import 'services/download_integrity_service.dart';
 import 'data/database/app_database.dart';
 import 'data/database/track_dao.dart';
@@ -66,7 +67,19 @@ class _AppState extends ConsumerState<App> {
       darkTheme: darkMode,
       routerConfig: routerConfig,
       builder: (context, child) {
-        return NetworkStatusListener(child: child ?? const SizedBox());
+        return Stack(
+          children: [
+            // GoRouter 页面内容
+            NetworkStatusListener(child: child ?? const SizedBox()),
+            // 浮动播放条（覆盖在底部）
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: FloatingPlayerBar(),
+            ),
+          ],
+        );
       },
     );
   }

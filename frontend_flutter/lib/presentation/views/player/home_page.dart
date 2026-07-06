@@ -339,8 +339,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
 
-    // 注册队列恢复完成回调
+    // 注册队列恢复完成回调（仅首次启动时生效）
     ref.read(queueViewModelProvider.notifier).onQueueRestored(() async {
+      // 如果播放器已有内容（正在播放或暂停中），说明是重新进入页面，
+      // 跳过 prepare 和 pause，避免打断当前播放状态
+      final playbackState = ref.read(playbackViewModelProvider);
+      if (playbackState.currentPlayable != null) return;
+
       // 准备当前音频（不自动播放）
       await ref.read(playbackViewModelProvider.notifier).prepareCurrentFromQueue();
       // 启动时音乐应处于暂停状态

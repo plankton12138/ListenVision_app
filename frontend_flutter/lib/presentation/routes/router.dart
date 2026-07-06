@@ -9,7 +9,9 @@ import 'package:listenvision/presentation/views/player/play_list_page.dart';
 import 'package:listenvision/presentation/views/system/backend_download_page.dart';
 import 'package:listenvision/presentation/views/system/not_found_page.dart';
 import 'package:listenvision/presentation/views/system/settings_page.dart';
+import 'package:listenvision/presentation/widgets/player/floating_player_bar.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
 
 /// 路由名称常量
 class AppRoutes {
@@ -44,66 +46,85 @@ final GoRouter routerConfig = GoRouter(
   errorBuilder: (context, state) => const NotFoundPage(),
 
   routes: [
+    // HomePage — 独立路由，显示完整播放器，不显示浮动条
     GoRoute(
       name: AppRoutes.homeName,
       path: AppRoutes.home,
       builder: (context, state) => const HomePage(),
     ),
 
-    GoRoute(
-      name: AppRoutes.searchName,
-      path: AppRoutes.search,
-      builder: (context, state) => const SearchPage(),
-    ),
-
-    GoRoute(
-      name: AppRoutes.exploreName,
-      path: AppRoutes.explore,
-      builder: (context, state) => const ExplorePage(),
-    ),
-
-    GoRoute(
-      name: AppRoutes.playlistName,
-      path: AppRoutes.playlist,
-      builder: (context, state) => const PlaylistPage(),
-    ),
-
-    GoRoute(
-      name: AppRoutes.downloadsName,
-      path: AppRoutes.downloads,
-      builder: (context, state) => const BackendDownloadPage(),
-    ),
-
-    GoRoute(
-      name: AppRoutes.playlistsName,
-      path: AppRoutes.playlists,
-      builder: (context, state) => const PlaylistLibraryPage(),
+    // ShellRoute — 其他页面统一包裹浮动播放条
+    ShellRoute(
+      builder: (context, state, child) {
+        return Stack(
+          children: [
+            child,
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: FloatingPlayerBar(),
+            ),
+          ],
+        );
+      },
       routes: [
         GoRoute(
-          path: 'local',
-          builder: (context, state) => const LocalMusicPlaylistPage(),
+          name: AppRoutes.searchName,
+          path: AppRoutes.search,
+          builder: (context, state) => const SearchPage(),
         ),
+
         GoRoute(
-          name: AppRoutes.playlistDetailName,
-          path: ':id',
-          builder: (context, state) {
-            final playlistId = state.pathParameters['id'] ?? '0';
-            return PlaylistDetailPage(playlistId: playlistId);
-          },
+          name: AppRoutes.exploreName,
+          path: AppRoutes.explore,
+          builder: (context, state) => const ExplorePage(),
+        ),
+
+        GoRoute(
+          name: AppRoutes.playlistName,
+          path: AppRoutes.playlist,
+          builder: (context, state) => const PlaylistPage(),
+        ),
+
+        GoRoute(
+          name: AppRoutes.downloadsName,
+          path: AppRoutes.downloads,
+          builder: (context, state) => const BackendDownloadPage(),
+        ),
+
+        GoRoute(
+          name: AppRoutes.playlistsName,
+          path: AppRoutes.playlists,
+          builder: (context, state) => const PlaylistLibraryPage(),
+          routes: [
+            GoRoute(
+              path: 'local',
+              builder: (context, state) => const LocalMusicPlaylistPage(),
+            ),
+            GoRoute(
+              name: AppRoutes.playlistDetailName,
+              path: ':id',
+              builder: (context, state) {
+                final playlistId = state.pathParameters['id'] ?? '0';
+                return PlaylistDetailPage(playlistId: playlistId);
+              },
+            ),
+          ],
+        ),
+
+        GoRoute(
+          name: AppRoutes.settingsName,
+          path: AppRoutes.settings,
+          builder: (context, state) => const SettingsPage(),
+        ),
+
+        GoRoute(
+          name: AppRoutes.historyName,
+          path: AppRoutes.history,
+          builder: (context, state) => const PlayHistoryPage(),
         ),
       ],
-    ),
-
-    GoRoute(
-      name: AppRoutes.settingsName,
-      path: AppRoutes.settings,
-      builder: (context, state) => const SettingsPage(),
-    ),
-
-    GoRoute(
-      name: AppRoutes.historyName,
-      path: AppRoutes.history,
-      builder: (context, state) => const PlayHistoryPage(),
     ),
   ],
 );

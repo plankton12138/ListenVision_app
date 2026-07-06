@@ -8,10 +8,6 @@ export '../data/repositories/repository_providers.dart';
 
 // ==================== 服务层 ====================
 export '../../services/bilibili_api_service.dart' show bilibiliApiServiceProvider;
-export '../../services/bilibili_auth_service.dart';
-
-// ==================== 认证相关（B站绑定）====================
-export 'viewmodels/auth/auth_provider.dart';
 
 // ==================== 播放器相关 ====================
 // PlaybackViewModel - 新的播放控制器

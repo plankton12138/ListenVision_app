@@ -101,35 +101,6 @@ class ServerException extends AppException {
   }
 }
 
-// ==================== 认证相关异常 ====================
-
-/// 认证异常
-///
-/// 登录失败、token 无效等
-class AuthException extends AppException {
-  const AuthException(super.message, [super.code]);
-
-  factory AuthException.invalidCredentials() {
-    return const AuthException('用户名或密码错误', 'INVALID_CREDENTIALS');
-  }
-
-  factory AuthException.tokenExpired() {
-    return const AuthException('登录已过期，请重新登录', 'TOKEN_EXPIRED');
-  }
-
-  factory AuthException.tokenInvalid() {
-    return const AuthException('无效的登录凭证', 'TOKEN_INVALID');
-  }
-
-  factory AuthException.notLoggedIn() {
-    return const AuthException('请先登录', 'NOT_LOGGED_IN');
-  }
-
-  factory AuthException.loginFailed() {
-    return const AuthException('登录失败', 'LOGIN_FAILED');
-  }
-}
-
 // ==================== 数据相关异常 ====================
 
 /// 数据异常
@@ -244,46 +215,6 @@ class ValidationException extends AppException {
     return ValidationException(
       '$fieldName 格式不正确',
       'INVALID_FORMAT',
-    );
-  }
-}
-
-// ==================== B站相关异常 ====================
-
-/// B站 API 异常
-///
-/// B站接口调用失败、Cookie 失效等
-class BilibiliException extends AppException {
-  const BilibiliException(super.message, [super.code]);
-
-  factory BilibiliException.qrCodeExpired() {
-    return const BilibiliException('二维码已过期', 'QR_EXPIRED');
-  }
-
-  factory BilibiliException.qrCodePending() {
-    return const BilibiliException('二维码待扫描', 'QR_PENDING');
-  }
-
-  factory BilibiliException.videoNotFound() {
-    return const BilibiliException('视频不存在', 'VIDEO_NOT_FOUND');
-  }
-
-  factory BilibiliException.audioNotFound() {
-    return const BilibiliException('音频不存在', 'AUDIO_NOT_FOUND');
-  }
-
-  factory BilibiliException.cookieInvalid() {
-    return const BilibiliException('B站Cookie已失效，请重新绑定', 'COOKIE_INVALID');
-  }
-
-  factory BilibiliException.apiRateLimit() {
-    return const BilibiliException('请求过于频繁，请稍后再试', 'RATE_LIMIT');
-  }
-
-  factory BilibiliException.apiError([String? detail]) {
-    return BilibiliException(
-      detail ?? 'B站API调用失败',
-      'BILIBILI_API_ERROR',
     );
   }
 }

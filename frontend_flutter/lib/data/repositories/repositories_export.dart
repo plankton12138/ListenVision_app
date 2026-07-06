@@ -10,7 +10,5 @@ export 'search_repository.dart';
 export 'playlist_repository.dart';
 export 'history_repository.dart';
 export 'local_music_repository.dart';
-export 'auth_repository.dart';
-
 // Providers
 export 'repository_providers.dart';

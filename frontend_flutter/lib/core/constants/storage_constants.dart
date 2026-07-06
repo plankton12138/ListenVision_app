@@ -6,43 +6,6 @@
 ///
 /// 别名：StorageConstants（向后兼容）
 class StorageKeys {
-  // ==================== 认证相关 ====================
-
-  /// 用户 token (access token)
-  static const String keyToken = 'auth_token';
-
-  /// 用户 refresh token
-  static const String keyRefreshToken = 'refresh_token';
-
-  /// 用户 ID
-  static const String keyUserId = 'user_id';
-
-  /// 用户名
-  static const String keyUsername = 'username';
-
-  /// 用户信息
-  static const String userInfo = 'user_info';
-
-  /// 用户 token (向后兼容)
-  static const String userToken = 'auth_token';
-
-  /// 用户 ID (向后兼容)
-  static const String userId = 'user_id';
-
-  /// 用户名 (向后兼容)
-  static const String username = 'username';
-
-  // ==================== B站相关 ====================
-
-  /// B站 Cookie
-  static const String bilibiliCookie = 'bilibili_cookie';
-
-  /// B站账号信息
-  static const String bilibiliAccount = 'bilibili_account';
-
-  /// B站绑定状态
-  static const String bilibiliBound = 'bilibili_bound';
-
   // ==================== 设置相关 ====================
 
   /// 主题模式
@@ -59,6 +22,9 @@ class StorageKeys {
 
   /// 下载音频格式
   static const String downloadFormat = 'download_format';
+
+  /// 下载封面
+  static const String downloadCover = 'download_cover';
 
   // ==================== 缓存相关 ====================
 
@@ -126,17 +92,12 @@ typedef StorageConstants = StorageKeys;
 
 /// 存储过期时间常量
 class StorageExpiry {
-  /// 认证 token 有效期（7天）
-  static const Duration tokenExpiry = Duration(days: 7);
-
   /// 搜索历史保留时间（30天）
   static const Duration searchHistoryExpiry = Duration(days: 30);
 
   /// 缓存数据保留时间（1天）
   static const Duration cacheExpiry = Duration(days: 1);
 
-  /// B站 Cookie 有效期（30天）
-  static const Duration bilibiliCookieExpiry = Duration(days: 30);
 }
 
 /// 日志系统常量

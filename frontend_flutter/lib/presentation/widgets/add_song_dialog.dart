@@ -3,21 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
-import 'package:listenvision/presentation/providers.dart';
 
 /// 添加歌曲对话框
 ///
 /// 提供三种添加歌曲的方式：
-/// 1. 从搜索结果添加（游客可用）
-/// 2. 输入BV号添加（游客可用）
-/// 3. 从播放历史添加（需要登录）
+/// 1. 从搜索结果添加
+/// 2. 输入BV号添加
+/// 3. 从播放历史添加
 class AddSongDialog extends ConsumerWidget {
   const AddSongDialog({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLoggedIn = ref.watch(isLoggedInProvider);
-
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
@@ -63,19 +60,18 @@ class AddSongDialog extends ConsumerWidget {
               },
             ),
 
-            // 从历史记录添加（需要登录）
-            if (isLoggedIn)
-              _buildOption(
-                context,
-                icon: Icons.history,
-                title: '从历史记录添加',
-                subtitle: '查看播放历史并添加',
-                onTap: () {
-                  AppLogger.logButtonClick('从历史添加', 'AddSongDialog');
-                  Navigator.pop(context);
-                  context.go('/history');
-                },
-              ),
+            // 从历史记录添加
+            _buildOption(
+              context,
+              icon: Icons.history,
+              title: '从历史记录添加',
+              subtitle: '查看播放历史并添加',
+              onTap: () {
+                AppLogger.logButtonClick('从历史添加', 'AddSongDialog');
+                Navigator.pop(context);
+                context.go('/history');
+              },
+            ),
 
             const SizedBox(height: 16),
           ],

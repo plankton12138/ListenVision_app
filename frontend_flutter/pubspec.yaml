@@ -53,11 +53,8 @@ dependencies:
   path: ^1.9.1
   sqflite_common_ffi: ^2.3.5
   dio: ^5.8.0+1
-  flutter_captcha: ^1.0.0
   url_launcher: ^6.3.1
   flutter_launcher_icons: ^0.14.3
-  flutter_secure_storage: ^10.0.0
-  qr_flutter: ^4.1.0
   # P0: 图片缓存优化
   cached_network_image: ^3.3.0
   flutter_cache_manager: ^3.3.1

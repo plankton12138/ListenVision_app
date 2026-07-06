@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/audio.dart';
 import '../models/recommendation.dart';
 import 'bilibili_headers.dart';
@@ -39,48 +38,11 @@ class AudioStreamsData {
 
 class BilibiliApiService {
   final Dio _dio;
-  final FlutterSecureStorage _secureStorage;
 
-  BilibiliApiService({Dio? dio, FlutterSecureStorage? secureStorage})
-      : _dio = dio ?? Dio(),
-        _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  BilibiliApiService({Dio? dio})
+      : _dio = dio ?? Dio();
 
   static const _baseUrl = 'https://api.bilibili.com';
-  static const _passportUrl = 'https://passport.bilibili.com';
-
-  Future<Map<String, String>?> getStoredCookies() async {
-    final sessdata = await _secureStorage.read(key: 'bilibili_sessdata');
-    final biliJct = await _secureStorage.read(key: 'bilibili_jct');
-    final dedeuserid = await _secureStorage.read(key: 'bilibili_dedeuserid');
-    if (sessdata == null || biliJct == null || dedeuserid == null) return null;
-    return {
-      'sessdata': sessdata,
-      'bili_jct': biliJct,
-      'dedeuserid': dedeuserid,
-    };
-  }
-
-  String _buildCookieHeader(Map<String, String> cookies) {
-    final parts = <String>[];
-    if (cookies['sessdata'] != null && cookies['sessdata']!.isNotEmpty) {
-      parts.add('SESSDATA=${cookies['sessdata']}');
-    }
-    if (cookies['bili_jct'] != null && cookies['bili_jct']!.isNotEmpty) {
-      parts.add('bili_jct=${cookies['bili_jct']}');
-    }
-    if (cookies['dedeuserid'] != null && cookies['dedeuserid']!.isNotEmpty) {
-      parts.add('DedeUserID=${cookies['dedeuserid']}');
-    }
-    return parts.join('; ');
-  }
-
-  Map<String, String> _buildHeaders({Map<String, String>? cookies}) {
-    final headers = Map<String, String>.from(bilibiliHeaders);
-    if (cookies != null) {
-      headers['Cookie'] = _buildCookieHeader(cookies);
-    }
-    return headers;
-  }
 
   Future<Map<String, dynamic>> getVideoInfo(String bvid) async {
     final response = await _dio.get(
@@ -95,7 +57,6 @@ class BilibiliApiService {
   Future<AudioStreamsData> getAudioStreams(
     String bvid, {
     int? cid,
-    Map<String, String>? cookies,
   }) async {
     int resolvedCid;
     String title = '';
@@ -119,7 +80,7 @@ class BilibiliApiService {
         'fnver': 0,
         'fourk': 1,
       },
-      options: Options(headers: _buildHeaders(cookies: cookies)),
+      options: Options(headers: bilibiliHeaders),
     );
     final data = _extractData(response.data);
     final dashAudio = data['dash']?['audio'] as List<dynamic>? ?? [];
@@ -287,16 +248,6 @@ class BilibiliApiService {
     return data;
   }
 
-  Future<Map<String, String>> refreshCookie(
-      Map<String, String> cookies) async {
-    final response = await _dio.post(
-      '$_passportUrl/x/passport-login/web/cookie/refresh',
-      options: Options(headers: _buildHeaders(cookies: cookies)),
-    );
-    final setCookie = response.headers['set-cookie'];
-    return _parseCookies(setCookie ?? [], cookies);
-  }
-
   Map<String, dynamic> _extractData(dynamic responseBody) {
     if (responseBody is! Map) {
       throw Exception('B站 API 响应格式异常');
@@ -353,25 +304,6 @@ class BilibiliApiService {
     });
   }
 
-  Map<String, String> _parseCookies(
-    List<String> setCookieHeaders,
-    Map<String, String> fallback,
-  ) {
-    final result = Map<String, String>.from(fallback);
-    for (final header in setCookieHeaders) {
-      for (final part in header.split(';')) {
-        final trimmed = part.trim();
-        final eqIdx = trimmed.indexOf('=');
-        if (eqIdx == -1) continue;
-        final key = trimmed.substring(0, eqIdx);
-        final value = trimmed.substring(eqIdx + 1);
-        if (key == 'SESSDATA') result['sessdata'] = value;
-        if (key == 'bili_jct') result['bili_jct'] = value;
-        if (key == 'DedeUserID') result['dedeuserid'] = value;
-      }
-    }
-    return result;
-  }
 }
 
 class BilibiliApiException implements Exception {

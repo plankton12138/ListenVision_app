@@ -55,16 +55,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = ref.watch(isLoggedInProvider);
     final exploreState = ref.watch(exploreViewModelProvider);
-    final bilibiliBound = ref.watch(bilibiliBoundProvider);
-    final isBilibiliBound = bilibiliBound.value ?? false;
 
-    if (!isLoggedIn) {
-      return _buildNotLoggedInPrompt();
-    }
-
-    _initLoadIfNeed(isBilibiliBound);
+    _initLoadIfNeed();
 
     return Scaffold(
       appBar: AppBar(
@@ -102,16 +95,16 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildBilibiliTab(exploreState, isBilibiliBound),
+          _buildBilibiliTab(exploreState),
         ],
       ),
     );
   }
 
-  void _initLoadIfNeed(bool isBilibiliBound) {
+  void _initLoadIfNeed() {
     final exploreState = ref.read(exploreViewModelProvider);
     exploreState.whenData((state) {
-      if (state is ExploreStateInitial && isBilibiliBound) {
+      if (state is ExploreStateInitial) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_tabController.index == 0) {
             ref.read(exploreViewModelProvider.notifier).loadRecommended();
@@ -121,14 +114,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     });
   }
 
-  Widget _buildBilibiliTab(AsyncValue<ExploreState> exploreState, bool isBound) {
-    if (!isBound) {
-      return _buildNotBoundPrompt(
-        platform: 'B站',
-        message: '绑定后可查看B站音乐区热门内容',
-      );
-    }
-
+  Widget _buildBilibiliTab(AsyncValue<ExploreState> exploreState) {
     return exploreState.when(
       loading: () => _buildLoadingView(),
       error: (e, _) => _buildErrorView(e.toString(), () => ref.read(exploreViewModelProvider.notifier).refresh()),
@@ -136,10 +122,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         return state.when(
           initial: () => _buildLoadingView(),
           loading: () => _buildLoadingView(),
-          notBound: () => _buildNotBoundPrompt(
-            platform: 'B站',
-            message: '绑定后可查看B站音乐区热门内容',
-          ),
+          notBound: () => _buildLoadingView(),
           loaded: (items, hasMore, currentPage, type) => type == ExploreType.recommended
               ? _buildRecommendList(items, hasMore)
               : _buildLoadingView(),
@@ -339,66 +322,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       ),
       drawer: const MyDrawer(),
       body: const Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildNotLoggedInPrompt() {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '发现',
-          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
-        ),
-      ),
-      drawer: const MyDrawer(),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.login, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            const Text('请先登录以查看推荐内容'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('去登录'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotBoundPrompt({
-    required String platform,
-    required String message,
-  }) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.link_off, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              '需要绑定$platform账号',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => context.go('/settings'),
-              icon: const Icon(Icons.link),
-              label: const Text('前往绑定'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

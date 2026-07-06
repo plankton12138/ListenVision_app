@@ -33,8 +33,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = ref.watch(isLoggedInProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -46,9 +44,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           IconButton(
             icon: const Icon(Icons.clear_all),
             iconSize: UIConstants.iconMedium,
-            onPressed: isLoggedIn
-                ? () => _showClearHistoryDialog(context)
-                : null,
+            onPressed: () => _showClearHistoryDialog(context),
           ),
           // 返回首页按钮
           IconButton(
@@ -59,28 +55,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         ],
       ),
       drawer: const MyDrawer(),
-      body: !isLoggedIn
-          ? _buildLoginPrompt(context)
-          : _buildHistoryContent(),
-    );
-  }
-
-  /// 构建登录提示
-  Widget _buildLoginPrompt(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.login, size: 64, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-          const SizedBox(height: 16),
-          const Text('请先登录'),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => context.go('/login'),
-            child: const Text('去登录'),
-          ),
-        ],
-      ),
+      body: _buildHistoryContent(),
     );
   }
 

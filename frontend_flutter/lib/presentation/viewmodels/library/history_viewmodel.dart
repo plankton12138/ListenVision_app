@@ -212,53 +212,9 @@ class HistoryViewModel extends _$HistoryViewModel {
 
       await _saveHistoryToLocal();
 
-      // 异步同步到服务器（非阻塞）
-      final token = _storage!.getString('auth_token');
-      if (token != null && token.isNotEmpty && bvid != null) {
-        _syncPlayToServer(
-          token,
-          bvid,
-          cid,
-          progress,
-          title: title,
-          artist: artist,
-          duration: duration,
-          coverUrl: coverUrl,
-        ).catchError((e) {
-          AppLogger.error('HistoryViewModel', '记录播放失败（不影响播放）: $e');
-        });
-      }
-
       AppLogger.info('HistoryViewModel', '记录播放成功：$identifier');
     } catch (e) {
       AppLogger.error('HistoryViewModel', '记录播放失败：$e');
-    }
-  }
-
-  /// 同步播放到服务器
-  Future<void> _syncPlayToServer(
-    String token,
-    String bvid,
-    int? cid,
-    int progress, {
-    String? title,
-    String? artist,
-    int? duration,
-    String? coverUrl,
-  }) async {
-    try {
-      await _repository!.addPlayHistory(
-        bvid: bvid,
-        cid: cid,
-        title: title,
-        artist: artist,
-        duration: duration,
-        coverUrl: coverUrl,
-        progress: progress,
-      );
-    } catch (e) {
-      // 静默失败
-      AppLogger.debug('HistoryViewModel', '同步播放到服务器失败：$e');
     }
   }
 
@@ -287,12 +243,6 @@ class HistoryViewModel extends _$HistoryViewModel {
       ));
 
       await _saveHistoryToLocal();
-
-      // 尝试从服务器删除
-      final token = _storage!.getString('auth_token');
-      if (token != null && token.isNotEmpty) {
-        await _repository!.deletePlayHistory(bvid);
-      }
 
       return true;
     } catch (e) {
@@ -345,12 +295,6 @@ class HistoryViewModel extends _$HistoryViewModel {
       ));
 
       await _storage!.remove('play_history_cache');
-
-      // 尝试从服务器清空
-      final token = _storage!.getString('auth_token');
-      if (token != null && token.isNotEmpty) {
-        await _repository!.clearAllHistory();
-      }
 
       return true;
     } catch (e) {

@@ -271,27 +271,6 @@ class ErrorHandler {
     return false;
   }
 
-  /// 判断是否需要重新登录
-  ///
-  /// 某些错误（如 token 过期）需要引导用户重新登录
-  static bool requiresReauth(dynamic error) {
-    if (error is AuthException) {
-      return error.code == 'TOKEN_EXPIRED' ||
-          error.code == 'TOKEN_INVALID' ||
-          error.code == 'UNAUTHORIZED';
-    }
-
-    if (error is DioException) {
-      return error.response?.statusCode == 401;
-    }
-
-    if (error is ServerException) {
-      return error.statusCode == 401;
-    }
-
-    return false;
-  }
-
   /// 判断是否为网络错误
   static bool isNetworkError(dynamic error) {
     if (error is NetworkException) {

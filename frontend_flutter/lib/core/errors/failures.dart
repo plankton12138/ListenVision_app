@@ -80,37 +80,6 @@ final class ServerFailure extends Failure {
       : super(code: 'FORBIDDEN');
 }
 
-// ==================== 认证相关失败 ====================
-
-/// 认证失败
-final class AuthFailure extends Failure {
-  const AuthFailure({
-    super.message,
-    super.code,
-    super.exception,
-  });
-
-  /// 凭证无效
-  const AuthFailure.invalidCredentials({super.message, super.exception})
-      : super(code: 'INVALID_CREDENTIALS');
-
-  /// Token 过期
-  const AuthFailure.tokenExpired({super.message, super.exception})
-      : super(code: 'TOKEN_EXPIRED');
-
-  /// Token 无效
-  const AuthFailure.tokenInvalid({super.message, super.exception})
-      : super(code: 'TOKEN_INVALID');
-
-  /// 未登录
-  const AuthFailure.notLoggedIn({super.message, super.exception})
-      : super(code: 'NOT_LOGGED_IN');
-
-  /// 登录失败
-  const AuthFailure.loginFailed({super.message, super.exception})
-      : super(code: 'LOGIN_FAILED');
-}
-
 // ==================== 数据相关失败 ====================
 
 /// 数据失败
@@ -196,41 +165,3 @@ final class BusinessFailure extends Failure {
       : super(code: 'INVALID_OPERATION');
 }
 
-// ==================== B站相关失败 ====================
-
-/// B站 API 失败
-final class BilibiliFailure extends Failure {
-  const BilibiliFailure({
-    super.message,
-    super.code,
-    super.exception,
-  });
-
-  /// QR 码过期
-  const BilibiliFailure.qrCodeExpired({super.message, super.exception})
-      : super(code: 'QR_CODE_EXPIRED');
-
-  /// QR 码待扫描
-  const BilibiliFailure.qrCodePending({super.message, super.exception})
-      : super(code: 'QR_CODE_PENDING');
-
-  /// 视频未找到
-  const BilibiliFailure.videoNotFound({super.message, super.exception})
-      : super(code: 'VIDEO_NOT_FOUND');
-
-  /// 音频未找到
-  const BilibiliFailure.audioNotFound({super.message, super.exception})
-      : super(code: 'AUDIO_NOT_FOUND');
-
-  /// Cookie 无效
-  const BilibiliFailure.cookieInvalid({super.message, super.exception})
-      : super(code: 'COOKIE_INVALID');
-
-  /// 请求限流
-  const BilibiliFailure.rateLimit({super.message, super.exception})
-      : super(code: 'RATE_LIMIT');
-
-  /// API 错误
-  const BilibiliFailure.apiError({super.message, super.exception})
-      : super(code: 'API_ERROR');
-}

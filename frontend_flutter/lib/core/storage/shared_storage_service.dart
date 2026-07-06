@@ -224,32 +224,6 @@ class SharedStorageService {
     }
   }
 
-  // ==================== 认证相关快捷方法 ====================
-
-  /// 保存 token (access token)
-  Future<bool> setToken(String token) => setString(StorageKeys.keyToken, token);
-
-  /// 获取 token (access token)
-  String? getToken() => getString(StorageKeys.keyToken);
-
-  /// 删除 token
-  Future<bool> clearToken() => remove(StorageKeys.keyToken);
-
-  /// 保存 refresh token
-  Future<bool> setRefreshToken(String refreshToken) => setString(StorageKeys.keyRefreshToken, refreshToken);
-
-  /// 获取 refresh token
-  String? getRefreshToken() => getString(StorageKeys.keyRefreshToken);
-
-  /// 删除 refresh token
-  Future<bool> clearRefreshToken() => remove(StorageKeys.keyRefreshToken);
-
-  /// 保存用户 ID
-  Future<bool> setUserId(String id) => setString(StorageKeys.keyUserId, id);
-
-  /// 获取用户 ID
-  String? getUserId() => getString(StorageKeys.keyUserId);
-
   // ==================== 主题相关快捷方法 ====================
 
   /// 保存主题模式
@@ -285,4 +259,10 @@ class SharedStorageService {
 
   /// 获取下载音频格式（默认 m4a）
   String getDownloadFormat() => getString(StorageKeys.downloadFormat) ?? 'm4a';
+
+  /// 保存下载封面开关
+  Future<bool> setDownloadCover(bool value) => setBool(StorageKeys.downloadCover, value);
+
+  /// 获取下载封面开关（默认 true）
+  bool getDownloadCover() => getBool(StorageKeys.downloadCover) ?? true;
 }

@@ -48,7 +48,6 @@ class DatabaseConstants {
   static const String playHistoryTable = 'play_history';
   static const String downloadsTable = 'downloads';
   static const String onlineQueueTable = 'online_queue';
-  static const String bilibiliAccountsTable = 'bilibili_accounts';
 
   /// 分页大小
   static const int defaultPageSize = 20;
@@ -59,18 +58,9 @@ class DatabaseConstants {
 
 class StorageConstants {
   /// 本地存储键名
-  static const String keyToken = 'auth_token';
-  static const String keyRefreshToken = 'refresh_token';
-  static const String keyUserId = 'user_id';
-  static const String keyUsername = 'username';
   static const String keyThemeMode = 'theme_mode';
   static const String keyLanguage = 'language';
   static const String keyFirstLaunch = 'first_launch';
-
-  /// 加密存储键（需要加密的敏感数据）
-  static const String encryptedKeyPrefix = 'enc_';
-  static const String keyBilibiliCookie = '${encryptedKeyPrefix}bili_cookie';
-  static const String keyBilibiliUid = '${encryptedKeyPrefix}bili_uid';
 }
 
 // ==================== 缓存常量 ====================
@@ -104,19 +94,6 @@ class BilibiliConstants {
 
   /// B站头像默认 URL
   static const String defaultAvatar = 'https://static.hdslb.com/images/member/noface.gif';
-
-  /// QR码登录状态
-  static const String qrStatusNone = 'none';
-  static const String qrStatusPending = 'pending';
-  static const String qrStatusScanned = 'scanned';
-  static const String qrStatusSuccess = 'success';
-  static const String qrStatusExpired = 'expired';
-
-  /// QR码有效期（秒）
-  static const int qrCodeExpireTime = 180; // 3分钟
-
-  /// QR码轮询间隔（毫秒）
-  static const int qrPollInterval = 2000; // 2秒
 }
 
 // ==================== 播放常量 ====================

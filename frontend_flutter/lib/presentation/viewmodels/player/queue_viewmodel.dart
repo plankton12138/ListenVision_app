@@ -12,8 +12,7 @@ import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/queue_source.dart';
 import '../../../models/play_mode.dart';
-import '../auth/auth_provider.dart' show isLoggedInProvider;
-import '../library/playlist_viewmodel.dart' show playlistViewModelProvider, sharedStorageServiceProvider;
+import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
 
 part 'queue_viewmodel.freezed.dart';
 part 'queue_viewmodel.g.dart';
@@ -653,43 +652,9 @@ class QueueViewModel extends _$QueueViewModel {
     });
   }
 
-  /// 同步播放队列到后端
-  Future<void> _syncNowPlayingToServer() async {
-    // 未登录时不同步
-    final isLoggedIn = ref.read(isLoggedInProvider);
-    if (!isLoggedIn) {
-      AppLogger.debug('QueueViewModel', '未登录，跳过播放队列同步');
-      return;
-    }
-
-    if (state.queue.isEmpty) return;
-
-    try {
-      // 需要导入 PlaylistItem 模型
-      final items = <Map<String, dynamic>>[];
-
-      for (final playable in state.queue) {
-        if (playable is OnlinePlayable) {
-          items.add({
-            'bvid': playable.original.id,
-            'title': playable.title,
-            'artist': playable.artist,
-            'duration': playable.original.duration,
-            'coverUrl': playable.original.coverUrl,
-          });
-        }
-      }
-
-      if (items.isEmpty) return;
-
-      // 调用 PlaylistViewModel 的 saveNowPlayingQueue 方法
-      final playlistViewModel = ref.read(playlistViewModelProvider.notifier);
-      await playlistViewModel.saveNowPlayingQueueFromItems(items);
-
-      AppLogger.info('QueueViewModel', '播放队列已同步到后端: ${items.length}个');
-    } catch (e) {
-      AppLogger.error('QueueViewModel', '同步播放队列失败: $e');
-    }
+  /// 同步播放队列到后端（已移除：无后端架构）
+  void _syncNowPlayingToServer() {
+    // 无后端架构，跳过同步
   }
 }
 

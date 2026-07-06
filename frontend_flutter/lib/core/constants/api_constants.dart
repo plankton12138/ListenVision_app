@@ -19,10 +19,6 @@ class ApiConstants {
 
 /// B站相关常量
 class BilibiliConstants {
-  static const String qrStatusNone = 'none';
-  static const String qrStatusScanned = 'scanned';
-  static const String qrStatusConfirmed = 'confirmed';
-  static const String qrStatusExpired = 'expired';
   static const String videoUrlPrefix = 'https://www.bilibili.com/video/';
   static const String audioUrlPrefix = 'https://audio.';
 }
@@ -32,8 +28,6 @@ class BilibiliConstants {
 class HttpHeaders {
   static const String contentType = 'Content-Type';
   static const String json = 'application/json';
-  static const String authorization = 'Authorization';
-  static const String bearer = 'Bearer ';
   static const String accept = 'Accept';
 }
 

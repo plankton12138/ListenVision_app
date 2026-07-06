@@ -10,8 +10,10 @@ import 'package:listenvision/presentation/views/system/backend_download_page.dar
 import 'package:listenvision/presentation/views/system/not_found_page.dart';
 import 'package:listenvision/presentation/views/system/settings_page.dart';
 import 'package:listenvision/presentation/widgets/player/floating_player_bar.dart';
+import 'package:listenvision/presentation/providers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 路由名称常量
 class AppRoutes {
@@ -56,16 +58,30 @@ final GoRouter routerConfig = GoRouter(
     // ShellRoute — 其他页面统一包裹浮动播放条
     ShellRoute(
       builder: (context, state, child) {
-        return Stack(
-          children: [
-            child,
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: FloatingPlayerBar(),
-            ),
-          ],
+        // 浮动条可见高度 = 2px进度条 + 56px主体，不含系统安全区
+        const barHeight = 58.0;
+        return Consumer(
+          builder: (context, ref, _) {
+            final queueNotEmpty =
+                ref.watch(queueViewModelProvider).queue.isNotEmpty;
+            return Stack(
+              children: [
+                // 有播放内容时预留底部空间，避免被浮动条遮挡
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: queueNotEmpty ? barHeight : 0,
+                  ),
+                  child: child,
+                ),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: FloatingPlayerBar(),
+                ),
+              ],
+            );
+          },
         );
       },
       routes: [

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
+import 'package:listenvision/presentation/routes/router.dart';
 import 'package:listenvision/models/play_mode.dart';
 
 import 'expanded_player_panel.dart';
@@ -21,7 +21,7 @@ class FloatingPlayerBar extends ConsumerWidget {
 
     // 显示条件：有播放内容 && 不在 HomePage && 键盘未弹出
     final hasContent = queueState.queue.isNotEmpty;
-    final location = GoRouterState.of(context).uri.toString();
+    final location = routerConfig.routerDelegate.currentConfiguration.uri.toString();
     final isHomePage = location == '/';
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final isVisible = hasContent && !isHomePage && !keyboardVisible;

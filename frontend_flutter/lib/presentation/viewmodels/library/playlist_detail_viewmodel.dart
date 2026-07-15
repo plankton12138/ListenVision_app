@@ -9,6 +9,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../data/database/app_database.dart';
+import '../../../data/database/playlist_dao.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../models/audio.dart';
@@ -793,7 +795,87 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       failedItems: failedItems,
     );
   }
+
+  // ==================== 排序与重排功能 ====================
+
+  /// 拖拽重排
+  Future<void> reorderItems(int oldIndex, int newIndex) async {
+    final current = state.valueOrNull?.maybeWhen(
+      loaded: (_, items, __) => items, orElse: () => null,
+    );
+    if (current == null) return;
+
+    final reordered = List<PlaylistItem>.from(current);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+
+    // 乐观更新
+    _updateItems(reordered);
+
+    // 持久化
+    await _persistReorder(reordered);
+    AppLogger.info('PlaylistDetailViewModel', '重排歌单项完成');
+  }
+
+  /// 自动排序
+  Future<void> sortItems(SortField field) async {
+    final current = state.valueOrNull?.maybeWhen(
+      loaded: (_, items, __) => items, orElse: () => null,
+    );
+    if (current == null) return;
+
+    List<PlaylistItem> sorted;
+    switch (field) {
+      case SortField.title:
+        sorted = List<PlaylistItem>.from(current)
+          ..sort((a, b) => (a.title ?? '').compareTo(b.title ?? ''));
+      case SortField.artist:
+        sorted = List<PlaylistItem>.from(current)
+          ..sort((a, b) => (a.artist ?? '').compareTo(b.artist ?? ''));
+      case SortField.duration:
+        sorted = List<PlaylistItem>.from(current)
+          ..sort((a, b) => (a.duration ?? 0).compareTo(b.duration ?? 0));
+      case SortField.addedAt:
+        sorted = List<PlaylistItem>.from(current)
+          ..sort((a, b) => (b.addedAt ?? DateTime(0)).compareTo(a.addedAt ?? DateTime(0)));
+    }
+    _updateItems(sorted);
+    await _persistReorder(sorted);
+    AppLogger.info('PlaylistDetailViewModel', '排序歌单项完成: $field');
+  }
+
+  /// 乐观更新本地 items 列表
+  void _updateItems(List<PlaylistItem> items) {
+    final currentState = state.valueOrNull;
+    if (currentState is! PlaylistDetailStateLoaded) return;
+    // 修复 position
+    for (var i = 0; i < items.length; i++) {
+      items[i] = items[i].copyWith(position: i);
+    }
+    if (!ref.mounted) return;
+    state = AsyncData(currentState.copyWith(items: items));
+  }
+
+  /// 持久化排序结果到数据库
+  Future<void> _persistReorder(List<PlaylistItem> items) async {
+    final db = await AppDatabase.instance.database;
+    await db.transaction((txn) async {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].id != null) {
+          await txn.update(
+            'playlist_items',
+            {'position': i},
+            where: 'id = ?',
+            whereArgs: [int.tryParse(items[i].id!)],
+          );
+        }
+      }
+    });
+  }
 }
+
+/// 排序字段枚举
+enum SortField { title, artist, duration, addedAt }
 
 /// Provider定义
 @riverpod

@@ -56,6 +56,9 @@ class HistoryViewModel extends _$HistoryViewModel {
   bool _undone = false;
   List<PlayHistory>? _removedItems;
 
+  // 分页相关
+  int _currentPage = 1;
+
   @override
   Future<HistoryState> build() async {
     _repository = ref.watch(historyRepositoryProvider);
@@ -373,6 +376,40 @@ class HistoryViewModel extends _$HistoryViewModel {
     if (!ref.mounted) return;
     state = AsyncData(const HistoryState.initial());
     AppLogger.info('HistoryViewModel', '已清空数据');
+  }
+
+  /// 加载更多历史（分页）
+  Future<void> loadMoreHistory() async {
+    _currentPage++;
+    try {
+      final more = await _repository!.getPlayHistory(
+        page: _currentPage,
+        pageSize: 50,
+      );
+      if (more.isEmpty) {
+        _currentPage--;
+        return;
+      }
+
+      final current = state.valueOrNull?.maybeWhen(
+        loaded: (h, _) => h, orElse: () => <PlayHistory>[],
+      ) ?? <PlayHistory>[];
+      final currentStats = state.valueOrNull?.maybeWhen(
+        loaded: (_, stats) => stats,
+        orElse: () => null,
+      );
+
+      if (!ref.mounted) return;
+      state = AsyncData(HistoryState.loaded(
+        history: [...current, ...more],
+        stats: currentStats,
+      ));
+
+      AppLogger.info('HistoryViewModel', '加载更多历史: page=$_currentPage, +${more.length}条');
+    } catch (e) {
+      _currentPage--;
+      AppLogger.error('HistoryViewModel', '加载更多历史失败: $e');
+    }
   }
 
   // ==================== 私有方法 ====================

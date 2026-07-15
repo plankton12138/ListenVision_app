@@ -22,6 +22,35 @@ class PlayHistoryPage extends ConsumerStatefulWidget {
 }
 
 class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
+  final _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    _isLoadingMore = true;
+    await ref.read(historyViewModelProvider.notifier).loadMoreHistory();
+    _isLoadingMore = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,6 +96,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               // 历史列表
               Expanded(
                 child: ListView.builder(
+                  controller: _scrollController,
                   itemCount: history.length,
                   itemBuilder: (context, index) {
                     final item = history[index];

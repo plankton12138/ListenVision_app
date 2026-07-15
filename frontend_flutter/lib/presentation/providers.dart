@@ -4,7 +4,8 @@
 library;
 
 // ==================== Repository 层（本地优先架构）====================
-export '../data/repositories/repository_providers.dart';
+export '../data/repositories/repository_providers.dart'
+    hide favoriteTracksProvider;
 
 // ==================== 服务层 ====================
 export '../../services/bilibili_api_service.dart' show bilibiliApiServiceProvider;
@@ -23,12 +24,10 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 
 // ==================== 资源库相关 ====================
 export 'viewmodels/library/playlist_viewmodel.dart' show playlistListProvider;
-export 'viewmodels/library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
 export 'viewmodels/library/favorite_tracks_notifier.dart' show favoriteTracksProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show playlistDetailViewModelProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show PlaylistDetailState;
 export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;
-export 'viewmodels/library/history_viewmodel.dart' show historyStateProvider;
 export 'viewmodels/library/history_viewmodel.dart' show HistoryState;
 export 'viewmodels/library/history_viewmodel.dart' show PlayHistoryStats;
 export '../../../models/play_history.dart' show PlayHistory;

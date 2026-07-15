@@ -30,7 +30,7 @@ class AppDatabase {
 
     final db = await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -133,6 +133,7 @@ class AppDatabase {
         played_at $textType,
         duration $intType,
         position $intType DEFAULT 0,
+        source_type $textNullableType,
         is_completed $intType DEFAULT 0,
         FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE SET NULL
       )
@@ -256,6 +257,11 @@ class AppDatabase {
     // 版本 11 -> 12: 添加 album_title 字段到 download_tasks 表
     if (oldVersion < 12) {
       await _upgradeToV12(db);
+    }
+
+    // 版本 12 -> 13: 播放历史来源追踪 + 清理 nowPlaying
+    if (oldVersion < 13) {
+      await _upgradeToV13(db);
     }
   }
 
@@ -766,6 +772,38 @@ class AppDatabase {
     } catch (e) {
       AppLogger.debug("AppDatabase", "album_title 字段可能已存在: $e");
     }
+  }
+
+  /// 升级到版本 13：播放历史来源追踪 + 清理 nowPlaying
+  Future<void> _upgradeToV13(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V13：播放历史来源追踪 + 清理 nowPlaying');
+
+    // 1. 添加 source_type 字段
+    try {
+      await db.execute('ALTER TABLE play_history ADD COLUMN source_type TEXT');
+    } catch (e) {
+      AppLogger.debug('AppDatabase', 'source_type 字段可能已存在: $e');
+    }
+
+    // 2. 添加 source_id 字段
+    try {
+      await db.execute('ALTER TABLE play_history ADD COLUMN source_id TEXT');
+    } catch (e) {
+      AppLogger.debug('AppDatabase', 'source_id 字段可能已存在: $e');
+    }
+
+    // 3. 清理 now_playing 系统歌单及其关联项
+    final nowPlayingRows = await db.query(
+      'playlists',
+      where: 'system_type = ?',
+      whereArgs: ['now_playing'],
+    );
+    for (final row in nowPlayingRows) {
+      final id = row['id'] as int;
+      await db.delete('playlist_items', where: 'playlist_id = ?', whereArgs: [id]);
+      await db.delete('playlists', where: 'id = ?', whereArgs: [id]);
+    }
+    AppLogger.info('AppDatabase', 'V13 迁移完成');
   }
 
   // ==================== Tracks CRUD ====================

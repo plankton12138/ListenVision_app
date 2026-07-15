@@ -1,79 +1,40 @@
+import 'dart:async';
+
 import '../../core/utils/app_logger.dart';
 import '../../models/play_history.dart';
 import '../../models/audio.dart';
 import '../database/app_database.dart';
+import '../database/play_history_dao.dart';
 
-/// 播放历史仓库
-///
-/// 负责播放历史相关的本地数据操作
 class PlayHistoryRepository {
-  final AppDatabase _db;
+  final PlayHistoryDao _dao;
+  final StreamController<List<PlayHistory>> _controller =
+      StreamController<List<PlayHistory>>.broadcast();
 
-  PlayHistoryRepository({AppDatabase? db})
-      : _db = db ?? AppDatabase.instance;
+  PlayHistoryRepository({AppDatabase? db, PlayHistoryDao? dao})
+      : _dao = dao ?? PlayHistoryDao(db ?? AppDatabase.instance);
 
-  // ==================== 播放历史操作 ====================
+  /// 监听历史变更的 Stream
+  Stream<List<PlayHistory>> watchHistory() => _controller.stream;
 
-  /// 获取播放历史列表
+  /// 分页获取历史
   Future<List<PlayHistory>> getPlayHistory({
     int page = 1,
-    int pageSize = 20,
+    int pageSize = 50,
   }) async {
     try {
-      final offset = (page - 1) * pageSize;
-      final historyMaps = await _db.getRecentPlayHistory(
-        limit: pageSize,
-      );
-
-      // 如果 offset > 0，需要跳过前面的记录
-      final pagedMaps = offset > 0 && offset < historyMaps.length
-          ? historyMaps.skip(offset).toList()
-          : offset == 0
-              ? historyMaps
-              : <Map<String, dynamic>>[];
-
-      final history = <PlayHistory>[];
-      for (final map in pagedMaps) {
-        try {
-          final sourceId = map['source_id'] as String? ?? '';
-          final title = map['title'] as String? ?? '';
-          final artist = map['artist'] as String? ?? '';
-          final coverUrl = map['cover_url'] as String? ?? '';
-          final duration = map['duration'] as int? ?? 0;
-          final progress = map['position'] as int? ?? 0;
-          final playedAtStr = map['played_at'] as String? ?? '';
-          final playedAt = DateTime.tryParse(playedAtStr) ?? DateTime.now();
-
-          final audio = Audio(
-            id: sourceId,
-            title: title,
-            artist: artist,
-            coverUrl: coverUrl,
-            duration: duration > 0 ? duration : null,
-          );
-
-          history.add(PlayHistory(
-            id: map['id']?.toString() ?? '',
-            userId: '',
-            audio: audio,
-            playedAt: playedAt,
-            progress: progress,
-          ));
-        } catch (e) {
-          AppLogger.error('PlayHistoryRepository', '解析播放历史记录失败: $e');
-        }
-      }
-
-      AppLogger.info('PlayHistoryRepository', '获取播放历史成功：${history.length}条');
+      final maps = await _dao.getHistory(page: page, pageSize: pageSize);
+      final history = maps.map(_parseRow).toList();
+      AppLogger.debug('PlayHistoryRepository', '加载历史: page=$page, ${history.length}条');
       return history;
     } catch (e) {
-      AppLogger.error('PlayHistoryRepository', '获取播放历史失败：$e');
+      AppLogger.error('PlayHistoryRepository', '获取历史失败: $e');
       return [];
     }
   }
 
-  /// 添加播放历史
-  Future<bool> addPlayHistory({
+  /// 记录播放
+  Future<void> recordPlay({
     required String bvid,
     int? cid,
     String? title,
@@ -81,75 +42,104 @@ class PlayHistoryRepository {
     int? duration,
     String? coverUrl,
     int? progress,
+    String? sourceType,
+    String? sourceId,
   }) async {
     try {
-      await _db.insertPlayHistory({
+      final map = <String, dynamic>{
         'source_id': bvid,
         'title': title ?? bvid,
         'artist': artist ?? '',
         'cover_url': coverUrl ?? '',
         'duration': duration ?? 0,
         'position': progress ?? 0,
-      });
-      AppLogger.debug('PlayHistoryRepository', '添加播放历史：$bvid - $title');
-      return true;
+        if (sourceType != null) 'source_type': sourceType,
+      };
+      if (sourceId != null) {
+        map['source_id'] = sourceId;
+      }
+      await _dao.upsert(map);
+      _notifyChange();
     } catch (e) {
-      AppLogger.error('PlayHistoryRepository', '添加播放历史失败：$e');
-      return false;
+      AppLogger.error('PlayHistoryRepository', '记录播放失败: $e');
     }
   }
 
-  /// 更新播放历史进度
-  Future<bool> updatePlayHistory({
-    required String id,
-    int? progress,
-  }) async {
-    try {
-      final db = await _db.database;
-      final data = <String, dynamic>{};
-      if (progress != null) data['position'] = progress;
-      data['played_at'] = DateTime.now().toIso8601String();
+  /// 删除单条
+  Future<void> deleteById(int id) async {
+    await _dao.deleteById(id);
+    _notifyChange();
+  }
 
-      await db.update(
-        'play_history',
-        data,
-        where: 'id = ?',
-        whereArgs: [int.tryParse(id) ?? id],
-      );
-      AppLogger.debug('PlayHistoryRepository', '更新播放历史：$id');
-      return true;
-    } catch (e) {
-      AppLogger.error('PlayHistoryRepository', '更新播放历史失败：$e');
-      return false;
+  /// 批量删除
+  Future<void> deleteByIds(List<int> ids) async {
+    if (ids.isEmpty) return;
+    await _dao.deleteByIds(ids);
+    _notifyChange();
+  }
+
+  /// 清空
+  Future<void> clearAll() async {
+    await _dao.clearAll();
+    _notifyChange();
+  }
+
+  /// 获取收藏曲目 ID 集合
+  Future<Set<String>> getFavoriteTrackIds() async {
+    final db = await AppDatabase.instance.database;
+    final rows = await db.query(
+      'tracks',
+      where: 'is_favorite = ?',
+      whereArgs: [1],
+      columns: ['source_id'],
+    );
+    return rows.map((r) => r['source_id'] as String).toSet();
+  }
+
+  // --- private ---
+
+  PlayHistory _parseRow(Map<String, dynamic> map) {
+    final sourceId = map['source_id'] as String? ?? '';
+    return PlayHistory(
+      id: map['id']?.toString() ?? '',
+      userId: '',
+      audio: Audio(
+        id: sourceId,
+        title: map['title'] as String? ?? '',
+        artist: map['artist'] as String?,
+        duration: map['duration'] as int?,
+        coverUrl: map['cover_url'] as String?,
+      ),
+      playedAt:
+          DateTime.tryParse(map['played_at'] as String? ?? '') ?? DateTime.now(),
+      progress: map['position'] as int? ?? 0,
+      source: _parseSource(
+          map['source_type'] as String?, map['source_id'] as String?),
+    );
+  }
+
+  PlaySource? _parseSource(String? type, String? id) {
+    if (type == null) return null;
+    switch (type) {
+      case 'playlist':
+        return PlaySource.playlist(id ?? '');
+      case 'search':
+        return PlaySource.search(id ?? '');
+      case 'history':
+        return const PlaySource.history();
+      case 'manual':
+        return const PlaySource.manual();
+      default:
+        return null;
     }
   }
 
-  /// 删除播放历史
-  Future<bool> deletePlayHistory(String id) async {
-    try {
-      final db = await _db.database;
-      await db.delete(
-        'play_history',
-        where: 'id = ?',
-        whereArgs: [int.tryParse(id) ?? id],
-      );
-      AppLogger.info('PlayHistoryRepository', '删除播放历史：$id');
-      return true;
-    } catch (e) {
-      AppLogger.error('PlayHistoryRepository', '删除播放历史失败：$e');
-      return false;
-    }
+  Future<void> _notifyChange() async {
+    final history = await getPlayHistory(pageSize: 50);
+    if (!_controller.isClosed) _controller.add(history);
   }
 
-  /// 清空所有播放历史
-  Future<bool> clearAllHistory() async {
-    try {
-      await _db.clearPlayHistory();
-      AppLogger.info('PlayHistoryRepository', '清空所有播放历史');
-      return true;
-    } catch (e) {
-      AppLogger.error('PlayHistoryRepository', '清空播放历史失败：$e');
-      return false;
-    }
+  void dispose() {
+    _controller.close();
   }
 }

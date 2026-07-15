@@ -4,5 +4,6 @@
 library;
 
 export 'app_database.dart';
-export 'track_dao.dart';
 export 'download_task_dao.dart';
+export 'play_history_dao.dart';
+export 'track_dao.dart';

@@ -4,6 +4,18 @@ import 'audio.dart';
 part 'play_history.freezed.dart';
 part 'play_history.g.dart';
 
+/// 播放来源
+@freezed
+abstract class PlaySource with _$PlaySource {
+  const factory PlaySource.playlist(String playlistId) = _FromPlaylist;
+  const factory PlaySource.search(String query) = _FromSearch;
+  const factory PlaySource.history() = _FromHistory;
+  const factory PlaySource.manual() = _FromManual;
+
+  factory PlaySource.fromJson(Map<String, dynamic> json) =>
+      _$PlaySourceFromJson(json);
+}
+
 /// 播放历史实体
 @freezed
 abstract class PlayHistory with _$PlayHistory {
@@ -15,6 +27,7 @@ abstract class PlayHistory with _$PlayHistory {
     required Audio audio,
     required DateTime playedAt,
     @Default(0) int progress, // 播放进度（秒）
+    PlaySource? source,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _PlayHistory;
@@ -42,12 +55,33 @@ abstract class PlayHistory with _$PlayHistory {
       return 0;
     };
 
+    PlaySource? source;
+    final sourceType = json['source_type'] as String?;
+    final sourceId = json['source_id'] as String?;
+    if (sourceType != null) {
+      switch (sourceType) {
+        case 'playlist':
+          source = PlaySource.playlist(sourceId ?? '');
+          break;
+        case 'search':
+          source = PlaySource.search(sourceId ?? '');
+          break;
+        case 'history':
+          source = const PlaySource.history();
+          break;
+        case 'manual':
+          source = const PlaySource.manual();
+          break;
+      }
+    }
+
     return PlayHistory(
       id: safeString(json['id']) ?? '',
       userId: safeString(json['user_id'] ?? json['userId']) ?? '',
       audio: Audio.fromDto(json), // Audio 可以从整个 JSON 解析
       playedAt: _parseDateTime(json['played_at'] ?? json['playedAt']) ?? DateTime.now(),
       progress: safeInt(json['progress']),
+      source: source,
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
     );

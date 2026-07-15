@@ -13,7 +13,7 @@ part of 'play_queue.dart';
 T _$identity<T>(T value) => value;
 
 /// @nodoc
-mixin _$PlayQueue implements DiagnosticableTreeMixin {
+mixin _$PlayQueue {
 
 /// 曲目列表
 @PlayableAudioConverter() List<PlayableAudio> get tracks;/// 当前播放索引
@@ -30,12 +30,6 @@ $PlayQueueCopyWith<PlayQueue> get copyWith => _$PlayQueueCopyWithImpl<PlayQueue>
   /// Serializes this PlayQueue to a JSON map.
   Map<String, dynamic> toJson();
 
-@override
-void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-  properties
-    ..add(DiagnosticsProperty('type', 'PlayQueue'))
-    ..add(DiagnosticsProperty('tracks', tracks))..add(DiagnosticsProperty('currentIndex', currentIndex))..add(DiagnosticsProperty('playMode', playMode))..add(DiagnosticsProperty('shuffleOrder', shuffleOrder))..add(DiagnosticsProperty('source', source));
-}
 
 @override
 bool operator ==(Object other) {
@@ -47,7 +41,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(tracks),currentIndex,playMode,const DeepCollectionEquality().hash(shuffleOrder),source);
 
 @override
-String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+String toString() {
   return 'PlayQueue(tracks: $tracks, currentIndex: $currentIndex, playMode: $playMode, shuffleOrder: $shuffleOrder, source: $source)';
 }
 
@@ -223,7 +217,7 @@ return $default(_that.tracks,_that.currentIndex,_that.playMode,_that.shuffleOrde
 /// @nodoc
 @JsonSerializable()
 
-class _PlayQueue with DiagnosticableTreeMixin implements PlayQueue {
+class _PlayQueue implements PlayQueue {
   const _PlayQueue({@PlayableAudioConverter() required final  List<PlayableAudio> tracks, required this.currentIndex, this.playMode = PlayMode.sequence, final  List<int> shuffleOrder = const [], this.source}): _tracks = tracks,_shuffleOrder = shuffleOrder;
   factory _PlayQueue.fromJson(Map<String, dynamic> json) => _$PlayQueueFromJson(json);
 
@@ -262,12 +256,6 @@ _$PlayQueueCopyWith<_PlayQueue> get copyWith => __$PlayQueueCopyWithImpl<_PlayQu
 Map<String, dynamic> toJson() {
   return _$PlayQueueToJson(this, );
 }
-@override
-void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-  properties
-    ..add(DiagnosticsProperty('type', 'PlayQueue'))
-    ..add(DiagnosticsProperty('tracks', tracks))..add(DiagnosticsProperty('currentIndex', currentIndex))..add(DiagnosticsProperty('playMode', playMode))..add(DiagnosticsProperty('shuffleOrder', shuffleOrder))..add(DiagnosticsProperty('source', source));
-}
 
 @override
 bool operator ==(Object other) {
@@ -279,7 +267,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tracks),currentIndex,playMode,const DeepCollectionEquality().hash(_shuffleOrder),source);
 
 @override
-String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
+String toString() {
   return 'PlayQueue(tracks: $tracks, currentIndex: $currentIndex, playMode: $playMode, shuffleOrder: $shuffleOrder, source: $source)';
 }
 

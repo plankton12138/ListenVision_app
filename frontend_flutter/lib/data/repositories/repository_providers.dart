@@ -5,8 +5,10 @@ import '../../models/download_task.dart';
 import '../../core/utils/file_picker_helper.dart';
 import '../database/app_database.dart';
 import '../database/download_task_dao.dart';
+import '../database/play_history_dao.dart';
 import '../database/track_dao.dart';
 import 'download_repository.dart';
+import 'history_repository.dart';
 import 'track_repository.dart';
 
 // ==================== 数据库 Providers ====================
@@ -28,6 +30,12 @@ final trackDaoProvider = Provider<TrackDao>((ref) {
 final downloadTaskDaoProvider = Provider<DownloadTaskDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return DownloadTaskDao(db);
+});
+
+/// PlayHistoryDao Provider
+final playHistoryDaoProvider = Provider<PlayHistoryDao>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return PlayHistoryDao(db);
 });
 
 // ==================== Repository Providers ====================
@@ -64,6 +72,15 @@ final downloadRepositoryProvider = Provider<DownloadRepository>((ref) {
     repository.dispose();
   });
 
+  return repository;
+});
+
+/// PlayHistoryRepository Provider
+final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
+  final repository = PlayHistoryRepository(
+    dao: ref.watch(playHistoryDaoProvider),
+  );
+  ref.onDispose(() => repository.dispose());
   return repository;
 });
 

@@ -106,6 +106,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
 
   Widget _buildContent(BuildContext context, WidgetRef ref, List<Playlist> playlists) {
     final userPlaylists = playlists.where((p) => p.isUserPlaylist).toList();
+    final favCount = ref.watch(favoriteTracksProvider).whenOrNull(data: (ids) => ids.length) ?? 0;
 
     return Column(
       children: [
@@ -117,7 +118,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.favorite, color: Colors.red),
           title: const Text('我喜欢'),
-          subtitle: const Text('0首'),
+          subtitle: Text('$favCount首'),
           onTap: () {
             context.push('/playlists/${Playlist.favorites.id}');
           },

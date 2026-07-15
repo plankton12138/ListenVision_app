@@ -635,10 +635,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     ).then((confirmed) {
       if (confirmed == true) {
         final bvid = item.bvid as String?;
-        if (bvid != null) {
+        if (bvid != null && mounted) {
           ref
               .read(playlistDetailViewModelProvider(widget.playlistId).notifier)
               .removeItem(bvid);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已移除 "${item.title ?? '歌曲'}"'),
+              action: SnackBarAction(
+                label: '撤销',
+                onPressed: () {
+                  ref
+                      .read(playlistDetailViewModelProvider(widget.playlistId).notifier)
+                      .undoRemove();
+                },
+              ),
+            ),
+          );
         }
       }
     });

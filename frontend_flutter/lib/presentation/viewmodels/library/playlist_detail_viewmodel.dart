@@ -87,6 +87,11 @@ abstract class BatchOperationResult with _$BatchOperationResult {
 class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   PlaylistRepository? _repository;
 
+  // Undo 删除相关字段
+  bool _undone = false;
+  PlaylistItem? _removedItem;
+  int _removedIndex = -1;
+
   // 批量操作状态
   final _batchState = ValueNotifier<BatchOperationState>(
     const BatchOperationState(),
@@ -207,7 +212,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     }
   }
 
-  /// 移除歌单项
+  /// 移除歌单项（延迟 3 秒持久化，支持撤销）
   Future<bool> removeItem(String bvid) async {
     final playlistId = state.valueOrNull?.maybeWhen(
       loaded: (playlist, _, __) => playlist.id,
@@ -218,35 +223,85 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     try {
       AppLogger.info('PlaylistDetailViewModel', '移除歌单项: $bvid');
 
-      await _repository!.removePlaylistItem(
-        playlistId: playlistId,
-        bvid: bvid,
+      final currentState = state.valueOrNull;
+      if (currentState is! PlaylistDetailStateLoaded) return false;
+
+      final index = currentState.items.indexWhere((item) => item.bvid == bvid);
+      if (index == -1) return false;
+
+      final removedItem = currentState.items[index];
+
+      // 乐观更新：立即从本地列表移除
+      final updatedItems = currentState.items.where((item) => item.bvid != bvid).toList();
+      final updatedPlaylist = currentState.playlist.copyWith(
+        itemCount: updatedItems.length,
       );
 
-      // 更新本地状态
-      final currentState = state.valueOrNull;
-      if (currentState is PlaylistDetailStateLoaded) {
-        final updatedItems = currentState.items.where((item) => item.bvid != bvid).toList();
-        final updatedPlaylist = currentState.playlist.copyWith(
-          itemCount: updatedItems.length,
-        );
+      if (!ref.mounted) return false;
+      state = AsyncData(currentState.copyWith(
+        playlist: updatedPlaylist,
+        items: updatedItems,
+      ));
 
-        final newState = currentState.copyWith(
-          playlist: updatedPlaylist,
-          items: updatedItems,
-        );
+      _undone = false;
+      _removedItem = removedItem;
+      _removedIndex = index;
 
-        if (!ref.mounted) return true;
-        state = AsyncData(newState);
+      AppLogger.info('PlaylistDetailViewModel', '标记删除歌单项（3s后持久化）：$bvid');
+
+      // 延迟 3 秒持久化
+      await Future.delayed(const Duration(seconds: 3));
+      if (!_undone) {
+        await _repository!.removePlaylistItem(
+          playlistId: playlistId,
+          bvid: bvid,
+        );
+        AppLogger.info('PlaylistDetailViewModel', '已持久化删除歌单项：$bvid');
       }
+      _removedItem = null;
+      _removedIndex = -1;
 
-      // 触发 PlaylistViewModel 刷新以同步状态
-      AppLogger.info('PlaylistDetailViewModel', '移除歌单项成功');
       return true;
     } catch (e) {
       AppLogger.error('PlaylistDetailViewModel', '移除歌单项失败: $e');
       return false;
     }
+  }
+
+  /// 撤销最近一次删除（歌单项）
+  void undoRemove() {
+    if (_removedItem == null) return;
+    _undone = true;
+
+    final currentState = state.valueOrNull;
+    if (currentState is! PlaylistDetailStateLoaded) {
+      _removedItem = null;
+      _removedIndex = -1;
+      return;
+    }
+
+    final updatedItems = List<PlaylistItem>.from(currentState.items);
+    final insertIndex = _removedIndex.clamp(0, updatedItems.length);
+    updatedItems.insert(insertIndex, _removedItem!);
+
+    // 修复 position
+    for (var i = 0; i < updatedItems.length; i++) {
+      updatedItems[i] = updatedItems[i].copyWith(position: i);
+    }
+
+    final updatedPlaylist = currentState.playlist.copyWith(
+      itemCount: updatedItems.length,
+    );
+
+    if (!ref.mounted) return;
+    state = AsyncData(currentState.copyWith(
+      playlist: updatedPlaylist,
+      items: updatedItems,
+    ));
+
+    _removedItem = null;
+    _removedIndex = -1;
+    AppLogger.info('PlaylistDetailViewModel', '已撤销删除歌单项');
   }
 
   /// 播放全部

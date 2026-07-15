@@ -571,6 +571,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
             duration: playable.original.duration,
             coverUrl: playable.coverUrl,
             progress: 0,
+            sourceType: 'manual',
           );
     } catch (e) {
       AppLogger.debug('PlaybackViewModel', '记录历史失败: $e');

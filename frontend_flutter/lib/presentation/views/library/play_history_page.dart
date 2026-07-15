@@ -23,15 +23,6 @@ class PlayHistoryPage extends ConsumerStatefulWidget {
 
 class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   @override
-  void initState() {
-    super.initState();
-    // 页面加载时获取历史记录
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(historyViewModelProvider.notifier).loadHistory();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

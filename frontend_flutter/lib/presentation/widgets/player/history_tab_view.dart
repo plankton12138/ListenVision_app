@@ -196,7 +196,7 @@ class HistoryTabView extends ConsumerWidget {
                     label: '移除',
                     onPressed: () {
                       // 从历史中移除该项
-                      ref.read(historyViewModelProvider.notifier).removeHistoryItem(item.id);
+                      ref.read(historyViewModelProvider.notifier).removeHistoryById(item.id);
                     },
                   ),
                 ),

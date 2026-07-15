@@ -362,6 +362,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       isPaused: false,
       currentPlayable: null,
       currentIndex: -1,
+      title: '',
+      artist: '',
+      albumTitle: null,
+      coverUrl: null,
+      coverData: null,
     );
     _validateState();
     AppLogger.debug('PlaybackViewModel', '停止');

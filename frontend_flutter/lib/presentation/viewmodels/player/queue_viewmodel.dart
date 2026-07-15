@@ -14,6 +14,7 @@ import '../../../models/play_queue.dart';
 import '../../../models/play_mode.dart';
 import '../../../models/queue_source.dart';
 import '../library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
+import 'playback_viewmodel.dart';
 
 part 'queue_viewmodel.freezed.dart';
 part 'queue_viewmodel.g.dart';
@@ -292,6 +293,10 @@ class QueueViewModel extends _$QueueViewModel {
     state = state.copyWith(queue: null);
 
     await _saveToStorage();
+
+    // 通知播放器停止，回到无播放内容状态
+    ref.read(playbackViewModelProvider.notifier).stop();
+
     AppLogger.info('QueueViewModel', '清空播放队列');
   }
 

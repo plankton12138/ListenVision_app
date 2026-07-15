@@ -32,19 +32,19 @@ Map<String, dynamic> _$PlayHistoryStatsToJson(_PlayHistoryStats instance) =>
 // ignore_for_file: type=lint, type=warning
 /// 播放历史 ViewModel
 ///
-/// 负责播放历史记录的状态管理
+/// 负责播放历史记录的状态管理，直接从 SQLite 加载并监听 Stream 增量更新。
 
 @ProviderFor(HistoryViewModel)
 final historyViewModelProvider = HistoryViewModelProvider._();
 
 /// 播放历史 ViewModel
 ///
-/// 负责播放历史记录的状态管理
+/// 负责播放历史记录的状态管理，直接从 SQLite 加载并监听 Stream 增量更新。
 final class HistoryViewModelProvider
     extends $AsyncNotifierProvider<HistoryViewModel, HistoryState> {
   /// 播放历史 ViewModel
   ///
-  /// 负责播放历史记录的状态管理
+  /// 负责播放历史记录的状态管理，直接从 SQLite 加载并监听 Stream 增量更新。
   HistoryViewModelProvider._()
     : super(
         from: null,
@@ -64,11 +64,11 @@ final class HistoryViewModelProvider
   HistoryViewModel create() => HistoryViewModel();
 }
 
-String _$historyViewModelHash() => r'54b275da0128d926364c8ba9b6523686d6608122';
+String _$historyViewModelHash() => r'4109cfd2da52e970a8ea1effb4605920e16180e7';
 
 /// 播放历史 ViewModel
 ///
-/// 负责播放历史记录的状态管理
+/// 负责播放历史记录的状态管理，直接从 SQLite 加载并监听 Stream 增量更新。
 
 abstract class _$HistoryViewModel extends $AsyncNotifier<HistoryState> {
   FutureOr<HistoryState> build();

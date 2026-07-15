@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../core/storage/shared_storage_service.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../models/play_history.dart';
 import '../../../models/audio.dart';
@@ -50,26 +47,34 @@ abstract class PlayHistoryStats with _$PlayHistoryStats {
 
 /// 播放历史 ViewModel
 ///
-/// 负责播放历史记录的状态管理
+/// 负责播放历史记录的状态管理，直接从 SQLite 加载并监听 Stream 增量更新。
 @Riverpod(keepAlive: true)
 class HistoryViewModel extends _$HistoryViewModel {
   PlayHistoryRepository? _repository;
-  SharedStorageService? _storage;
 
   @override
   Future<HistoryState> build() async {
     _repository = ref.watch(historyRepositoryProvider);
-    _storage = SharedStorageService.instance;
 
     try {
-      return await _loadHistoryFromLocal();
+      // 从 SQLite 加载首屏数据
+      final history = await _repository!.getPlayHistory(pageSize: 50);
+
+      // 订阅 Stream 做增量更新
+      _repository!.watchHistory().listen((updated) {
+        if (ref.mounted) {
+          state = AsyncData(HistoryState.loaded(history: updated));
+        }
+      });
+
+      return HistoryState.loaded(history: history);
     } catch (e) {
       AppLogger.error('HistoryViewModel', '初始化失败：$e');
       return HistoryState.error(message: e.toString());
     }
   }
 
-  /// 从服务器加载播放历史
+  /// 从 SQLite 加载播放历史
   Future<void> loadHistory({int limit = 50}) async {
     try {
       AppLogger.info('HistoryViewModel', '加载播放历史：limit=$limit');
@@ -90,13 +95,11 @@ class HistoryViewModel extends _$HistoryViewModel {
         stats: currentStats,
       ));
 
-      await _saveHistoryToLocal();
       AppLogger.info('HistoryViewModel', '加载播放历史成功：${history.length}条');
     } catch (e) {
       AppLogger.error('HistoryViewModel', '加载播放历史失败：$e');
-      // 尝试从本地加载
       if (!ref.mounted) return;
-      state = AsyncData(await _loadHistoryFromLocal());
+      state = AsyncData(await _loadHistoryFromFallback());
     }
   }
 
@@ -121,7 +124,6 @@ class HistoryViewModel extends _$HistoryViewModel {
         stats: currentStats,
       ));
 
-      await _saveHistoryToLocal();
       AppLogger.info('HistoryViewModel', '加载所有播放历史成功：${history.length}条');
     } catch (e) {
       AppLogger.error('HistoryViewModel', '加载所有播放历史失败：$e');
@@ -142,6 +144,8 @@ class HistoryViewModel extends _$HistoryViewModel {
     String? coverUrl,
     String? streamUrl,
     int progress = 0,
+    String? sourceType,
+    String? sourceId,
   }) async {
     // 确定音频标识符（本地音频使用文件路径作为 ID）
     final identifier = bvid ?? localPath ?? '';
@@ -188,10 +192,6 @@ class HistoryViewModel extends _$HistoryViewModel {
       } else {
         // 添加新记录到开头
         updatedHistory = [newItem, ...currentHistory];
-        // 限制历史记录数量
-        if (updatedHistory.length > 100) {
-          updatedHistory = updatedHistory.sublist(0, 100);
-        }
       }
 
       // 更新统计
@@ -210,7 +210,17 @@ class HistoryViewModel extends _$HistoryViewModel {
         stats: updatedStats,
       ));
 
-      await _saveHistoryToLocal();
+      // 同步写入 SQLite
+      await _repository!.recordPlay(
+        bvid: identifier,
+        title: title,
+        artist: artist,
+        duration: duration,
+        coverUrl: coverUrl,
+        progress: progress,
+        sourceType: sourceType,
+        sourceId: sourceId,
+      );
 
       AppLogger.info('HistoryViewModel', '记录播放成功：$identifier');
     } catch (e) {
@@ -241,8 +251,6 @@ class HistoryViewModel extends _$HistoryViewModel {
         history: updatedHistory,
         stats: currentStats,
       ));
-
-      await _saveHistoryToLocal();
 
       return true;
     } catch (e) {
@@ -275,7 +283,6 @@ class HistoryViewModel extends _$HistoryViewModel {
         stats: currentStats,
       ));
 
-      await _saveHistoryToLocal();
       return true;
     } catch (e) {
       AppLogger.error('HistoryViewModel', '按 ID 删除播放记录失败：$e');
@@ -288,13 +295,13 @@ class HistoryViewModel extends _$HistoryViewModel {
     try {
       AppLogger.info('HistoryViewModel', '清空播放历史');
 
+      await _repository!.clearAll();
+
       if (!ref.mounted) return false;
       state = AsyncData(const HistoryState.loaded(
         history: [],
         stats: null,
       ));
-
-      await _storage!.remove('play_history_cache');
 
       return true;
     } catch (e) {
@@ -338,46 +345,18 @@ class HistoryViewModel extends _$HistoryViewModel {
   Future<void> clear() async {
     if (!ref.mounted) return;
     state = AsyncData(const HistoryState.initial());
-    await _storage!.remove('play_history_cache');
     AppLogger.info('HistoryViewModel', '已清空数据');
   }
 
   // ==================== 私有方法 ====================
 
-  Future<HistoryState> _loadHistoryFromLocal() async {
+  Future<HistoryState> _loadHistoryFromFallback() async {
     try {
-      final historyJson = _storage!.getString('play_history_cache');
-      if (historyJson != null) {
-        final data = jsonDecode(historyJson) as List;
-        final history = data
-            .map((json) => PlayHistory.fromJson(json as Map<String, dynamic>))
-            .toList();
-
-        AppLogger.info('HistoryViewModel', '从本地加载播放历史成功');
-        return HistoryState.loaded(
-          history: history,
-          stats: null,
-        );
-      }
-      return const HistoryState.initial();
+      final history = await _repository!.getPlayHistory(pageSize: 50);
+      return HistoryState.loaded(history: history);
     } catch (e) {
-      AppLogger.error('HistoryViewModel', '从本地加载播放历史失败：$e');
+      AppLogger.error('HistoryViewModel', '回退加载失败：$e');
       return const HistoryState.initial();
-    }
-  }
-
-  Future<void> _saveHistoryToLocal() async {
-    try {
-      final history = state.valueOrNull?.maybeWhen(
-        loaded: (h, _) => h,
-        orElse: () => <PlayHistory>[],
-      );
-      if (history != null) {
-        final json = jsonEncode(history.map((item) => item.toJson()).toList());
-        await _storage!.setString('play_history_cache', json);
-      }
-    } catch (e) {
-      AppLogger.error('HistoryViewModel', '保存本地播放历史失败：$e');
     }
   }
 }

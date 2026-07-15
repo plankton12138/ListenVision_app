@@ -52,6 +52,10 @@ abstract class PlayHistoryStats with _$PlayHistoryStats {
 class HistoryViewModel extends _$HistoryViewModel {
   PlayHistoryRepository? _repository;
 
+  // Undo 删除相关字段
+  bool _undone = false;
+  List<PlayHistory>? _removedItems;
+
   @override
   Future<HistoryState> build() async {
     _repository = ref.watch(historyRepositoryProvider);
@@ -259,35 +263,58 @@ class HistoryViewModel extends _$HistoryViewModel {
     }
   }
 
-  /// 按 ID 删除记录
-  Future<bool> removeHistoryById(String id) async {
-    try {
-      AppLogger.info('HistoryViewModel', '按 ID 删除播放记录：$id');
+  /// 按 ID 删除记录（延迟 3 秒持久化，支持撤销）
+  Future<void> removeHistoryById(String id) async {
+    final current = state.valueOrNull?.maybeWhen(
+      loaded: (h, _) => h, orElse: () => <PlayHistory>[],
+    ) ?? <PlayHistory>[];
 
-      final currentHistory = state.valueOrNull?.maybeWhen(
-        loaded: (history, stats) => history,
-        orElse: () => <PlayHistory>[],
-      ) ?? <PlayHistory>[];
+    final removed = current.where((item) => item.id == id).toList();
+    if (removed.isEmpty) return;
 
-      final updatedHistory =
-          currentHistory.where((item) => item.id != id).toList();
+    // 乐观更新：立即从本地列表移除
+    final updated = current.where((item) => item.id != id).toList();
+    final currentStats = state.valueOrNull?.maybeWhen(
+      loaded: (_, stats) => stats,
+      orElse: () => null,
+    );
+    if (!ref.mounted) return;
+    state = AsyncData(HistoryState.loaded(history: updated, stats: currentStats));
 
-      final currentStats = state.valueOrNull?.maybeWhen(
-        loaded: (_, stats) => stats,
-        orElse: () => null,
-      );
+    _undone = false;
+    _removedItems = removed;
 
-      if (!ref.mounted) return false;
-      state = AsyncData(HistoryState.loaded(
-        history: updatedHistory,
-        stats: currentStats,
-      ));
+    AppLogger.info('HistoryViewModel', '标记删除播放记录（3s后持久化）：$id');
 
-      return true;
-    } catch (e) {
-      AppLogger.error('HistoryViewModel', '按 ID 删除播放记录失败：$e');
-      return false;
+    // 延迟 3 秒持久化
+    await Future.delayed(const Duration(seconds: 3));
+    if (!_undone) {
+      final idInt = int.tryParse(id);
+      if (idInt != null) {
+        await _repository!.deleteById(idInt);
+        AppLogger.info('HistoryViewModel', '已持久化删除播放记录：$id');
+      }
     }
+    _removedItems = null;
+  }
+
+  /// 撤销最近一次删除
+  void undoRemove() {
+    if (_removedItems == null) return;
+    _undone = true;
+    final current = state.valueOrNull?.maybeWhen(
+      loaded: (h, _) => h, orElse: () => <PlayHistory>[],
+    ) ?? <PlayHistory>[];
+    final restored = [..._removedItems!, ...current]
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    final currentStats = state.valueOrNull?.maybeWhen(
+      loaded: (_, stats) => stats,
+      orElse: () => null,
+    );
+    if (!ref.mounted) return;
+    state = AsyncData(HistoryState.loaded(history: restored, stats: currentStats));
+    _removedItems = null;
+    AppLogger.info('HistoryViewModel', '已撤销删除操作');
   }
 
   /// 清空历史

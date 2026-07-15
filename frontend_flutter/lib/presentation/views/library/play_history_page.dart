@@ -168,6 +168,17 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
         ref.read(historyViewModelProvider.notifier).removeHistoryById(item.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('已移除 1 首歌曲'),
+            action: SnackBarAction(
+              label: '撤销',
+              onPressed: () {
+                ref.read(historyViewModelProvider.notifier).undoRemove();
+              },
+            ),
+          ),
+        );
       },
       background: Container(
         color: Colors.red,

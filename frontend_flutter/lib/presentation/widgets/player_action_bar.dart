@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/playlist.dart';
 import 'package:listenvision/presentation/providers.dart';
-import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 
 /// 播放器底部操作栏
@@ -15,8 +15,6 @@ class PlayerActionBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(playbackViewModelProvider);
-    final playlistAsync = ref.watch(playlistViewModelProvider);
-
     final currentId = playerState.currentPlayable?.id ?? '';
 
     if (currentId.isEmpty) {
@@ -26,16 +24,11 @@ class PlayerActionBar extends ConsumerWidget {
       );
     }
 
-    final isFavorited = playlistAsync.when(
-      data: (playlistState) {
-        if (playlistState is PlaylistStateLoaded) {
-          return playlistState.favoritesItems.any((item) => item.bvid == currentId);
-        }
-        return false;
-      },
-      loading: () => false,
-      error: (_, __) => false,
-    );
+    // 收藏状态由 FavoriteTracksNotifier 管理
+    final favoriteTracksAsync = ref.watch(favoriteTracksProvider);
+    final isFavorited = favoriteTracksAsync.whenOrNull(
+      data: (ids) => ids.contains(currentId),
+    ) ?? false;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -63,11 +56,11 @@ class PlayerActionBar extends ConsumerWidget {
   /// 处理收藏按钮点击
   ///
   /// 切换当前播放歌曲的收藏状态（本地操作，无需登录）。
+  /// 使用 FavoriteTracksNotifier 管理收藏状态。
   Future<void> _handleFavorite(
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
     final playerState = ref.read(playbackViewModelProvider);
 
     final currentPlayable = playerState.currentPlayable;
@@ -82,22 +75,35 @@ class PlayerActionBar extends ConsumerWidget {
     );
 
     try {
-      final added = await playlistNotifier.toggleFavorite(
+      // 确保 Track 记录存在（FavoriteTracksNotifier.toggle 需要已存在的 track）
+      final trackDao = ref.read(trackDaoProvider);
+      var track = await trackDao.getBySourceId(bvid);
+      if (track == null) {
+        track = await trackDao.saveFromAudio(
+          Audio(
+            id: bvid,
+            title: currentPlayable.title.isNotEmpty ? currentPlayable.title : '未知标题',
+            artist: currentPlayable.artist,
+            duration: currentPlayable.duration,
+            coverUrl: currentPlayable.coverUrl,
+          ),
+        );
+      }
+
+      final favoriteNotifier = ref.read(favoriteTracksProvider.notifier);
+      final target = await favoriteNotifier.toggle(
         bvid,
         title: currentPlayable.title,
         artist: currentPlayable.artist,
         duration: currentPlayable.duration,
         coverUrl: currentPlayable.coverUrl,
-        localPath: currentPlayable.isOnline ? null : currentPlayable.url,
       );
 
       if (!context.mounted) return;
 
-      // toggleFavorite已内部调用_loadFavoritesFromLocal()更新本地状态
-      // 无需再次调用loadFavorites，避免服务器同步延迟导致的状态闪烁
       _showSnackBar(
         context,
-        added ? '已添加到我喜欢' : '已从我喜欢移除',
+        target ? '已添加到我喜欢' : '已从我喜欢移除',
         Colors.green,
       );
     } catch (e) {
@@ -244,15 +250,11 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
 
   @override
   Widget build(BuildContext context) {
-    final playlistState = ref.watch(playlistViewModelProvider);
+    final playlistState = ref.watch(playlistListProvider);
 
     return playlistState.when(
-      data: (state) {
-        final userPlaylists = state.map(
-          initial: (_) => <Playlist>[],
-          loaded: (value) => value.userPlaylists,
-          error: (_) => <Playlist>[],
-        );
+      data: (playlists) {
+        final userPlaylists = playlists.where((p) => p.isUserPlaylist).toList();
         return _buildContent(context, userPlaylists);
       },
       loading: () => _buildContent(context, <Playlist>[]),
@@ -381,7 +383,7 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
 
               Navigator.pop(context);
 
-              final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+              final playlistNotifier = ref.read(playlistListProvider.notifier);
               final newPlaylist = await playlistNotifier.createPlaylist(
                 name: name,
               );
@@ -403,7 +405,7 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
 
       Navigator.pop(context);
 
-      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+      final playlistNotifier = ref.read(playlistListProvider.notifier);
 
       final success = await playlistNotifier.addItem(
         playlistId,

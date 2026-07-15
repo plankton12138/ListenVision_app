@@ -5,6 +5,7 @@ import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/local_audio.dart';
@@ -159,6 +160,11 @@ class _LocalMusicPlaylistPageState
         style: TextStyle(fontSize: UIConstants.fontSizeLarge),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.home),
+          iconSize: UIConstants.iconMedium,
+          onPressed: () => context.go('/'),
+        ),
         if (hasItems)
           IconButton(
             icon: const Icon(Icons.checklist),

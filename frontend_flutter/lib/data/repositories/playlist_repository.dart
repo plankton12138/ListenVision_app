@@ -1,3 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../../core/utils/app_logger.dart';
 import '../../models/playlist.dart';
 import '../database/app_database.dart';
@@ -268,9 +276,84 @@ class PlaylistRepository {
   }
 
   /// 生成歌单封面（2x2 拼图）
+  ///
+  /// 取前 4 首歌曲封面拼成 256x256 网格，保存为本地 PNG。
+  /// 至少需要 2 首有封面的歌曲才会生成。
   Future<String?> generatePlaylistCover(String playlistId) async {
-    // P2 阶段实现
-    return null;
+    try {
+      final items = await getPlaylistItems(playlistId);
+      if (items.length < 2) return null;
+
+      final coverUrls = items
+          .take(4)
+          .map((i) => i.coverUrl)
+          .where((u) => u != null && u.isNotEmpty)
+          .toList();
+      if (coverUrls.isEmpty) return null;
+
+      // 下载封面图片
+      final images = <ui.Image>[];
+      for (final url in coverUrls) {
+        try {
+          final bytes = await _downloadImage(url!);
+          final codec = await ui.instantiateImageCodec(bytes);
+          final frame = await codec.getNextFrame();
+          images.add(frame.image);
+        } catch (_) {
+          // 单张下载失败不影响其他封面
+        }
+      }
+      if (images.length < 2) return null;
+
+      const tileSize = 128.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const gridSize = 2;
+      for (var i = 0; i < images.length; i++) {
+        final x = (i % gridSize) * tileSize;
+        final y = (i ~/ gridSize) * tileSize;
+        canvas.drawImageRect(
+          images[i],
+          Rect.fromLTWH(
+            0, 0,
+            images[i].width.toDouble(), images[i].height.toDouble(),
+          ),
+          Rect.fromLTWH(x, y, tileSize, tileSize),
+          Paint(),
+        );
+      }
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(
+        (tileSize * gridSize).toInt(),
+        (tileSize * gridSize).toInt(),
+      );
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final dir = await getApplicationDocumentsDirectory();
+      final coverPath = '${dir.path}/playlist_covers/$playlistId.png';
+      await Directory('${dir.path}/playlist_covers').create(recursive: true);
+      await File(coverPath).writeAsBytes(pngBytes);
+
+      AppLogger.info('PlaylistRepository', '生成歌单封面成功: $coverPath');
+      return coverPath;
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '生成封面失败: $e');
+      return null;
+    }
+  }
+
+  /// 下载图片二进制数据
+  Future<Uint8List> _downloadImage(String url) async {
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+      final bytes = await consolidateHttpClientResponseBytes(response);
+      return bytes;
+    } finally {
+      httpClient.close();
+    }
   }
 
   /// 获取本地歌单列表（离线支持）

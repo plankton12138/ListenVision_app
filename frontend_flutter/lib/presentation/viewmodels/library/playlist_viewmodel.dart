@@ -55,6 +55,15 @@ class PlaylistListNotifier extends _$PlaylistListNotifier {
 
       if (newPlaylist != null) {
         AppLogger.info('PlaylistListNotifier', '创建歌单成功: ${newPlaylist.id}');
+        // 异步生成封面（不阻塞创建流程）
+        _repository!.generatePlaylistCover(newPlaylist.id).then((coverPath) {
+          if (coverPath != null) {
+            _repository!.updatePlaylist(
+              id: newPlaylist.id,
+              coverUrl: coverPath,
+            );
+          }
+        });
       }
       return newPlaylist;
     } catch (e) {

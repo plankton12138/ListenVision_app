@@ -8,57 +8,58 @@ part of 'playlist_viewmodel.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+/// 歌单列表 Notifier
 ///
-/// 负责歌单、收藏、播放队列的状态管理
+/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
 
-@ProviderFor(PlaylistViewModel)
-final playlistViewModelProvider = PlaylistViewModelProvider._();
+@ProviderFor(PlaylistListNotifier)
+final playlistListProvider = PlaylistListNotifierProvider._();
 
-/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+/// 歌单列表 Notifier
 ///
-/// 负责歌单、收藏、播放队列的状态管理
-final class PlaylistViewModelProvider
-    extends $AsyncNotifierProvider<PlaylistViewModel, PlaylistState> {
-  /// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+final class PlaylistListNotifierProvider
+    extends $AsyncNotifierProvider<PlaylistListNotifier, List<Playlist>> {
+  /// 歌单列表 Notifier
   ///
-  /// 负责歌单、收藏、播放队列的状态管理
-  PlaylistViewModelProvider._()
+  /// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+  PlaylistListNotifierProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'playlistViewModelProvider',
+        name: r'playlistListProvider',
         isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$playlistViewModelHash();
+  String debugGetCreateSourceHash() => _$playlistListNotifierHash();
 
   @$internal
   @override
-  PlaylistViewModel create() => PlaylistViewModel();
+  PlaylistListNotifier create() => PlaylistListNotifier();
 }
 
-String _$playlistViewModelHash() => r'0237c1903a8b9752efe799575cf381f11072645f';
+String _$playlistListNotifierHash() =>
+    r'b0ebc5eec29c1835af647185f7d671f33ac9a4a1';
 
-/// 歌单管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
+/// 歌单列表 Notifier
 ///
-/// 负责歌单、收藏、播放队列的状态管理
+/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
 
-abstract class _$PlaylistViewModel extends $AsyncNotifier<PlaylistState> {
-  FutureOr<PlaylistState> build();
+abstract class _$PlaylistListNotifier extends $AsyncNotifier<List<Playlist>> {
+  FutureOr<List<Playlist>> build();
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<PlaylistState>, PlaylistState>;
+    final ref = this.ref as $Ref<AsyncValue<List<Playlist>>, List<Playlist>>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<AsyncValue<PlaylistState>, PlaylistState>,
-              AsyncValue<PlaylistState>,
+              AnyNotifier<AsyncValue<List<Playlist>>, List<Playlist>>,
+              AsyncValue<List<Playlist>>,
               Object?,
               Object?
             >;

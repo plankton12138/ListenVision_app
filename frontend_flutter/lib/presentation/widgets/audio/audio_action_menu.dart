@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:listenvision/core/constants/api_constants.dart';
 import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
@@ -296,9 +295,6 @@ class AudioActionMenu extends ConsumerWidget {
   void _handleInsertNext(BuildContext context, WidgetRef ref) {
     AppLogger.info('AudioActionMenu', '添加到下一首播放: $bvid');
 
-    final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-    final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
-
     final audio = Audio(
       id: bvid,
       title: title,
@@ -307,7 +303,7 @@ class AudioActionMenu extends ConsumerWidget {
       duration: duration,
     );
 
-    final playable = OnlinePlayable.fromAudio(audio, proxyUrl);
+    final playable = OnlinePlayable.withProxyUrl(audio);
 
     ref.read(queueViewModelProvider.notifier).insertNext(playable);
 

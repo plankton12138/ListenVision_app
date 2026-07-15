@@ -6,7 +6,6 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/database/app_database.dart';
@@ -352,11 +351,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
             coverUrl: item.coverUrl,
           );
 
-          // 构建代理 URL
-          final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-          final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$bvid?format=auto';
-
-          final playable = OnlinePlayable(audio, proxyUrl);
+          final playable = OnlinePlayable.withProxyUrl(audio);
           queueItems.add(playable);
         }
       }
@@ -366,7 +361,6 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         return false;
       }
 
-      // 后续可补充记录队列来源的能力（Phase 3）
       // 替换队列
       await ref.read(queueViewModelProvider.notifier).setQueue(
         queueItems,
@@ -471,10 +465,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
             coverUrl: item.coverUrl,
           );
 
-          final baseUrl = ApiConstants.baseUrl.replaceAll('localhost', '127.0.0.1');
-          final proxyUrl = '$baseUrl/api/v1/bilibili/proxy/audio/$itemBvid?format=auto';
-
-          final playable = OnlinePlayable(audio, proxyUrl);
+          final playable = OnlinePlayable.withProxyUrl(audio);
           queueItems.add(playable);
         }
       }

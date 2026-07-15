@@ -68,7 +68,7 @@ final class QueueViewModelProvider
   }
 }
 
-String _$queueViewModelHash() => r'e6f3535c9b09838e8ffa545f3f2cdd07f9205369';
+String _$queueViewModelHash() => r'907b4cabb75c5db8d6722ead9791763e471b9fb5';
 
 /// 播放队列 ViewModel（Riverpod 3.0 Notifier 模式）
 ///

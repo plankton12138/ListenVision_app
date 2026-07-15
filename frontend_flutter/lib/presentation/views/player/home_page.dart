@@ -110,10 +110,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           
           // 开始播放（播放刚添加的最后一首）
           final queueState = ref.read(queueViewModelProvider);
-          final newIndex = queueState.queue.length - 1;
+          final newIndex = (queueState.queue?.tracks.length ?? 1) - 1;
           // 使用 PlaybackViewModel 播放
           ref.read(playbackViewModelProvider.notifier).play(
-            queueState.queue[newIndex],
+            queueState.queue!.tracks[newIndex],
             index: newIndex,
           );
           
@@ -177,10 +177,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       // 6. 开始播放（播放刚添加的最后一首）
       final queueState = ref.read(queueViewModelProvider);
-      final newIndex = queueState.queue.length - 1;
+      final newIndex = (queueState.queue?.tracks.length ?? 1) - 1;
       // 使用 PlaybackViewModel 播放
       ref.read(playbackViewModelProvider.notifier).play(
-        queueState.queue[newIndex],
+        queueState.queue!.tracks[newIndex],
         index: newIndex,
       );
 
@@ -404,12 +404,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: const Icon(Icons.file_upload),
             iconSize: UIConstants.iconMedium,
             onPressed: () => _handleFilePicker(context, ref),
-          ),
-          // 发现按钮
-          IconButton(
-            icon: const Icon(Icons.explore),
-            iconSize: UIConstants.iconMedium,
-            onPressed: () => context.go('/explore'),
           ),
           // 搜索按钮
           IconButton(

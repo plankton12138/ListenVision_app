@@ -117,7 +117,7 @@ class _QueueBottomSheetState extends ConsumerState<QueueBottomSheet>
     return TabBar(
       controller: _tabController,
       tabs: [
-        Tab(text: '正在播放(${queueState.queue.length})'),
+        Tab(text: '正在播放(${queueState.queue?.tracks.length ?? 0})'),
         const Tab(text: '播放历史'),
       ],
       indicatorSize: TabBarIndicatorSize.label,

@@ -14,14 +14,11 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$QueueState {
 
-/// 播放队列（本地和在线混合）
- List<PlayableAudio> get queue;/// 本地音频列表
- List<LocalAudio> get localAudios;/// 当前播放索引
- int get currentIndex;/// 是否正在加载
+/// 播放队列
+ PlayQueue? get queue;/// 本地音频列表
+ List<LocalAudio> get localAudios;/// 是否正在加载
  bool get isLoading;/// 错误消息
- String? get errorMessage;/// 播放模式
- PlayMode get playMode;/// 队列来源
- QueueSource? get source;
+ String? get errorMessage;
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -32,16 +29,16 @@ $QueueStateCopyWith<QueueState> get copyWith => _$QueueStateCopyWithImpl<QueueSt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is QueueState&&const DeepCollectionEquality().equals(other.queue, queue)&&const DeepCollectionEquality().equals(other.localAudios, localAudios)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.playMode, playMode) || other.playMode == playMode)&&(identical(other.source, source) || other.source == source));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is QueueState&&(identical(other.queue, queue) || other.queue == queue)&&const DeepCollectionEquality().equals(other.localAudios, localAudios)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(queue),const DeepCollectionEquality().hash(localAudios),currentIndex,isLoading,errorMessage,playMode,source);
+int get hashCode => Object.hash(runtimeType,queue,const DeepCollectionEquality().hash(localAudios),isLoading,errorMessage);
 
 @override
 String toString() {
-  return 'QueueState(queue: $queue, localAudios: $localAudios, currentIndex: $currentIndex, isLoading: $isLoading, errorMessage: $errorMessage, playMode: $playMode, source: $source)';
+  return 'QueueState(queue: $queue, localAudios: $localAudios, isLoading: $isLoading, errorMessage: $errorMessage)';
 }
 
 
@@ -52,11 +49,11 @@ abstract mixin class $QueueStateCopyWith<$Res>  {
   factory $QueueStateCopyWith(QueueState value, $Res Function(QueueState) _then) = _$QueueStateCopyWithImpl;
 @useResult
 $Res call({
- List<PlayableAudio> queue, List<LocalAudio> localAudios, int currentIndex, bool isLoading, String? errorMessage, PlayMode playMode, QueueSource? source
+ PlayQueue? queue, List<LocalAudio> localAudios, bool isLoading, String? errorMessage
 });
 
 
-
+$PlayQueueCopyWith<$Res>? get queue;
 
 }
 /// @nodoc
@@ -69,19 +66,28 @@ class _$QueueStateCopyWithImpl<$Res>
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? queue = freezed,Object? localAudios = null,Object? isLoading = null,Object? errorMessage = freezed,}) {
   return _then(_self.copyWith(
-queue: null == queue ? _self.queue : queue // ignore: cast_nullable_to_non_nullable
-as List<PlayableAudio>,localAudios: null == localAudios ? _self.localAudios : localAudios // ignore: cast_nullable_to_non_nullable
-as List<LocalAudio>,currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
-as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
+queue: freezed == queue ? _self.queue : queue // ignore: cast_nullable_to_non_nullable
+as PlayQueue?,localAudios: null == localAudios ? _self.localAudios : localAudios // ignore: cast_nullable_to_non_nullable
+as List<LocalAudio>,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
-as String?,playMode: null == playMode ? _self.playMode : playMode // ignore: cast_nullable_to_non_nullable
-as PlayMode,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
-as QueueSource?,
+as String?,
   ));
 }
+/// Create a copy of QueueState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlayQueueCopyWith<$Res>? get queue {
+    if (_self.queue == null) {
+    return null;
+  }
 
+  return $PlayQueueCopyWith<$Res>(_self.queue!, (value) {
+    return _then(_self.copyWith(queue: value));
+  });
+}
 }
 
 
@@ -163,10 +169,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PlayableAudio> queue,  List<LocalAudio> localAudios,  int currentIndex,  bool isLoading,  String? errorMessage,  PlayMode playMode,  QueueSource? source)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( PlayQueue? queue,  List<LocalAudio> localAudios,  bool isLoading,  String? errorMessage)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _QueueState() when $default != null:
-return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading,_that.errorMessage,_that.playMode,_that.source);case _:
+return $default(_that.queue,_that.localAudios,_that.isLoading,_that.errorMessage);case _:
   return orElse();
 
 }
@@ -184,10 +190,10 @@ return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PlayableAudio> queue,  List<LocalAudio> localAudios,  int currentIndex,  bool isLoading,  String? errorMessage,  PlayMode playMode,  QueueSource? source)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( PlayQueue? queue,  List<LocalAudio> localAudios,  bool isLoading,  String? errorMessage)  $default,) {final _that = this;
 switch (_that) {
 case _QueueState():
-return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading,_that.errorMessage,_that.playMode,_that.source);case _:
+return $default(_that.queue,_that.localAudios,_that.isLoading,_that.errorMessage);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +210,10 @@ return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PlayableAudio> queue,  List<LocalAudio> localAudios,  int currentIndex,  bool isLoading,  String? errorMessage,  PlayMode playMode,  QueueSource? source)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( PlayQueue? queue,  List<LocalAudio> localAudios,  bool isLoading,  String? errorMessage)?  $default,) {final _that = this;
 switch (_that) {
 case _QueueState() when $default != null:
-return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading,_that.errorMessage,_that.playMode,_that.source);case _:
+return $default(_that.queue,_that.localAudios,_that.isLoading,_that.errorMessage);case _:
   return null;
 
 }
@@ -219,18 +225,11 @@ return $default(_that.queue,_that.localAudios,_that.currentIndex,_that.isLoading
 
 
 class _QueueState implements QueueState {
-  const _QueueState({final  List<PlayableAudio> queue = const [], final  List<LocalAudio> localAudios = const [], this.currentIndex = -1, this.isLoading = false, this.errorMessage, this.playMode = PlayMode.sequence, this.source}): _queue = queue,_localAudios = localAudios;
+  const _QueueState({this.queue, final  List<LocalAudio> localAudios = const [], this.isLoading = false, this.errorMessage}): _localAudios = localAudios;
   
 
-/// 播放队列（本地和在线混合）
- final  List<PlayableAudio> _queue;
-/// 播放队列（本地和在线混合）
-@override@JsonKey() List<PlayableAudio> get queue {
-  if (_queue is EqualUnmodifiableListView) return _queue;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_queue);
-}
-
+/// 播放队列
+@override final  PlayQueue? queue;
 /// 本地音频列表
  final  List<LocalAudio> _localAudios;
 /// 本地音频列表
@@ -240,16 +239,10 @@ class _QueueState implements QueueState {
   return EqualUnmodifiableListView(_localAudios);
 }
 
-/// 当前播放索引
-@override@JsonKey() final  int currentIndex;
 /// 是否正在加载
 @override@JsonKey() final  bool isLoading;
 /// 错误消息
 @override final  String? errorMessage;
-/// 播放模式
-@override@JsonKey() final  PlayMode playMode;
-/// 队列来源
-@override final  QueueSource? source;
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
@@ -261,16 +254,16 @@ _$QueueStateCopyWith<_QueueState> get copyWith => __$QueueStateCopyWithImpl<_Que
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _QueueState&&const DeepCollectionEquality().equals(other._queue, _queue)&&const DeepCollectionEquality().equals(other._localAudios, _localAudios)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.playMode, playMode) || other.playMode == playMode)&&(identical(other.source, source) || other.source == source));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _QueueState&&(identical(other.queue, queue) || other.queue == queue)&&const DeepCollectionEquality().equals(other._localAudios, _localAudios)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_queue),const DeepCollectionEquality().hash(_localAudios),currentIndex,isLoading,errorMessage,playMode,source);
+int get hashCode => Object.hash(runtimeType,queue,const DeepCollectionEquality().hash(_localAudios),isLoading,errorMessage);
 
 @override
 String toString() {
-  return 'QueueState(queue: $queue, localAudios: $localAudios, currentIndex: $currentIndex, isLoading: $isLoading, errorMessage: $errorMessage, playMode: $playMode, source: $source)';
+  return 'QueueState(queue: $queue, localAudios: $localAudios, isLoading: $isLoading, errorMessage: $errorMessage)';
 }
 
 
@@ -281,11 +274,11 @@ abstract mixin class _$QueueStateCopyWith<$Res> implements $QueueStateCopyWith<$
   factory _$QueueStateCopyWith(_QueueState value, $Res Function(_QueueState) _then) = __$QueueStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<PlayableAudio> queue, List<LocalAudio> localAudios, int currentIndex, bool isLoading, String? errorMessage, PlayMode playMode, QueueSource? source
+ PlayQueue? queue, List<LocalAudio> localAudios, bool isLoading, String? errorMessage
 });
 
 
-
+@override $PlayQueueCopyWith<$Res>? get queue;
 
 }
 /// @nodoc
@@ -298,20 +291,29 @@ class __$QueueStateCopyWithImpl<$Res>
 
 /// Create a copy of QueueState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? queue = null,Object? localAudios = null,Object? currentIndex = null,Object? isLoading = null,Object? errorMessage = freezed,Object? playMode = null,Object? source = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? queue = freezed,Object? localAudios = null,Object? isLoading = null,Object? errorMessage = freezed,}) {
   return _then(_QueueState(
-queue: null == queue ? _self._queue : queue // ignore: cast_nullable_to_non_nullable
-as List<PlayableAudio>,localAudios: null == localAudios ? _self._localAudios : localAudios // ignore: cast_nullable_to_non_nullable
-as List<LocalAudio>,currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
-as int,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
+queue: freezed == queue ? _self.queue : queue // ignore: cast_nullable_to_non_nullable
+as PlayQueue?,localAudios: null == localAudios ? _self._localAudios : localAudios // ignore: cast_nullable_to_non_nullable
+as List<LocalAudio>,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
-as String?,playMode: null == playMode ? _self.playMode : playMode // ignore: cast_nullable_to_non_nullable
-as PlayMode,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
-as QueueSource?,
+as String?,
   ));
 }
 
+/// Create a copy of QueueState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlayQueueCopyWith<$Res>? get queue {
+    if (_self.queue == null) {
+    return null;
+  }
 
+  return $PlayQueueCopyWith<$Res>(_self.queue!, (value) {
+    return _then(_self.copyWith(queue: value));
+  });
+}
 }
 
 // dart format on

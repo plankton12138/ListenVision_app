@@ -381,10 +381,10 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
     final queueState = ref.read(queueViewModelProvider);
 
-    if (queueState.queue.isEmpty) return;
+    if (queueState.queue?.tracks.isEmpty ?? true) return;
 
     final nextIndex = queueNotifier.hasNext
-        ? queueState.currentIndex + 1
+        ? (queueState.queue!.currentIndex + 1)
         : 0;
 
     // 循环到第一首时弹出提示
@@ -393,7 +393,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       AppLogger.info('PlaybackViewModel', '列表循环：最后一首 → 第一首');
     }
 
-    final nextPlayable = queueState.queue[nextIndex];
+    final nextPlayable = queueState.queue!.tracks[nextIndex];
     queueNotifier.setCurrentIndex(nextIndex);
 
     await play(nextPlayable, index: nextIndex);
@@ -407,11 +407,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
     final queueState = ref.read(queueViewModelProvider);
 
-    if (queueState.queue.isEmpty) return;
+    if (queueState.queue?.tracks.isEmpty ?? true) return;
 
     final prevIndex = queueNotifier.hasPrevious
-        ? queueState.currentIndex - 1
-        : queueState.queue.length - 1;
+        ? (queueState.queue!.currentIndex - 1)
+        : (queueState.queue!.tracks.length - 1);
 
     // 循环到最后一首时弹出提示
     if (!queueNotifier.hasPrevious) {
@@ -419,7 +419,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
       AppLogger.info('PlaybackViewModel', '列表循环：第一首 → 最后一首');
     }
 
-    final prevPlayable = queueState.queue[prevIndex];
+    final prevPlayable = queueState.queue!.tracks[prevIndex];
     queueNotifier.setCurrentIndex(prevIndex);
 
     await play(prevPlayable, index: prevIndex);
@@ -430,11 +430,11 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     try {
       final queueState = ref.read(queueViewModelProvider);
 
-      if (queueState.playMode == PlayMode.loopOne) {
+      if (queueState.queue?.playMode == PlayMode.loopOne) {
         // 单曲循环
         final current = state.currentPlayable;
         if (current != null) {
-          await play(current, index: queueState.currentIndex);
+          await play(current, index: queueState.queue?.currentIndex ?? -1);
         }
         return;
       }
@@ -477,15 +477,15 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
     final queueState = ref.read(queueViewModelProvider);
-    final currentIndex = queueState.currentIndex;
+    final currentIndex = queueState.queue?.currentIndex ?? -1;
 
     // 验证索引有效性
-    if (currentIndex < 0 || currentIndex >= queueState.queue.length) {
+    if (currentIndex < 0 || currentIndex >= (queueState.queue?.tracks.length ?? 0)) {
       AppLogger.debug('PlaybackViewModel', '队列索引无效，跳过恢复');
       return;
     }
 
-    final playable = queueState.queue[currentIndex];
+    final playable = queueState.queue!.tracks[currentIndex];
 
     // 如果当前音频源已就绪且为同一音频项，无需重复准备
     // isReady: _currentSourceUrl != null && duration > 0

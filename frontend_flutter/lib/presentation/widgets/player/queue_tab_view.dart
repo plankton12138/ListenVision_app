@@ -22,9 +22,11 @@ class QueueTabView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final queueState = ref.watch(queueViewModelProvider);
     final queue = queueState.queue;
-    final currentIndex = queueState.currentIndex;
+    final tracks = queue?.tracks;
+    final currentIndex = queue?.currentIndex;
+    final isEmpty = tracks?.isEmpty ?? true;
 
-    if (queue.isEmpty) {
+    if (isEmpty) {
       return _buildEmptyState(context);
     }
 
@@ -39,9 +41,9 @@ class QueueTabView extends ConsumerWidget {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.only(bottom: 100),
-            itemCount: queue.length,
+            itemCount: tracks!.length,
             itemBuilder: (context, index) {
-              final playable = queue[index];
+              final playable = tracks[index];
               final isCurrent = currentIndex == index;
 
               return QueueItemTile(
@@ -66,7 +68,7 @@ class QueueTabView extends ConsumerWidget {
     WidgetRef ref,
     QueueState queueState,
   ) {
-    final source = queueState.source;
+    final source = queueState.queue?.source;
     if (source == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -151,7 +153,7 @@ class QueueTabView extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            '${queueState.queue.length} 首歌曲',
+            '${queueState.queue?.tracks.length ?? 0} 首歌曲',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 13,
@@ -161,7 +163,7 @@ class QueueTabView extends ConsumerWidget {
           InkWell(
             onTap: () {
               AppLogger.logButtonClick('切换播放模式', 'QueueTabView',
-                parameters: {'currentMode': queueState.playMode.name});
+                parameters: {'currentMode': queueState.queue?.playMode.name});
               ref.read(queueViewModelProvider.notifier).togglePlayMode();
             },
             borderRadius: BorderRadius.circular(16),
@@ -175,12 +177,12 @@ class QueueTabView extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _getPlayModeIcon(queueState.playMode),
+                    _getPlayModeIcon(queueState.queue?.playMode ?? PlayMode.sequence),
                     style: const TextStyle(fontSize: 14),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    queueState.playMode.displayName,
+                    queueState.queue?.playMode.displayName ?? '',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -275,7 +277,7 @@ class QueueTabView extends ConsumerWidget {
           const SizedBox(width: 16),
           // 清空按钮
           TextButton.icon(
-            onPressed: queueState.queue.isEmpty
+            onPressed: queueState.queue?.tracks.isEmpty ?? true
                 ? null
                 : () => _showClearConfirmDialog(context, ref),
             icon: const Icon(Icons.clear_all),

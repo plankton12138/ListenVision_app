@@ -64,17 +64,17 @@ abstract class Audio with _$Audio {
   /// 从 DTO/后端响应创建
   factory Audio.fromDto(Map<String, dynamic> json) {
     // 安全的数值转字符串转换（防御性编程）
-    final safeString = (dynamic value) {
+    String? safeString(dynamic value) {
       if (value == null) return null;
       if (value is String) return value;
       if (value is int) return value.toString();
       if (value is double) return value.toInt().toString();
       return value.toString();
-    };
+    }
 
     // 统一封面字段解析（支持多种命名方式）
     // 后端可能返回：'cover', 'pic', 'cover', 'coverUrl', 'cover_url'
-    final safeCoverUrl = () {
+    String? safeCoverUrl() {
       // 优先级1：检查 'cover'（推荐）
       if (json['cover'] != null) {
         final value = json['cover'];
@@ -99,7 +99,7 @@ abstract class Audio with _$Audio {
       }
       // 优先级5：默认：返回空
       return null;
-    };
+    }
 
     return Audio(
       id: safeString(json['bvid'] ?? json['id'] ?? json['bvId']) ?? '',

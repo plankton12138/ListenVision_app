@@ -8,7 +8,7 @@ part 'favorite_tracks_notifier.g.dart';
 
 /// 收藏状态 Notifier
 ///
-/// 独立管理收藏曲目 ID 集合，返回 Set<String>。
+/// 独立管理收藏曲目 ID 集合，返回 `Set<String>`。
 @Riverpod(keepAlive: true)
 class FavoriteTracksNotifier extends _$FavoriteTracksNotifier {
   @override

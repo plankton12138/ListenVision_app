@@ -4,6 +4,7 @@
 /// - 由 Repository 层抛出
 /// - 由 UseCase 层捕获并处理或向上传递
 /// - 使用 sealed 类确保类型安全
+library;
 
 /// 基础失败类
 ///

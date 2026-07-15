@@ -4,7 +4,6 @@ import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/history_viewmodel.dart';
-import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -148,13 +147,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history, size: 64, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
+          Icon(Icons.history, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           const Text('暂无播放历史'),
           const SizedBox(height: 8),
           Text(
             '开始播放音频后，这里会显示你的播放记录',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
         ],
       ),
@@ -316,6 +315,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (confirmed == true) {
       await ref.read(historyViewModelProvider.notifier).clearHistory();
       if (mounted) {
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('播放历史已清空')),
         );

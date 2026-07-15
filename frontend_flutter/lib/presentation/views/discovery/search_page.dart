@@ -2,13 +2,11 @@ import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/state/state_utils.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
-import 'package:listenvision/services/bilibili_api_service.dart';
 import 'package:listenvision/presentation/widgets/video_pages_sheet.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/search_suggestion.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/discovery/search_viewmodel.dart';
-import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/download_status_indicator.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
@@ -164,15 +162,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final queueNotifier = ref.read(queueViewModelProvider.notifier);
       await queueNotifier.add(playable, playImmediately: true);
 
-      final queueIndex = ref.read(queueViewModelProvider).currentIndex;
-      if (queueIndex >= 0) {
-        final queueState = ref.read(queueViewModelProvider);
-        if (queueIndex < queueState.queue.length) {
-          ref.read(playbackViewModelProvider.notifier).play(
-            queueState.queue[queueIndex],
-            index: queueIndex,
-          );
-        }
+      final queueState = ref.read(queueViewModelProvider);
+      final queueIndex = queueState.queue?.currentIndex ?? -1;
+      final tracks = queueState.queue?.tracks;
+      if (queueIndex >= 0 && tracks != null && queueIndex < tracks.length) {
+        ref.read(playbackViewModelProvider.notifier).play(
+          tracks[queueIndex],
+          index: queueIndex,
+        );
       }
 
       if (mounted) {

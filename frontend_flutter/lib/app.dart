@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/utils/app_logger.dart';
-import 'presentation/providers.dart';
 import 'presentation/routes/router.dart';
 import 'presentation/theme/light_mode.dart';
 import 'presentation/theme/dark_mode.dart';

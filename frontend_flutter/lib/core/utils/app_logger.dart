@@ -205,8 +205,8 @@ class AppLogger {
       'action': action,
       'feature': feature,
       'timestamp': DateTime.now().toIso8601String(),
-      if (userId != null) 'userId': userId,
-      if (parameters != null) 'parameters': parameters,
+      'userId': ?userId,
+      'parameters': ?parameters,
     };
 
     info(feature, action, extra: data);

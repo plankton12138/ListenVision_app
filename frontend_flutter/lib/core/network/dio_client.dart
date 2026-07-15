@@ -34,9 +34,7 @@ class DioClient {
 
   /// 获取 Dio 实例
   Dio get dio {
-    if (_dio == null) {
-      _dio = _createDio();
-    }
+    _dio ??= _createDio();
     return _dio!;
   }
 
@@ -240,7 +238,6 @@ class DioClient {
       case DioExceptionType.badCertificate:
         return const NetworkException('证书错误', 'BAD_CERTIFICATE');
       case DioExceptionType.unknown:
-      default:
         // 检查是否是网络错误
         if (error.error is SocketException) {
           return NetworkException.noConnection();

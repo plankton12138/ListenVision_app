@@ -1,11 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
-import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -125,7 +122,7 @@ class _LocalMusicPlaylistPageState
         orElse: () => false,
       ),
       loading: () => false,
-      error: (_, __) => false,
+      error: (_, _) => false,
     );
 
     return Scaffold(
@@ -414,7 +411,7 @@ class _LocalMusicPlaylistPageState
               child: Image.memory(
                 audioWithCover.albumArt!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(Icons.music_note, size: 40),
+                errorBuilder: (_, _, _) => const Icon(Icons.music_note, size: 40),
               ),
             )
           : const Icon(Icons.music_note, size: 40),

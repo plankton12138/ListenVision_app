@@ -5,6 +5,7 @@ import 'package:listenvision/core/utils/playback_state_validator.dart';
 import 'package:listenvision/models/local_audio.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/playable_audio.dart';
+import 'package:listenvision/models/play_queue.dart';
 import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 
@@ -443,20 +444,13 @@ void main() {
   });
 
   group('QueueState 队列恢复测试', () {
-    test('QueueState 默认索引应为 -1', () {
+    test('QueueState 默认队列应为 null', () {
       // Act
       const state = QueueState();
 
       // Assert
-      expect(state.currentIndex, -1, reason: 'currentIndex 默认应为 -1');
-    });
-
-    test('QueueState 默认队列应为空', () {
-      // Act
-      const state = QueueState();
-
-      // Assert
-      expect(state.queue, isEmpty, reason: 'queue 默认应为空列表');
+      expect(state.queue, isNull, reason: 'queue 默认为 null');
+      expect(state.queue?.currentIndex, isNull, reason: '无队列时 currentIndex 应为 null');
     });
 
     test('队列索引 -1 对任何非空队列都是无效的', () {
@@ -468,14 +462,16 @@ void main() {
         duration: 180,
       );
       final playable = LocalPlayable(localAudio);
-      final state = QueueState(queue: [playable], currentIndex: -1);
+      final state = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: -1),
+      );
 
       // Act & Assert
       // 索引 -1 在非空队列中是无效的
-      expect(state.currentIndex, lessThan(0), reason: '索引 -1 表示无选中项');
-      expect(state.queue.isNotEmpty, true, reason: '队列不为空');
+      expect(state.queue!.currentIndex, lessThan(0), reason: '索引 -1 表示无选中项');
+      expect(state.queue!.tracks.isNotEmpty, true, reason: '队列不为空');
       // 验证索引有效性检查逻辑：currentIndex < 0 应跳过恢复
-      expect(state.currentIndex < 0, true);
+      expect(state.queue!.currentIndex < 0, true);
     });
 
     test('有效索引应在 0 到队列长度-1 之间', () {
@@ -489,12 +485,14 @@ void main() {
       final playable = LocalPlayable(localAudio);
 
       // Act - 索引 0 对于单元素队列是有效的
-      final validState = QueueState(queue: [playable], currentIndex: 0);
+      final validState = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: 0),
+      );
 
       // Assert
-      expect(validState.currentIndex, greaterThanOrEqualTo(0));
-      expect(validState.currentIndex, lessThan(validState.queue.length));
-      expect(validState.queue[validState.currentIndex].title, '测试音频');
+      expect(validState.queue!.currentIndex, greaterThanOrEqualTo(0));
+      expect(validState.queue!.currentIndex, lessThan(validState.queue!.tracks.length));
+      expect(validState.queue!.tracks[validState.queue!.currentIndex].title, '测试音频');
     });
 
     test('索引超出队列长度应为无效', () {
@@ -508,22 +506,26 @@ void main() {
       final playable = LocalPlayable(localAudio);
 
       // Act - 索引 5 对于单元素队列是无效的
-      final invalidState = QueueState(queue: [playable], currentIndex: 5);
+      final invalidState = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: 5),
+      );
 
       // Assert
-      expect(invalidState.currentIndex, greaterThanOrEqualTo(invalidState.queue.length));
+      expect(invalidState.queue!.currentIndex, greaterThanOrEqualTo(invalidState.queue!.tracks.length));
       // 验证索引有效性检查逻辑：currentIndex >= queue.length 应跳过恢复
-      expect(invalidState.currentIndex >= invalidState.queue.length, true);
+      expect(invalidState.queue!.currentIndex >= invalidState.queue!.tracks.length, true);
     });
 
     test('空队列时任何索引都是无效的', () {
       // Act
-      const state = QueueState(queue: [], currentIndex: 0);
+      const state = QueueState(
+        queue: PlayQueue(tracks: [], currentIndex: 0),
+      );
 
       // Assert
-      expect(state.queue.isEmpty, true);
+      expect(state.queue!.tracks.isEmpty, true);
       // 对于空队列，任何索引（包括 0）都是无效的
-      expect(state.currentIndex >= state.queue.length, true);
+      expect(state.queue!.currentIndex >= state.queue!.tracks.length, true);
     });
   });
 
@@ -540,14 +542,11 @@ void main() {
 
       // 模拟回调立即执行的条件
       bool didFinishInitialRestore = true;
-      final callbacks = <void Function()>[];
       var callbackExecuted = false;
 
       void onQueueRestored(void Function() callback) {
         if (didFinishInitialRestore) {
           callback();
-        } else {
-          callbacks.add(callback);
         }
       }
 
@@ -558,7 +557,6 @@ void main() {
 
       // Assert: 回调应立即执行
       expect(callbackExecuted, true, reason: '队列已恢复完成，回调应立即执行');
-      expect(callbacks.isEmpty, true, reason: '回调不应被添加到列表');
     });
 
     test('回调机制：应在队列未恢复时延迟执行回调', () {
@@ -568,9 +566,7 @@ void main() {
       var callbackExecuted = false;
 
       void onQueueRestored(void Function() callback) {
-        if (didFinishInitialRestore) {
-          callback();
-        } else {
+        if (!didFinishInitialRestore) {
           callbacks.add(callback);
         }
       }
@@ -602,9 +598,7 @@ void main() {
       var executionCount = 0;
 
       void onQueueRestored(void Function() callback) {
-        if (didFinishInitialRestore) {
-          callback();
-        } else {
+        if (!didFinishInitialRestore) {
           callbacks.add(callback);
         }
       }
@@ -670,11 +664,13 @@ void main() {
         duration: 180,
       );
       final playable = LocalPlayable(localAudio);
-      final state = QueueState(queue: [playable], currentIndex: 0);
+      final state = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: 0),
+      );
 
       // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
-      final currentIndex = state.currentIndex;
-      final isValid = currentIndex >= 0 && currentIndex < state.queue.length;
+      final currentIndex = state.queue!.currentIndex;
+      final isValid = currentIndex >= 0 && currentIndex < state.queue!.tracks.length;
 
       // Assert
       expect(isValid, true, reason: '索引 0 对于单元素队列是有效的');
@@ -689,10 +685,12 @@ void main() {
         duration: 180,
       );
       final playable = LocalPlayable(localAudio);
-      final state = QueueState(queue: [playable], currentIndex: -1);
+      final state = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: -1),
+      );
 
       // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
-      final currentIndex = state.currentIndex;
+      final currentIndex = state.queue!.currentIndex;
       final shouldSkip = currentIndex < 0;
 
       // Assert
@@ -708,11 +706,13 @@ void main() {
         duration: 180,
       );
       final playable = LocalPlayable(localAudio);
-      final state = QueueState(queue: [playable], currentIndex: 5);
+      final state = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: 5),
+      );
 
       // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
-      final currentIndex = state.currentIndex;
-      final shouldSkip = currentIndex >= state.queue.length;
+      final currentIndex = state.queue!.currentIndex;
+      final shouldSkip = currentIndex >= state.queue!.tracks.length;
 
       // Assert
       expect(shouldSkip, true, reason: '索引超出队列长度应跳过恢复');
@@ -720,11 +720,13 @@ void main() {
 
     test('空队列应跳过恢复', () {
       // Arrange
-      const state = QueueState(queue: [], currentIndex: 0);
+      const state = QueueState(
+        queue: PlayQueue(tracks: [], currentIndex: 0),
+      );
 
       // Act: 模拟 prepareCurrentFromQueue 的索引验证逻辑
-      final currentIndex = state.currentIndex;
-      final queueLength = state.queue.length;
+      final currentIndex = state.queue!.currentIndex;
+      final queueLength = state.queue!.tracks.length;
       final shouldSkip = queueLength == 0 || currentIndex < 0 || currentIndex >= queueLength;
 
       // Assert
@@ -740,13 +742,15 @@ void main() {
         duration: 180,
       );
       final playable = LocalPlayable(localAudio);
-      final state = QueueState(queue: [playable], currentIndex: 0);
+      final state = QueueState(
+        queue: PlayQueue(tracks: [playable], currentIndex: 0),
+      );
 
       // Act: 模拟获取当前播放项
       PlayableAudio? currentPlayable;
-      final currentIndex = state.currentIndex;
-      if (currentIndex >= 0 && currentIndex < state.queue.length) {
-        currentPlayable = state.queue[currentIndex];
+      final currentIndex = state.queue!.currentIndex;
+      if (currentIndex >= 0 && currentIndex < state.queue!.tracks.length) {
+        currentPlayable = state.queue!.tracks[currentIndex];
       }
 
       // Assert

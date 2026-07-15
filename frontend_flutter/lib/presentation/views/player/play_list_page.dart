@@ -16,7 +16,9 @@ class PlaylistPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final queueState = ref.watch(queueViewModelProvider);
     final queue = queueState.queue;
-    final currentIndex = queueState.currentIndex;
+    final tracks = queue?.tracks;
+    final currentIndex = queue?.currentIndex;
+    final isEmpty = tracks?.isEmpty ?? true;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,14 +37,14 @@ class PlaylistPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.clear_all),
             iconSize: UIConstants.iconMedium,
-            onPressed: queue.isEmpty
+            onPressed: isEmpty
                 ? null
                 : () => ref.read(queueViewModelProvider.notifier).clear(),
           ),
         ],
       ),
       drawer: const MyDrawer(),
-      body: queue.isEmpty
+      body: isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -62,9 +64,9 @@ class PlaylistPage extends ConsumerWidget {
             )
           : ListView.builder(
               padding: const EdgeInsets.only(bottom: 100),
-              itemCount: queue.length,
+              itemCount: tracks!.length,
               itemBuilder: (context, index) {
-                final playable = queue[index];
+                final playable = tracks[index];
                 final isCurrent = currentIndex == index;
 
                 return ListTile(

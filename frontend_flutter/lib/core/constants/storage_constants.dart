@@ -1,6 +1,7 @@
 /// 存储常量定义
 ///
 /// 集中管理所有本地存储相关的配置
+library;
 
 /// SharedPreferences 键名常量
 ///

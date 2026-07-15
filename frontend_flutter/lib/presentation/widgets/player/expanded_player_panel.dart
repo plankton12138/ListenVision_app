@@ -209,11 +209,11 @@ class ExpandedPlayerPanel extends ConsumerWidget {
         // 播放模式
         IconButton(
           icon: Text(
-            queueState.playMode.icon,
+            queueState.queue?.playMode.icon ?? '',
             style: const TextStyle(fontSize: 24),
           ),
           iconSize: 48,
-          tooltip: queueState.playMode.displayName,
+          tooltip: queueState.queue?.playMode.displayName ?? '',
           onPressed: () {
             ref.read(queueViewModelProvider.notifier).togglePlayMode();
           },
@@ -257,7 +257,7 @@ class ExpandedPlayerPanel extends ConsumerWidget {
 
   /// 底部入口: 播放列表 / 播放历史
   Widget _buildBottomEntries(BuildContext context, QueueState queueState) {
-    final queueCount = queueState.queue.length;
+    final queueCount = queueState.queue?.tracks.length ?? 0;
 
     return Column(
       children: [

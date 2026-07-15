@@ -183,11 +183,12 @@ class LocalMusicViewModel extends _$LocalMusicViewModel {
 
         // 播放第一首
         final queueState = ref.read(queueViewModelProvider);
-        if (queueState.queue.isNotEmpty) {
-          final firstIndex = queueState.queue.length - files.length;
+        final tracks = queueState.queue?.tracks;
+        if (tracks != null && tracks.isNotEmpty) {
+          final firstIndex = tracks.length - files.length;
           // 使用 PlaybackViewModel 播放
           ref.read(playbackViewModelProvider.notifier).play(
-            queueState.queue[firstIndex],
+            tracks[firstIndex],
             index: firstIndex,
           );
         }

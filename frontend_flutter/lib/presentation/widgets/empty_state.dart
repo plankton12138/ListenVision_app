@@ -22,54 +22,38 @@ class EmptyState extends StatelessWidget {
   /// 空列表状态
   const EmptyState.list({
     super.key,
-    String message = '暂无数据',
-    String? subMessage,
-    VoidCallback? onAction,
-    String? actionLabel,
-  }) : icon = Icons.inbox,
-       message = message,
-       subMessage = subMessage,
-       onAction = onAction,
-       actionLabel = actionLabel;
+    this.message = '暂无数据',
+    this.subMessage,
+    this.onAction,
+    this.actionLabel,
+  }) : icon = Icons.inbox;
 
   /// 空搜索结果状态
   const EmptyState.search({
     super.key,
-    String message = '未找到相关内容',
-    String? subMessage,
-    VoidCallback? onAction,
-    String? actionLabel,
-  }) : icon = Icons.search_off,
-       message = message,
-       subMessage = subMessage,
-       onAction = onAction,
-       actionLabel = actionLabel;
+    this.message = '未找到相关内容',
+    this.subMessage,
+    this.onAction,
+    this.actionLabel,
+  }) : icon = Icons.search_off;
 
   /// 空收藏状态
   const EmptyState.favorites({
     super.key,
-    String message = '还没有收藏任何内容',
-    String? subMessage,
-    VoidCallback? onAction,
-    String? actionLabel,
-  }) : icon = Icons.favorite_border,
-       message = message,
-       subMessage = subMessage,
-       onAction = onAction,
-       actionLabel = actionLabel;
+    this.message = '还没有收藏任何内容',
+    this.subMessage,
+    this.onAction,
+    this.actionLabel,
+  }) : icon = Icons.favorite_border;
 
   /// 空网络状态
   const EmptyState.network({
     super.key,
-    String message = '网络连接失败',
-    String? subMessage,
-    VoidCallback? onAction,
-    String? actionLabel = '重试',
-  }) : icon = Icons.wifi_off,
-       message = message,
-       subMessage = subMessage,
-       onAction = onAction,
-       actionLabel = actionLabel;
+    this.message = '网络连接失败',
+    this.subMessage,
+    this.onAction,
+    this.actionLabel = '重试',
+  }) : icon = Icons.wifi_off;
 
   @override
   Widget build(BuildContext context) {
@@ -84,13 +68,13 @@ class EmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -99,7 +83,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 subMessage!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -142,13 +126,13 @@ class CompactEmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 32,
-              color: theme.colorScheme.onSurface.withOpacity(0.2),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 8),
             Text(
               message,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.4),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ],

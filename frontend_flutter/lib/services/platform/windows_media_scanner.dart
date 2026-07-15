@@ -184,7 +184,7 @@ class WindowsMediaScanner implements MediaScannerPlatform {
         await player.open(Media(filePath), play: false);
         final duration = player.state.duration;
         await player.dispose();
-        if (duration != null && duration.inSeconds > 0) {
+        if (duration.inSeconds > 0) {
           durationSec = duration.inSeconds;
           AppLogger.debug('WindowsMediaScanner', '从 media_kit 获取时长: ${durationSec}s');
         }

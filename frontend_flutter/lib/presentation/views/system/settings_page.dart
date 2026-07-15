@@ -1,5 +1,4 @@
 import 'package:listenvision/core/constants/app_constants.dart';
-import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/settings/scan_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';

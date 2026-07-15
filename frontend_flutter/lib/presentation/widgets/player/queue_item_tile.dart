@@ -154,9 +154,10 @@ class QueueItemTile extends ConsumerWidget {
               ref.read(queueViewModelProvider.notifier).setCurrentIndex(index);
               // 使用 PlaybackViewModel 播放
               final queueState = ref.read(queueViewModelProvider);
-              if (index >= 0 && index < queueState.queue.length) {
+              final tracks = queueState.queue?.tracks;
+              if (tracks != null && index >= 0 && index < tracks.length) {
                 ref.read(playbackViewModelProvider.notifier).play(
-                  queueState.queue[index],
+                  tracks[index],
                   index: index,
                 );
               }
@@ -180,15 +181,13 @@ class QueueItemTile extends ConsumerWidget {
     // 确保 Track 记录存在
     final trackDao = ref.read(trackDaoProvider);
     var track = await trackDao.getBySourceId(bvid);
-    if (track == null) {
-      track = await trackDao.saveFromAudio(Audio(
+    track ??= await trackDao.saveFromAudio(Audio(
         id: bvid,
         title: playable.title.isNotEmpty ? playable.title : '未知标题',
         artist: playable.artist,
         duration: playable.duration,
         coverUrl: playable.coverUrl,
       ));
-    }
 
     final target = await ref.read(favoriteTracksProvider.notifier).toggle(
       bvid,
@@ -379,7 +378,7 @@ class QueueItemTile extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }

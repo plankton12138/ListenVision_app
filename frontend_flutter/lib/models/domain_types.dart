@@ -1,6 +1,7 @@
 /// Models 类型导出
 ///
 /// 此文件包含类型别名和兼容类型定义
+library;
 
 import 'recommendation.dart';
 import 'play_history.dart';

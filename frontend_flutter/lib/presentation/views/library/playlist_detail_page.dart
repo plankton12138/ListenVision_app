@@ -68,7 +68,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => const Center(child: Text('加载失败')),
+            error: (_, _) => const Center(child: Text('加载失败')),
           ),
           bottomNavigationBar: isBatchMode
               ? _buildBatchActionBar(batchState, viewModel)
@@ -86,7 +86,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         onPressed: () => context.pop(),
       ),
       title: detailState.valueOrNull?.maybeWhen(
-        loaded: (playlist, _, __) => Text(
+        loaded: (playlist, _, _) => Text(
           playlist.name,
           style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
@@ -98,7 +98,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       actions: <Widget>[
         // 批量操作入口按钮
         detailState.valueOrNull?.maybeWhen(
-          loaded: (_, items, __) => items.isNotEmpty
+          loaded: (_, items, _) => items.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.checklist),
                   tooltip: '批量操作',
@@ -113,7 +113,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           orElse: () => null,
         ) ?? const SizedBox.shrink(),
         ...?detailState.valueOrNull?.maybeWhen(
-          loaded: (_, __, isOwner) => isOwner
+          loaded: (_, _, isOwner) => isOwner
               ? [
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
@@ -588,15 +588,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       // 确保 Track 记录存在
       final trackDao = ref.read(trackDaoProvider);
       var track = await trackDao.getBySourceId(bvid);
-      if (track == null) {
-        track = await trackDao.saveFromAudio(Audio(
+      track ??= await trackDao.saveFromAudio(Audio(
           id: bvid,
           title: (item.title as String?)?.isNotEmpty == true ? item.title as String : '未知标题',
           artist: item.artist as String?,
           duration: item.duration as int?,
           coverUrl: item.coverUrl as String?,
         ));
-      }
 
       final added = await ref.read(favoriteTracksProvider.notifier).toggle(
         bvid,
@@ -844,7 +842,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final playlist = ref
         .read(playlistDetailViewModelProvider(widget.playlistId))
         .valueOrNull
-        ?.maybeWhen(loaded: (playlist, _, __) => playlist, orElse: () => null);
+        ?.maybeWhen(loaded: (playlist, _, _) => playlist, orElse: () => null);
     if (playlist == null) return;
 
     final nameController = TextEditingController(text: playlist.name);
@@ -889,10 +887,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                         : descController.text,
                   );
               if (mounted) {
+                // ignore: use_build_context_synchronously
                 Navigator.pop(context);
                 if (success) {
+                  // ignore: use_build_context_synchronously
                   SnackbarHelper.showSuccess(context, '保存成功');
                 } else {
+                  // ignore: use_build_context_synchronously
                   SnackbarHelper.showError(context, '保存失败');
                 }
               }
@@ -924,9 +925,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   .deletePlaylist();
               if (mounted) {
                 if (success) {
+                  // ignore: use_build_context_synchronously
                   Navigator.pop(context); // 关闭对话框
+                  // ignore: use_build_context_synchronously
                   context.pop(); // 返回上一页
                 } else {
+                  // ignore: use_build_context_synchronously
                   SnackbarHelper.showError(context, '删除失败');
                 }
               }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
-import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/models/play_mode.dart';
+import 'package:listenvision/presentation/providers.dart';
 
 import 'expanded_player_panel.dart';
 
@@ -20,7 +20,7 @@ class FloatingPlayerBar extends ConsumerWidget {
     final playbackState = ref.watch(playbackViewModelProvider);
 
     // 显示条件：有播放内容 && 不在 HomePage && 键盘未弹出
-    final hasContent = queueState.queue.isNotEmpty;
+    final hasContent = queueState.queue?.tracks.isNotEmpty ?? false;
     final location = GoRouterState.of(context).uri.toString();
     final isHomePage = location == '/';
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
@@ -241,17 +241,17 @@ class _ControlButtons extends StatelessWidget {
         // 播放模式切换
         IconButton(
           icon: Text(
-            queueState.playMode.icon,
+            queueState.queue?.playMode.icon ?? '',
             style: const TextStyle(fontSize: 18),
           ),
           iconSize: 36,
           visualDensity: VisualDensity.compact,
-          tooltip: queueState.playMode.displayName,
+          tooltip: queueState.queue?.playMode.displayName ?? '',
           onPressed: () {
             ref.read(queueViewModelProvider.notifier).togglePlayMode();
             AppLogger.info(
               'FloatingPlayerBar',
-              '切换播放模式: ${queueState.playMode.displayName}',
+              '切换播放模式: ${queueState.queue?.playMode.displayName ?? ''}',
             );
           },
         ),

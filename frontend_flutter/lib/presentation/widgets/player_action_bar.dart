@@ -78,8 +78,7 @@ class PlayerActionBar extends ConsumerWidget {
       // 确保 Track 记录存在（FavoriteTracksNotifier.toggle 需要已存在的 track）
       final trackDao = ref.read(trackDaoProvider);
       var track = await trackDao.getBySourceId(bvid);
-      if (track == null) {
-        track = await trackDao.saveFromAudio(
+      track ??= await trackDao.saveFromAudio(
           Audio(
             id: bvid,
             title: currentPlayable.title.isNotEmpty ? currentPlayable.title : '未知标题',
@@ -88,7 +87,6 @@ class PlayerActionBar extends ConsumerWidget {
             coverUrl: currentPlayable.coverUrl,
           ),
         );
-      }
 
       final favoriteNotifier = ref.read(favoriteTracksProvider.notifier);
       final target = await favoriteNotifier.toggle(
@@ -258,7 +256,7 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
         return _buildContent(context, userPlaylists);
       },
       loading: () => _buildContent(context, <Playlist>[]),
-      error: (_, __) => _buildContent(context, <Playlist>[]),
+      error: (_, _) => _buildContent(context, <Playlist>[]),
     );
   }
 
@@ -336,7 +334,7 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
                                       child: Image.network(
                                         playlist.coverUrl!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.playlist_play),
+                                        errorBuilder: (_, _, _) => const Icon(Icons.playlist_play),
                                       ),
                                     )
                                   : const Icon(Icons.playlist_play),

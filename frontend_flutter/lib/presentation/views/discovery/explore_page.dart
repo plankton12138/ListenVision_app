@@ -193,7 +193,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                     ? Image.network(
                         item.coverUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: Colors.grey[300],
                           child: const Icon(Icons.music_note),
                         ),

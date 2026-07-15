@@ -43,7 +43,7 @@ final class PlaylistListNotifierProvider
 }
 
 String _$playlistListNotifierHash() =>
-    r'b0ebc5eec29c1835af647185f7d671f33ac9a4a1';
+    r'96703bc70f6b6fa654b139ba14c718df4b4da9ba';
 
 /// 歌单列表 Notifier
 ///

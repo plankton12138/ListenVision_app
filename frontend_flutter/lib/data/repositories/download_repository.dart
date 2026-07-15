@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import '../../core/utils/app_logger.dart';
 import '../../services/resumable_download_service.dart';
 import '../../core/storage/shared_storage_service.dart';
-import '../../services/download_service.dart' hide DownloadStatus;
 import '../../services/bilibili_api_service.dart';
 import '../../services/bilibili_downloader.dart';
 import '../../services/ffmpeg_service.dart';

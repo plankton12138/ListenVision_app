@@ -33,14 +33,14 @@ class DownloadStatusIndicator extends ConsumerWidget {
               return _buildFromTask(task);
             },
             loading: () => _buildLoading(),
-            error: (_, __) => _buildNotDownloaded(),
+            error: (_, _) => _buildNotDownloaded(),
           );
         }
 
         return _buildNotDownloaded();
       },
       loading: () => _buildLoading(),
-      error: (_, __) => _buildNotDownloaded(),
+      error: (_, _) => _buildNotDownloaded(),
     );
   }
 

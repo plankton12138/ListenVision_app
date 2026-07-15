@@ -1,5 +1,6 @@
 import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/online_playable.dart';
+import 'package:listenvision/models/play_queue.dart';
 import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/player/queue_bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -25,13 +26,12 @@ void main() {
     testWidgets('应显示两个 Tab（正在播放和播放历史）', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: [
+        queue: PlayQueue(tracks: [
           OnlinePlayable.fromAudio(
             const Audio(id: '1', title: '歌曲1'),
             'http://example.com/1.mp3',
           ),
-        ],
-        currentIndex: 0,
+        ], currentIndex: 0),
       );
 
       final container = createTestContainer();
@@ -59,7 +59,9 @@ void main() {
 
     testWidgets('空队列时应正确显示计数', (tester) async {
       // Arrange
-      final queueState = const QueueState(queue: [], currentIndex: -1);
+      final queueState = const QueueState(
+        queue: PlayQueue(tracks: [], currentIndex: -1),
+      );
 
       final container = createTestContainer();
       container.read(queueViewModelProvider.notifier).state = queueState;
@@ -86,12 +88,12 @@ void main() {
     testWidgets('点击拖拽指示器区域应关闭弹窗', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: [
+        queue: PlayQueue(tracks: [
           OnlinePlayable.fromAudio(
             const Audio(id: '1', title: '歌曲1'),
             'http://example.com/1.mp3',
           ),
-        ],
+        ], currentIndex: -1),
       );
 
       final container = createTestContainer();
@@ -135,7 +137,7 @@ void main() {
     testWidgets('队列计数应随队列变化更新', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: [
+        queue: PlayQueue(tracks: [
           OnlinePlayable.fromAudio(
             const Audio(id: '1', title: '歌曲1'),
             'http://example.com/1.mp3',
@@ -144,8 +146,7 @@ void main() {
             const Audio(id: '2', title: '歌曲2'),
             'http://example.com/2.mp3',
           ),
-        ],
-        currentIndex: 0,
+        ], currentIndex: 0),
       );
 
       final container = createTestContainer();
@@ -169,13 +170,16 @@ void main() {
 
       // Act: 添加一首歌曲
       notifier.state = queueState.copyWith(
-        queue: [
-          ...queueState.queue,
-          OnlinePlayable.fromAudio(
-            const Audio(id: '3', title: '歌曲3'),
-            'http://example.com/3.mp3',
-          ),
-        ],
+        queue: PlayQueue(
+          tracks: [
+            ...queueState.queue!.tracks,
+            OnlinePlayable.fromAudio(
+              const Audio(id: '3', title: '歌曲3'),
+              'http://example.com/3.mp3',
+            ),
+          ],
+          currentIndex: queueState.queue!.currentIndex,
+        ),
       );
 
       await tester.pump();
@@ -303,7 +307,7 @@ void main() {
     testWidgets('多个音频项时应正确显示', (tester) async {
       // Arrange: 创建包含多个音频的队列
       final queueState = QueueState(
-        queue: List.generate(
+        queue: PlayQueue(tracks: List.generate(
           10,
           (i) => OnlinePlayable.fromAudio(
             Audio(
@@ -314,8 +318,7 @@ void main() {
             ),
             'http://example.com/$i.mp3',
           ),
-        ),
-        currentIndex: 3,
+        ), currentIndex: 3),
       );
 
       final container = createTestContainer();
@@ -346,13 +349,12 @@ void main() {
       final notifier = container.read(queueViewModelProvider.notifier);
 
       final initialState = QueueState(
-        queue: [
+        queue: PlayQueue(tracks: [
           OnlinePlayable.fromAudio(
             const Audio(id: '1', title: '歌曲1'),
             'http://example.com/1.mp3',
           ),
-        ],
-        currentIndex: 0,
+        ], currentIndex: 0),
       );
       notifier.state = initialState;
 
@@ -372,7 +374,9 @@ void main() {
       expect(find.text('正在播放(1)'), findsOneWidget);
 
       // Act: 清空队列
-      notifier.state = const QueueState(queue: [], currentIndex: -1);
+      notifier.state = const QueueState(
+        queue: PlayQueue(tracks: [], currentIndex: -1),
+      );
 
       await tester.pump();
 

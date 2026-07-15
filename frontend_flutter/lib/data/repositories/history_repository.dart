@@ -53,7 +53,7 @@ class PlayHistoryRepository {
         'cover_url': coverUrl ?? '',
         'duration': duration ?? 0,
         'position': progress ?? 0,
-        if (sourceType != null) 'source_type': sourceType,
+        'source_type': ?sourceType,
       };
       if (sourceId != null) {
         map['source_id'] = sourceId;

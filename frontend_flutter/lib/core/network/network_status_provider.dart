@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/network_status.dart';
 import '../../core/utils/app_logger.dart';
@@ -134,7 +133,7 @@ bool isNetworkConnected(Ref ref) {
   return networkStatus.when(
     data: (status) => status.isConnected,
     loading: () => false,
-    error: (_, __) => false,
+    error: (_, _) => false,
   );
 }
 
@@ -147,7 +146,7 @@ NetworkConnectionType? networkConnectionType(Ref ref) {
   return networkStatus.when(
     data: (status) => status.connectionType,
     loading: () => null,
-    error: (_, __) => NetworkConnectionType.none,
+    error: (_, _) => NetworkConnectionType.none,
   );
 }
 
@@ -160,6 +159,6 @@ String networkConnectionDescription(Ref ref) {
   return networkStatus.when(
     data: (status) => status.connectionDescription,
     loading: () => '检测中...',
-    error: (_, __) => '未知',
+    error: (_, _) => '未知',
   );
 }

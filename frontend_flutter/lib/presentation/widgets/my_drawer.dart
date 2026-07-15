@@ -126,7 +126,7 @@ class MyDrawer extends ConsumerWidget {
         title: Text(title),
         leading: Icon(icon, color: Theme.of(context).iconTheme.color),
         onTap: onTap ?? () => context.go(route!),
-        hoverColor: colorScheme.primary.withOpacity(0.1),
+        hoverColor: colorScheme.primary.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),

@@ -62,8 +62,8 @@ final GoRouter routerConfig = GoRouter(
         const barHeight = 58.0;
         return Consumer(
           builder: (context, ref, _) {
-            final queueNotEmpty =
-                ref.watch(queueViewModelProvider).queue.isNotEmpty;
+            final queueState = ref.watch(queueViewModelProvider);
+            final queueNotEmpty = queueState.queue?.tracks.isNotEmpty ?? false;
             return Stack(
               children: [
                 // 有播放内容时预留底部空间，避免被浮动条遮挡

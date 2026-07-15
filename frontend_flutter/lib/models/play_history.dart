@@ -38,22 +38,22 @@ abstract class PlayHistory with _$PlayHistory {
   /// 从 DTO 创建
   factory PlayHistory.fromDto(Map<String, dynamic> json) {
     // ✅ 安全的数值转字符串转换（修复类型转换错误）
-    final safeString = (dynamic value) {
+    String? safeString(dynamic value) {
       if (value == null) return null;
       if (value is String) return value;
       if (value is int) return value.toString();
       if (value is double) return value.toInt().toString();
       return value.toString();
-    };
+    }
 
     // ✅ 安全的数值转换
-    final safeInt = (dynamic value) {
+    int safeInt(dynamic value) {
       if (value == null) return 0;
       if (value is int) return value;
       if (value is double) return value.toInt();
       if (value is String) return int.tryParse(value) ?? 0;
       return 0;
-    };
+    }
 
     PlaySource? source;
     final sourceType = json['source_type'] as String?;

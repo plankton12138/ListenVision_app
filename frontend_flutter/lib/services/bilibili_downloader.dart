@@ -189,8 +189,8 @@ class BilibiliDownloader {
     void Function(int received, int total)? onProgress,
   }) async {
     // 进度节流：只当进度变化超过 1% 或每 500ms 才更新
-    int? _lastNotifiedPercent;
-    DateTime? _lastNotifiedTime;
+    int? lastNotifiedPercent;
+    DateTime? lastNotifiedTime;
 
     await _dio.download(
       url,
@@ -210,14 +210,14 @@ class BilibiliDownloader {
         // 节流条件：
         // 1. 进度变化超过 1%，或
         // 2. 距离上次通知超过 500ms
-        final shouldNotify = _lastNotifiedPercent == null ||
-            (percent - _lastNotifiedPercent!).abs() >= 1 ||
-            _lastNotifiedTime == null ||
-            now.difference(_lastNotifiedTime!).inMilliseconds >= 500;
+        final shouldNotify = lastNotifiedPercent == null ||
+            (percent - lastNotifiedPercent!).abs() >= 1 ||
+            lastNotifiedTime == null ||
+            now.difference(lastNotifiedTime!).inMilliseconds >= 500;
 
         if (shouldNotify) {
-          _lastNotifiedPercent = percent;
-          _lastNotifiedTime = now;
+          lastNotifiedPercent = percent;
+          lastNotifiedTime = now;
           onProgress(received, total);
         }
       },

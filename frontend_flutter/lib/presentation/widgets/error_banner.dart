@@ -22,10 +22,10 @@ class ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(0.1),
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: theme.colorScheme.errorContainer.withOpacity(0.3),
+          color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
         ),
       ),
       child: Column(

@@ -148,13 +148,13 @@ class DialogHelper {
 
 /// 兼容旧代码的函数别名
 @Deprecated('使用 DialogHelper.showConfirmationDialog 代替')
-showMyDialog(BuildContext context, String title, String message) {
+Future<String?> showMyDialog(BuildContext context, String title, String message) {
   return DialogHelper.showConfirmationDialog(context, title, message);
 }
 
 /// 兼容旧代码的函数别名
 @Deprecated('使用 DialogHelper.showSnackBar 代替')
-showMySnackBar(
+void showMySnackBar(
   BuildContext context,
   String message,
   Color color,

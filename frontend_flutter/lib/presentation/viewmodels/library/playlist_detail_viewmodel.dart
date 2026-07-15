@@ -10,7 +10,6 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/database/app_database.dart';
-import '../../../data/database/playlist_dao.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../models/audio.dart';
@@ -22,8 +21,8 @@ import '../../../models/playlist.dart';
 import '../player/playback_viewmodel.dart';
 import '../player/queue_viewmodel.dart';
 import '../system/download_viewmodel.dart';
+import 'playlist_viewmodel.dart';
 import 'local_music_viewmodel.dart';
-import 'playlist_viewmodel.dart' show playlistRepositoryProvider;
 
 part 'playlist_detail_viewmodel.freezed.dart';
 part 'playlist_detail_viewmodel.g.dart';
@@ -206,7 +205,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 刷新详情
   Future<void> refresh() async {
     final playlistId = state.valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist.id,
+      loaded: (playlist, _, _) => playlist.id,
       orElse: () => null,
     );
     if (playlistId != null) {
@@ -217,7 +216,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 移除歌单项（延迟 3 秒持久化，支持撤销）
   Future<bool> removeItem(String bvid) async {
     final playlistId = state.valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist.id,
+      loaded: (playlist, _, _) => playlist.id,
       orElse: () => null,
     );
     if (playlistId == null) return false;
@@ -308,7 +307,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
   /// 播放全部
   ///
-  /// 返回 Future<bool> 便于页面显示加载状态：
+  /// 返回 `Future<bool>` 便于页面显示加载状态：
   /// ```dart
   /// onPressed: () async {
   ///   final success = await viewModel.playAll();
@@ -321,7 +320,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// ```
   Future<bool> playAll() async {
     final items = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, __) => items,
+      loaded: (_, items, _) => items,
       orElse: () => null,
     );
     if (items == null || items.isEmpty) return false;
@@ -387,7 +386,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
   /// 点击单首歌曲播放
   ///
-  /// 返回 Future<bool> 便于页面显示加载状态：
+  /// 返回 `Future<bool>` 便于页面显示加载状态：
   /// ```dart
   /// onTap: () async {
   ///   final success = await viewModel.playItem(item.bvid);
@@ -507,7 +506,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 返回成功添加的下载任务数量
   Future<int> downloadAllItems() async {
     final items = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, __) => items,
+      loaded: (_, items, _) => items,
       orElse: () => null,
     );
     if (items == null || items.isEmpty) return 0;
@@ -606,7 +605,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     String? coverUrl,
   }) async {
     final playlistId = state.valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist.id,
+      loaded: (playlist, _, _) => playlist.id,
       orElse: () => null,
     );
     if (playlistId == null) return false;
@@ -643,7 +642,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 删除歌单
   Future<bool> deletePlaylist() async {
     final playlistId = state.valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist.id,
+      loaded: (playlist, _, _) => playlist.id,
       orElse: () => null,
     );
     if (playlistId == null) return false;
@@ -667,7 +666,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 进入批量操作模式
   void enterBatchMode() {
     final items = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, __) => items,
+      loaded: (_, items, _) => items,
       orElse: () => <PlaylistItem>[],
     ) ?? [];
 
@@ -708,7 +707,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     } else {
       // 全选
       final items = state.valueOrNull?.maybeWhen(
-        loaded: (_, items, __) => items,
+        loaded: (_, items, _) => items,
         orElse: () => <PlaylistItem>[],
       ) ?? [];
       final allBvids = items.map((i) => i.bvid).toSet();
@@ -719,7 +718,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 批量移除选中的项目
   Future<BatchOperationResult> batchRemoveItems(List<String> bvids) async {
     final playlistId = state.valueOrNull?.maybeWhen(
-      loaded: (playlist, _, __) => playlist.id,
+      loaded: (playlist, _, _) => playlist.id,
       orElse: () => null,
     );
 
@@ -801,7 +800,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 拖拽重排
   Future<void> reorderItems(int oldIndex, int newIndex) async {
     final current = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, __) => items, orElse: () => null,
+      loaded: (_, items, _) => items, orElse: () => null,
     );
     if (current == null) return;
 
@@ -820,7 +819,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 自动排序
   Future<void> sortItems(SortField field) async {
     final current = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, __) => items, orElse: () => null,
+      loaded: (_, items, _) => items, orElse: () => null,
     );
     if (current == null) return;
 

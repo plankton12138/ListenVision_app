@@ -9,7 +9,7 @@ part 'playlist_viewmodel.g.dart';
 
 /// 歌单列表 Notifier
 ///
-/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+/// 管理用户歌单列表，使用 Riverpod 内置 `AsyncValue<List<Playlist>>`
 @Riverpod(keepAlive: true)
 class PlaylistListNotifier extends _$PlaylistListNotifier {
   PlaylistRepository? _repository;

@@ -6,10 +6,12 @@ import '../../../core/utils/app_logger.dart';
 import '../../../models/playable_audio.dart';
 import '../../../models/online_playable.dart';
 import '../../../models/local_playable.dart';
-import '../../../data/repositories/repository_providers.dart';
+import '../../../data/repositories/repository_providers.dart'
+    hide favoriteTracksProvider;
+import '../../../models/audio.dart';
 import '../../viewmodels/player/playback_viewmodel.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
-import '../../viewmodels/library/playlist_viewmodel.dart';
+import '../../viewmodels/library/favorite_tracks_notifier.dart';
 
 /// 队列列表项组件
 ///
@@ -43,14 +45,16 @@ class QueueItemTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    // 获取收藏状态（仅在线音频支持收藏）
+    // 获取收藏状态（由 FavoriteTracksNotifier 管理）
     final isOnline = playable.isOnline;
-    final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
 
     // 获取纯 BVID（OnlinePlayable.id 现已包含 cid，需用 original.id 取纯 BVID）
     final bvid = (playable is OnlinePlayable) ? (playable as OnlinePlayable).original.id : playable.id;
 
-    final isFavorited = playlistNotifier.isFavorited(bvid);
+    final favoriteTracksAsync = ref.watch(favoriteTracksProvider);
+    final isFavorited = favoriteTracksAsync.whenOrNull(
+      data: (ids) => ids.contains(bvid),
+    ) ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -173,20 +177,31 @@ class QueueItemTile extends ConsumerWidget {
     AppLogger.logButtonClick('切换收藏', 'QueueItemTile',
       parameters: {'bvid': bvid, 'title': playable.title});
 
-    final notifier = ref.read(playlistViewModelProvider.notifier);
-    final added = await notifier.toggleFavorite(
+    // 确保 Track 记录存在
+    final trackDao = ref.read(trackDaoProvider);
+    var track = await trackDao.getBySourceId(bvid);
+    if (track == null) {
+      track = await trackDao.saveFromAudio(Audio(
+        id: bvid,
+        title: playable.title.isNotEmpty ? playable.title : '未知标题',
+        artist: playable.artist,
+        duration: playable.duration,
+        coverUrl: playable.coverUrl,
+      ));
+    }
+
+    final target = await ref.read(favoriteTracksProvider.notifier).toggle(
       bvid,
       title: playable.title,
       artist: playable.artist,
       duration: playable.duration,
       coverUrl: playable.coverUrl,
-      localPath: playable.isOnline ? null : playable.url,
     );
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(added ? '已添加到收藏' : '已取消收藏'),
+          content: Text(target ? '已添加到收藏' : '已取消收藏'),
           duration: const Duration(seconds: 1),
         ),
       );

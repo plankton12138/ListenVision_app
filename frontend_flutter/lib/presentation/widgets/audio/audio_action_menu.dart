@@ -8,7 +8,6 @@ import 'package:listenvision/models/download_task.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/playlist.dart';
 import 'package:listenvision/presentation/providers.dart';
-import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:listenvision/presentation/viewmodels/system/download_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -93,30 +92,23 @@ class AudioActionMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlistState = ref.watch(playlistViewModelProvider);
     final downloadState = ref.watch(downloadViewModelProvider);
-    return playlistState.when(
+    // 收藏状态由 FavoriteTracksNotifier 管理
+    final favoriteTracksAsync = ref.watch(favoriteTracksProvider);
+    final isFavorited = favoriteTracksAsync.whenOrNull(
+      data: (ids) => ids.contains(bvid),
+    ) ?? false;
+    // 获取当前 bvid 的下载任务
+    final downloadTask = downloadState.whenOrNull(
       data: (state) {
-        final isFavorited = state.map(
-          initial: (_) => false,
-          loaded: (value) => value.favoritesItems.any((item) => item.bvid == bvid),
-          error: (_) => false,
-        );
-        // 获取当前 bvid 的下载任务
-        final downloadTask = downloadState.whenOrNull(
-          data: (state) {
-            try {
-              return state.downloads.firstWhere((task) => task.bvid == bvid);
-            } catch (_) {
-              return null;
-            }
-          },
-        );
-        return _buildContent(context, ref, isFavorited, downloadTask);
+        try {
+          return state.downloads.firstWhere((task) => task.bvid == bvid);
+        } catch (_) {
+          return null;
+        }
       },
-      loading: () => _buildContent(context, ref, false, null),
-      error: (_, __) => _buildContent(context, ref, false, null),
     );
+    return _buildContent(context, ref, isFavorited, downloadTask);
   }
 
   Widget _buildContent(
@@ -206,9 +198,20 @@ class AudioActionMenu extends ConsumerWidget {
                 try {
                   AppLogger.info('AudioActionMenu', '切换收藏: $bvid');
 
-                  final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+                  // 确保 Track 记录存在
+                  final trackDao = ref.read(trackDaoProvider);
+                  var track = await trackDao.getBySourceId(bvid);
+                  if (track == null) {
+                    track = await trackDao.saveFromAudio(Audio(
+                      id: bvid,
+                      title: title.isNotEmpty ? title : '未知标题',
+                      artist: artist,
+                      duration: duration,
+                      coverUrl: coverUrl,
+                    ));
+                  }
 
-                  await playlistNotifier.toggleFavorite(
+                  await ref.read(favoriteTracksProvider.notifier).toggle(
                     bvid,
                     title: title,
                     artist: artist,
@@ -480,15 +483,11 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
   @override
   Widget build(BuildContext context) {
-    final playlistState = ref.watch(playlistViewModelProvider);
+    final playlistState = ref.watch(playlistListProvider);
 
     return playlistState.when(
-      data: (state) {
-        final userPlaylists = state.map(
-          initial: (_) => <Playlist>[],
-          loaded: (value) => value.userPlaylists,
-          error: (_) => <Playlist>[],
-        );
+      data: (playlists) {
+        final userPlaylists = playlists.where((p) => p.isUserPlaylist).toList();
         return _buildContent(context, userPlaylists);
       },
       loading: () => _buildContent(context, <Playlist>[]),
@@ -624,7 +623,7 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
               Navigator.pop(context);
 
-              final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+              final playlistNotifier = ref.read(playlistListProvider.notifier);
               final newPlaylist = await playlistNotifier.createPlaylist(
                 name: name,
               );
@@ -648,7 +647,7 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
       Navigator.pop(context);
 
-      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
+      final playlistNotifier = ref.read(playlistListProvider.notifier);
 
       final success = await playlistNotifier.addItem(
         playlistId,

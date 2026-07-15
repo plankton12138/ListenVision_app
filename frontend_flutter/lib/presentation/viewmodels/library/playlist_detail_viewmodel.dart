@@ -21,7 +21,7 @@ import '../player/playback_viewmodel.dart';
 import '../player/queue_viewmodel.dart';
 import '../system/download_viewmodel.dart';
 import 'local_music_viewmodel.dart';
-import 'playlist_viewmodel.dart';
+import 'playlist_viewmodel.dart' show playlistRepositoryProvider;
 
 part 'playlist_detail_viewmodel.freezed.dart';
 part 'playlist_detail_viewmodel.g.dart';
@@ -241,8 +241,6 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       }
 
       // 触发 PlaylistViewModel 刷新以同步状态
-      ref.invalidate(playlistViewModelProvider);
-
       AppLogger.info('PlaylistDetailViewModel', '移除歌单项成功');
       return true;
     } catch (e) {
@@ -575,9 +573,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
 
         // 触发 PlaylistViewModel 刷新以同步状态
-        ref.invalidate(playlistViewModelProvider);
-
-        AppLogger.info('PlaylistDetailViewModel', '更新歌单成功');
+          AppLogger.info('PlaylistDetailViewModel', '更新歌单成功');
         return true;
       }
       return false;
@@ -601,8 +597,6 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       await _repository!.deletePlaylist(playlistId);
 
       // 触发 PlaylistViewModel 刷新以同步状态
-      ref.invalidate(playlistViewModelProvider);
-
       AppLogger.info('PlaylistDetailViewModel', '删除歌单成功');
       return true;
     } catch (e) {
@@ -730,7 +724,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       );
 
       // 触发 PlaylistViewModel 刷新
-      ref.invalidate(playlistViewModelProvider);
+      ref.invalidate(playlistListProvider);
     }
 
     AppLogger.info(

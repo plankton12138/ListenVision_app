@@ -22,9 +22,9 @@ export 'viewmodels/player/metadata_viewmodel.dart' show metadataViewModelProvide
 export 'viewmodels/player/metadata_viewmodel.dart' show metadataServiceProvider;
 
 // ==================== 资源库相关 ====================
-export 'viewmodels/library/playlist_viewmodel.dart' show playlistViewModelProvider;
-export 'viewmodels/library/playlist_viewmodel.dart' show PlaylistState;
+export 'viewmodels/library/playlist_viewmodel.dart' show playlistListProvider;
 export 'viewmodels/library/playlist_viewmodel.dart' show sharedStorageServiceProvider;
+export 'viewmodels/library/favorite_tracks_notifier.dart' show favoriteTracksProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show playlistDetailViewModelProvider;
 export 'viewmodels/library/playlist_detail_viewmodel.dart' show PlaylistDetailState;
 export 'viewmodels/library/history_viewmodel.dart' show historyViewModelProvider;

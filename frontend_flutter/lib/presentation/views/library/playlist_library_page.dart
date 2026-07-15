@@ -1,7 +1,8 @@
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/image_helper.dart';
+import 'package:listenvision/models/playlist.dart';
+import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
-import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +17,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlistAsync = ref.watch(playlistViewModelProvider);
+    final playlistAsync = ref.watch(playlistListProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +38,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             iconSize: UIConstants.iconMedium,
             onPressed: () {
-              ref.read(playlistViewModelProvider.notifier).loadPlaylists();
+              ref.invalidate(playlistListProvider);
             },
           ),
           // 返回首页按钮
@@ -87,7 +88,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
                 return;
               }
               Navigator.pop(context);
-              await ref.read(playlistViewModelProvider.notifier).createPlaylist(
+              await ref.read(playlistListProvider.notifier).createPlaylist(
                 name: name,
               );
               if (context.mounted) {
@@ -103,7 +104,9 @@ class PlaylistLibraryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, PlaylistState state) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, List<Playlist> playlists) {
+    final userPlaylists = playlists.where((p) => p.isUserPlaylist).toList();
+
     return Column(
       children: [
         // 本地音乐歌单（系统预设，所有用户可见）
@@ -114,17 +117,16 @@ class PlaylistLibraryPage extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.favorite, color: Colors.red),
           title: const Text('我喜欢'),
-          subtitle: Text('${state.favoritesItems.length}首'),
+          subtitle: const Text('0首'),
           onTap: () {
-            final id = state.favoritesPlaylist?.id ?? '1';
-            context.push('/playlists/$id');
+            context.push('/playlists/${Playlist.favorites.id}');
           },
         ),
 
         // 在线歌单列表
         const Divider(),
         Expanded(
-          child: state.userPlaylists.isEmpty
+          child: userPlaylists.isEmpty
               ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -136,9 +138,9 @@ class PlaylistLibraryPage extends ConsumerWidget {
                   ),
                 )
               : ListView.builder(
-                  itemCount: state.userPlaylists.length,
+                  itemCount: userPlaylists.length,
                   itemBuilder: (context, index) {
-                    final playlist = state.userPlaylists[index];
+                    final playlist = userPlaylists[index];
                     return ListTile(
                       leading: Container(
                         width: 56,
@@ -227,7 +229,7 @@ class PlaylistLibraryPage extends ConsumerWidget {
 
     if (confirmed == true) {
       await ref
-          .read(playlistViewModelProvider.notifier)
+          .read(playlistListProvider.notifier)
           .deletePlaylist(playlist.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

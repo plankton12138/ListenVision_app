@@ -1,6 +1,7 @@
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/storage/shared_storage_service.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
+import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
@@ -584,14 +585,25 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (bvid == null) return;
 
     try {
-      final playlistNotifier = ref.read(playlistViewModelProvider.notifier);
-      final added = await playlistNotifier.toggleFavorite(
+      // 确保 Track 记录存在
+      final trackDao = ref.read(trackDaoProvider);
+      var track = await trackDao.getBySourceId(bvid);
+      if (track == null) {
+        track = await trackDao.saveFromAudio(Audio(
+          id: bvid,
+          title: (item.title as String?)?.isNotEmpty == true ? item.title as String : '未知标题',
+          artist: item.artist as String?,
+          duration: item.duration as int?,
+          coverUrl: item.coverUrl as String?,
+        ));
+      }
+
+      final added = await ref.read(favoriteTracksProvider.notifier).toggle(
         bvid,
-        title: item.title,
-        artist: item.artist,
-        duration: item.duration,
-        coverUrl: item.coverUrl,
-        localPath: item.localPath,
+        title: item.title as String?,
+        artist: item.artist as String?,
+        duration: item.duration as int?,
+        coverUrl: item.coverUrl as String?,
       );
 
       if (mounted) {

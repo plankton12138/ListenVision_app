@@ -250,10 +250,27 @@ class PlaylistRepository {
     }
   }
 
-  /// 保存播放队列（本地，暂不实现服务端同步）
-  Future<void> saveNowPlaying(List<PlaylistItem> items) async {
-    // 本地模式下暂不实现
-    AppLogger.debug('PlaylistRepository', 'saveNowPlaying: 本地模式下暂不实现');
+  /// 获取收藏曲目 ID 集合（用于快速查找）
+  Future<Set<String>> getFavoriteTrackIds() async {
+    try {
+      final db = await AppDatabase.instance.database;
+      final rows = await db.query(
+        'tracks',
+        where: 'is_favorite = ?',
+        whereArgs: [1],
+        columns: ['source_id'],
+      );
+      return rows.map((r) => r['source_id'] as String).toSet();
+    } catch (e) {
+      AppLogger.error('PlaylistRepository', '获取收藏ID失败: $e');
+      return {};
+    }
+  }
+
+  /// 生成歌单封面（2x2 拼图）
+  Future<String?> generatePlaylistCover(String playlistId) async {
+    // P2 阶段实现
+    return null;
   }
 
   /// 获取本地歌单列表（离线支持）

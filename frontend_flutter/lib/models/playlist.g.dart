@@ -48,10 +48,7 @@ const _$PlaylistTypeEnumMap = {
   PlaylistType.user: 'user',
 };
 
-const _$SystemPlaylistTypeEnumMap = {
-  SystemPlaylistType.favorites: 'favorites',
-  SystemPlaylistType.nowPlaying: 'now_playing',
-};
+const _$SystemPlaylistTypeEnumMap = {SystemPlaylistType.favorites: 'favorites'};
 
 _PlaylistItem _$PlaylistItemFromJson(Map<String, dynamic> json) =>
     _PlaylistItem(

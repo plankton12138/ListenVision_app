@@ -96,10 +96,8 @@ class PlaylistViewModel extends _$PlaylistViewModel {
         orElse: () => Playlist.favorites,
       );
 
-      final nowPlayingPlaylist = systemPlaylists.firstWhere(
-        (p) => p.isNowPlaying,
-        orElse: () => Playlist.nowPlaying,
-      );
+      // 播放队列已由 PlayQueue 独立管理，不再查找 nowPlaying 系统歌单
+      final Playlist? nowPlayingPlaylist = null;
 
       // 保留当前列表数据
       final currentFavorites = state.valueOrNull?.favoritesItems ?? [];
@@ -720,10 +718,8 @@ class PlaylistViewModel extends _$PlaylistViewModel {
           orElse: () => Playlist.favorites,
         );
 
-        final nowPlayingPlaylist = systemPlaylists.firstWhere(
-          (p) => p.isNowPlaying,
-          orElse: () => Playlist.nowPlaying,
-        );
+        // 播放队列已由 PlayQueue 独立管理，不再查找 nowPlaying 系统歌单
+        final Playlist? nowPlayingPlaylist = null;
 
         return PlaylistState.loaded(
           playlists: playlists,

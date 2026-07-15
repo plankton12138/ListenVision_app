@@ -53,9 +53,6 @@ class PlaylistCard extends StatelessWidget {
     if (playlist.isFavorites) {
       icon = Icons.favorite;
       variant = PlaylistCardVariant.favorite;
-    } else if (playlist.isNowPlaying) {
-      icon = Icons.play_circle;
-      variant = PlaylistCardVariant.nowPlaying;
     } else {
       icon = Icons.playlist_play;
       variant = PlaylistCardVariant.standard;

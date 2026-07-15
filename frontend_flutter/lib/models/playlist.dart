@@ -15,8 +15,6 @@ enum PlaylistType {
 enum SystemPlaylistType {
   @JsonValue('favorites')
   favorites,
-  @JsonValue('now_playing')
-  nowPlaying,
 }
 
 /// 歌单实体
@@ -69,9 +67,6 @@ abstract class Playlist with _$Playlist {
   /// 是否为"我喜欢"歌单
   bool get isFavorites => systemType == SystemPlaylistType.favorites;
 
-  /// 是否为"正在播放"歌单
-  bool get isNowPlaying => systemType == SystemPlaylistType.nowPlaying;
-
   /// 是否有封面
   bool get hasCover => coverUrl != null && coverUrl!.isNotEmpty;
 
@@ -104,9 +99,6 @@ abstract class Playlist with _$Playlist {
     switch (value) {
       case 'favorites':
         return SystemPlaylistType.favorites;
-      case 'now_playing':
-      case 'nowPlaying':
-        return SystemPlaylistType.nowPlaying;
       default:
         return null;
     }
@@ -130,14 +122,6 @@ abstract class Playlist with _$Playlist {
     systemType: SystemPlaylistType.favorites,
   );
 
-  /// 创建"正在播放"系统歌单
-  static const nowPlaying = Playlist(
-    id: '2',
-    userId: '0',
-    name: '正在播放',
-    type: PlaylistType.system,
-    systemType: SystemPlaylistType.nowPlaying,
-  );
 }
 
 /// 歌单项实体

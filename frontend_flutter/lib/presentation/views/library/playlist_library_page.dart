@@ -116,7 +116,15 @@ class PlaylistLibraryPage extends ConsumerWidget {
         const Divider(),
         // 系统歌单：我喜欢
         ListTile(
-          leading: const Icon(Icons.favorite, color: Colors.red),
+          leading: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.favorite, color: Colors.red),
+          ),
           title: const Text('我喜欢'),
           subtitle: Text('$favCount首'),
           onTap: () {

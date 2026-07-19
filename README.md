@@ -1,381 +1,135 @@
-# 🎵 ListenVision
+# ListenVision
 
-> 一个基于 Bilibili API 的跨平台音频获取与播放应用
+直接从 Bilibili 获取音频内容并播放。无论是音乐、相声、播客、ASMR 还是其他音频内容，搜索即播，也可以下载到本地离线收听。
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.38.5-blue)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.10.4-blue)](https://dart.dev)
-[![Python](https://img.shields.io/badge/Python-3.11-green)](https://python.org)
-[![SQLite](https://img.shields.io/badge/SQLite-aiosqlite-orange)](https://sqlite.org)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> 纯前端应用，无需服务器。Flutter 构建，Android / Windows / Web 多平台支持。
 
----
+## 截图
 
-## 📖 项目简介
+<!-- TODO: 替换为实际应用截图，建议截取 6 个画面：
+  1. 首页播放器（控制面板 + 封面 + 进度条）
+  2. 搜索结果列表
+  3. 发现页（B站音乐区热门推荐）
+  4. 歌单详情（曲目列表）
+  5. 下载管理（队列和进度）
+  6. 浮动播放条（非首页底部的小型播放条） -->
 
-**ListenVision** 是一个功能完整的跨平台音频应用，专注于为用户提供便捷的音频内容获取、播放和管理体验。通过集成 Bilibili API，用户可以搜索、下载、播放 B站 的音频内容（包括音乐、播客、曲艺等）。
+<div align="center">
+  <img src="frontend_flutter/assets/homepage.png" alt="首页播放器" width="30%"/>
+  <img src="frontend_flutter/assets/playlist.png" alt="歌单页" width="30%"/>
+  <img src="frontend_flutter/assets/searchpage.png" alt="搜索页" width="30%"/>
+</div>
 
-### 核心特色
+## 核心功能
 
-- 🎯 **灵活的账号体系** - 支持邮箱注册登录，可选绑定 B站 账号获取个性化推荐
-- 🔓 **游客模式** - 未登录用户也能搜索、在线播放 B站 音频、导入本地音频
-- 🔐 **安全的认证机制** - JWT Token + 服务端 AES-256-CBC 加密存储 Cookie
-- 🌍 **跨平台支持** - Android、Web、Windows 全覆盖
-- 🎵 **本地/在线音频播放** - 支持导入本地音频、在线播放 B站 音频，支持 M4A/MP3/FLAC 元数据
-- 📋 **歌单管理** - 创建、编辑、收藏歌单，"我喜欢"系统歌单，歌单排序
-- 📥 **智能下载管理** - 支持多线程下载、断点续传、后台下载
-- 💾 **本地优先架构** - 数据本地优先存储，网络异步同步，断点续传保障
-- 🛡️ **文件完整性验证** - 启动自动扫描下载文件，标记缺失文件
-- 📶 **网络状态监测** - 实时显示 WiFi/移动数据连接状态
-- 🎨 **Material Design** - 简洁优雅的用户界面，支持深色模式
-- 🏗️ **Clean Architecture** - 清晰的分层架构，易于维护和测试
+B站有丰富的音频内容：音乐、翻唱、相声评书、播客电台、ASMR、白噪音等，但官方客户端必须保持视频画面开启。ListenVision 只获取 DASH 音频流，支持后台播放和锁屏收听。
 
----
+**搜索与播放。** 输入关键词搜索 B站，点击结果直接在线播放。多P视频和章节视频可以切换不同分段，提取对应音频。
 
-## 🚀 快速开始
+**下载与格式转换。** 支持将音频下载到本地，可选 M4A、MP3、AAC 三种格式。安装 FFmpeg 后可在下载时自动转换格式。
 
-### 前置要求
+**本地音频导入。** 设备上的音频文件可以导入应用，自动提取封面、标题、艺术家等元数据。
 
-- Flutter SDK >= 3.38.5
-- Dart SDK >= 3.10.4
-- Python >= 3.11
-- uv (Python 包管理器)
+**歌单与收藏。** 创建歌单、添加曲目、拖拽排序。"我喜欢"为默认收藏歌单，点击心形图标即可收藏。播放历史自动记录。
 
-### 1. 克隆项目
+**发现页面。** 浏览 B站音乐区热门榜单，获取推荐内容。
+
+**浮动播放条。** 离开首页后，底部显示当前播放信息和基本控制，点击展开完整面板。
+
+**其他。** 启动时自动扫描下载目录，标记被外部删除的文件。支持浅色/深色主题切换。
+
+## 技术概况
+
+| 层面 | 选型 |
+|------|------|
+| 框架 | Flutter 3.41，Dart 3.11 |
+| 音频播放 | media_kit（底层 libmpv），支持自定义 HTTP 请求头 |
+| 状态管理 | Riverpod 3，配合 Freezed 代码生成 |
+| 本地数据库 | SQLite（sqflite），存储歌单、历史、下载记录 |
+| 网络请求 | Dio，直连 B站 REST API |
+| 音频转换 | FFmpeg（桌面端调用系统 ffmpeg，移动端使用 ffmpeg_kit） |
+| 路由 | go_router |
+| 元数据 | audio_metadata_reader（读取）+ metadata_god（写入） |
+
+项目结构遵循 MVVM 分层：`models`（数据模型）→ `data`（数据库和仓库）→ `services`（业务逻辑和第三方封装）→ `presentation`（ViewModel + View）。
+
+## 开发环境
 
 ```bash
-git clone https://github.com/yourusername/Projects_ListenVison.git
-cd Projects_ListenVison
+# 必备
+Flutter SDK >= 3.41
+Dart SDK >= 3.11
+
+# 可选（音频格式转换需要）
+FFmpeg（命令行可调用即可）
 ```
 
-### 2. 后端设置
-
 ```bash
-# 进入后端目录
-cd listen-vision-api-python
+git clone https://github.com/plankton12138/listen-vision-audio-app.git
+cd listen-vision-audio-app/frontend_flutter
 
-# 安装依赖 (使用 uv)
-uv sync
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，设置 JWT_SECRET 等配置
-
-# 启动服务器
-uv run uvicorn app.main:app
-```
-
-后端服务将运行在 `http://localhost:8000`
-
-API 文档: `http://localhost:8000/docs`
-
-### 3. 前端设置
-
-```bash
-# 进入前端目录
-cd frontend_flutter
-
-# 获取依赖
 flutter pub get
+flutter run         # 连接设备或模拟器后启动
 
-# 运行应用 (需要连接设备/模拟器)
-flutter run
-
-# 构建特定平台
-flutter build apk          # Android APK
-flutter build ios          # iOS
-flutter build web          # Web
-flutter build windows      # Windows
-flutter build linux        # Linux
-flutter build macos        # macOS
+# 构建
+flutter build apk   # Android
+flutter build windows  # Windows
+flutter build web   # Web（部分功能受限，见下文）
 ```
 
----
+**Web 平台的限制：** 浏览器无法写入本地文件系统，所以下载、后台播放、本地文件扫描在 Web 版都不可用。完整体验建议使用 Android 或 Windows 桌面版。
 
-## 🎯 核心功能
-
-### 使用方式
-
-#### 未登录用户（游客模式）
-
-游客可以享受以下功能，无需注册账号：
-
-- ✅ **本地音频导入与播放** - 选择设备中的音频文件直接播放
-- ✅ **搜索音频内容** - 搜索 B站 平台的音频/视频内容
-- ✅ **在线播放** - 无需下载，直接在线播放 B站 音频
-- ✅ **播放列表管理** - 临时播放队列，控制播放/暂停/上一曲/下一曲
-- ✅ **音频播放控制** - 进度条拖拽、循环模式切换
-- ✅ **深色模式切换** - 自由切换日间/夜间主题
-- ✅ **跳转到原内容页面** - 快速跳转到 B站 原视频页面
-- ✅ **视频章节/选集/分P 跳转** - 支持多P视频切换
-- ✅ **音频元数据显示** - 显示封面、标题、艺术家等元数据
-
-#### 登录用户
-
-登录后可解锁更多功能：
-
-**账号管理**：
-- ✅ 邮箱注册（需邮箱验证）
-- ✅ 用户名/密码登录
-- ✅ 忘记密码（邮箱验证码找回）
-
-**歌单与收藏**：
-- ✅ 创建/编辑/删除歌单
-- ✅ "我喜欢"收藏歌单（系统歌单）
-- ✅ 添加/移除歌单项
-- ✅ 歌单排序（按标题/艺术家/添加时间等）
-- ✅ 播放历史记录与清空
-- ✅ 歌单详情查看
-
-**发现与推荐**：
-- ✅ 热门歌单推荐
-- ✅ 热歌榜单
-- ✅ 个性化推荐内容
-
-**可选 - Bilibili 账号绑定**：
-- ✅ Bilibili 二维码登录
-- ✅ 账号绑定与解绑
-- ✅ 获取 B站 推荐内容
-
-### 平台差异说明
-
-#### Web 启动注意事项
-
-Flutter Web 启动与原生启动存在以下功能差异：
-
-| 特性 | 原生启动 (Android/iOS/桌面) | Web 启动 |
-|------|---------------------------|----------|
-| **本地数据库** | ✅ SQLite (sqflite) | ❌ 不可用 |
-| **用户数据** | ✅ 持久化存储 | ❌ 仅内存存储，刷新后丢失 |
-| **下载记录** | ✅ 持久化存储 | ❌ 不可用 |
-| **播放历史** | ✅ 持久化存储 | ❌ 仅内存存储 |
-| **歌单收藏** | ✅ 持久化存储 | ❌ 仅内存存储 |
-| **登录状态** | ✅ JWT Token 持久化 | ⚠️ 仅 Session 有效 |
-
-**Web 可用功能**：
-- ✅ 本地音频导入（通过 Blob URL 播放）
-- ✅ 在线播放 B站 音频
-- ✅ 搜索功能
-- ✅ 发现页面浏览
-
-**Web 不可用功能**：
-- ❌ 音频下载（无法写入文件系统）
-- ❌ 后台播放（Web 音频 API 限制）
-- ❌ 本地文件扫描
-
-**建议**：如需完整功能体验，请使用原生启动（Android/iOS/桌面端）。
-
----
-
-## 🔌 API 版本
-
-当前 API 版本：**v1**
-
-所有 API 端点均以 `/api/v1` 为前缀：
+## 项目结构
 
 ```
-# 认证
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-GET    /api/v1/auth/me
-
-# 歌单
-GET    /api/v1/playlists
-POST   /api/v1/playlists
-GET    /api/v1/playlists/:id
-PUT    /api/v1/playlists/:id
-DELETE /api/v1/playlists/:id
-
-# B站
-GET    /api/v1/bilibili/video/:bvid
-GET    /api/v1/bilibili/audio/:bvid
-GET    /api/v1/bilibili/proxy/audio/:bvid
-GET    /api/v1/bilibili/search
-
-# 搜索
-GET    /api/v1/search
-GET    /api/v1/search/history
-
-# 播放历史
-GET    /api/v1/history
-POST   /api/v1/history
-DELETE /api/v1/history
-
-# 推荐内容
-GET    /api/v1/recommendations
+frontend_flutter/lib/
+├── main.dart                    # 应用入口，初始化顺序
+├── app.dart                     # MaterialApp.router 配置
+├── core/                        # 基础设施（常量、网络、存储、工具）
+│   ├── constants/               # UI 和 API 常量
+│   ├── network/                 # Dio 实例和网络状态监听
+│   ├── storage/                 # 共享存储服务
+│   └── utils/                   # 日志、权限、图片等工具
+├── models/                      # 数据模型（Audio, Playlist, PlayQueue 等）
+│   └── dto/                     # API 响应 DTO
+├── data/                        # 数据层
+│   ├── database/                # DAO（TrackDao, PlaylistDao, PlayHistoryDao 等）
+│   └── repositories/            # 仓库层（封装 DAO 操作）
+├── services/                    # 服务层
+│   ├── audio_player_service.dart    # 播放器封装（media_kit）
+│   ├── bilibili_api_service.dart    # B站 API 直连
+│   ├── bilibili_downloader.dart     # B站 音频下载
+│   ├── download_service.dart        # 通用下载
+│   ├── download_integrity_service.dart  # 文件完整性检查
+│   ├── ffmpeg_service.dart          # 音频格式转换
+│   ├── metadata_service.dart        # 元数据读取
+│   └── platform/                    # 平台相关（媒体扫描）
+└── presentation/                # 表现层
+    ├── routes/router.dart           # 路由配置（go_router）
+    ├── theme/                       # 浅色/深色主题
+    ├── viewmodels/                  # ViewModel（Riverpod Notifier）
+    │   ├── discovery/               # 搜索、发现
+    │   ├── library/                 # 歌单、历史、本地音乐
+    │   ├── player/                  # 播放器、队列、元数据
+    │   ├── settings/                # 扫描设置
+    │   └── system/                  # 主题、下载管理
+    ├── views/                       # 页面
+    │   ├── player/                  # 首页播放器、播放列表
+    │   ├── discovery/               # 搜索、发现
+    │   ├── library/                 # 歌单库、歌单详情、本地音乐、历史
+    │   └── system/                  # 下载管理、设置
+    └── widgets/                     # 可复用组件
+        ├── player/                  # 浮动播放条、展开面板、控制按钮
+        ├── audio/                   # 音频操作菜单
+        └── common/                  # 通用组件（网络状态、SnackBar 等）
 ```
 
-完整 API 文档：`http://localhost:3000/api-docs`
+## 注意事项
 
----
+- B站 的反爬机制可能会影响音频流获取，如果播放失败可以稍后重试
+- 下载的音频仅供个人使用，请遵守 B站 用户协议和版权法规
+- 桌面版音频转换需要系统已安装 FFmpeg 并可在命令行调用
 
-## 🏗️ 项目架构
+## 许可证
 
-ListenVision 采用 **Clean Architecture** 设计原则，遵循清晰的分层架构：
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer (表现层)                │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Pages     │  │  Providers  │  │      Widgets        │  │
-│  │  (页面)      │  │  (状态管理)  │  │      (组件)         │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │ 调用
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Domain Layer (领域层)                   │
-│  ┌─────────────┐  ┌─────────────────────────────────────┐  │
-│  │  Entities   │  │            Repositories             │  │
-│  │   (实体)     │  │            (仓储接口)               │  │
-│  └─────────────┘  └─────────────────────────────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │ 实现
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Data Layer (数据层)                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │DataSources  │  │  Managers   │  │   Repositories      │  │
-│  │ (数据源)     │  │  (管理器)    │  │   (仓储实现)        │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Core Layer (核心层)                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │    DI       │  │  Network    │  │      Utils          │  │
-│  │ (依赖注入)   │  │  (网络)     │  │      (工具)         │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 技术栈
-
-#### 前端 (Flutter)
-- **框架**: Flutter 3.38.5 (Dart 3.10.4)
-- **架构**: Clean Architecture (Core/Domain/Data/Presentation)
-- **状态管理**: Riverpod (Codegen + Freezed)
-- **路由**: go_router ^14.8.1
-- **数据库**: sqflite ^2.4.2 (移动端) / sqflite_common_ffi ^2.3.5 (桌面端)
-- **网络**: dio ^5.8.0+1
-- **音频播放**: audioplayers ^6.x + audio_session ^0.2.1
-- **元数据**: metadata_god ^0.5.2+1 (支持 M4A/MP3/FLAC)
-- **错误处理**: dartz ^0.10.1 (Either 泛型)
-
-#### 后端 (Python - FastAPI)
-- **框架**: FastAPI ^0.115.0
-- **数据库**: SQLAlchemy async + aiosqlite (嵌入式 SQLite)
-- **认证**: PyJWT + bcrypt
-- **加密**: AES-256-CBC (Cookie 加密存储)
-- **B站API**: bilibili-api-python 库、WBI签名、QR码登录
-- **日志**: Python logging
-
----
-
-## 📂 项目结构
-
-```
-Projects_ListenVison/
-├── frontend_flutter/              # Flutter 前端应用
-│   ├── lib/
-│   │   ├── main.dart             # 应用入口
-│   │   ├── core/                 # Clean Architecture - 核心层
-│   │   │   ├── base/             # 基类 (BaseEntity, BaseProvider)
-│   │   │   ├── config/           # 配置 (AppConfig, API 版本)
-│   │   │   ├── constants/        # 常量 (API, Storage)
-│   │   │   ├── di/               # 依赖注入 (ServiceFactory)
-│   │   │   ├── errors/           # 错误定义 (Exceptions, Failures)
-│   │   │   ├── network/          # 网络层 (DioProvider, ApiClient)
-│   │   │   └── utils/            # 工具函数
-│   │   ├── domain/               # Clean Architecture - 领域层
-│   │   │   ├── entities/         # 领域实体
-│   │   │   ├── repositories/     # 仓储接口 (抽象)
-│   │   │   └── usecases/         # 用例 (可选)
-│   │   ├── data/                 # Clean Architecture - 数据层
-│   │   │   ├── datasources/      # 数据源 (Local/Remote)
-│   │   │   ├── managers/         # 管理器
-│   │   │   └── repositories/     # 仓储实现
-│   │   └── presentation/         # Clean Architecture - 表现层
-│   │       ├── pages/            # 页面
-│   │       ├── providers/        # 状态管理 (按功能分目录)
-│   │       ├── routes/           # 路由配置
-│   │       └── widgets/          # 可复用组件
-│   ├── assets/                   # 资源文件
-│   ├── pubspec.yaml              # 依赖配置
-│   └── README.md                 # 前端文档
-│
-├── listen-vision-api-python/     # Python 后端服务
-│   ├── app/
-│   │   ├── main.py               # 应用入口
-│   │   ├── api/routes/           # API 路由
-│   │   ├── services/             # 业务逻辑层
-│   │   ├── db/                   # 数据库模型和仓储
-│   │   ├── models/               # 数据模型
-│   │   ├── schemas/              # 请求/响应模式
-│   │   └── utils/                # 工具函数
-│   ├── tests/                    # 测试文件
-│   └── pyproject.toml            # 依赖配置
-│
-├── docs/                         # 项目文档
-│   ├── plans/                    # 开发计划
-│   ├── CODE_COMMENT_STANDARDS.md # 代码注释规范
-│   ├── LOGGING_STANDARDS.md      # 日志规范
-│   └── ...
-│
-├── references/                   # 参考文档
-│   └── bilibili-API-collect/     # B站API文档 (本地克隆)
-│
-├── PRD.md                        # 产品需求文档
-├── CLAUDE.md                     # Claude Code 指导文档
-├── AGENTS.md                     # Agent 开发指南
-└── README.md                     # 本文件
-```
-
----
-
-## 📚 开发文档
-
-- [后端 API 文档](listen-vision-api-python/README.md) - 后端架构和 API 说明
-- [前端开发文档](frontend_flutter/README.md) - Flutter 开发指南
-- [代码注释规范](docs/guides/CODE_COMMENT_STANDARDS.md) - 注释标准
-- [日志规范](docs/guides/LOGGING_STANDARDS.md) - 日志记录规范
-- [Claude Code 指导](CLAUDE.md) - AI 开发助手指南
-
-### 第三方平台 API 文档
-
-- **B站 API**: `references/bilibili-API-collect/docs/` (本地克隆)
-
----
-
-## 🙏 致谢与依赖项目
-
-本项目依赖以下开源项目和 API 服务：
-
-### 第三方 API 服务
-
-| 平台 | 项目 | 链接 | 用途 |
-|------|------|------|------|
-| **网易云音乐** | NeteaseCloudMusicApi | https://gitee.com/Hua-lanni/NeteaseCloudMusicApi.git | 网易云音乐 API 服务，用于 QR 登录、歌单获取、搜索等功能 |
-| **Bilibili** | bilibili-API-collect | https://github.com/SocialSisterYi/bilibili-API-collect | B站 API 文档收集项目，用于视频信息、音频流、搜索等接口开发 |
-
-### 特别说明
-
-- **NeteaseCloudMusicApi**: 本项目后端通过调用该 API 服务实现网易云音乐相关功能，包括二维码登录、用户信息获取、歌单管理、歌曲搜索等。
-
-- **bilibili-API-collect**: 这是一个社区维护的 B站 API 文档收集项目，本项目参考该文档实现了 B站 视频信息获取、音频流代理、搜索等功能。文档仓库已作为子模块克隆到 `references/bilibili-API-collect/` 目录。
-
-感谢以上开源项目的作者和社区贡献者！
-
----
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
-## 📧 联系方式
-
-planktontian@163.com
+MIT

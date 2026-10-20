@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -106,6 +107,12 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   Future<void> _engineOperations = Future.value();
   late Future<void> _initialization;
 
+  /// 各曲目已播放到的秒数（键为 playable.id），用于切歌/重启后恢复进度
+  final Map<String, int> _trackPositions = {};
+
+  /// 曲目位置写入队列，串行落盘避免并发覆盖
+  Future<void> _positionPersistChain = Future.value();
+
   /// Stream 订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
@@ -156,6 +163,8 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     } catch (e) {
       AppLogger.warn('PlaybackViewModel', '加载播放设置失败，使用默认值: $e');
     }
+
+    _loadTrackPositions();
 
     state = state.copyWith(volume: volume, speed: speed);
 
@@ -270,6 +279,12 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   void _onPlaybackComplete() {
     AppLogger.info('PlaybackViewModel', '播放完成');
     _stopPositionSaveTimer();
+    // 播放完成后清除进度，重播时从头开始
+    final playable = state.currentPlayable;
+    if (playable != null) {
+      _forgetPosition(playable.id);
+      unawaited(_storage!.setInt(StorageKeys.currentPlaybackPosition, 0));
+    }
     state = state.copyWith(isPlaying: false, isCompleted: true);
     _validateState();
     _playNextAutomatically();
@@ -339,9 +354,15 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     int startPosition = 0,
   }) async {
     if (_disposed) return;
+    // 切歌前先记住当前曲目的进度，避免切换后进度丢失
+    _rememberCurrentPosition();
+    // 优先使用调用方指定的起始位置，否则使用该曲目上次的进度
+    final resumeSeconds =
+        startPosition > 0 ? startPosition : _rememberedPosition(playable.id);
     AppLogger.info(
       'PlaybackViewModel',
-      '${autoPlay ? '播放' : '准备音源'}: ${playable.title}',
+      '${autoPlay ? '播放' : '准备音源'}: ${playable.title}'
+      '${resumeSeconds > 0 ? '（从 $resumeSeconds 秒继续）' : ''}',
     );
     _resumeAfterInterruption = false;
     final id = _invalidateSource();
@@ -378,8 +399,23 @@ class PlaybackViewModel extends _$PlaybackViewModel {
         }
         if (!_isCurrent(id)) return;
         _loadedPlayableId = playable.id;
-        if (startPosition > 0) {
-          await _audioService!.seek(Duration(seconds: startPosition));
+        if (resumeSeconds > 0) {
+          // media_kit 的 open() 在媒体加载完成前就返回，此时 seek 会被随后的
+          // 加载过程覆盖（播放仍从 0 开始），必须先等时长就绪再 seek
+          final seekable = await _audioService!.waitUntilSeekable();
+          if (!_isCurrent(id)) return;
+          if (seekable) {
+            try {
+              await _audioService!.seek(Duration(seconds: resumeSeconds));
+            } catch (e) {
+              AppLogger.warn('PlaybackViewModel', '恢复播放位置失败，从头播放: $e');
+            }
+          } else {
+            AppLogger.warn(
+              'PlaybackViewModel',
+              '音频源未就绪，跳过恢复 $resumeSeconds 秒进度',
+            );
+          }
         }
         if (!_isCurrent(id)) return;
         if (autoPlay) await _audioService!.play();
@@ -388,7 +424,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
           isLoading: false,
           isPlaying: autoPlay,
           isPaused: !autoPlay,
-          position: _audioService!.position,
+          position: Duration(seconds: resumeSeconds),
           duration: _audioService!.duration,
         );
         if (autoPlay) {
@@ -494,6 +530,7 @@ class PlaybackViewModel extends _$PlaybackViewModel {
   /// 停止会立即使尚未完成的解析/准备请求失效。
   Future<void> stop() async {
     if (_disposed) return;
+    _rememberCurrentPosition();
     _resumeAfterInterruption = false;
     final id = _invalidateSource();
     state = PlaybackState(
@@ -676,11 +713,76 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     _positionSaveTimer = null;
   }
 
+  /// 从本地存储加载各曲目的播放位置
+  void _loadTrackPositions() {
+    try {
+      final raw = _storage!.getString(StorageKeys.trackPositions);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      decoded.forEach((key, value) {
+        if (value is num) _trackPositions[key.toString()] = value.toInt();
+      });
+      AppLogger.debug(
+        'PlaybackViewModel',
+        '加载曲目播放位置: ${_trackPositions.length}条',
+      );
+    } catch (e) {
+      AppLogger.warn('PlaybackViewModel', '加载曲目播放位置失败: $e');
+    }
+  }
+
+  /// 持久化各曲目的播放位置（串行写入，避免并发覆盖）
+  Future<void> _persistTrackPositions() {
+    final snapshot = jsonEncode(_trackPositions);
+    final next = _positionPersistChain.then((_) async {
+      await _storage!.setString(StorageKeys.trackPositions, snapshot);
+    });
+    _positionPersistChain = next.catchError((Object error) {
+      AppLogger.warn('PlaybackViewModel', '保存曲目播放位置失败: $error');
+    });
+    return _positionPersistChain;
+  }
+
+  /// 记录某曲目已播放到的秒数（秒数变化时才落盘）
+  void _rememberPosition(String id, int seconds) {
+    if (_disposed || seconds < 0 || _trackPositions[id] == seconds) return;
+    _trackPositions[id] = seconds;
+    unawaited(_persistTrackPositions());
+  }
+
+  /// 读取某曲目已保存的播放位置（秒）
+  int _rememberedPosition(String id) => _trackPositions[id] ?? 0;
+
+  /// 清除某曲目的播放位置（播放完成后重播应从头开始）
+  void _forgetPosition(String id) {
+    if (_trackPositions.remove(id) == null) return;
+    unawaited(_persistTrackPositions());
+  }
+
+  /// 记录当前曲目的播放位置
+  ///
+  /// 仅在当前曲目已加载完成且未播放完成时记录，
+  /// 避免加载过程中的 0 秒覆盖已保存的进度。
+  void _rememberCurrentPosition() {
+    final playable = state.currentPlayable;
+    if (_disposed || playable == null) return;
+    if (state.isCompleted || state.isLoading) return;
+    if (_loadedPlayableId != playable.id) return;
+    _rememberPosition(playable.id, state.position.inSeconds);
+  }
+
   Future<void> _savePosition() async {
     if (_disposed || state.currentPlayable == null) return;
+    final playable = state.currentPlayable!;
+    if (state.isCompleted) {
+      _forgetPosition(playable.id);
+    } else {
+      _rememberPosition(playable.id, state.position.inSeconds);
+    }
     await _storage!.setInt(
       StorageKeys.currentPlaybackPosition,
-      state.position.inSeconds,
+      state.isCompleted ? 0 : state.position.inSeconds,
     );
   }
 

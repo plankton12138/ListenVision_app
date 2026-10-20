@@ -416,8 +416,27 @@ class AudioPlayerService {
     _isCompleted = false;
   }
 
-  // ==================== 播放设置 ====================
+  /// 等待当前音频源加载就绪（时长可用）
+  ///
+  /// media_kit 的 open() 在媒体真正加载完成前就会返回，
+  /// 此时立即 seek 会被随后的加载过程覆盖（位置回到 0），
+  /// 因此恢复播放位置前必须先等到时长可用。
+  ///
+  /// [timeout] 最长等待时间
+  /// 返回是否在超时前就绪
+  Future<bool> waitUntilSeekable({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (!_disposed) {
+      if (isReady) return true;
+      if (!DateTime.now().isBefore(deadline)) return false;
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    return false;
+  }
 
+  // ==================== 播放设置 ====================
   /// 设置音量
   ///
   /// [volume] 音量值（0.0 - 1.0，内部映射到 media_kit 的 0.0 - 100.0）

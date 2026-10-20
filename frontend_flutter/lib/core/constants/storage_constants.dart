@@ -64,6 +64,9 @@ class StorageKeys {
   /// 当前播放位置（秒）
   static const String currentPlaybackPosition = 'current_playback_position';
 
+  /// 各曲目的播放位置（JSON: {曲目ID: 秒数}）
+  static const String trackPositions = 'track_positions';
+
   /// 队列来源（JSON）
   static const String queueSource = 'queue_source';
 
@@ -98,7 +101,6 @@ class StorageExpiry {
 
   /// 缓存数据保留时间（1天）
   static const Duration cacheExpiry = Duration(days: 1);
-
 }
 
 /// 日志系统常量
@@ -121,7 +123,8 @@ class LogConstants {
   /// 获取当前日志文件名（带日期）
   static String getCurrentLogFileName() {
     final now = DateTime.now();
-    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     return '${logFilePrefix}_$dateStr$logFileExtension';
   }
 }

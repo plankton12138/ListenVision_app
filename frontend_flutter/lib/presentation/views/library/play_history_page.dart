@@ -6,6 +6,7 @@ import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/library/history_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
+import 'package:listenvision/presentation/widgets/common/marquee_text.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -237,11 +238,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       ),
       child: ListTile(
         leading: _buildCover(audio.coverUrl),
-        title: Text(audio.title, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          audio.artist ?? '未知艺术家',
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: MarqueeText(audio.title),
+        subtitle: MarqueeText(audio.artist ?? '未知艺术家'),
         trailing: Text(
           _formatDuration(audio.duration ?? 0),
           style: const TextStyle(color: Colors.grey),

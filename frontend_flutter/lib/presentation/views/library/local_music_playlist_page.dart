@@ -4,6 +4,7 @@ import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/models/queue_source.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
+import 'package:listenvision/presentation/widgets/common/marquee_text.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -449,15 +450,9 @@ class _LocalMusicPlaylistPageState
           ),
         ),
       ),
-      title: Text(
-        audio.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
+      title: MarqueeText(audio.title),
+      subtitle: MarqueeText(
         '${audio.artist} · ${_formatDuration(audio.duration)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -497,15 +492,9 @@ class _LocalMusicPlaylistPageState
         value: isSelected,
         onChanged: (_) => _toggleSelection(audio.id!),
       ),
-      title: Text(
-        audio.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
+      title: MarqueeText(audio.title),
+      subtitle: MarqueeText(
         '${audio.artist} · ${_formatDuration(audio.duration)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
       trailing: Icon(
         Icons.music_note,
@@ -540,14 +529,12 @@ class _LocalMusicPlaylistPageState
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
+              child: MarqueeText(
                 currentFile,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 14,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -587,11 +574,7 @@ class _LocalMusicPlaylistPageState
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(
-                audio.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              title: MarqueeText(audio.title),
               subtitle: Text(audio.artist),
             ),
             const Divider(),

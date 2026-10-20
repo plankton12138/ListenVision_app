@@ -5,6 +5,7 @@ import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/player/queue_bottom_sheet.dart';
+import 'common/marquee_text.dart';
 
 /// 音频信息显示组件
 ///
@@ -126,15 +127,13 @@ class AudioInfo extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 第1行：主标题（分集名/视频标题）— 最大最粗
-          Text(
+          MarqueeText(
             playerState.title,
             style: const TextStyle(
               fontSize: UIConstants.fontSizeLarge,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
           ),
 
           // 第2行：副标题（仅分P音频）— 小字灰色
@@ -142,22 +141,20 @@ class AudioInfo extends ConsumerWidget {
               playerState.albumTitle!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
+              child: MarqueeText(
                 playerState.albumTitle!,
                 style: const TextStyle(
                   fontSize: UIConstants.fontSizeSmall,
                   color: Colors.grey,
                 ),
                 textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
               ),
             ),
 
           const SizedBox(height: 4),
 
           // 第3行：作者（artist/UP主）— 主题色 + 斜体
-          Text(
+          MarqueeText(
             playerState.artist.isNotEmpty ? playerState.artist : '未知艺术家',
             style: TextStyle(
               fontSize: UIConstants.fontSizeSmall,
@@ -165,8 +162,6 @@ class AudioInfo extends ConsumerWidget {
               fontStyle: FontStyle.italic,
             ),
             textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
           ),
         ],
       ),

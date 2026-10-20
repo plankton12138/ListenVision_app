@@ -6,6 +6,7 @@ import 'package:listenvision/models/play_mode.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/player_action_bar.dart';
 import 'package:listenvision/presentation/widgets/player/queue_bottom_sheet.dart';
+import '../common/marquee_text.dart';
 
 /// 全屏播放面板
 ///
@@ -113,25 +114,22 @@ class ExpandedPlayerPanel extends ConsumerWidget {
   Widget _buildTrackTitle(BuildContext context, PlaybackState state) {
     return Column(
       children: [
-        Text(
+        MarqueeText(
           state.errorMessage != null ? '播放失败' : state.title,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
           maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
         if (state.albumTitle != null && state.albumTitle!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(
+            child: MarqueeText(
               state.albumTitle!,
               style: TextStyle(
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
       ],

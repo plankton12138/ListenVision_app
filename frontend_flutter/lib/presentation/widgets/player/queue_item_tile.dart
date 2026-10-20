@@ -12,6 +12,7 @@ import '../../../models/audio.dart';
 import '../../viewmodels/player/playback_viewmodel.dart';
 import '../../viewmodels/player/queue_viewmodel.dart';
 import '../../viewmodels/library/favorite_tracks_notifier.dart';
+import '../common/marquee_text.dart';
 
 /// 队列列表项组件
 ///
@@ -67,21 +68,15 @@ class QueueItemTile extends ConsumerWidget {
             ? Icon(Icons.play_arrow, color: theme.colorScheme.primary)
             : const Icon(Icons.music_note, color: Colors.grey),
 
-        title: Text(
+        title: MarqueeText(
           playable.title,
           style: TextStyle(
             fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
             color: isCurrent ? theme.colorScheme.primary : null,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
 
-        subtitle: Text(
-          playable.artist ?? '未知艺术家',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        subtitle: MarqueeText(playable.artist ?? '未知艺术家'),
 
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

@@ -11,6 +11,7 @@ import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/viewmodels/discovery/search_viewmodel.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/download_status_indicator.dart';
+import 'package:listenvision/presentation/widgets/common/marquee_text.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'dart:io';
@@ -568,11 +569,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 title: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: MarqueeText(item.title, maxLines: 2),
                     ),
                     if (item.videos > 1)
                       Container(
@@ -602,9 +599,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 subtitle: Row(
                   children: [
                     Expanded(
-                      child: Text(
+                      child: MarqueeText(
                         '${item.author ?? '未知UP主'} · ${_formatDuration(item.duration)}',
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     // 下载状态指示器

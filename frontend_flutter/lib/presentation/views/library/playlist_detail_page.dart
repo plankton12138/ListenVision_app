@@ -8,6 +8,7 @@ import 'package:listenvision/models/local_playable.dart';
 import 'package:listenvision/presentation/providers.dart';
 import 'package:listenvision/presentation/widgets/audio/audio_action_menu.dart';
 import 'package:listenvision/presentation/widgets/common/snackbar_helper.dart';
+import 'package:listenvision/presentation/widgets/common/marquee_text.dart';
 import 'package:listenvision/presentation/widgets/my_drawer.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/library/playlist_detail_viewmodel.dart';
@@ -304,14 +305,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                MarqueeText(
                   name,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -320,11 +320,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 ),
                 if (description != null && description.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
+                  MarqueeText(
                     description,
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
@@ -463,15 +462,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       leading: isBatchMode
           ? _buildBatchLeading(isSelected, bvid, viewModel)
           : _buildNormalLeading(index, isLocalMusic),
-      title: Text(
-        title ?? '未知标题',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
+      title: MarqueeText(title ?? '未知标题'),
+      subtitle: MarqueeText(
         '${artist ?? '未知艺术家'}${duration != null ? ' • ${_formatDuration(duration)}' : ''}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
       trailing: isBatchMode ? null : _buildItemTrailing(item, ref),
       onTap: isBatchMode && bvid != null

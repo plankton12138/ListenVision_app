@@ -7,6 +7,7 @@ import 'package:listenvision/models/play_mode.dart';
 import 'package:listenvision/presentation/providers.dart';
 
 import 'expanded_player_panel.dart';
+import '../common/marquee_text.dart';
 
 /// 浮动底部播放条
 ///
@@ -164,25 +165,21 @@ class _TrackInfo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              MarqueeText(
                 hasError ? '播放失败' : (isLoading ? '加载中...' : title),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: hasError ? Colors.red : null,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               if (artist != '未知艺术家' && !hasError && !isLoading)
-                Text(
+                MarqueeText(
                   artist,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
             ],
           ),

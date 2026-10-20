@@ -71,6 +71,7 @@ dependencies:
   on_audio_query: ^2.9.0
   # P1: 网络状态监测
   connectivity_plus: ^6.1.3
+  marquee: ^2.3.0
   # FFmpeg 音频格式转换：桌面平台调用系统 ffmpeg，移动端目前只提供 M4A 下载
 
 # setup for flutter_launcher_icons

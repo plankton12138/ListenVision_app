@@ -1,16 +1,11 @@
 import 'package:dio/dio.dart';
+import '../core/network/dio_client.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import '../core/utils/app_logger.dart';
 
-enum DownloadStatus {
-  pending,
-  downloading,
-  paused,
-  completed,
-  failed,
-}
+enum DownloadStatus { pending, downloading, paused, completed, failed }
 
 class DownloadProgress {
   final int percent;
@@ -37,11 +32,7 @@ class DownloadResult {
   final String? filePath;
   final String? error;
 
-  const DownloadResult({
-    required this.success,
-    this.filePath,
-    this.error,
-  });
+  const DownloadResult({required this.success, this.filePath, this.error});
 
   factory DownloadResult.success(String filePath) =>
       DownloadResult(success: true, filePath: filePath);
@@ -58,7 +49,7 @@ class DownloadService {
   bool _disposed = false;
   CancellationToken? _currentToken;
 
-  DownloadService({Dio? dio}) : _dio = dio ?? Dio();
+  DownloadService({Dio? dio}) : _dio = dio ?? DioClient.create(download: true);
 
   Future<DownloadResult> simpleDownload({
     required String url,
@@ -99,8 +90,7 @@ class DownloadService {
   }
 
   static String generateFileName(String title, {String format = 'm4a'}) {
-    final sanitized =
-        title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+    final sanitized = title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
     final ext = format.startsWith('.') ? format : '.$format';
     return '$sanitized$ext';
   }

@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 
 /// 音乐区视频卡片组件
@@ -65,7 +66,9 @@ class MusicZoneCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12), // Match Card default radius usually
+        borderRadius: BorderRadius.circular(
+          12,
+        ), // Match Card default radius usually
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -74,7 +77,7 @@ class MusicZoneCard extends StatelessWidget {
               // 封面图
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(
+                child: ImageHelper.networkImage(
                   coverUrl.isNotEmpty ? coverUrl : '',
                   width: 100,
                   height: 70,
@@ -84,24 +87,10 @@ class MusicZoneCard extends StatelessWidget {
                       width: 100,
                       height: 70,
                       color: colorScheme.surfaceContainerHighest,
-                      child: Icon(Icons.broken_image, size: 32, color: colorScheme.onSurfaceVariant),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      width: 100,
-                      height: 70,
-                      color: colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        ),
+                      child: Icon(
+                        Icons.broken_image,
+                        size: 32,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     );
                   },

@@ -1,33 +1,55 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
+import '../core/errors/exceptions.dart';
+import '../core/network/dio_client.dart';
 import '../core/utils/app_logger.dart';
-import '../presentation/widgets/common/snackbar_helper.dart';
 import 'bilibili_api_service.dart';
+import 'bilibili_headers.dart';
 import 'ffmpeg_service.dart';
 import 'metadata_writer.dart';
+import 'resumable_download_service.dart';
 
 class DownloadResult {
   final bool success;
   final String? filePath;
   final String? error;
+  final String? warning;
   final int? fileSize;
   final String format;
-
   DownloadResult({
     required this.success,
     this.filePath,
     this.error,
+    this.warning,
     this.fileSize,
     this.format = 'm4a',
   });
 }
 
+typedef DownloadMetadataWriter =
+    Future<bool> Function(String path, AudioMetadata metadata);
+
 class BilibiliDownloader {
   final BilibiliApiService _api;
   final Dio _dio;
-
-  BilibiliDownloader(this._api) : _dio = Dio();
+  final bool _ownsDio;
+  final FfmpegService _ffmpeg;
+  final DownloadMetadataWriter _writeMetadata;
+  BilibiliDownloader(
+    this._api, {
+    Dio? dio,
+    FfmpegService? ffmpeg,
+    DownloadMetadataWriter? writeMetadata,
+  }) : _dio = dio ?? DioClient.create(download: true),
+       _ownsDio = dio == null,
+       _ffmpeg = ffmpeg ?? FfmpegService(),
+       _writeMetadata =
+           writeMetadata ??
+           ((path, metadata) async => (await MetadataWriter.writeMetadata(
+             filePath: path,
+             metadata: metadata,
+           )).success);
 
   Future<DownloadResult> download({
     required String bvid,
@@ -36,208 +58,151 @@ class BilibiliDownloader {
     required String fileName,
     String? albumTitle,
     AudioOutputFormat? format,
+    String? tempPath,
+    CancelToken? cancelToken,
+    bool downloadCover = true,
     void Function(int percent, String stage)? onProgress,
   }) async {
-    // 临时文件目录
-    final tempDir = Directory.systemTemp;
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final tempM4s = '${tempDir.path}/$timestamp$bvid.m4s';
-    final tempCover = '${tempDir.path}/$timestamp$bvid.jpg';
+    final token = cancelToken ?? CancelToken();
+    void progress(int percent, String stage) {
+      if (token.isCancelled) throw const TaskCanceledException();
+      onProgress?.call(percent, stage);
+    }
 
+    final safeName = _sanitize(fileName);
+    final source = File(
+      tempPath ?? p.join(saveDir, '.$safeName.$bvid.${cid ?? 0}.part.m4a'),
+    );
+    final cover = File('${source.path}.jpg');
+    final transfer = ResumableDownloadService(dio: _dio);
+    String? converted;
     try {
-      AppLogger.info('BilibiliDownloader', '开始下载: $bvid');
-
-      onProgress?.call(5, 'fetching_info');
-      final videoInfo = await _api.getVideoInfo(bvid);
-
-      final title = videoInfo['title'] as String? ?? '未知标题';
-      final owner = videoInfo['owner'] as Map<String, dynamic>?;
-      final artist = owner?['name'] as String? ?? '未知艺术家';
-      final coverUrl = videoInfo['cover'] as String?;
-
-      AppLogger.info('BilibiliDownloader', '获取视频信息: $title - $artist');
-
-      onProgress?.call(10, 'fetching_audio');
-      final audioStream = await _api.getAudioStreams(bvid, cid: cid);
-
-      if (audioStream.streams.isEmpty) {
-        throw Exception('无法获取音频流 URL');
-      }
-
-      final streams = audioStream.streams
-        ..sort((a, b) => b.qualityId.compareTo(a.qualityId));
-
-      final audioUrl = streams.first.url;
-      if (audioUrl.isEmpty) {
-        throw Exception('无法获取音频流 URL');
-      }
-      AppLogger.info('BilibiliDownloader', '获取音频流 URL: ${audioUrl.substring(0, audioUrl.length > 50 ? 50 : audioUrl.length)}...');
-
-      // 步骤3: 下载 m4s 音频文件（50% 进度）
-      onProgress?.call(15, 'downloading_audio');
-      await _downloadFile(
-        audioUrl,
-        tempM4s,
-        onProgress: (received, total) {
-          final percent = 15 + ((received / total) * 50).toInt();
-          onProgress?.call(percent.clamp(15, 65), 'downloading_audio');
-        },
+      progress(5, 'fetching_info');
+      final info = await _api.getVideoInfo(bvid, cancelToken: token);
+      progress(10, 'fetching_audio');
+      final streams = await _api.getAudioStreams(
+        bvid,
+        cid: cid,
+        cancelToken: token,
       );
-
-      final m4sFile = File(tempM4s);
-      final m4sSize = await m4sFile.length();
-      AppLogger.info('BilibiliDownloader', '音频下载完成: $m4sSize bytes');
-
-      // 步骤4: 重命名 m4s → m4a（零转换！）
-      onProgress?.call(65, 'processing_file');
-      final safeFileName = _sanitizeFileName(fileName);
-      final m4aPath = p.join(saveDir, '$safeFileName.m4a');
-
-      // 确保目标目录存在
-      await Directory(saveDir).create(recursive: true);
-
-      // 移动文件（重命名）
-      await m4sFile.rename(m4aPath);
-      AppLogger.info('BilibiliDownloader', '文件已重命名: $m4aPath');
-
-      // 步骤5: 下载封面（10% 进度）
-      onProgress?.call(70, 'downloading_cover');
-      File? coverFile;
-      if (coverUrl != null) {
-        try {
-          await _downloadFile(coverUrl, tempCover);
-          coverFile = File(tempCover);
-          AppLogger.info('BilibiliDownloader', '封面下载完成');
-        } catch (e) {
-          AppLogger.warn('BilibiliDownloader', '封面下载失败: $e');
-        }
-      }
-
-      // 步骤6: 写入元数据（20% 进度）
-      onProgress?.call(80, 'writing_metadata');
-      final metadataTitle = albumTitle != null ? fileName : title;
-      final metadataAlbum = albumTitle;
-
-      final metadataResult = await MetadataWriter.writeMetadata(
-        filePath: m4aPath,
-        metadata: AudioMetadata(
-          title: metadataTitle,
-          artist: artist,
-          album: metadataAlbum,
-          coverFile: coverFile,
+      if (streams.streams.isEmpty) throw StateError('无法获取音频流');
+      final sorted = [...streams.streams]
+        ..sort((a, b) => b.qualityId.compareTo(a.qualityId));
+      progress(15, 'downloading_audio');
+      await transfer.downloadFile(
+        url: sorted.first.url,
+        savePath: source.path,
+        headers: bilibiliHeaders,
+        cancelToken: token,
+        onProgress: (received, total) => progress(
+          total > 0 ? (15 + 50 * received / total).round().clamp(15, 65) : 15,
+          'downloading_audio',
         ),
       );
-
-      if (!metadataResult.success) {
-        AppLogger.warn('BilibiliDownloader', '元数据写入失败: ${metadataResult.error}');
-      }
-
-      String audioPath = m4aPath;
-      String resultFormat = 'm4a';
-
-      if (format != null && format != AudioOutputFormat.m4a) {
-        onProgress?.call(85, 'converting');
-        final ffmpeg = FfmpegService();
+      // 元数据会改变字节布局，后续重试不得将该文件当作原始 Range 片段。
+      final sidecar = File('${source.path}.json');
+      if (await sidecar.exists()) await sidecar.delete();
+      progress(70, 'downloading_cover');
+      final coverUrl = info['pic'] ?? info['cover'];
+      File? downloadedCover;
+      if (downloadCover && coverUrl is String && coverUrl.isNotEmpty) {
         try {
-          final convertedPath = await ffmpeg.convert(
-            inputPath: m4aPath,
-            outputFormat: format,
+          final response = await _dio.get<List<int>>(
+            normalizeBilibiliUrl(coverUrl),
+            options: Options(
+              responseType: ResponseType.bytes,
+              headers: bilibiliHeaders,
+            ),
+            cancelToken: token,
           );
-          await File(m4aPath).delete();
-          audioPath = convertedPath;
-          resultFormat = format.extension;
-        } catch (e) {
-          AppLogger.warn('BilibiliDownloader', '格式转换失败，保留 m4a: $e');
-          final msg = e is ProcessException
-              ? 'FFmpeg 未安装或不在 PATH 中，已保留 M4A 格式'
-              : '格式转换失败，已保留 M4A 格式';
-          SnackbarHelper.showToast(msg);
+          await cover.writeAsBytes(response.data!, flush: true);
+          downloadedCover = cover;
+        } catch (error) {
+          if (token.isCancelled) throw const TaskCanceledException();
+          AppLogger.warn('BilibiliDownloader', '封面下载失败: $error');
         }
       }
-
-      onProgress?.call(100, 'completed');
-
-      final finalFile = File(audioPath);
-      final finalSize = await finalFile.length();
-
-      AppLogger.info('BilibiliDownloader', '下载完成: $audioPath ($finalSize bytes)');
-
+      progress(80, 'writing_metadata');
+      final owner = info['owner'];
+      await _writeMetadata(
+        source.path,
+        AudioMetadata(
+          title: albumTitle != null
+              ? fileName
+              : info['title'] as String? ?? fileName,
+          artist: owner is Map ? owner['name'] as String? ?? '未知艺术家' : '未知艺术家',
+          album: albumTitle,
+          coverFile: downloadedCover,
+        ),
+      );
+      var resultFormat = AudioOutputFormat.m4a;
+      String? warning;
+      if (format != null && format != AudioOutputFormat.m4a) {
+        progress(85, 'converting');
+        try {
+          converted = await _ffmpeg.convert(
+            inputPath: source.path,
+            outputFormat: format,
+            cancelToken: token,
+          );
+          resultFormat = format;
+        } catch (error) {
+          if (token.isCancelled || error is TaskCanceledException) rethrow;
+          warning = '格式转换失败，已保存 M4A';
+          AppLogger.warn('BilibiliDownloader', '$warning: $error');
+        }
+      }
+      progress(95, 'processing_file');
+      final candidate = File(converted ?? source.path);
+      final extension = resultFormat.extension;
+      final stem = '$safeName [$bvid${cid == null ? '' : '-$cid'}]';
+      var target = p.join(saveDir, '$stem.$extension');
+      var index = 1;
+      while (await File(target).exists()) {
+        target = p.join(saveDir, '$stem (${index++}).$extension');
+      }
+      if (token.isCancelled) throw const TaskCanceledException();
+      final output = await candidate.rename(target);
+      if (token.isCancelled) {
+        // 发布过程中取消：移回任务私有临时路径，保留可恢复的源文件。
+        await output.rename(candidate.path);
+        throw const TaskCanceledException();
+      }
+      // 完成事件由 Repository 在提交数据库后发出。
       return DownloadResult(
         success: true,
-        filePath: audioPath,
-        fileSize: finalSize,
-        format: resultFormat,
+        filePath: output.path,
+        fileSize: await output.length(),
+        format: extension,
+        warning: warning,
       );
-    } catch (e) {
-      AppLogger.error('BilibiliDownloader', '下载失败: $e');
-
-      return DownloadResult(
-        success: false,
-        error: e.toString(),
-      );
+    } catch (error) {
+      if (token.isCancelled || error is TaskCanceledException) {
+        throw const TaskCanceledException();
+      }
+      return DownloadResult(success: false, error: error.toString());
     } finally {
-      // 清理临时文件
-      await _deleteIfExists(tempM4s);
-      await _deleteIfExists(tempCover);
+      if (await cover.exists()) await cover.delete();
+      if (converted != null && await File(converted).exists()) {
+        await File(converted).delete();
+      }
     }
   }
 
-  /// 下载文件（带进度节流，避免主线程消息溢出）
-  Future<void> _downloadFile(
-    String url,
-    String savePath, {
-    void Function(int received, int total)? onProgress,
-  }) async {
-    // 进度节流：只当进度变化超过 1% 或每 500ms 才更新
-    int? lastNotifiedPercent;
-    DateTime? lastNotifiedTime;
-
-    await _dio.download(
-      url,
-      savePath,
-      options: Options(
-        headers: {
-          'Referer': 'https://www.bilibili.com/',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      ),
-      onReceiveProgress: (received, total) {
-        if (total <= 0 || onProgress == null) return;
-
-        final percent = (received / total * 100).toInt();
-        final now = DateTime.now();
-
-        // 节流条件：
-        // 1. 进度变化超过 1%，或
-        // 2. 距离上次通知超过 500ms
-        final shouldNotify = lastNotifiedPercent == null ||
-            (percent - lastNotifiedPercent!).abs() >= 1 ||
-            lastNotifiedTime == null ||
-            now.difference(lastNotifiedTime!).inMilliseconds >= 500;
-
-        if (shouldNotify) {
-          lastNotifiedPercent = percent;
-          lastNotifiedTime = now;
-          onProgress(received, total);
-        }
-      },
-    );
+  String _sanitize(String text) {
+    var value = text.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_').trim();
+    value = value.replaceAll(RegExp(r'[. ]+$'), '');
+    if (value.isEmpty) value = 'audio';
+    if (RegExp(
+      r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$',
+      caseSensitive: false,
+    ).hasMatch(value)) {
+      value = '_$value';
+    }
+    return value.length > 140 ? value.substring(0, 140) : value;
   }
 
-  /// 删除文件（忽略错误）
-  Future<void> _deleteIfExists(String path) async {
-    try {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-      }
-    } catch (_) {}
-  }
-
-  /// 清理文件名（移除非法字符）
-  String _sanitizeFileName(String name) {
-    // 移除或替换不允许的字符
-    final invalidChars = RegExp(r'[<>:"/\\|?*]');
-    return name.replaceAll(invalidChars, '_').trim();
+  void dispose() {
+    if (_ownsDio) _dio.close(force: true);
   }
 }

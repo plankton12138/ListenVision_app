@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/cached_track.dart';
 import '../../models/download_task.dart';
 import '../../core/utils/file_picker_helper.dart';
+import '../../services/bilibili_api_service.dart';
 import '../database/app_database.dart';
 import '../database/download_task_dao.dart';
 import '../database/play_history_dao.dart';
@@ -46,6 +47,7 @@ final playHistoryDaoProvider = Provider<PlayHistoryDao>((ref) {
 /// 所有音频数据的读取都应通过此 Provider。
 final trackRepositoryProvider = Provider<TrackRepository>((ref) {
   final repository = TrackRepository(
+    bilibiliApi: ref.watch(bilibiliApiServiceProvider),
     trackDao: ref.watch(trackDaoProvider),
     downloadTaskDao: ref.watch(downloadTaskDaoProvider),
   );
@@ -63,6 +65,8 @@ final trackRepositoryProvider = Provider<TrackRepository>((ref) {
 /// 下载仓库，管理下载任务的创建、执行和状态同步。
 final downloadRepositoryProvider = Provider<DownloadRepository>((ref) {
   final repository = DownloadRepository(
+    db: ref.watch(appDatabaseProvider),
+    bilibiliApi: ref.watch(bilibiliApiServiceProvider),
     trackDao: ref.watch(trackDaoProvider),
     downloadTaskDao: ref.watch(downloadTaskDaoProvider),
   );
@@ -103,9 +107,9 @@ final downloadProgressStreamProvider = StreamProvider.autoDispose((ref) {
 /// 示例: ref.watch(trackByBvidProvider('BVxxx'))
 final trackByBvidProvider = FutureProvider.autoDispose
     .family<CachedTrack?, String>((ref, bvid) async {
-  final repository = ref.watch(trackRepositoryProvider);
-  return await repository.getTrackBySourceId(bvid);
-});
+      final repository = ref.watch(trackRepositoryProvider);
+      return await repository.getTrackBySourceId(bvid);
+    });
 
 /// 获取所有已下载的 Tracks
 final downloadedTracksProvider = FutureProvider.autoDispose((ref) async {
@@ -140,16 +144,16 @@ final activeDownloadTasksProvider = FutureProvider.autoDispose((ref) async {
 /// 检查指定 BVID 是否已下载
 final isTrackDownloadedProvider = FutureProvider.autoDispose
     .family<bool, String>((ref, bvid) async {
-  final repository = ref.watch(trackRepositoryProvider);
-  return await repository.isDownloaded(bvid);
-});
+      final repository = ref.watch(trackRepositoryProvider);
+      return await repository.isDownloaded(bvid);
+    });
 
 /// 根据 Track ID 获取下载任务
 final downloadTaskByTrackIdProvider = FutureProvider.autoDispose
     .family<DownloadTask?, int>((ref, trackId) async {
-  final repository = ref.watch(downloadRepositoryProvider);
-  return await repository.getTaskByTrackId(trackId);
-});
+      final repository = ref.watch(downloadRepositoryProvider);
+      return await repository.getTaskByTrackId(trackId);
+    });
 
 // ==================== State Providers（UI 状态） ====================
 

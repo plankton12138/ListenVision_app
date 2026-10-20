@@ -1,4 +1,6 @@
 import 'package:listenvision/models/audio.dart';
+import 'package:listenvision/data/repositories/playlist_repository.dart';
+import 'package:listenvision/presentation/viewmodels/library/playlist_viewmodel.dart';
 import 'package:listenvision/models/online_playable.dart';
 import 'package:listenvision/models/play_queue.dart';
 import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
@@ -8,6 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class InMemoryPlaylistRepository extends PlaylistRepository {
+  @override
+  Future<Set<String>> getFavoriteTrackIds() async => {};
+}
+
 /// Widget 测试：QueueBottomSheet
 ///
 /// 对应测试用例：
@@ -15,23 +22,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  ProviderContainer createTestContainer({
-    QueueState? queueState,
-  }) {
+  ProviderContainer createTestContainer({QueueState? queueState}) {
     SharedPreferences.setMockInitialValues({});
-    return ProviderContainer();
+    return ProviderContainer(
+      overrides: [
+        playlistRepositoryProvider.overrideWithValue(
+          InMemoryPlaylistRepository(),
+        ),
+      ],
+    );
   }
 
   group('QueueBottomSheet Widget Tests', () {
     testWidgets('应显示两个 Tab（正在播放和播放历史）', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: PlayQueue(tracks: [
-          OnlinePlayable.fromAudio(
-            const Audio(id: '1', title: '歌曲1'),
-            'http://example.com/1.mp3',
-          ),
-        ], currentIndex: 0),
+        queue: PlayQueue(
+          tracks: [
+            OnlinePlayable.fromAudio(
+              const Audio(id: '1', title: '歌曲1'),
+              'http://example.com/1.mp3',
+            ),
+          ],
+          currentIndex: 0,
+        ),
       );
 
       final container = createTestContainer();
@@ -41,11 +55,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -70,11 +80,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -88,12 +94,15 @@ void main() {
     testWidgets('点击拖拽指示器区域应关闭弹窗', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: PlayQueue(tracks: [
-          OnlinePlayable.fromAudio(
-            const Audio(id: '1', title: '歌曲1'),
-            'http://example.com/1.mp3',
-          ),
-        ], currentIndex: -1),
+        queue: PlayQueue(
+          tracks: [
+            OnlinePlayable.fromAudio(
+              const Audio(id: '1', title: '歌曲1'),
+              'http://example.com/1.mp3',
+            ),
+          ],
+          currentIndex: -1,
+        ),
       );
 
       final container = createTestContainer();
@@ -137,16 +146,19 @@ void main() {
     testWidgets('队列计数应随队列变化更新', (tester) async {
       // Arrange
       final queueState = QueueState(
-        queue: PlayQueue(tracks: [
-          OnlinePlayable.fromAudio(
-            const Audio(id: '1', title: '歌曲1'),
-            'http://example.com/1.mp3',
-          ),
-          OnlinePlayable.fromAudio(
-            const Audio(id: '2', title: '歌曲2'),
-            'http://example.com/2.mp3',
-          ),
-        ], currentIndex: 0),
+        queue: PlayQueue(
+          tracks: [
+            OnlinePlayable.fromAudio(
+              const Audio(id: '1', title: '歌曲1'),
+              'http://example.com/1.mp3',
+            ),
+            OnlinePlayable.fromAudio(
+              const Audio(id: '2', title: '歌曲2'),
+              'http://example.com/2.mp3',
+            ),
+          ],
+          currentIndex: 0,
+        ),
       );
 
       final container = createTestContainer();
@@ -156,11 +168,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -201,11 +209,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -231,11 +235,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -257,11 +257,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -287,11 +283,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: queueBottomSheet,
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: queueBottomSheet)),
         ),
       );
 
@@ -307,18 +299,21 @@ void main() {
     testWidgets('多个音频项时应正确显示', (tester) async {
       // Arrange: 创建包含多个音频的队列
       final queueState = QueueState(
-        queue: PlayQueue(tracks: List.generate(
-          10,
-          (i) => OnlinePlayable.fromAudio(
-            Audio(
-              id: '$i',
-              title: '歌曲$i',
-              artist: '艺术家$i',
-              duration: 180 + i * 10,
+        queue: PlayQueue(
+          tracks: List.generate(
+            10,
+            (i) => OnlinePlayable.fromAudio(
+              Audio(
+                id: '$i',
+                title: '歌曲$i',
+                artist: '艺术家$i',
+                duration: 180 + i * 10,
+              ),
+              'http://example.com/$i.mp3',
             ),
-            'http://example.com/$i.mp3',
           ),
-        ), currentIndex: 3),
+          currentIndex: 3,
+        ),
       );
 
       final container = createTestContainer();
@@ -328,11 +323,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();
@@ -349,23 +340,22 @@ void main() {
       final notifier = container.read(queueViewModelProvider.notifier);
 
       final initialState = QueueState(
-        queue: PlayQueue(tracks: [
-          OnlinePlayable.fromAudio(
-            const Audio(id: '1', title: '歌曲1'),
-            'http://example.com/1.mp3',
-          ),
-        ], currentIndex: 0),
+        queue: PlayQueue(
+          tracks: [
+            OnlinePlayable.fromAudio(
+              const Audio(id: '1', title: '歌曲1'),
+              'http://example.com/1.mp3',
+            ),
+          ],
+          currentIndex: 0,
+        ),
       );
       notifier.state = initialState;
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: Scaffold(
-              body: QueueBottomSheet(),
-            ),
-          ),
+          child: const MaterialApp(home: Scaffold(body: QueueBottomSheet())),
         ),
       );
       await tester.pumpAndSettle();

@@ -1,3 +1,5 @@
+import 'package:listenvision/core/utils/permission_helper.dart';
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'dart:io';
 
 import 'package:listenvision/core/storage/shared_storage_service.dart';
@@ -94,9 +96,9 @@ class AudioActionMenu extends ConsumerWidget {
     final downloadState = ref.watch(downloadViewModelProvider);
     // 收藏状态由 FavoriteTracksNotifier 管理
     final favoriteTracksAsync = ref.watch(favoriteTracksProvider);
-    final isFavorited = favoriteTracksAsync.whenOrNull(
-      data: (ids) => ids.contains(bvid),
-    ) ?? false;
+    final isFavorited =
+        favoriteTracksAsync.whenOrNull(data: (ids) => ids.contains(bvid)) ??
+        false;
     // 获取当前 bvid 的下载任务
     final downloadTask = downloadState.whenOrNull(
       data: (state) {
@@ -139,7 +141,7 @@ class AudioActionMenu extends ConsumerWidget {
                 if (coverUrl != null && coverUrl!.isNotEmpty) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
+                    child: ImageHelper.networkImage(
                       coverUrl!,
                       width: 56,
                       height: 56,
@@ -168,9 +170,8 @@ class AudioActionMenu extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           artist!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -200,22 +201,25 @@ class AudioActionMenu extends ConsumerWidget {
                   // 确保 Track 记录存在
                   final trackDao = ref.read(trackDaoProvider);
                   var track = await trackDao.getBySourceId(bvid);
-                  track ??= await trackDao.saveFromAudio(Audio(
+                  track ??= await trackDao.saveFromAudio(
+                    Audio(
                       id: bvid,
                       title: title.isNotEmpty ? title : '未知标题',
                       artist: artist,
                       duration: duration,
                       coverUrl: coverUrl,
-                    ));
-
-                  await ref.read(favoriteTracksProvider.notifier).toggle(
-                    bvid,
-                    title: title,
-                    artist: artist,
-                    duration: duration,
-                    coverUrl: coverUrl,
+                    ),
                   );
 
+                  await ref
+                      .read(favoriteTracksProvider.notifier)
+                      .toggle(
+                        bvid,
+                        title: title,
+                        artist: artist,
+                        duration: duration,
+                        coverUrl: coverUrl,
+                      );
                 } catch (e) {
                   AppLogger.error('AudioActionMenu', '收藏操作失败: $e');
                 }
@@ -242,7 +246,10 @@ class AudioActionMenu extends ConsumerWidget {
 
           if (showDownload)
             ListTile(
-              leading: Icon(_getDownloadIcon(downloadTask), color: _getDownloadColor(downloadTask)),
+              leading: Icon(
+                _getDownloadIcon(downloadTask),
+                color: _getDownloadColor(downloadTask),
+              ),
               title: Text(_getDownloadTitle(downloadTask)),
               trailing: _buildDownloadProgress(ref, downloadTask),
               onTap: () => _handleDownload(context, ref, downloadTask),
@@ -257,7 +264,6 @@ class AudioActionMenu extends ConsumerWidget {
                 _openInBrowser(context);
               },
             ),
-
 
           const SizedBox(height: 8),
         ],
@@ -312,7 +318,11 @@ class AudioActionMenu extends ConsumerWidget {
   }
 
   /// 显示提示消息
-  void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
+  void _showSnackBar(
+    BuildContext context,
+    String message,
+    Color backgroundColor,
+  ) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -326,13 +336,18 @@ class AudioActionMenu extends ConsumerWidget {
   Future<String> _getDownloadDirectory() async {
     try {
       // 获取系统下载目录
+      if (!await PermissionHelper.requestManageStoragePermission()) {
+        throw const FileSystemException('需要存储权限才能保存到下载目录');
+      }
       final downloadDir = await getDownloadsDirectory();
       if (downloadDir == null) {
         throw Exception('系统下载目录不可用');
       }
 
       // 创建应用子目录
-      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      final appDownloadDir = Directory(
+        '${downloadDir.path}${path.separator}ListenVision',
+      );
       if (!await appDownloadDir.exists()) {
         await appDownloadDir.create(recursive: true);
       }
@@ -343,7 +358,9 @@ class AudioActionMenu extends ConsumerWidget {
       // 降级到应用文档目录
       try {
         final docDir = await getApplicationDocumentsDirectory();
-        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        final fallbackDir = Directory(
+          '${docDir.path}${path.separator}Downloads',
+        );
         if (!await fallbackDir.exists()) {
           await fallbackDir.create(recursive: true);
         }
@@ -358,7 +375,8 @@ class AudioActionMenu extends ConsumerWidget {
   /// 清理标题字符串
   String _sanitizeTitle(String input) {
     const pattern =
-        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""'
+        '·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -403,14 +421,23 @@ class AudioActionMenu extends ConsumerWidget {
   /// 构建下载进度显示
   Widget? _buildDownloadProgress(WidgetRef ref, DownloadTask? task) {
     if (task?.status == DownloadStatus.downloading) {
-      final progress = ref.read(downloadViewModelProvider.notifier).getTaskProgress(task!.id!);
-      return Text('$progress%', style: const TextStyle(fontSize: 12, color: Colors.grey));
+      final progress = ref
+          .read(downloadViewModelProvider.notifier)
+          .getTaskProgress(task!.id!);
+      return Text(
+        '$progress%',
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
+      );
     }
     return null;
   }
 
   /// 处理下载操作
-  void _handleDownload(BuildContext context, WidgetRef ref, DownloadTask? task) async {
+  void _handleDownload(
+    BuildContext context,
+    WidgetRef ref,
+    DownloadTask? task,
+  ) async {
     // 如果已完成，不做任何事（按钮显示"已下载"）
     if (task?.isCompleted == true) {
       return;
@@ -463,10 +490,12 @@ class _PlaylistSelectorContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_PlaylistSelectorContent> createState() => _PlaylistSelectorContentState();
+  ConsumerState<_PlaylistSelectorContent> createState() =>
+      _PlaylistSelectorContentState();
 }
 
-class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorContent> {
+class _PlaylistSelectorContentState
+    extends ConsumerState<_PlaylistSelectorContent> {
   final TextEditingController _nameController = TextEditingController();
 
   @override
@@ -516,13 +545,13 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
 
               // 标题
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
-                    Text(
-                      '选择歌单',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
+                    Text('选择歌单', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.add),
@@ -542,7 +571,11 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.playlist_add, size: 48, color: Colors.grey),
+                            Icon(
+                              Icons.playlist_add,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
                             SizedBox(height: 16),
                             Text('暂无歌单，点击 + 创建'),
                           ],
@@ -560,16 +593,19 @@ class _PlaylistSelectorContentState extends ConsumerState<_PlaylistSelectorConte
                               decoration: BoxDecoration(
                                 color: playlist.hasCover
                                     ? null
-                                    : Theme.of(context).colorScheme.primaryContainer,
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: playlist.hasCover
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
+                                      child: ImageHelper.networkImage(
                                         playlist.coverUrl!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Icon(Icons.playlist_play),
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.playlist_play),
                                       ),
                                     )
                                   : const Icon(Icons.playlist_play),

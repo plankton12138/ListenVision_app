@@ -56,6 +56,29 @@ class TrackDao {
     return CachedTrack.fromMap(map);
   }
 
+  /// 按曲目标识批量读取；分块兼容 SQLite 的绑定参数数量限制。
+  Future<Map<String, CachedTrack>> getBySourceIds(
+    Iterable<String> sourceIds,
+  ) async {
+    final ids = sourceIds.toSet().toList();
+    if (ids.isEmpty) return {};
+    final db = await _db.database;
+    final tracks = <String, CachedTrack>{};
+    for (var start = 0; start < ids.length; start += 500) {
+      final chunk = ids.sublist(start, (start + 500).clamp(0, ids.length));
+      final rows = await db.query(
+        'tracks',
+        where: 'source_id IN (${List.filled(chunk.length, '?').join(',')})',
+        whereArgs: chunk,
+      );
+      for (final row in rows) {
+        final track = CachedTrack.fromMap(row);
+        tracks[track.sourceId] = track;
+      }
+    }
+    return tracks;
+  }
+
   /// 根据 BVID 获取 Track（B站音频专用）
   Future<CachedTrack?> getByBvid(String bvid) async {
     return await getBySourceId(bvid);
@@ -130,7 +153,7 @@ class TrackDao {
   Future<void> incrementPlayCount(int id) async {
     final track = await getById(id);
     if (track == null) return;
-    
+
     await _db.updateTrack(id, {
       'local_play_count': track.localPlayCount + 1,
       'last_played_at': DateTime.now().toIso8601String(),
@@ -138,58 +161,165 @@ class TrackDao {
   }
 
   /// 标记轨道为未下载状态
-Future<void> markAsNotDownloaded(String sourceId) async {
-  final track = await getBySourceId(sourceId);
-  if (track == null) return;
-
-  await _db.updateTrack(track.id, {
-    'is_downloaded': 0,
-    'local_path': null,
-    'updated_at': DateTime.now().toIso8601String(),
-  });
-
-  AppLogger.info('TrackDao', '标记为未下载: $sourceId');
-}
-
-/// 批量更新下载状态
-Future<void> batchUpdateDownloadStatus(
-  List<String> sourceIds,
-  bool downloaded,
-) async {
-  if (sourceIds.isEmpty) return;
-
-  for (final sourceId in sourceIds) {
+  Future<void> markAsNotDownloaded(String sourceId) async {
     final track = await getBySourceId(sourceId);
-    if (track != null) {
-      await _db.updateTrack(track.id, {
-        'is_downloaded': downloaded ? 1 : 0,
-        'local_path': downloaded ? track.localPath : null,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-    }
+    if (track == null) return;
+
+    await _db.updateTrack(track.id, {
+      'is_downloaded': 0,
+      'local_path': null,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    AppLogger.info('TrackDao', '标记为未下载: $sourceId');
   }
 
-  AppLogger.info(
-      'TrackDao', '批量更新下载状态: ${sourceIds.length} 个轨道, downloaded=$downloaded');
-}
+  /// 批量更新下载状态
+  Future<void> batchUpdateDownloadStatus(
+    List<String> sourceIds,
+    bool downloaded,
+  ) async {
+    if (sourceIds.isEmpty) return;
 
-/// 获取最近下载的轨道
-///
-/// [since] 指定时间之后的下载记录
-Future<List<CachedTrack>> getRecentlyDownloadedTracks({
-  required DateTime since,
-}) async {
-  final db = await _db.database;
-  final maps = await db.query(
-    'tracks',
-    where: 'is_downloaded = ? AND updated_at >= ?',
-    whereArgs: [1, since.toIso8601String()],
-    orderBy: 'updated_at DESC',
-  );
-  return maps.map((m) => CachedTrack.fromMap(m)).toList();
-}
+    for (final sourceId in sourceIds) {
+      final track = await getBySourceId(sourceId);
+      if (track != null) {
+        await _db.updateTrack(track.id, {
+          'is_downloaded': downloaded ? 1 : 0,
+          'local_path': downloaded ? track.localPath : null,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    }
 
-// ==================== 删除 ====================
+    AppLogger.info(
+      'TrackDao',
+      '批量更新下载状态: ${sourceIds.length} 个轨道, downloaded=$downloaded',
+    );
+  }
+
+  /// 获取最近下载的轨道
+  ///
+  /// [since] 指定时间之后的下载记录
+  Future<List<CachedTrack>> getRecentlyDownloadedTracks({
+    required DateTime since,
+  }) async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'tracks',
+      where: 'is_downloaded = ? AND updated_at >= ?',
+      whereArgs: [1, since.toIso8601String()],
+      orderBy: 'updated_at DESC',
+    );
+    return maps.map((m) => CachedTrack.fromMap(m)).toList();
+  }
+
+  // ==================== 在线源状态 ====================
+
+  /// 更新在线源可用性状态
+  ///
+  /// 在播放时被动检测或懒检测后调用，更新 online_status 及检测时间。
+  Future<void> updateOnlineStatus(String sourceId, OnlineStatus status) async {
+    final track = await getBySourceId(sourceId);
+    if (track == null) return;
+
+    await _db.updateTrack(track.id, {
+      'online_status': status.value,
+      'last_online_check_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    AppLogger.info('TrackDao', '更新在线状态: $sourceId -> $status');
+  }
+
+  /// 获取在线状态过期的 Track（需要重新检测的）
+  ///
+  /// [olderThan] 指定多久未检测视为过期（默认 7 天）
+  /// [onlyFavorites] 是否仅限收藏的条目
+  /// [limit] 限制返回数量
+  Future<List<CachedTrack>> getStaleOnlineStatusTracks({
+    Duration olderThan = const Duration(days: 7),
+    bool onlyFavorites = false,
+    int limit = 50,
+  }) async {
+    final db = await _db.database;
+
+    final conditions = <String>[
+      "(last_online_check_at IS NULL OR last_online_check_at < ?)",
+    ];
+    final args = <dynamic>[
+      DateTime.now().subtract(olderThan).toIso8601String(),
+    ];
+
+    // 只检查 B 站来源（本地文件无需在线检测）
+    conditions.add("source_type = 'bilibili'");
+
+    // 排除已标记为 unavailable 的
+    conditions.add("online_status != 'unavailable'");
+
+    if (onlyFavorites) {
+      conditions.add('is_favorite = 1');
+    }
+
+    final maps = await db.query(
+      'tracks',
+      where: conditions.join(' AND '),
+      whereArgs: args,
+      orderBy: 'last_online_check_at ASC',
+      limit: limit,
+    );
+    return maps.map((m) => CachedTrack.fromMap(m)).toList();
+  }
+
+  /// 获取已失效的 Track（online_status = unavailable）
+  ///
+  /// [unavailableSinceBefore] 仅返回在此时间之前标记为失效的
+  Future<List<CachedTrack>> getUnavailableTracks({
+    DateTime? unavailableSinceBefore,
+  }) async {
+    final db = await _db.database;
+    final conditions = <String>["online_status = 'unavailable'"];
+    final args = <dynamic>[];
+
+    if (unavailableSinceBefore != null) {
+      conditions.add('last_online_check_at IS NOT NULL');
+      conditions.add('last_online_check_at < ?');
+      args.add(unavailableSinceBefore.toIso8601String());
+    }
+
+    final maps = await db.query(
+      'tracks',
+      where: conditions.join(' AND '),
+      whereArgs: args,
+      orderBy: 'last_online_check_at DESC',
+    );
+    return maps.map((m) => CachedTrack.fromMap(m)).toList();
+  }
+
+  /// 获取过期的幽灵条目（两端都断了且超过 90 天）
+  ///
+  /// 用于自动清理。符合条件：online_status=unavailable + 无本地文件 + 标记时间超过 90 天。
+  Future<List<CachedTrack>> getExpiredGhostTracks({
+    Duration expiredAfter = const Duration(days: 90),
+  }) async {
+    final db = await _db.database;
+    final threshold = DateTime.now().subtract(expiredAfter).toIso8601String();
+
+    final maps = await db.query(
+      'tracks',
+      where: '''
+      online_status = 'unavailable'
+      AND (is_downloaded = 0 OR is_downloaded IS NULL)
+      AND last_online_check_at IS NOT NULL
+      AND last_online_check_at < ?
+    ''',
+      whereArgs: [threshold],
+      orderBy: 'last_online_check_at ASC',
+    );
+    return maps.map((m) => CachedTrack.fromMap(m)).toList();
+  }
+
+  // ==================== 删除 ====================
 
   /// 删除 Track
   Future<void> delete(int id) async {
@@ -211,18 +341,14 @@ Future<List<CachedTrack>> getRecentlyDownloadedTracks({
   ///
   /// 用于搜索结果转换为本地缓存。
   Future<CachedTrack> saveFromAudio(Audio audio) async {
-    final existing = await getBySourceId(audio.id);
-    if (existing != null) {
-      // 已存在，返回现有的
-      return existing;
-    }
-
+    // 始终将 Audio 元数据合并到数据库（Upsert），
+    // 确保已有 track 也能获得更完整的 metadata（如 duration、title 等）
     final track = CachedTrack.fromAudio(audio);
     final id = await insertOrUpdate(track);
-    
+
     // 重新获取以获取完整数据（包括创建时间等）
     final saved = await getById(id);
-    return saved!;
+    return saved ?? track.copyWith(id: id);
   }
 
   /// 从 LocalAudio 创建并保存 Track

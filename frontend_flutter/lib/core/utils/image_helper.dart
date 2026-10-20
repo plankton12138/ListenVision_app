@@ -7,6 +7,21 @@ import 'package:flutter/material.dart';
 /// 减少网络请求，提升加载速度，降低流量消耗
 /// 从 utils/image_helper.dart 迁移到 core/utils/
 class ImageHelper {
+  /// 与网络封面现有调用兼容，统一磁盘缓存及解码尺寸。
+  static Widget networkImage(
+    String url, {
+    double? width,
+    double? height,
+    BoxFit fit = BoxFit.cover,
+    ImageErrorWidgetBuilder? errorBuilder,
+  }) => cachedNetworkImage(
+    url,
+    width: width,
+    height: height,
+    fit: fit,
+    errorBuilder: errorBuilder,
+  );
+
   /// 返回图片URL（纯前端架构：直接返回原始URL）
   static String convertToProxyUrl(String url) {
     if (url.startsWith('//')) {
@@ -30,41 +45,54 @@ class ImageHelper {
     BoxFit fit = BoxFit.cover,
     Widget? placeholder,
     Widget? errorWidget,
+    ImageErrorWidgetBuilder? errorBuilder,
   }) {
     // 转换为代理 URL（解决线上 CORS 问题）
     final url = convertToProxyUrl(imageUrl);
 
-    return CachedNetworkImage(
-      imageUrl: url,
-      width: width,
-      height: height,
-      fit: fit,
-      placeholder: placeholder != null
-          ? (context, url) => placeholder
-          : (context, url) => Container(
-                width: width,
-                height: height,
-                color: Colors.grey[300],
-                child: const Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ratio = MediaQuery.devicePixelRatioOf(context);
+        int? pixels(double? explicit, double available) {
+          final logical = explicit ?? (available.isFinite ? available : null);
+          if (logical == null || logical <= 0) return null;
+          return (logical * ratio).ceil().clamp(1, 2048);
+        }
+
+        return CachedNetworkImage(
+          imageUrl: url,
+          width: width,
+          height: height,
+          fit: fit,
+          placeholder: placeholder != null
+              ? (context, url) => placeholder
+              : (context, url) => Container(
+                  width: width,
+                  height: height,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
                 ),
-              ),
-      errorWidget: errorWidget != null
-          ? (context, url, error) => errorWidget
-          : (context, url, error) => Container(
+          errorWidget: (context, url, error) =>
+              errorBuilder?.call(context, error, StackTrace.empty) ??
+              errorWidget ??
+              Container(
                 width: width,
                 height: height,
                 color: Colors.grey[300],
                 child: const Icon(Icons.broken_image, color: Colors.grey),
               ),
-      memCacheWidth: width?.toInt(), // 限制内存缓存尺寸
-      memCacheHeight: height?.toInt(),
-      maxWidthDiskCache: 1000, // 限制磁盘缓存尺寸
-      maxHeightDiskCache: 1000,
+          memCacheWidth: pixels(width, constraints.maxWidth),
+          memCacheHeight: pixels(height, constraints.maxHeight),
+          maxWidthDiskCache: 2048,
+          maxHeightDiskCache: 2048,
+        );
+      },
     );
   }
 
@@ -115,11 +143,7 @@ class ImageHelper {
   }
 
   /// 视频封面图片（带默认图标）
-  static Widget videoCover(
-    String? imageUrl, {
-    double? width,
-    double? height,
-  }) {
+  static Widget videoCover(String? imageUrl, {double? width, double? height}) {
     if (imageUrl == null || imageUrl.isEmpty) {
       return Container(
         width: width ?? 100,

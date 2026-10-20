@@ -12,27 +12,47 @@ import '../../models/download_task.dart';
 /// - play_history: 播放历史
 class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
-  static Database? _database;
+  static const schemaVersion = 14;
+  Database? _database;
+  Future<Database>? _opening;
+  final String? _path;
+  final DatabaseFactory? _factory;
 
-  AppDatabase._init();
+  AppDatabase._init() : _path = null, _factory = null;
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('listen_vision.db');
-    return _database!;
+  /// 使用独立路径与工厂，供隔离测试使用，不接触用户数据库。
+  AppDatabase.forTesting({
+    required String path,
+    required DatabaseFactory factory,
+  }) : _path = path,
+       _factory = factory;
+
+  Future<Database> get database {
+    if (_database != null) return Future.value(_database!);
+    return _opening ??= _open();
+  }
+
+  Future<Database> _open() async {
+    try {
+      return _database = await _initDB('listen_vision.db');
+    } finally {
+      _opening = null;
+    }
   }
 
   Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    final factory = _factory ?? databaseFactory;
+    final path = _path ?? join(await factory.getDatabasesPath(), filePath);
 
     AppLogger.info('AppDatabase', '数据库路径: $path');
 
-    final db = await openDatabase(
+    final db = await factory.openDatabase(
       path,
-      version: 13,
-      onCreate: _createDB,
-      onUpgrade: _onUpgrade,
+      options: OpenDatabaseOptions(
+        version: schemaVersion,
+        onCreate: _createDB,
+        onUpgrade: _onUpgrade,
+      ),
     );
 
     // 启用 WAL 模式（Write-Ahead Logging）
@@ -40,7 +60,7 @@ class AppDatabase {
     // 使用 rawQuery 而不是 execute 来执行 PRAGMA 语句
     await db.rawQuery('PRAGMA journal_mode=WAL');
     await db.rawQuery('PRAGMA synchronous=NORMAL');
-    await db.rawQuery('PRAGMA cache_size=-64000');  // 64MB 缓存
+    await db.rawQuery('PRAGMA cache_size=-64000'); // 64MB 缓存
     await db.rawQuery('PRAGMA temp_store=MEMORY');
 
     AppLogger.info('AppDatabase', 'WAL 模式已启用');
@@ -73,6 +93,8 @@ class AppDatabase {
         play_count $intType,
         local_path $textNullableType,
         is_downloaded $intType DEFAULT 0,
+        online_status TEXT DEFAULT 'unchecked',
+        last_online_check_at $textNullableType,
         download_status $textNullableType DEFAULT '',
         download_progress $intType DEFAULT 0,
         is_favorite $intType DEFAULT 0,
@@ -185,6 +207,9 @@ class AppDatabase {
       CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)
     ''');
     await db.execute('''
+      CREATE INDEX idx_tracks_online_status ON tracks(online_status)
+    ''');
+    await db.execute('''
       CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)
     ''');
     await db.execute('''
@@ -262,6 +287,11 @@ class AppDatabase {
     // 版本 12 -> 13: 播放历史来源追踪 + 清理 nowPlaying
     if (oldVersion < 13) {
       await _upgradeToV13(db);
+    }
+
+    // 版本 13 -> 14: 添加在线源状态追踪
+    if (oldVersion < 14) {
+      await _upgradeToV14(db);
     }
   }
 
@@ -447,10 +477,18 @@ class AppDatabase {
     await db.execute('ALTER TABLE tracks_new RENAME TO tracks');
 
     await db.execute('CREATE INDEX idx_tracks_source_id ON tracks(source_id)');
-    await db.execute('CREATE INDEX idx_tracks_source_type ON tracks(source_type)');
-    await db.execute('CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)');
-    await db.execute('CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)');
-    await db.execute('CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)');
+    await db.execute(
+      'CREATE INDEX idx_tracks_source_type ON tracks(source_type)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)',
+    );
 
     AppLogger.info('AppDatabase', 'V5 迁移完成');
   }
@@ -498,9 +536,15 @@ class AppDatabase {
 
       // 3. 创建索引
       await db.execute('CREATE INDEX idx_playlists_type ON playlists(type)');
-      await db.execute('CREATE INDEX idx_playlists_system_type ON playlists(system_type)');
-      await db.execute('CREATE INDEX idx_playlist_items_playlist ON playlist_items(playlist_id, position)');
-      await db.execute('CREATE INDEX idx_playlist_items_track ON playlist_items(track_id)');
+      await db.execute(
+        'CREATE INDEX idx_playlists_system_type ON playlists(system_type)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_playlist_items_playlist ON playlist_items(playlist_id, position)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_playlist_items_track ON playlist_items(track_id)',
+      );
       AppLogger.info('AppDatabase', '创建索引成功');
 
       // 4. 迁移现有 tracks 表中的歌单关联数据
@@ -529,7 +573,10 @@ class AppDatabase {
           orderBy: 'position ASC',
         );
 
-        AppLogger.info('AppDatabase', '歌单 $playlistId 有 ${tracksInPlaylist.length} 首歌曲');
+        AppLogger.info(
+          'AppDatabase',
+          '歌单 $playlistId 有 ${tracksInPlaylist.length} 首歌曲',
+        );
 
         // 创建歌单项关联记录
         for (var i = 0; i < tracksInPlaylist.length; i++) {
@@ -544,7 +591,10 @@ class AppDatabase {
       }
 
       // 5. 重建 tracks 表（移除 playlist_id 和 position 字段）
-      AppLogger.info('AppDatabase', '重建 tracks 表（移除 playlist_id 和 position 字段）');
+      AppLogger.info(
+        'AppDatabase',
+        '重建 tracks 表（移除 playlist_id 和 position 字段）',
+      );
 
       await db.execute('''
         CREATE TABLE tracks_new (
@@ -588,10 +638,18 @@ class AppDatabase {
       await db.execute('ALTER TABLE tracks_new RENAME TO tracks');
 
       // 重建索引
-      await db.execute('CREATE INDEX idx_tracks_source_id ON tracks(source_id)');
-      await db.execute('CREATE INDEX idx_tracks_source_type ON tracks(source_type)');
-      await db.execute('CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)');
-      await db.execute('CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)');
+      await db.execute(
+        'CREATE INDEX idx_tracks_source_id ON tracks(source_id)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_tracks_source_type ON tracks(source_type)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)',
+      );
 
       AppLogger.info('AppDatabase', 'V6 迁移完成');
     } catch (e) {
@@ -647,10 +705,18 @@ class AppDatabase {
     await db.execute('ALTER TABLE tracks_new RENAME TO tracks');
 
     await db.execute('CREATE INDEX idx_tracks_source_id ON tracks(source_id)');
-    await db.execute('CREATE INDEX idx_tracks_source_type ON tracks(source_type)');
-    await db.execute('CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)');
-    await db.execute('CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)');
-    await db.execute('CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)');
+    await db.execute(
+      'CREATE INDEX idx_tracks_source_type ON tracks(source_type)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_is_downloaded ON tracks(is_downloaded)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_is_favorite ON tracks(is_favorite)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_tracks_playlist ON tracks(playlist_id, position)',
+    );
 
     await db.execute('''
       CREATE TABLE playlists_new (
@@ -680,7 +746,9 @@ class AppDatabase {
     await db.execute('ALTER TABLE playlists_new RENAME TO playlists');
 
     await db.execute('CREATE INDEX idx_playlists_type ON playlists(type)');
-    await db.execute('CREATE INDEX idx_playlists_system_type ON playlists(system_type)');
+    await db.execute(
+      'CREATE INDEX idx_playlists_system_type ON playlists(system_type)',
+    );
 
     AppLogger.info('AppDatabase', 'V9 迁移完成');
   }
@@ -736,10 +804,18 @@ class AppDatabase {
     }
 
     // 创建索引（如果不存在）
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlists_type ON playlists(type)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlists_system_type ON playlists(system_type)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, position)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_playlist_items_track ON playlist_items(track_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_playlists_type ON playlists(type)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_playlists_system_type ON playlists(system_type)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, position)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_playlist_items_track ON playlist_items(track_id)',
+    );
 
     AppLogger.info('AppDatabase', 'V10 迁移完成');
   }
@@ -800,13 +876,46 @@ class AppDatabase {
     );
     for (final row in nowPlayingRows) {
       final id = row['id'] as int;
-      await db.delete('playlist_items', where: 'playlist_id = ?', whereArgs: [id]);
+      await db.delete(
+        'playlist_items',
+        where: 'playlist_id = ?',
+        whereArgs: [id],
+      );
       await db.delete('playlists', where: 'id = ?', whereArgs: [id]);
     }
     AppLogger.info('AppDatabase', 'V13 迁移完成');
   }
 
-  // ==================== Tracks CRUD ====================
+  /// 升级到版本 14：添加在线源状态追踪
+  ///
+  /// 新增 online_status 和 last_online_check_at 字段到 tracks 表，
+  /// 用于追踪 B 站在线源是否仍可访问。（双轴正交：file + online）
+  Future<void> _upgradeToV14(Database db) async {
+    AppLogger.info('AppDatabase', '升级数据库到 V14：添加在线源状态追踪');
+    final columns = (await db.rawQuery(
+      'PRAGMA table_info(tracks)',
+    )).map((column) => column['name']).toSet();
+    if (!columns.contains('online_status')) {
+      await db.execute('''
+        ALTER TABLE tracks
+        ADD COLUMN online_status TEXT DEFAULT 'unchecked'
+      ''');
+      AppLogger.info('AppDatabase', '添加 online_status 字段成功');
+    }
+
+    if (!columns.contains('last_online_check_at')) {
+      await db.execute('''
+        ALTER TABLE tracks
+        ADD COLUMN last_online_check_at TEXT
+      ''');
+      AppLogger.info('AppDatabase', '添加 last_online_check_at 字段成功');
+    }
+
+    // 创建索引，方便查询需要验证的在线状态
+    await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tracks_online_status ON tracks(online_status)
+      ''');
+  }
 
   /// 插入或更新 Track（UPSERT）
   Future<int> insertOrUpdateTrack(Map<String, dynamic> track) async {
@@ -829,12 +938,7 @@ class AppDatabase {
         if (existing.isNotEmpty) {
           final id = existing.first['id'] as int;
           track['updated_at'] = DateTime.now().toIso8601String();
-          await db.update(
-            'tracks',
-            track,
-            where: 'id = ?',
-            whereArgs: [id],
-          );
+          await db.update('tracks', track, where: 'id = ?', whereArgs: [id]);
           AppLogger.info('AppDatabase', '更新 Track: $id - ${track['title']}');
           return id;
         }
@@ -879,10 +983,7 @@ class AppDatabase {
   /// 获取所有 Tracks
   Future<List<Map<String, dynamic>>> getAllTracks() async {
     final db = await database;
-    return await db.query(
-      'tracks',
-      orderBy: 'updated_at DESC',
-    );
+    return await db.query('tracks', orderBy: 'updated_at DESC');
   }
 
   /// 获取已下载的 Tracks
@@ -922,12 +1023,7 @@ class AppDatabase {
   Future<void> updateTrack(int id, Map<String, dynamic> data) async {
     final db = await database;
     data['updated_at'] = DateTime.now().toIso8601String();
-    await db.update(
-      'tracks',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('tracks', data, where: 'id = ?', whereArgs: [id]);
   }
 
   /// 切换收藏状态
@@ -937,20 +1033,13 @@ class AppDatabase {
 
   /// 标记为已下载
   Future<void> markTrackAsDownloaded(int id, String localPath) async {
-    await updateTrack(id, {
-      'is_downloaded': 1,
-      'local_path': localPath,
-    });
+    await updateTrack(id, {'is_downloaded': 1, 'local_path': localPath});
   }
 
   /// 删除 Track
   Future<void> deleteTrack(int id) async {
     final db = await database;
-    await db.delete(
-      'tracks',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('tracks', where: 'id = ?', whereArgs: [id]);
   }
 
   // ==================== Download Tasks CRUD ====================
@@ -992,10 +1081,7 @@ class AppDatabase {
   /// 获取所有下载任务
   Future<List<Map<String, dynamic>>> getAllDownloadTasks() async {
     final db = await database;
-    return await db.query(
-      'download_tasks',
-      orderBy: 'created_at DESC',
-    );
+    return await db.query('download_tasks', orderBy: 'created_at DESC');
   }
 
   /// 根据状态获取下载任务
@@ -1015,12 +1101,7 @@ class AppDatabase {
   Future<void> updateDownloadTask(int id, Map<String, dynamic> data) async {
     final db = await database;
     data['updated_at'] = DateTime.now().toIso8601String();
-    await db.update(
-      'download_tasks',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('download_tasks', data, where: 'id = ?', whereArgs: [id]);
   }
 
   /// 更新下载进度
@@ -1037,9 +1118,7 @@ class AppDatabase {
 
   /// 更新下载状态
   Future<void> updateDownloadStatus(int id, DownloadStatus status) async {
-    final data = <String, dynamic>{
-      'status': status.value,
-    };
+    final data = <String, dynamic>{'status': status.value};
     if (status == DownloadStatus.completed) {
       data['completed_at'] = DateTime.now().toIso8601String();
     }
@@ -1049,11 +1128,7 @@ class AppDatabase {
   /// 删除下载任务
   Future<void> deleteDownloadTask(int id) async {
     final db = await database;
-    await db.delete(
-      'download_tasks',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('download_tasks', where: 'id = ?', whereArgs: [id]);
   }
 
   /// 清空已完成的任务
@@ -1076,7 +1151,9 @@ class AppDatabase {
   }
 
   /// 获取最近播放
-  Future<List<Map<String, dynamic>>> getRecentPlayHistory({int limit = 20}) async {
+  Future<List<Map<String, dynamic>>> getRecentPlayHistory({
+    int limit = 20,
+  }) async {
     final db = await database;
     return await db.query(
       'play_history',
@@ -1105,7 +1182,9 @@ class AppDatabase {
   /// 批量操作（非事务，但更高效）
   ///
   /// 适用于不需要原子性的批量操作。
-  Future<List<Object?>> batch(List<Future<void> Function(Batch)> actions) async {
+  Future<List<Object?>> batch(
+    List<Future<void> Function(Batch)> actions,
+  ) async {
     final db = await database;
     final batch = db.batch();
     for (final action in actions) {
@@ -1118,18 +1197,18 @@ class AppDatabase {
 
   /// 关闭数据库
   Future<void> close() async {
-    final db = await database;
-    await db.close();
+    final db = _database ?? await _opening;
+    await db?.close();
     _database = null;
   }
 
   /// 删除数据库（用于测试或重置）
   Future<void> deleteDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'listen_vision.db');
-    await database;
+    final factory = _factory ?? databaseFactory;
+    final path =
+        _path ?? join(await factory.getDatabasesPath(), 'listen_vision.db');
     await close();
-    await databaseFactory.deleteDatabase(path);
+    await factory.deleteDatabase(path);
     AppLogger.info('AppDatabase', '数据库已删除');
   }
 
@@ -1138,8 +1217,12 @@ class AppDatabase {
     final db = await database;
 
     final trackResult = await db.rawQuery('SELECT COUNT(*) FROM tracks');
-    final downloadResult = await db.rawQuery('SELECT COUNT(*) FROM download_tasks');
-    final historyResult = await db.rawQuery('SELECT COUNT(*) FROM play_history');
+    final downloadResult = await db.rawQuery(
+      'SELECT COUNT(*) FROM download_tasks',
+    );
+    final historyResult = await db.rawQuery(
+      'SELECT COUNT(*) FROM play_history',
+    );
 
     return {
       'tracks': Sqflite.firstIntValue(trackResult) ?? 0,

@@ -13,7 +13,7 @@ class ControlsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playbackViewModelProvider);
+    final playerState = ref.watch(playbackControlsProvider);
     final playerViewModel = ref.read(playbackViewModelProvider.notifier);
 
     // 无播放内容时显示提示
@@ -23,10 +23,7 @@ class ControlsPanel extends ConsumerWidget {
         child: Center(
           child: Text(
             '暂无播放内容',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Colors.grey, fontSize: 16),
           ),
         ),
       );
@@ -37,9 +34,18 @@ class ControlsPanel extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 时间显示（当前位置/总时长）
-        _buildTimeDisplay(context, playerState),
+        Consumer(
+          builder: (context, ref, _) =>
+              _buildTimeDisplay(context, ref.watch(playbackViewModelProvider)),
+        ),
         // 进度条
-        _buildProgressBar(context, playerState, playerViewModel),
+        Consumer(
+          builder: (context, ref, _) => _buildProgressBar(
+            context,
+            ref.watch(playbackViewModelProvider),
+            playerViewModel,
+          ),
+        ),
         // 控制按钮
         _buildControlButtons(context, ref, playerState, playerViewModel),
       ],
@@ -62,15 +68,13 @@ class ControlsPanel extends ConsumerWidget {
   ///
   /// 优先显示用户友好的状态消息和错误提示
   /// 当有有效时长和位置时优先显示时间，而不是状态
-  Widget _buildTimeDisplay(
-    BuildContext context,
-    playerState,
-  ) {
+  Widget _buildTimeDisplay(BuildContext context, playerState) {
     final duration = playerState.duration ?? Duration.zero;
     final position = playerState.position;
     final hasValidDuration = duration > Duration.zero;
     final hasValidPosition = position >= Duration.zero;
-    final hasPlaybackProgress = hasValidPosition && (position > Duration.zero || playerState.isPlaying);
+    final hasPlaybackProgress =
+        hasValidPosition && (position > Duration.zero || playerState.isPlaying);
 
     // UX改进：优先显示错误状态（最优先）
     if (playerState.errorMessage != null) {
@@ -99,33 +103,22 @@ class ControlsPanel extends ConsumerWidget {
     }
 
     if (!hasValidDuration && hasPlaybackProgress) {
-      return Text(
-        '${position.toString().split('.')[0]} / --:--',
-      );
+      return Text('${position.toString().split('.')[0]} / --:--');
     }
 
     // 加载状态（来自 PlaybackController）
     if (playerState.isLoading) {
-      return const Text(
-        '加载中...',
-        style: TextStyle(color: Colors.blue),
-      );
+      return const Text('加载中...', style: TextStyle(color: Colors.blue));
     }
 
     // 已完成状态 - 只有在没有有效时长时才显示
     if (playerState.isCompleted && !hasValidDuration) {
-      return const Text(
-        '播放完成',
-        style: TextStyle(color: Colors.green),
-      );
+      return const Text('播放完成', style: TextStyle(color: Colors.green));
     }
 
     // 空闲状态
     if (playerState.currentPlayable == null) {
-      return const Text(
-        '就绪',
-        style: TextStyle(color: Colors.grey),
-      );
+      return const Text('就绪', style: TextStyle(color: Colors.grey));
     }
 
     // 默认显示时间（即使为0）
@@ -139,11 +132,7 @@ class ControlsPanel extends ConsumerWidget {
   ///
   /// 在有状态消息或错误时显示友好提示
   /// 只要有有效时长就显示进度条，而不是加载指示器
-  Widget _buildProgressBar(
-    BuildContext context,
-    playerState,
-    playerViewModel,
-  ) {
+  Widget _buildProgressBar(BuildContext context, playerState, playerViewModel) {
     final duration = playerState.duration ?? Duration.zero;
     final durationSec = duration.inSeconds;
     final positionSec = playerState.position.inSeconds;
@@ -171,10 +160,7 @@ class ControlsPanel extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.refresh, color: Colors.blue),
-            label: const Text(
-              '点击重试',
-              style: TextStyle(color: Colors.blue),
-            ),
+            label: const Text('点击重试', style: TextStyle(color: Colors.blue)),
           ),
         ),
       );
@@ -189,8 +175,11 @@ class ControlsPanel extends ConsumerWidget {
         activeColor: Colors.green,
         inactiveColor: Colors.grey,
         onChanged: (value) {
-          AppLogger.logButtonClick('进度条', 'ControlsPanel',
-            parameters: {'position': value.toInt()});
+          AppLogger.logButtonClick(
+            '进度条',
+            'ControlsPanel',
+            parameters: {'position': value.toInt()},
+          );
           playerViewModel.seek(Duration(seconds: value.toInt()));
         },
       );
@@ -204,9 +193,7 @@ class ControlsPanel extends ConsumerWidget {
           child: SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
       );
@@ -224,7 +211,12 @@ class ControlsPanel extends ConsumerWidget {
   }
 
   /// 构建控制按钮
-  Widget _buildControlButtons(BuildContext context, WidgetRef ref, playerState, playerViewModel) {
+  Widget _buildControlButtons(
+    BuildContext context,
+    WidgetRef ref,
+    playerState,
+    playerViewModel,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -242,7 +234,9 @@ class ControlsPanel extends ConsumerWidget {
               },
             ),
             IconButton(
-              icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow),
+              icon: Icon(
+                playerState.isPlaying ? Icons.pause : Icons.play_arrow,
+              ),
               iconSize: 45,
               onPressed: () {
                 AppLogger.logButtonClick(
@@ -282,5 +276,4 @@ class ControlsPanel extends ConsumerWidget {
       ],
     );
   }
-
 }

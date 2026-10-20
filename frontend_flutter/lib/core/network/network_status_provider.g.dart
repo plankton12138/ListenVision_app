@@ -122,7 +122,7 @@ final class IsNetworkConnectedProvider
 }
 
 String _$isNetworkConnectedHash() =>
-    r'cf06ad150d0ecd1eba8dad7c0ab853d58f14654b';
+    r'8b9c38bab6943920cd9f5bbee37ae1bb25df9537';
 
 /// 网络连接类型 Provider
 ///
@@ -181,7 +181,7 @@ final class NetworkConnectionTypeProvider
 }
 
 String _$networkConnectionTypeHash() =>
-    r'4ea6de3da5cf43077907f7fe222deee83ffae7cd';
+    r'3869fd638f1943c684f5d0ade651a18675adb3db';
 
 /// 网络状态描述 Provider
 ///
@@ -235,4 +235,4 @@ final class NetworkConnectionDescriptionProvider
 }
 
 String _$networkConnectionDescriptionHash() =>
-    r'7dd8d37f2928827dbf3f0b4fa09b795cdee078da';
+    r'5431ae6ad3db6c1cbe68c51343858c7fd75eaed8';

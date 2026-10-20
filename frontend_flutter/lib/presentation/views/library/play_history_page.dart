@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/online_playable.dart';
@@ -80,65 +81,70 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   /// 构建历史记录内容
   Widget _buildHistoryContent() {
-    return ref.watch(historyViewModelProvider).when(
-      data: (state) => state.when(
-        initial: () => const Center(child: CircularProgressIndicator()),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        loaded: (history, stats) {
-          if (history.isEmpty) {
-            return _buildEmptyState(context);
-          }
-          return Column(
-            children: [
-              // 统计信息
-              if (stats != null) _buildStatsCard(stats, context),
-              // 历史列表
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: history.length,
-                  itemBuilder: (context, index) {
-                    final item = history[index];
-                    return _buildHistoryItem(item, index);
-                  },
-                ),
+    return ref
+        .watch(historyViewModelProvider)
+        .when(
+          data: (state) => state.when(
+            initial: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            loaded: (history, stats) {
+              if (history.isEmpty) {
+                return _buildEmptyState(context);
+              }
+              return Column(
+                children: [
+                  // 统计信息
+                  if (stats != null) _buildStatsCard(stats, context),
+                  // 历史列表
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: history.length,
+                      itemBuilder: (context, index) {
+                        final item = history[index];
+                        return _buildHistoryItem(item, index);
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+            error: (message) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('加载失败: $message'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => ref
+                        .read(historyViewModelProvider.notifier)
+                        .loadHistory(),
+                    child: const Text('重试'),
+                  ),
+                ],
               ),
-            ],
-          );
-        },
-        error: (message) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('加载失败: $message'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.read(historyViewModelProvider.notifier).loadHistory(),
-                child: const Text('重试'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('加载失败: $err'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.read(historyViewModelProvider.notifier).loadHistory(),
-              child: const Text('重试'),
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('加载失败: $err'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () =>
+                      ref.read(historyViewModelProvider.notifier).loadHistory(),
+                  child: const Text('重试'),
+                ),
+              ],
+            ),
+          ),
+        );
   }
 
   /// 构建空状态
@@ -147,13 +153,23 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+          Icon(
+            Icons.history,
+            size: 64,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
           const Text('暂无播放历史'),
           const SizedBox(height: 8),
           Text(
             '开始播放音频后，这里会显示你的播放记录',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: TextStyle(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
         ],
       ),
@@ -171,7 +187,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           children: [
             _buildStatItem('总播放', stats.totalPlays.toString(), context),
             _buildStatItem('独特曲目', stats.uniqueTracks.toString(), context),
-            _buildStatItem('总时长', _formatDuration(stats.totalDuration), context),
+            _buildStatItem(
+              '总时长',
+              _formatDuration(stats.totalDuration),
+              context,
+            ),
           ],
         ),
       ),
@@ -238,7 +258,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: coverUrl != null && coverUrl.isNotEmpty
-          ? Image.network(
+          ? ImageHelper.networkImage(
               coverUrl,
               width: 56,
               height: 56,
@@ -266,11 +286,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final playable = OnlinePlayable(audio);
 
     // 更新播放队列（替换为单个音频）
-    await ref.read(queueViewModelProvider.notifier).setQueueFromPlaylist(
-      [playable],
-      QueueSource.manual(),
-      initialIndex: 0,
-    );
+    await ref
+        .read(queueViewModelProvider.notifier)
+        .setQueueFromPlaylist(
+          [playable],
+          QueueSource.manual(),
+          initialIndex: 0,
+        );
 
     // 使用 PlaybackViewModel 播放
     ref.read(playbackViewModelProvider.notifier).play(playable, index: 0);
@@ -314,11 +336,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
     if (confirmed == true) {
       await ref.read(historyViewModelProvider.notifier).clearHistory();
-      if (mounted) {
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('播放历史已清空')),
-        );
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('播放历史已清空')));
       }
     }
   }

@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/permission_helper.dart';
 import 'dart:io';
 
 import 'package:listenvision/core/constants/app_constants.dart';
@@ -23,27 +24,24 @@ class BackendDownloadPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 监听错误状态并显示提示
-    ref.listen(
-      downloadViewModelProvider,
-      (previous, next) {
-        next.when(
-          loading: () => null,
-          data: (_) => null,
-          error: (err, stack) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('操作失败: $err'),
-                action: SnackBarAction(
-                  label: '关闭',
-                  onPressed: () =>
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-                ),
+    ref.listen(downloadViewModelProvider, (previous, next) {
+      next.when(
+        loading: () => null,
+        data: (_) => null,
+        error: (err, stack) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('操作失败: $err'),
+              action: SnackBarAction(
+                label: '关闭',
+                onPressed: () =>
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar(),
               ),
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    });
 
     // Riverpod 3.0: watch AsyncValue<DownloadModelState>
     final asyncState = ref.watch(downloadViewModelProvider);
@@ -99,7 +97,11 @@ class BackendDownloadPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, DownloadModelState state) {
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    DownloadModelState state,
+  ) {
     final downloads = state.downloads;
 
     return Scaffold(
@@ -150,21 +152,28 @@ class BackendDownloadPage extends ConsumerWidget {
   }
 
   /// 统计信息栏
-  Widget _buildStatsBar(BuildContext context, WidgetRef ref, List<DownloadTask> downloads) {
-    final downloading = downloads.where((t) => t.status == DownloadStatus.downloading).length;
-    final pending = downloads.where((t) => t.status == DownloadStatus.pending).length;
+  Widget _buildStatsBar(
+    BuildContext context,
+    WidgetRef ref,
+    List<DownloadTask> downloads,
+  ) {
+    final downloading = downloads
+        .where((t) => t.status == DownloadStatus.downloading)
+        .length;
+    final pending = downloads
+        .where((t) => t.status == DownloadStatus.pending)
+        .length;
     final completed = downloads.where((t) => t.isCompleted).length;
     final failed = downloads.where((t) => t.isFailed).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Row(
@@ -191,7 +200,11 @@ class BackendDownloadPage extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.download_outlined, size: 64, color: Colors.grey.shade400),
+              Icon(
+                Icons.download_outlined,
+                size: 64,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 16),
               Text(
                 '暂无下载任务',
@@ -212,6 +225,9 @@ class BackendDownloadPage extends ConsumerWidget {
   /// 获取下载目录（用于显示）
   Future<String> _getDownloadDirectory() async {
     try {
+      if (!await PermissionHelper.requestManageStoragePermission()) {
+        throw const FileSystemException('需要存储权限才能保存到下载目录');
+      }
       final downloadDir = await getDownloadsDirectory();
       if (downloadDir != null) {
         return '${downloadDir.path}${Platform.pathSeparator}ListenVision';
@@ -278,21 +294,22 @@ class _DownloadTaskTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final task = ref.watch(
-      downloadViewModelProvider.select(
-        (s) => s.valueOrNull?.downloads.firstWhere(
-          (t) => t.id == taskId,
-          orElse: () => DownloadTask(
-            id: taskId,
-            url: '',
-            savePath: '',
-            bvid: '未知',
-            title: '未知任务',
-            status: DownloadStatus.pending,
+    final task =
+        ref.watch(
+          downloadViewModelProvider.select(
+            (s) => s.valueOrNull?.downloads.firstWhere(
+              (t) => t.id == taskId,
+              orElse: () => DownloadTask(
+                id: taskId,
+                url: '',
+                savePath: '',
+                bvid: '未知',
+                title: '未知任务',
+                status: DownloadStatus.pending,
+              ),
+            ),
           ),
-        ),
-      ),
-    ) ??
+        ) ??
         DownloadTask(
           id: taskId,
           url: '',
@@ -346,14 +363,21 @@ class _DownloadTaskTile extends ConsumerWidget {
                   ),
                 ),
                 // 操作按钮
-                _buildActionButtons(context, ref, task, queuePosition, isOperating),
+                _buildActionButtons(
+                  context,
+                  ref,
+                  task,
+                  queuePosition,
+                  isOperating,
+                ),
               ],
             ),
             const SizedBox(height: 12),
             // 状态描述
             _buildStatusDetail(context, task, queuePosition, progress),
             // 进度条（下载中时显示）
-            if (task.status == DownloadStatus.downloading || (task.status == DownloadStatus.paused && progress > 0))
+            if (task.status == DownloadStatus.downloading ||
+                (task.status == DownloadStatus.paused && progress > 0))
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _buildProgressBar(context, task, progress),
@@ -400,7 +424,12 @@ class _DownloadTaskTile extends ConsumerWidget {
   }
 
   /// 详细状态描述
-  Widget _buildStatusDetail(BuildContext context, DownloadTask task, int? queuePosition, int progress) {
+  Widget _buildStatusDetail(
+    BuildContext context,
+    DownloadTask task,
+    int? queuePosition,
+    int progress,
+  ) {
     String statusText;
     Color? statusColor;
 
@@ -444,26 +473,20 @@ class _DownloadTaskTile extends ConsumerWidget {
         statusColor = Colors.green;
         break;
       case DownloadStatus.failed:
-        statusText = '下载失败${task.errorMessage != null ? ': ${task.errorMessage}' : ''}';
+        statusText =
+            '下载失败${task.errorMessage != null ? ': ${task.errorMessage}' : ''}';
         statusColor = Colors.red;
         break;
     }
 
     return Row(
       children: [
-        Icon(
-          _getStageIcon(task.status),
-          size: 14,
-          color: statusColor,
-        ),
+        Icon(_getStageIcon(task.status), size: 14, color: statusColor),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             statusText,
-            style: TextStyle(
-              fontSize: 13,
-              color: statusColor,
-            ),
+            style: TextStyle(fontSize: 13, color: statusColor),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -473,7 +496,11 @@ class _DownloadTaskTile extends ConsumerWidget {
   }
 
   /// 进度条
-  Widget _buildProgressBar(BuildContext context, DownloadTask task, int progress) {
+  Widget _buildProgressBar(
+    BuildContext context,
+    DownloadTask task,
+    int progress,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -503,10 +530,7 @@ class _DownloadTaskTile extends ConsumerWidget {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               '${_formatBytes(task.downloadedBytes)} / ${_formatBytes(task.totalBytes)}',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ),
       ],

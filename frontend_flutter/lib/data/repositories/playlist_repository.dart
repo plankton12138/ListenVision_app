@@ -16,9 +16,19 @@ import '../database/playlist_dao.dart';
 class PlaylistRepository {
   final PlaylistDao _playlistDao;
 
-  PlaylistRepository({
-    PlaylistDao? playlistDao,
-  }) : _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
+  PlaylistRepository({PlaylistDao? playlistDao})
+    : _playlistDao = playlistDao ?? PlaylistDao(AppDatabase.instance);
+
+  Future<void> reorderItems(List<PlaylistItem> items) async {
+    final playlistId = items.isEmpty
+        ? null
+        : int.tryParse(items.first.playlistId ?? '');
+    if (playlistId == null) return;
+    await _playlistDao.reorderPlaylistItems(playlistId, [
+      for (final item in items)
+        if (int.tryParse(item.id ?? '') != null) {'id': int.parse(item.id!)},
+    ]);
+  }
 
   // ==================== 歌单详情 ====================
 
@@ -200,6 +210,39 @@ class PlaylistRepository {
       int trackId;
       if (trackMaps.isNotEmpty) {
         trackId = trackMaps.first['id'] as int;
+
+        // 即使 track 已存在，也更新其元数据（补全可能缺失的 title/artist/duration 等）
+        final updateData = <String, dynamic>{
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+        final existingTitle = trackMaps.first['title'] as String?;
+        if (title != null &&
+            title.isNotEmpty &&
+            (existingTitle == null ||
+                existingTitle.isEmpty ||
+                existingTitle == bvid)) {
+          updateData['title'] = title;
+        }
+        if (artist != null && artist.isNotEmpty) {
+          updateData['artist'] = artist;
+        }
+        if (coverUrl != null && coverUrl.isNotEmpty) {
+          updateData['cover_url'] = coverUrl;
+        }
+        // 只有当现有 duration 为 null 或 0 时才更新（避免覆盖已有的有效值）
+        final existingDuration = trackMaps.first['duration'] as int?;
+        if (duration != null &&
+            duration > 0 &&
+            (existingDuration == null || existingDuration == 0)) {
+          updateData['duration'] = duration;
+        }
+
+        await db.update(
+          'tracks',
+          updateData,
+          where: 'id = ?',
+          whereArgs: [trackId],
+        );
       } else {
         trackId = await db.insert('tracks', {
           'source_id': bvid,
@@ -314,8 +357,10 @@ class PlaylistRepository {
         canvas.drawImageRect(
           images[i],
           Rect.fromLTWH(
-            0, 0,
-            images[i].width.toDouble(), images[i].height.toDouble(),
+            0,
+            0,
+            images[i].width.toDouble(),
+            images[i].height.toDouble(),
           ),
           Rect.fromLTWH(x, y, tileSize, tileSize),
           Paint(),

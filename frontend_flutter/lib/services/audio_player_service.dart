@@ -55,7 +55,8 @@ enum AudioPlayerErrorType {
 AudioPlayerErrorType classifyError(dynamic error) {
   final errorString = error.toString().toLowerCase();
 
-  if (errorString.contains('platformerror') ||
+  if (errorString.contains('windowsaudioerror') ||
+      errorString.contains('platformerror') ||
       errorString.contains('platform') ||
       errorString.contains('media_kit') ||
       errorString.contains('mpv')) {
@@ -259,25 +260,15 @@ class AudioPlayerService {
 
   // ==================== 音频源管理 ====================
 
-  /// 根据路径判断是本地文件还是URL
-  bool _isUrl(String pathOrUrl) {
-    return kIsWeb ||
-        pathOrUrl.startsWith('blob:') ||
-        pathOrUrl.startsWith('http://') ||
-        pathOrUrl.startsWith('https://');
-  }
-
   /// 设置本地音频源
   ///
   /// [filePath] 本地音频文件的完整路径（Web 端可传 blob URL）
   Future<void> setSource(String filePath) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '设置本地音频源: $filePath');
-    if (_isUrl(filePath)) {
-      await _player.open(Media(filePath));
-    } else {
-      await _player.open(Media(filePath));
-    }
+    _currentPosition = Duration.zero;
+    _currentDuration = null;
+    await _player.open(Media(filePath), play: false);
     _currentSourceUrl = filePath;
     _isCompleted = false;
   }
@@ -286,17 +277,25 @@ class AudioPlayerService {
   ///
   /// [url] 在线音频流的 URL 地址
   /// [httpHeaders] 可选的自定义 HTTP 请求头（用于解决 CDN 防盗链问题）
-  Future<void> setUrlSource(String url, {Map<String, String>? httpHeaders}) async {
+  Future<void> setUrlSource(
+    String url, {
+    Map<String, String>? httpHeaders,
+  }) async {
     if (_disposed) return;
     if (url.isEmpty) {
       AppLogger.warn('AudioPlayerService', 'setUrlSource() 失败：URL 为空');
       throw Exception('在线音频 URL 为空，请刷新后重试');
     }
-    AppLogger.info('AudioPlayerService', '设置在线音频源: $url');
+    AppLogger.info(
+      'AudioPlayerService',
+      '设置在线音频源: ${Uri.tryParse(url)?.host ?? 'audio'}',
+    );
     final media = httpHeaders != null && httpHeaders.isNotEmpty
         ? Media(url, httpHeaders: httpHeaders)
         : Media(url);
-    await _player.open(media);
+    _currentPosition = Duration.zero;
+    _currentDuration = null;
+    await _player.open(media, play: false);
     _currentSourceUrl = url;
     _isCompleted = false;
   }
@@ -317,8 +316,11 @@ class AudioPlayerService {
   /// [url] 在线音频流的 URL 地址
   /// [maxRetries] 最大重试次数（默认 2）
   /// [httpHeaders] 可选的自定义 HTTP 请求头（用于解决 CDN 防盗链问题）
-  Future<void> playUrl(String url,
-      {int maxRetries = 2, Map<String, String>? httpHeaders}) async {
+  Future<void> playUrl(
+    String url, {
+    int maxRetries = 2,
+    Map<String, String>? httpHeaders,
+  }) async {
     if (_disposed) return;
     if (url.isEmpty) {
       AppLogger.warn('AudioPlayerService', 'playUrl() 失败：URL 为空');
@@ -329,7 +331,9 @@ class AudioPlayerService {
     while (attempt <= maxRetries) {
       try {
         AppLogger.info(
-            'AudioPlayerService', '播放在线URL (尝试 ${attempt + 1}): $url');
+          'AudioPlayerService',
+          '播放在线URL (尝试 ${attempt + 1}): ${Uri.tryParse(url)?.host ?? 'audio'}',
+        );
         final media = httpHeaders != null && httpHeaders.isNotEmpty
             ? Media(url, httpHeaders: httpHeaders)
             : Media(url);
@@ -340,13 +344,14 @@ class AudioPlayerService {
       } catch (e) {
         attempt++;
         if (attempt > maxRetries) {
-          AppLogger.error(
-              'AudioPlayerService', '播放失败，已重试 $maxRetries 次: $e');
+          AppLogger.error('AudioPlayerService', '播放失败，已重试 $maxRetries 次: $e');
           rethrow;
         }
         await Future.delayed(Duration(milliseconds: 500 * attempt));
         AppLogger.warn(
-            'AudioPlayerService', '播放失败，准备重试 ($attempt/$maxRetries): $e');
+          'AudioPlayerService',
+          '播放失败，准备重试 ($attempt/$maxRetries): $e',
+        );
       }
     }
   }
@@ -373,8 +378,10 @@ class AudioPlayerService {
   ///
   /// [url] 在线音频流的 URL 地址
   /// [httpHeaders] 可选的自定义 HTTP 请求头
-  Future<void> setSourceAndPlayUrl(String url,
-      {Map<String, String>? httpHeaders}) async {
+  Future<void> setSourceAndPlayUrl(
+    String url, {
+    Map<String, String>? httpHeaders,
+  }) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '设置并播放在线URL: $url');
     final media = httpHeaders != null && httpHeaders.isNotEmpty
@@ -390,8 +397,11 @@ class AudioPlayerService {
   /// [url] 音频源 URL 或文件路径
   /// [isOnline] 是否为在线音频（默认 false）
   /// [httpHeaders] 可选的自定义 HTTP 请求头
-  Future<void> prepareSource(String url,
-      {bool isOnline = false, Map<String, String>? httpHeaders}) async {
+  Future<void> prepareSource(
+    String url, {
+    bool isOnline = false,
+    Map<String, String>? httpHeaders,
+  }) async {
     if (_disposed) return;
     AppLogger.info('AudioPlayerService', '准备音频源: $url (在线:$isOnline)');
     if (isOnline) {
@@ -416,7 +426,9 @@ class AudioPlayerService {
     final clampedVolume = volume.clamp(0.0, 1.0);
     await _player.setVolume(clampedVolume * 100.0);
     AppLogger.debug(
-        'AudioPlayerService', '音量设置为: ${(clampedVolume * 100).toInt()}%');
+      'AudioPlayerService',
+      '音量设置为: ${(clampedVolume * 100).toInt()}%',
+    );
   }
 
   /// 获取当前音量

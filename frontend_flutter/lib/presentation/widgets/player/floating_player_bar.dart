@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,7 +18,7 @@ class FloatingPlayerBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final queueState = ref.watch(queueViewModelProvider);
-    final playbackState = ref.watch(playbackViewModelProvider);
+    final playbackState = ref.watch(playbackControlsProvider);
 
     // 显示条件：有播放内容 && 不在 HomePage && 键盘未弹出
     final hasContent = queueState.queue?.tracks.isNotEmpty ?? false;
@@ -52,7 +53,7 @@ class FloatingPlayerBar extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // 进度条
-              _ProgressIndicator(playbackState: playbackState),
+              const _ProgressIndicator(),
               // 主体
               Padding(
                 padding: EdgeInsets.only(
@@ -106,20 +107,22 @@ class FloatingPlayerBar extends ConsumerWidget {
 }
 
 /// 进度指示条（2px 高线性渐变）
-class _ProgressIndicator extends StatelessWidget {
-  final PlaybackState playbackState;
-  const _ProgressIndicator({required this.playbackState});
+class _ProgressIndicator extends ConsumerWidget {
+  const _ProgressIndicator();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playbackState = ref.watch(playbackViewModelProvider);
     final duration = playbackState.duration;
     if (duration == null || duration <= Duration.zero) {
       return const SizedBox.shrink();
     }
 
-    final progress = (playbackState.position.inMilliseconds /
-            duration.inMilliseconds)
-        .clamp(0.0, 1.0);
+    final progress =
+        (playbackState.position.inMilliseconds / duration.inMilliseconds).clamp(
+          0.0,
+          1.0,
+        );
 
     return SizedBox(
       height: 2,
@@ -152,11 +155,7 @@ class _TrackInfo extends StatelessWidget {
         // 封面缩略图
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: _buildCover(context),
-          ),
+          child: SizedBox(width: 40, height: 40, child: _buildCover(context)),
         ),
         const SizedBox(width: 10),
         // 标题 + 作者
@@ -200,7 +199,9 @@ class _TrackInfo extends StatelessWidget {
       return Image.memory(coverData, fit: BoxFit.cover);
     }
     if (coverUrl != null && coverUrl.isNotEmpty) {
-      return Image.network(coverUrl, fit: BoxFit.cover,
+      return ImageHelper.networkImage(
+        coverUrl,
+        fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _defaultIcon(context),
       );
     }
@@ -273,7 +274,9 @@ class _ControlButtons extends StatelessWidget {
                   height: 14,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+              : Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                ),
           iconSize: 36,
           visualDensity: VisualDensity.compact,
           tooltip: isPlaying ? '暂停' : '播放',

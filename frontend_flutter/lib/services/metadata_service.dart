@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, mustCallSuper, visibleForTesting;
+import '../core/network/dio_client.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, mustCallSuper, visibleForTesting;
 
 import '../core/utils/app_logger.dart';
 import '../core/utils/audio_metadata_helper.dart';
@@ -86,7 +88,7 @@ class MetadataService {
   MetadataService({
     Dio? dio,
     this.maxCacheSize = PlaybackConfig.maxCoverCacheSize,
-  }) : _dio = dio ?? Dio() {
+  }) : _dio = dio ?? DioClient.create(download: true) {
     AppLogger.debug('MetadataService', '服务已创建');
   }
 
@@ -103,7 +105,10 @@ class MetadataService {
     bool fetchCover = true,
   }) async {
     final fileName = filePath.split(RegExp(r'[\\/]')).last;
-    AppLogger.debug('MetadataService', '========== 开始提取元数据: $fileName ==========');
+    AppLogger.debug(
+      'MetadataService',
+      '========== 开始提取元数据: $fileName ==========',
+    );
 
     // Android 11+ 需要权限（调用方负责）
     // Web 平台不支持 dart:io 的 File.existsSync()，需要特殊处理
@@ -127,9 +132,15 @@ class MetadataService {
 
       // 使用 AudioMetadataHelper 读取元数据
       final helper = AudioMetadataHelper();
-      final result = helper.readMetadata(filePath: filePath, fetchCover: fetchCover);
+      final result = helper.readMetadata(
+        filePath: filePath,
+        fetchCover: fetchCover,
+      );
 
-      AppLogger.debug('MetadataService', '元数据提取完成: ${result.title} - ${result.artist}, hasCover=${result.cover != null}');
+      AppLogger.debug(
+        'MetadataService',
+        '元数据提取完成: ${result.title} - ${result.artist}, hasCover=${result.cover != null}',
+      );
 
       // 如果元数据为空，使用路径提取
       if (result.title.isEmpty && result.artist.isEmpty) {
@@ -185,7 +196,10 @@ class MetadataService {
     required String fileName,
     bool fetchCover = true,
   }) async {
-    AppLogger.debug('MetadataService', '========== 开始从 bytes 提取元数据：$fileName ==========');
+    AppLogger.debug(
+      'MetadataService',
+      '========== 开始从 bytes 提取元数据：$fileName ==========',
+    );
 
     try {
       // 使用 AudioMetadataHelper 从 bytes 读取
@@ -196,7 +210,10 @@ class MetadataService {
         fetchCover: fetchCover,
       );
 
-      AppLogger.debug('MetadataService', '元数据提取完成：${result.title} - ${result.artist}, hasCover=${result.cover != null}');
+      AppLogger.debug(
+        'MetadataService',
+        '元数据提取完成：${result.title} - ${result.artist}, hasCover=${result.cover != null}',
+      );
 
       // 如果元数据为空，使用路径提取
       if (result.title.isEmpty && result.artist.isEmpty) {
@@ -257,7 +274,10 @@ class MetadataService {
           _addToCache(coverUrl, imageData);
         }
 
-        AppLogger.debug('MetadataService', '封面加载成功，大小: ${imageData.length} bytes');
+        AppLogger.debug(
+          'MetadataService',
+          '封面加载成功，大小: ${imageData.length} bytes',
+        );
         return imageData;
       }
     } catch (e) {
@@ -271,10 +291,7 @@ class MetadataService {
   ///
   /// [coverUrl] 封面 URL
   /// [onLoaded] 加载完成回调
-  void preloadCover(
-    String coverUrl,
-    void Function(Uint8List?) onLoaded,
-  ) {
+  void preloadCover(String coverUrl, void Function(Uint8List?) onLoaded) {
     if (_disposed) {
       onLoaded(null);
       return;
@@ -298,7 +315,10 @@ class MetadataService {
     }
 
     _coverCache[url] = data;
-    AppLogger.debug('MetadataService', '添加到缓存: $url, 当前缓存数: ${_coverCache.length}');
+    AppLogger.debug(
+      'MetadataService',
+      '添加到缓存: $url, 当前缓存数: ${_coverCache.length}',
+    );
   }
 
   /// 清除封面缓存

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:listenvision/core/state/state_utils.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -8,7 +7,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/repositories/download_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
-import '../../../data/repositories/track_repository.dart' show DownloadProgressEvent;
+import '../../../data/repositories/track_repository.dart'
+    show DownloadProgressEvent;
 import '../../../models/download_task.dart';
 
 part 'download_viewmodel.freezed.dart';
@@ -35,9 +35,8 @@ abstract class DownloadModelState with _$DownloadModelState {
   }) = DownloadModelStateLoaded;
 
   /// 错误
-  const factory DownloadModelState.error({
-    required String message,
-  }) = DownloadModelStateError;
+  const factory DownloadModelState.error({required String message}) =
+      DownloadModelStateError;
 }
 
 /// 下载管理 ViewModel（Riverpod 3.0 AsyncNotifier 模式）
@@ -125,91 +124,19 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// - paused: 检查临时文件是否存在，存在则可恢复
   /// - downloading: 崩溃前在下载，检查临时文件状态后决定是否恢复
   Future<void> _resumeIncompleteTasks() async {
-    try {
-      // 获取所有未完成的任务
-      final incompleteTasks = await _repository!.getIncompleteTasks();
-
-      for (final task in incompleteTasks) {
-        // 单个任务失败不影响其他任务
-        try {
-          if (task.id == null) continue;
-
-          // 验证文件状态
-          final file = File(task.savePath);
-          final tempFile = File('${task.savePath}.tmp');
-
-          final fileExists = await file.exists();
-          final tempExists = await tempFile.exists();
-
-          // 已完成且文件存在，跳过
-          if (task.status == DownloadStatus.completed && fileExists) {
-            continue;
-          }
-
-          // 文件完整性校验
-          bool hasValidTempFile = tempExists;
-          if (tempExists) {
-            try {
-              final actualSize = await tempFile.length();
-              final recordedSize = task.downloadedBytes;
-
-              // 文件大小差异超过 1MB，可能损坏
-              if ((actualSize - recordedSize).abs() > 1024 * 1024) {
-                AppLogger.warn('DownloadViewModel',
-                  '临时文件大小不一致: 记录=$recordedSize, 实际=$actualSize，重新下载');
-                try {
-                  await tempFile.delete();
-                } catch (_) {}
-                await _repository!.updateDownloadedBytes(task.id!, 0);
-                hasValidTempFile = false;
-              }
-            } catch (e) {
-              AppLogger.error('DownloadViewModel', '检查临时文件失败: $e');
-              hasValidTempFile = false;
-            }
-          }
-
-          // 崩溃前在下载，但临时文件不存在，重置状态
-          if (task.status == DownloadStatus.downloading && !tempExists) {
-            await _repository!.resetTaskStatus(task.id!, DownloadStatus.pending);
-          }
-
-          // 决定是否恢复
-          bool shouldResume = switch (task.status) {
-            DownloadStatus.pending => true,
-            DownloadStatus.paused => hasValidTempFile || fileExists,
-            DownloadStatus.downloading => hasValidTempFile,
-            DownloadStatus.stalled => hasValidTempFile || fileExists,
-            _ => false,
-          };
-
-          if (shouldResume) {
-            AppLogger.info('DownloadViewModel',
-              '恢复任务: ${task.bvid}, 状态: ${task.status}, 临时文件: $hasValidTempFile');
-            try {
-              await _repository!.startDownload(task.id!);
-            } catch (e) {
-              // 恢复失败，标记为失败状态但继续处理其他任务
-              AppLogger.error('DownloadViewModel', '恢复任务 ${task.id} 失败: $e');
-              try {
-                await _repository!.markAsFailed(task.id!, '恢复失败: $e');
-              } catch (_) {}
-            }
-          } else {
-            // 无法恢复的任务标记为失败
-            try {
-              await _repository!.markAsFailed(task.id!, '应用异常关闭，下载未完成');
-            } catch (e) {
-              AppLogger.error('DownloadViewModel', '标记任务失败出错: $e');
-            }
-          }
-        } catch (e) {
-          // 单个任务处理出错，记录日志但继续处理其他任务
-          AppLogger.error('DownloadViewModel', '处理任务 ${task.id} 时出错: $e');
-        }
+    final tasks = await _repository!.getIncompleteTasks();
+    for (final task in tasks) {
+      if (!ref.mounted) return;
+      if (task.id == null ||
+          task.userPaused ||
+          task.status == DownloadStatus.paused) {
+        continue;
       }
-    } catch (e) {
-      AppLogger.error('DownloadViewModel', '获取未完成任务列表失败: $e');
+      if (task.status == DownloadStatus.pending ||
+          task.status == DownloadStatus.downloading ||
+          task.status == DownloadStatus.stalled) {
+        await _repository!.resumeDownload(task.id!);
+      }
     }
   }
 
@@ -269,7 +196,10 @@ class DownloadViewModel extends _$DownloadViewModel {
 
       final existingTask = await _repository!.getTaskByBvid(bvid, cid: cid);
       if (existingTask != null) {
-        AppLogger.info('DownloadViewModel', '任务已存在: $bvid cid=$cid, 状态: ${existingTask.status}');
+        AppLogger.info(
+          'DownloadViewModel',
+          '任务已存在: $bvid cid=$cid, 状态: ${existingTask.status}',
+        );
 
         if (existingTask.isCompleted) {
           throw DownloadTaskException('任务已完成，保存在: ${existingTask.savePath}');
@@ -292,12 +222,12 @@ class DownloadViewModel extends _$DownloadViewModel {
 
       final tasks = await _repository!.getAllTasks();
       _updateQueuePositions();
-      await _repository!.startDownload(taskId);
+      unawaited(_repository!.startDownload(taskId));
 
       if (!ref.mounted) return null;
       state = AsyncData(DownloadModelState.loaded(downloads: tasks));
 
-      return await _repository!.getTaskByBvid(bvid);
+      return await _repository!.getTaskByBvid(bvid, cid: cid);
     } catch (e) {
       AppLogger.error('DownloadViewModel', '添加下载任务失败: $e');
       rethrow;
@@ -306,7 +236,7 @@ class DownloadViewModel extends _$DownloadViewModel {
 
   /// 暂停下载
   Future<void> pauseDownload(int taskId) async {
-    _operationStates[taskId] = true;  // 开始操作
+    _operationStates[taskId] = true; // 开始操作
     // 先更新 state 以触发 UI 重建（显示操作中状态）
     if (ref.mounted) {
       final currentTasks = state.valueOrNull?.downloads ?? [];
@@ -322,7 +252,7 @@ class DownloadViewModel extends _$DownloadViewModel {
       AppLogger.error('DownloadViewModel', '暂停任务失败: $e');
       rethrow;
     } finally {
-      _operationStates[taskId] = false;  // 结束操作
+      _operationStates[taskId] = false; // 结束操作
       // 触发重建，确保 UI 能感知到操作状态的变化
       if (ref.mounted) {
         final tasks = await _repository!.getAllTasks();
@@ -511,7 +441,8 @@ class DownloadViewModel extends _$DownloadViewModel {
   /// 清理标题字符串（移除非法字符）
   String sanitizeTitle(String input) {
     const pattern =
-        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""'
+        '·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -520,8 +451,6 @@ class DownloadViewModel extends _$DownloadViewModel {
 /// DownloadModelState 扩展方法
 extension DownloadModelStateX on DownloadModelState {
   /// 获取下载任务列表
-  List<DownloadTask> get downloads => maybeWhen(
-        loaded: (tasks) => tasks,
-        orElse: () => const [],
-      );
+  List<DownloadTask> get downloads =>
+      maybeWhen(loaded: (tasks) => tasks, orElse: () => const []);
 }

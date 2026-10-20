@@ -10,8 +10,7 @@ class VolumeSlider extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playbackViewModelProvider);
-    final volume = playerState.volume;
+    final volume = ref.watch(playbackViewModelProvider.select((s) => s.volume));
     final volumePercent = (volume * 100).toInt();
 
     return Row(
@@ -46,10 +45,7 @@ class VolumeSlider extends ConsumerWidget {
         // 音量百分比文本
         Text(
           '$volumePercent%',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ],
     );

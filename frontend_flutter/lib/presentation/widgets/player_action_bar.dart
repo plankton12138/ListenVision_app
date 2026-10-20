@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
@@ -14,21 +15,21 @@ class PlayerActionBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playbackViewModelProvider);
-    final currentId = playerState.currentPlayable?.id ?? '';
+    final currentId = ref.watch(
+      playbackViewModelProvider.select((s) => s.currentPlayable?.id ?? ''),
+    );
 
     if (currentId.isEmpty) {
-      return const Text(
-        '暂无播放内容',
-        style: TextStyle(color: Colors.grey),
-      );
+      return const Text('暂无播放内容', style: TextStyle(color: Colors.grey));
     }
 
     // 收藏状态由 FavoriteTracksNotifier 管理
     final favoriteTracksAsync = ref.watch(favoriteTracksProvider);
-    final isFavorited = favoriteTracksAsync.whenOrNull(
-      data: (ids) => ids.contains(currentId),
-    ) ?? false;
+    final isFavorited =
+        favoriteTracksAsync.whenOrNull(
+          data: (ids) => ids.contains(currentId),
+        ) ??
+        false;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -57,10 +58,7 @@ class PlayerActionBar extends ConsumerWidget {
   ///
   /// 切换当前播放歌曲的收藏状态（本地操作，无需登录）。
   /// 使用 FavoriteTracksNotifier 管理收藏状态。
-  Future<void> _handleFavorite(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _handleFavorite(BuildContext context, WidgetRef ref) async {
     final playerState = ref.read(playbackViewModelProvider);
 
     final currentPlayable = playerState.currentPlayable;
@@ -79,14 +77,16 @@ class PlayerActionBar extends ConsumerWidget {
       final trackDao = ref.read(trackDaoProvider);
       var track = await trackDao.getBySourceId(bvid);
       track ??= await trackDao.saveFromAudio(
-          Audio(
-            id: bvid,
-            title: currentPlayable.title.isNotEmpty ? currentPlayable.title : '未知标题',
-            artist: currentPlayable.artist,
-            duration: currentPlayable.duration,
-            coverUrl: currentPlayable.coverUrl,
-          ),
-        );
+        Audio(
+          id: bvid,
+          title: currentPlayable.title.isNotEmpty
+              ? currentPlayable.title
+              : '未知标题',
+          artist: currentPlayable.artist,
+          duration: currentPlayable.duration,
+          coverUrl: currentPlayable.coverUrl,
+        ),
+      );
 
       final favoriteNotifier = ref.read(favoriteTracksProvider.notifier);
       final target = await favoriteNotifier.toggle(
@@ -99,11 +99,7 @@ class PlayerActionBar extends ConsumerWidget {
 
       if (!context.mounted) return;
 
-      _showSnackBar(
-        context,
-        target ? '已添加到我喜欢' : '已从我喜欢移除',
-        Colors.green,
-      );
+      _showSnackBar(context, target ? '已添加到我喜欢' : '已从我喜欢移除', Colors.green);
     } catch (e) {
       AppLogger.error('PlayerActionBar', '收藏操作失败: $e');
       if (context.mounted) {
@@ -167,7 +163,11 @@ class PlayerActionBar extends ConsumerWidget {
   /// - [context] BuildContext
   /// - [message] 要显示的消息内容
   /// - [backgroundColor] 消息背景颜色
-  void _showSnackBar(BuildContext context, String message, Color backgroundColor) {
+  void _showSnackBar(
+    BuildContext context,
+    String message,
+    Color backgroundColor,
+  ) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -206,10 +206,7 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon, color: iconColor),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12),
-            ),
+            Text(label, style: const TextStyle(fontSize: 12)),
           ],
         ),
       ),
@@ -234,10 +231,12 @@ class _PlaylistSelectorForPlayer extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_PlaylistSelectorForPlayer> createState() => _PlaylistSelectorForPlayerState();
+  ConsumerState<_PlaylistSelectorForPlayer> createState() =>
+      _PlaylistSelectorForPlayerState();
 }
 
-class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorForPlayer> {
+class _PlaylistSelectorForPlayerState
+    extends ConsumerState<_PlaylistSelectorForPlayer> {
   final TextEditingController _nameController = TextEditingController();
 
   @override
@@ -284,13 +283,13 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
-                    Text(
-                      '选择歌单',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
+                    Text('选择歌单', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.add),
@@ -307,7 +306,11 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.playlist_add, size: 48, color: Colors.grey),
+                            Icon(
+                              Icons.playlist_add,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
                             SizedBox(height: 16),
                             Text('暂无歌单，点击 + 创建'),
                           ],
@@ -325,16 +328,19 @@ class _PlaylistSelectorForPlayerState extends ConsumerState<_PlaylistSelectorFor
                               decoration: BoxDecoration(
                                 color: playlist.hasCover
                                     ? null
-                                    : Theme.of(context).colorScheme.primaryContainer,
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: playlist.hasCover
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
+                                      child: ImageHelper.networkImage(
                                         playlist.coverUrl!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Icon(Icons.playlist_play),
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.playlist_play),
                                       ),
                                     )
                                   : const Icon(Icons.playlist_play),

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../core/utils/app_logger.dart';
-import '../../services/resumable_download_service.dart';
 import '../../core/storage/shared_storage_service.dart';
 import '../../services/bilibili_api_service.dart';
 import '../../services/bilibili_downloader.dart';
@@ -15,7 +14,7 @@ import '../../core/errors/exceptions.dart';
 import '../../models/download_task.dart';
 import 'track_repository.dart' show DownloadProgressEvent;
 import '../database/app_database.dart';
-import '../database/download_task_dao.dart' show InvalidStateTransitionError, DownloadTaskDao;
+import '../database/download_task_dao.dart' show DownloadTaskDao;
 import '../database/track_dao.dart';
 import 'download_slot_manager.dart';
 
@@ -30,7 +29,10 @@ class DownloadRepository {
   final TrackDao _trackDao;
   final DownloadTaskDao _downloadTaskDao;
   final BilibiliApiService _bilibiliApi;
-  final ResumableDownloadService _resumableDownloadService;
+  final AppDatabase _db;
+  final BilibiliDownloader Function(BilibiliApiService) _downloaderFactory;
+  final Map<int, Future<void>> _runningTasks = {};
+  bool _disposed = false;
   final DownloadSlotManager _slotManager;
 
   // 当前活跃的下载任务
@@ -61,20 +63,25 @@ class DownloadRepository {
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
     BilibiliApiService? bilibiliApi,
-    ResumableDownloadService? resumableDownloadService,
+    AppDatabase? db,
+    BilibiliDownloader Function(BilibiliApiService)? downloaderFactory,
     DownloadSlotManager? slotManager,
-  })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
-        _downloadTaskDao = downloadTaskDao ??
-            DownloadTaskDao(AppDatabase.instance),
-        _bilibiliApi = bilibiliApi ?? BilibiliApiService(),
-        _resumableDownloadService = resumableDownloadService ??
-            ResumableDownloadService(),
-        _slotManager = slotManager ?? DownloadSlotManager(maxSlots: _maxConcurrentDownloads) {
+  }) : _trackDao = trackDao ?? TrackDao(db ?? AppDatabase.instance),
+       _downloadTaskDao =
+           downloadTaskDao ?? DownloadTaskDao(db ?? AppDatabase.instance),
+       _bilibiliApi = bilibiliApi ?? BilibiliApiService(),
+       _db = db ?? AppDatabase.instance,
+       _downloaderFactory =
+           downloaderFactory ?? ((api) => BilibiliDownloader(api)),
+       _slotManager =
+           slotManager ??
+           DownloadSlotManager(maxSlots: _maxConcurrentDownloads) {
     _startWatchdog();
   }
 
   /// 下载进度事件流
-  Stream<DownloadProgressEvent> get progressStream => _progressController.stream;
+  Stream<DownloadProgressEvent> get progressStream =>
+      _progressController.stream;
 
   /// 队列变更事件流 - 当任务从队列中移除时发出该任务ID
   Stream<int> get queueStream => _queueController.stream;
@@ -112,7 +119,7 @@ class DownloadRepository {
     String? coverUrl,
     String? albumTitle,
   }) async {
-    return await AppDatabase.instance.transaction<int>((txn) async {
+    return await _db.transaction<int>((txn) async {
       // 用 bvid+cid 组合作为 source_id，使不同分P被视为独立 track
       final sourceId = cid != null ? '${bvid}_p$cid' : bvid;
 
@@ -137,7 +144,10 @@ class DownloadRepository {
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
-        AppLogger.info('DownloadRepository', '为搜索结果创建 Track: $sourceId -> $trackId');
+        AppLogger.info(
+          'DownloadRepository',
+          '为搜索结果创建 Track: $sourceId -> $trackId',
+        );
       }
 
       // 按 track_id 查找已有下载任务
@@ -171,7 +181,10 @@ class DownloadRepository {
         'updated_at': now,
       });
 
-      AppLogger.info('DownloadRepository', '创建下载任务: $taskId, trackId: $trackId, bvid: $bvid, cid: $cid');
+      AppLogger.info(
+        'DownloadRepository',
+        '创建下载任务: $taskId, trackId: $trackId, bvid: $bvid, cid: $cid',
+      );
       return taskId;
     });
   }
@@ -181,307 +194,205 @@ class DownloadRepository {
   /// 执行实际的下载操作。支持并发控制和队列机制：
   /// - 如果并发未满，立即开始下载
   /// - 如果并发已满，任务进入等待队列
-  Future<void> startDownload(int taskId) async {
-    // 先获取任务信息，检查状态
-    final task = await _downloadTaskDao.getById(taskId);
-    if (task == null) {
-      AppLogger.error('DownloadRepository', '任务不存在: $taskId');
-      return;
+  Future<void> startDownload(int taskId) {
+    if (_disposed) return Future.value();
+    return _runningTasks.putIfAbsent(
+      taskId,
+      () => _runDownload(taskId).whenComplete(() {
+        _runningTasks.remove(taskId);
+      }),
+    );
+  }
+
+  Future<void> _runDownload(int taskId) async {
+    final token = CancelToken();
+    _activeDownloads[taskId] = token;
+    DownloadTask? task;
+    BilibiliDownloader? downloader;
+    DownloadResult? result;
+    var committed = false;
+    Future<void> progressWrites = Future.value();
+    bool current() =>
+        !_disposed &&
+        !token.isCancelled &&
+        identical(_activeDownloads[taskId], token);
+    void check() {
+      if (!current()) throw const TaskCanceledException();
     }
-
-    await _downloadTaskDao.setUserPaused(taskId, false);
-    await _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-
-    // 如果任务已暂停、已完成或失败，不启动下载（需要显式恢复）
-    if (task.status == DownloadStatus.paused ||
-        task.status == DownloadStatus.completed ||
-        task.status == DownloadStatus.failed) {
-      AppLogger.info('DownloadRepository',
-        '任务状态为 ${task.status}，不自动启动: $taskId');
-      // 从队列中移除（如果存在）
-      _pendingQueue.remove(taskId);
-      // 释放槽位（如果已占用）
-      _slotManager.releaseSlot(taskId);
-      return;
-    }
-
-    // 检查是否已经在下载中（必须在 restoreSlot 之前检查）
-    if (_activeDownloads.containsKey(taskId)) {
-      AppLogger.info('DownloadRepository', '任务已在下载中: $taskId');
-      return;
-    }
-
-    // 尝试恢复槽位（如果是暂停的任务）
-    if (!_slotManager.restoreSlot(taskId)) {
-      if (!_pendingQueue.contains(taskId)) {
-        _pendingQueue.add(taskId);
-        AppLogger.info(
-          'DownloadRepository',
-          '任务 $taskId 进入等待队列，槽位: ${_slotManager.slotStats}',
-        );
-
-        await _downloadTaskDao.markAsPending(taskId);
-      }
-      return;
-    }
-
-    if (task.bvid == null) {
-      AppLogger.error('DownloadRepository', '任务缺少 BVID: $taskId');
-      await _downloadTaskDao.markAsFailed(taskId,
-          errorMessage: '任务缺少 BVID');
-      _slotManager.releaseSlot(taskId);
-      return;
-    }
-
-    // 检查是否已经在下载中
-    if (_activeDownloads.containsKey(taskId)) {
-      AppLogger.info('DownloadRepository', '任务已在下载中: $taskId');
-      return;
-    }
-
-    // 创建取消令牌
-    final cancelToken = CancelToken();
-    _activeDownloads[taskId] = cancelToken;
-
-    // 更新状态为下载中
-    await _downloadTaskDao.markAsDownloading(taskId);
-
-    AppLogger.info('DownloadRepository',
-      '开始下载: taskId=$taskId, bvid=${task.bvid}');
 
     try {
-      // 检查是否支持断点续传（有已下载字节数和 ETag）
-      final canResume = task.downloadedBytes > 0 &&
-          task.etag != null &&
-          (task.tempFilePath != null ||
-              (task.totalBytes > 0 && task.downloadedBytes < task.totalBytes));
-
-      final downloadFormatStr = SharedStorageService.instance.getDownloadFormat();
-      final downloadFormat = AudioOutputFormat.values.firstWhere(
-        (f) => f.extension == downloadFormatStr,
+      task = await _downloadTaskDao.getById(taskId);
+      check();
+      if (task == null ||
+          task.status == DownloadStatus.completed ||
+          task.status == DownloadStatus.paused ||
+          task.status == DownloadStatus.failed) {
+        return;
+      }
+      if (!_slotManager.restoreSlot(taskId)) {
+        if (!_pendingQueue.contains(taskId)) _pendingQueue.add(taskId);
+        return;
+      }
+      if (task.bvid == null) throw StateError('任务缺少 BVID');
+      await _downloadTaskDao.setUserPaused(taskId, false);
+      await _downloadTaskDao.markAsDownloading(taskId);
+      check();
+      final formatName = SharedStorageService.instance.getDownloadFormat();
+      final selectedFormat = AudioOutputFormat.values.firstWhere(
+        (f) => f.extension == formatName,
         orElse: () => AudioOutputFormat.m4a,
       );
-
-      if (canResume) {
-        AppLogger.info('DownloadRepository', '使用断点续传: 已下载 ${task.downloadedBytes} bytes');
-        await _downloadWithResumable(taskId, task, cancelToken, downloadFormat);
-      } else {
-        AppLogger.info('DownloadRepository',
-            '使用 BilibiliDownloader 下载: format=${downloadFormat.extension}');
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, downloadFormat);
-      }
-
-      // 下载完成
-      await _downloadTaskDao.markAsCompleted(taskId);
-      if (task.trackId != null) {
-        await _trackDao.markAsDownloaded(task.trackId!, task.savePath);
-      }
-
-      _progressController.add(DownloadProgressEvent(
-        taskId: taskId,
-        trackId: task.trackId,
+      final format = FfmpegService().supportsConversion
+          ? selectedFormat
+          : AudioOutputFormat.m4a;
+      downloader = _downloaderFactory(_bilibiliApi);
+      result = await downloader.download(
         bvid: task.bvid!,
-        progress: 100,
-        stage: 'completed',
-        message: '下载完成',
-      ));
-
-      AppLogger.info('DownloadRepository', '下载完成: ${task.savePath}');
-    } catch (e) {
-      if (cancelToken.isCancelled || e is TaskCanceledException) {
-        // 用户取消/暂停 - 保留临时文件以便续传
-        await _downloadTaskDao.updateResumableInfo(
-          id: taskId,
-          tempFilePath: '${task.savePath}.tmp',
+        cid: task.cid,
+        saveDir: p.dirname(task.savePath),
+        fileName: task.title ?? task.bvid!,
+        albumTitle: task.albumTitle,
+        format: format,
+        tempPath: '${task.savePath}.part.m4a',
+        cancelToken: token,
+        downloadCover: SharedStorageService.instance.getDownloadCover(),
+        onProgress: (percent, stage) {
+          if (!current()) return;
+          progressWrites = progressWrites
+              .then((_) async {
+                if (!current()) return;
+                await _downloadTaskDao.updateProgressPercent(taskId, percent);
+                await _downloadTaskDao.updateProgressTimestamp(
+                  taskId,
+                  DateTime.now(),
+                );
+                if (current()) {
+                  _progressController.add(
+                    DownloadProgressEvent(
+                      taskId: taskId,
+                      trackId: task!.trackId,
+                      bvid: task.bvid!,
+                      progress: percent,
+                      stage: stage,
+                      message: _getStageMessage(stage),
+                    ),
+                  );
+                }
+              })
+              .catchError((Object error) {
+                AppLogger.warn('DownloadRepository', '记录下载进度失败: $error');
+              });
+        },
+      );
+      await progressWrites;
+      check();
+      if (!result.success || result.filePath == null) {
+        throw StateError(result.error ?? '下载失败');
+      }
+      final completed = result;
+      await _db.transaction<void>((txn) async {
+        check();
+        final rows = await txn.query(
+          'download_tasks',
+          where: 'id = ?',
+          whereArgs: [taskId],
         );
-        // 注意：此时任务可能已被 pauseDownload() 标记为 paused
-        // 使用 try-catch 忽略非法状态转换错误
-        try {
-          await _downloadTaskDao.markAsPaused(taskId);
-        } on InvalidStateTransitionError catch (_) {
-          // 任务已经是 paused 状态，忽略
-          AppLogger.debug('DownloadRepository', '任务已是 paused 状态，跳过标记');
-        } catch (e) {
-             // 忽略其他数据库错误，防止覆盖暂停状态
-             AppLogger.warn('DownloadRepository', '更新暂停状态时出错(忽略): $e');
+        if (rows.isEmpty) throw const TaskCanceledException();
+        await txn.update(
+          'download_tasks',
+          {
+            'status': 'completed',
+            'save_path': completed.filePath,
+            'total_bytes': completed.fileSize,
+            'downloaded_bytes': completed.fileSize,
+            'temp_file_path': '${task!.savePath}.part.m4a',
+            'error_message': null,
+            'completed_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [taskId],
+        );
+        if (task.trackId != null) {
+          await txn.update(
+            'tracks',
+            {
+              'is_downloaded': 1,
+              'local_path': completed.filePath,
+              'download_status': 'completed',
+              'download_progress': 100,
+            },
+            where: 'id = ?',
+            whereArgs: [task.trackId],
+          );
         }
-        _progressController.add(DownloadProgressEvent(
-          taskId: taskId,
-          trackId: task.trackId,
-          bvid: task.bvid!,
-          progress: 0,
-          stage: 'paused',
-          message: '下载已暂停',
-        ));
-      } else {
-        // 下载失败 - 检查当前状态，避免对已暂停/已完成的任务进行状态转换
-        final currentTask = await _downloadTaskDao.getById(taskId);
-        final currentStatus = currentTask?.status;
-
-        // 如果任务已经是 paused 或 completed，不进行失败标记
-        if (currentStatus == DownloadStatus.paused ||
-            currentStatus == DownloadStatus.completed) {
-          AppLogger.info('DownloadRepository',
-            '任务状态为 $currentStatus，跳过失败标记: $taskId');
-        } else {
-          await _downloadTaskDao.markAsFailed(taskId, errorMessage: e.toString());
-
-          _progressController.add(DownloadProgressEvent(
+        check();
+      });
+      committed = true;
+      if (current()) {
+        _progressController.add(
+          DownloadProgressEvent(
             taskId: taskId,
             trackId: task.trackId,
             bvid: task.bvid!,
-            progress: 0,
-            stage: 'failed',
-            message: '下载失败: $e',
-          ));
-
-          AppLogger.error('DownloadRepository', '下载失败: $e');
-          // 失败时释放槽位
-          _slotManager.releaseSlot(taskId);
+            progress: 100,
+            stage: 'completed',
+            message: completed.warning ?? '下载完成',
+          ),
+        );
+      }
+      final raw = File('${task.savePath}.part.m4a');
+      if (await raw.exists()) await raw.delete();
+      await _downloadTaskDao.updateTempFilePath(taskId, null);
+    } catch (error) {
+      if (!token.isCancelled && error is! TaskCanceledException) {
+        AppLogger.error('DownloadRepository', '下载任务失败: $error');
+      }
+      await progressWrites;
+      if (!_disposed && task != null) {
+        final latest = await _downloadTaskDao.getById(taskId);
+        if (latest != null && latest.status != DownloadStatus.completed) {
+          if (token.isCancelled || error is TaskCanceledException) {
+            await _downloadTaskDao.markAsPaused(taskId);
+          } else {
+            await _downloadTaskDao.markAsFailed(
+              taskId,
+              errorMessage: error.toString(),
+            );
+            if (!_disposed) {
+              _progressController.add(
+                DownloadProgressEvent(
+                  taskId: taskId,
+                  trackId: task.trackId,
+                  bvid: task.bvid ?? '',
+                  progress: 0,
+                  stage: 'failed',
+                  message: '下载失败: $error',
+                ),
+              );
+            }
+          }
         }
       }
     } finally {
-      _activeDownloads.remove(taskId);
-
-      // ✅ 修复槽位处理逻辑：
-      // - 暂停时：释放槽位（让其他任务可以使用）
-      // - 完成时：释放槽位
-      // - 失败时：已在 catch 中释放
-      // - 其他情况：确保槽位被释放
-      if (cancelToken.isCancelled) {
-        // 暂停时不预留槽位，让其他任务可以开始
-        _slotManager.releaseSlot(taskId);
-      } else {
-        // 完成或其他情况，释放槽位
-        _slotManager.releaseSlot(taskId);
-      }
-
-      // 触发队列中的下一个任务（不等待，避免阻塞）
-      try {
-        _processQueue();
-      } catch (e) {
-        AppLogger.error('DownloadRepository', '处理后队列时出错: $e');
-      }
-    }
-  }
-
-  /// 使用断点续传下载
-  Future<void> _downloadWithResumable(
-    int taskId,
-    DownloadTask task,
-    CancelToken cancelToken,
-    AudioOutputFormat format,
-  ) async {
-    final result = await _resumableDownloadService.downloadAudio(
-      bvid: task.bvid!,
-      savePath: task.savePath,
-      downloadedBytes: task.downloadedBytes,
-      etag: task.etag,
-      lastModified: task.lastModified,
-      onProgress: (current, total, percent) async {
-        await _downloadTaskDao.updateResumableInfo(
-          id: taskId,
-          downloadedBytes: current,
-          totalBytes: total,
-          tempFilePath: '${task.savePath}.tmp',
-        );
-        await _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-        _progressController.add(DownloadProgressEvent(
-          taskId: taskId,
-          trackId: task.trackId,
-          bvid: task.bvid!,
-          progress: percent,
-          stage: 'downloading',
-          message: '下载中 $current/$total',
-        ));
-      },
-    );
-
-    if (result.success) {
-      // 保存 ETag 和 Last-Modified 以便后续续传
-      await _downloadTaskDao.updateResumableInfo(
-        id: taskId,
-        etag: result.etag,
-        lastModified: result.lastModified,
-      );
-      await _downloadTaskDao.updateTempFilePath(taskId, null);
-    } else {
-      if (result.errorType == ResumableDownloadErrorType.etagMismatch ||
-          result.errorType == ResumableDownloadErrorType.notResumable) {
-        AppLogger.warn('DownloadRepository',
-          '断点续传不可用，回退全量下载: ${result.error}');
-        await _downloadTaskDao.updateResumableInfo(
-          id: taskId,
-          downloadedBytes: 0,
-          totalBytes: 0,
-          etag: null,
-          lastModified: null,
-        );
-        await _downloadTaskDao.updateTempFilePath(taskId, null);
-        await _downloadWithBilibiliDownloader(taskId, task, cancelToken, format);
-        return;
-      }
-      throw Exception(result.error ?? '下载失败');
-    }
-  }
-
-  /// 使用 BilibiliDownloader 下载（零转换方案）
-  Future<void> _downloadWithBilibiliDownloader(
-    int taskId,
-    DownloadTask task,
-    CancelToken cancelToken,
-    AudioOutputFormat format,
-  ) async {
-    final downloader = BilibiliDownloader(_bilibiliApi);
-
-    // 检查取消状态
-    if (cancelToken.isCancelled) {
-      throw TaskCanceledException();
-    }
-
-    // 生成文件名
-    final fileName = task.title ?? task.bvid ?? 'download';
-    final saveDir = p.dirname(task.savePath);
-
-    final result = await downloader.download(
-      bvid: task.bvid!,
-      cid: task.cid,
-      saveDir: saveDir,
-      fileName: fileName,
-      albumTitle: task.albumTitle,
-      format: format,
-      onProgress: (percent, stage) {
-        if (cancelToken.isCancelled) {
-          cancelToken.cancel('用户取消');
-          throw TaskCanceledException();
+      if (!committed &&
+          result?.success == true &&
+          result?.filePath != null &&
+          task != null) {
+        // 只回收本次任务创建的文件；转换前的原始源保留用于重试。
+        final output = File(result!.filePath!);
+        if (await output.exists()) {
+          final raw = File('${task.savePath}.part.m4a');
+          if (result.format == 'm4a' && !await raw.exists()) {
+            await output.rename(raw.path);
+          } else {
+            await output.delete();
+          }
         }
-
-        _downloadTaskDao.updateProgressPercent(taskId, percent);
-        _downloadTaskDao.updateProgressTimestamp(taskId, DateTime.now());
-
-        _progressController.add(DownloadProgressEvent(
-          taskId: taskId,
-          trackId: task.trackId,
-          bvid: task.bvid!,
-          progress: percent,
-          stage: stage,
-          message: _getStageMessage(stage),
-        ));
-      },
-    );
-
-    if (!result.success) {
-      throw Exception(result.error ?? '下载失败');
-    }
-
-    // 更新任务状态（文件路径由 BilibiliDownloader 直接写入，这里更新数据库记录）
-    final updatedTask = await _downloadTaskDao.getById(taskId);
-    if (updatedTask != null && result.filePath != null) {
-      await _downloadTaskDao.update(updatedTask.copyWith(
-        savePath: result.filePath,
-        totalBytes: result.fileSize,
-        downloadedBytes: result.fileSize,
-      ));
+      }
+      downloader?.dispose();
+      _activeDownloads.remove(taskId);
+      _slotManager.releaseSlot(taskId);
+      if (!_disposed) unawaited(_processQueue());
     }
   }
 
@@ -495,19 +406,23 @@ class DownloadRepository {
       'processing_file': '处理文件',
       'writing_metadata': '写入元数据',
       'completed': '下载完成',
+      'converting': '转换格式中',
     };
     return messages[stage] ?? stage;
   }
 
   /// 处理下载队列 - 启动队列中的下一个任务
   Future<void> _processQueue() async {
+    if (_disposed) return;
     // 使用 SlotManager 检查是否有空闲槽位
     if (!_slotManager.hasAvailableSlot) {
       return; // 槽位已满，不处理队列
     }
 
     // 从队列中取出下一个任务，使用槽位管理器确保并发数不会超过限制
-    while (_pendingQueue.isNotEmpty && _slotManager.hasAvailableSlot) {
+    while (!_disposed &&
+        _pendingQueue.isNotEmpty &&
+        _slotManager.hasAvailableSlot) {
       final nextTaskId = _pendingQueue.removeAt(0);
 
       // 通知队列变更
@@ -534,7 +449,10 @@ class DownloadRepository {
       }
 
       // 启动下载，startDownload 内部会处理槽位占用
-      AppLogger.info('DownloadRepository', '队列任务开始下载: $nextTaskId, 槽位: ${_slotManager.slotStats}');
+      AppLogger.info(
+        'DownloadRepository',
+        '队列任务开始下载: $nextTaskId, 槽位: ${_slotManager.slotStats}',
+      );
       await startDownload(nextTaskId);
     }
   }
@@ -545,44 +463,14 @@ class DownloadRepository {
   /// 1. 幂等性：已暂停或已完成则直接返回
   /// 2. 超时机制：后端取消操作设置 5 秒超时
   Future<void> pauseDownload(int taskId) async {
-    // 获取任务信息
+    _activeDownloads[taskId]?.cancel('用户暂停');
+    _pendingQueue.remove(taskId);
+    await _runningTasks[taskId];
     final task = await _downloadTaskDao.getById(taskId);
-    if (task == null) {
-      AppLogger.warn('DownloadRepository', '任务不存在: $taskId');
-      return;
-    }
-
-    // 幂等性检查：已暂停或已完成则直接返回
-    if (task.status == DownloadStatus.paused) {
-      AppLogger.info('DownloadRepository',
-        '任务 $taskId 已是 paused 状态，跳过暂停');
-      return;
-    }
-    if (task.status == DownloadStatus.completed) {
-      AppLogger.info('DownloadRepository',
-        '任务 $taskId 已是 completed 状态，跳过暂停');
-      return;
-    }
-
-    // 如果任务在队列中，从队列移除（幂等）
-    if (_pendingQueue.contains(taskId)) {
-      _pendingQueue.remove(taskId);
-      _queueController.add(taskId);
-      AppLogger.info('DownloadRepository', '任务 $taskId 从队列中移除（暂停）');
-    }
-
-    // 取消前端的下载流（幂等）
-    final cancelToken = _activeDownloads[taskId];
-    if (cancelToken != null && !cancelToken.isCancelled) {
-      cancelToken.cancel('用户暂停');
-      _activeDownloads.remove(taskId);
-    }
-
-    // 更新数据库状态
+    if (task == null || task.status == DownloadStatus.completed) return;
     await _downloadTaskDao.markAsPaused(taskId);
     await _downloadTaskDao.setUserPaused(taskId, true);
-
-    AppLogger.info('DownloadRepository', '暂停完成: $taskId');
+    if (!_disposed) _queueController.add(taskId);
   }
 
   /// 恢复下载
@@ -592,6 +480,8 @@ class DownloadRepository {
   ///
   /// 注意：此方法会立即返回，下载在后台执行。这是为了避免阻塞 UI 操作。
   Future<void> resumeDownload(int taskId) async {
+    if (_disposed) return;
+    await _runningTasks[taskId];
     // 先更新状态为 pending，确保任务可以重新进入下载流程
     await _downloadTaskDao.markAsPending(taskId);
     await _downloadTaskDao.setUserPaused(taskId, false);
@@ -605,36 +495,22 @@ class DownloadRepository {
 
   /// 取消下载
   Future<void> cancelDownload(int taskId) async {
-    // 如果任务在队列中，从队列移除
-    if (_pendingQueue.contains(taskId)) {
-      _pendingQueue.remove(taskId);
-      _queueController.add(taskId);
-    }
-
-    // 获取任务信息
+    _activeDownloads[taskId]?.cancel('用户取消');
+    _pendingQueue.remove(taskId);
+    await _runningTasks[taskId];
     final task = await _downloadTaskDao.getById(taskId);
-
-    final cancelToken = _activeDownloads[taskId];
-    if (cancelToken != null && !cancelToken.isCancelled) {
-      cancelToken.cancel('用户取消');
-    }
-
-    if (task?.id != null) {
-      await _downloadTaskDao.setUserPaused(task!.id!, false);
-    }
-
-    // 释放槽位
+    if (task != null) await _cleanupTaskTemp(task);
     _slotManager.releaseSlot(taskId);
-
     await _downloadTaskDao.delete(taskId);
-
-    AppLogger.info('DownloadRepository', '取消下载: $taskId');
+    if (!_disposed) _queueController.add(taskId);
   }
 
   /// 删除下载任务
   ///
   /// [deleteFile] 是否同时删除已下载的文件
   Future<void> deleteDownloadTask(int taskId, {bool deleteFile = false}) async {
+    _activeDownloads[taskId]?.cancel('用户删除任务');
+    await _runningTasks[taskId];
     final task = await _downloadTaskDao.getById(taskId);
 
     // 如果任务在队列中，从队列移除
@@ -669,17 +545,15 @@ class DownloadRepository {
     }
 
     // 更新 Track 状态
-    if (task?.trackId != null) {
+    if (deleteFile && task?.trackId != null) {
       final trackToUpdate = await _trackDao.getById(task!.trackId!);
       if (trackToUpdate != null) {
-        await _trackDao.update(trackToUpdate.copyWith(
-          isDownloaded: false,
-          localPath: null,
-        ));
+        await _trackDao.markAsNotDownloaded(trackToUpdate.sourceId);
       }
     }
 
-    // 删除任务记录
+    // 删除任务记录之前，清理本任务私有的临时片段。
+    if (task != null) await _cleanupTaskTemp(task);
     await _downloadTaskDao.delete(taskId);
 
     AppLogger.info('DownloadRepository', '删除任务: $taskId');
@@ -750,7 +624,7 @@ class DownloadRepository {
   }
 
   Future<DownloadTask?> getTaskByTrackId(int trackId) async {
-    final db = await AppDatabase.instance.database;
+    final db = await _db.database;
     final maps = await db.query(
       'download_tasks',
       where: 'track_id = ?',
@@ -796,9 +670,11 @@ class DownloadRepository {
 
   /// 强制恢复单个任务（忽略状态）
   Future<void> forceResume(int taskId) async {
+    _activeDownloads[taskId]?.cancel('重新开始');
+    await _runningTasks[taskId];
     await _downloadTaskDao.resetTaskStatus(taskId, DownloadStatus.pending);
     await _downloadTaskDao.setUserPaused(taskId, false);
-    await startDownload(taskId);
+    unawaited(startDownload(taskId));
   }
 
   /// 开始所有待处理的任务
@@ -806,7 +682,7 @@ class DownloadRepository {
     final pendingTasks = await _downloadTaskDao.getPending();
     for (final task in pendingTasks) {
       if (task.id != null) {
-        await startDownload(task.id!);
+        unawaited(startDownload(task.id!));
       }
     }
     AppLogger.info('DownloadRepository', '开始 ${pendingTasks.length} 个待处理任务');
@@ -854,6 +730,7 @@ class DownloadRepository {
   /// 2. 将 downloading 状态的任务移回等待队列
   /// 3. 执行临时文件清理
   Future<void> rebuildState() async {
+    if (_runningTasks.isNotEmpty || _disposed) return;
     try {
       // 获取所有下载中的任务
       final downloadingTasks = await _downloadTaskDao.getDownloading();
@@ -868,7 +745,10 @@ class DownloadRepository {
         if (task.id != null) {
           // 下载中的任务实际上已经中断（应用重启）
           // 将它们移回等待队列
-          await _downloadTaskDao.resetTaskStatus(task.id!, DownloadStatus.pending);
+          await _downloadTaskDao.resetTaskStatus(
+            task.id!,
+            DownloadStatus.pending,
+          );
           _pendingQueue.add(task.id!);
         }
       }
@@ -890,10 +770,11 @@ class DownloadRepository {
 
       // 执行清理
       await cleanupOrphanTempFiles();
-      await cleanupStalePausedTasks();
 
-      AppLogger.info('DownloadRepository',
-        '内存状态重建完成: 队列=${_pendingQueue.length}');
+      AppLogger.info(
+        'DownloadRepository',
+        '内存状态重建完成: 队列=${_pendingQueue.length}',
+      );
     } catch (e) {
       AppLogger.error('DownloadRepository', '内存状态重建失败: $e');
     }
@@ -902,66 +783,44 @@ class DownloadRepository {
   /// 清理孤立的临时文件
   ///
   /// 删除没有对应任务记录的 .tmp 文件，以及已完成任务的临时文件。
-  Future<void> cleanupOrphanTempFiles() async {
-    try {
-      // 获取下载目录（从第一个任务的 savePath 推断）
-      final tasks = await _downloadTaskDao.getAll();
-      if (tasks.isEmpty) return;
-
-      // 从第一个任务推断下载目录
-      final firstTask = tasks.firstWhere((t) => t.savePath.isNotEmpty,
-        orElse: () => tasks.first);
-      final downloadDir = Directory(firstTask.savePath).parent;
-
-      if (!await downloadDir.exists()) {
-        return;
+  Future<void> _cleanupTaskTemp(DownloadTask task) async {
+    final candidates = <String>{'${task.savePath}.part.m4a'};
+    if (task.tempFilePath != null &&
+        p.dirname(p.absolute(task.tempFilePath!)) ==
+            p.dirname(p.absolute(task.savePath)) &&
+        task.tempFilePath!.endsWith('.part.m4a')) {
+      candidates.add(task.tempFilePath!);
+    }
+    for (final source in candidates) {
+      for (final suffix in ['', '.json', '.jpg']) {
+        final file = File('$source$suffix');
+        if (await file.exists()) await file.delete();
       }
-
-      final tempFiles = downloadDir
-          .listSync()
-          .where((f) => f.path.endsWith('.tmp'))
-          .cast<File>()
-          .toList();
-
-      for (final tempFile in tempFiles) {
-        // 检查是否有对应的任务记录
-        final savePath = tempFile.path.replaceAll('.tmp', '');
-        final task = await _downloadTaskDao.getBySavePath(savePath);
-
-        if (task == null || task.status == DownloadStatus.completed) {
-          // 无对应任务或已完成，删除临时文件
-          await tempFile.delete();
-          AppLogger.info('DownloadRepository', '清理孤立临时文件: ${tempFile.path}');
-        }
-      }
-    } catch (e) {
-      AppLogger.error('DownloadRepository', '清理临时文件失败: $e');
     }
   }
 
-  /// 清理超时的暂停任务
-  ///
-  /// 超过 7 天未完成的暂停任务会被标记为失败。
-  Future<void> cleanupStalePausedTasks() async {
-    try {
-      const staleDuration = Duration(days: 7);
-      final now = DateTime.now();
-
-      final pausedTasks = await _downloadTaskDao.getPaused();
-      for (final task in pausedTasks) {
-        if (task.updatedAt != null) {
-          final age = now.difference(task.updatedAt!);
-          if (age > staleDuration) {
-            await _downloadTaskDao.markAsFailed(
-              task.id!,
-              errorMessage: '下载超时，任务已暂停超过 7 天',
-            );
-            AppLogger.info('DownloadRepository', '清理超时任务: ${task.id}');
-          }
+  Future<void> cleanupOrphanTempFiles() async {
+    final tasks = await _downloadTaskDao.getAll();
+    for (final task in tasks) {
+      if (task.status != DownloadStatus.completed) continue;
+      // 只清理有任务记录的私有临时文件，不遍历删除用户目录内的任意 .tmp。
+      final candidates = <String>{
+        '${task.savePath}.part.m4a',
+        if (task.tempFilePath != null &&
+            p.dirname(p.absolute(task.tempFilePath!)) ==
+                p.dirname(p.absolute(task.savePath)) &&
+            task.tempFilePath!.endsWith('.part.m4a'))
+          task.tempFilePath!,
+      };
+      for (final source in candidates) {
+        for (final suffix in ['', '.json', '.jpg']) {
+          final file = File('$source$suffix');
+          if (await file.exists()) await file.delete();
         }
       }
-    } catch (e) {
-      AppLogger.error('DownloadRepository', '清理超时任务失败: $e');
+      if (task.id != null) {
+        await _downloadTaskDao.updateTempFilePath(task.id!, null);
+      }
     }
   }
 
@@ -975,9 +834,11 @@ class DownloadRepository {
   }
 
   Future<void> _scanForStalledTasks() async {
+    if (_disposed) return;
     try {
       final now = DateTime.now();
       final downloadingTasks = await _downloadTaskDao.getDownloading();
+      if (_disposed) return;
 
       for (final task in downloadingTasks) {
         if (task.id == null || task.userPaused) continue;
@@ -988,22 +849,19 @@ class DownloadRepository {
         final isStalled = now.difference(lastProgress) >= _stalledThreshold;
         if (!isStalled) continue;
 
-        AppLogger.warn('DownloadRepository',
-          '检测到卡死任务: taskId=${task.id}');
-
-        await _downloadTaskDao.markAsStalled(
-          task.id!,
-          reason: '下载卡死，超过阈值未更新进度',
-        );
+        AppLogger.warn('DownloadRepository', '检测到卡死任务: taskId=${task.id}');
 
         final activeToken = _activeDownloads[task.id!];
-        if (activeToken != null && !activeToken.isCancelled) {
-          activeToken.cancel('任务卡死，自动中断');
-          _activeDownloads.remove(task.id!);
+        activeToken?.cancel('任务卡死，自动中断');
+        await _runningTasks[task.id!];
+        if (_disposed) return;
+        final latest = await _downloadTaskDao.getById(task.id!);
+        if (latest == null ||
+            latest.userPaused ||
+            latest.status == DownloadStatus.completed) {
+          continue;
         }
-
-        _slotManager.releaseSlot(task.id!);
-
+        await _downloadTaskDao.markAsStalled(task.id!, reason: '下载无进度');
         await _scheduleAutoRetry(task.id!);
       }
     } catch (e) {
@@ -1016,10 +874,8 @@ class DownloadRepository {
     if (task == null || task.userPaused) return;
 
     if (task.retryCount >= _maxAutoRetries) {
-      await _downloadTaskDao.markAsFailed(taskId,
-        errorMessage: '卡死重试次数超过上限');
-      AppLogger.warn('DownloadRepository',
-        '任务卡死重试上限: taskId=$taskId');
+      await _downloadTaskDao.markAsFailed(taskId, errorMessage: '卡死重试次数超过上限');
+      AppLogger.warn('DownloadRepository', '任务卡死重试上限: taskId=$taskId');
       return;
     }
 
@@ -1028,10 +884,13 @@ class DownloadRepository {
     final clampedSeconds = delaySeconds.clamp(10, 300);
     final delay = Duration(seconds: clampedSeconds);
 
-    AppLogger.info('DownloadRepository',
-      '计划自动重试: taskId=$taskId, retry=$nextRetryCount, delay=${delay.inSeconds}s');
+    AppLogger.info(
+      'DownloadRepository',
+      '计划自动重试: taskId=$taskId, retry=$nextRetryCount, delay=${delay.inSeconds}s',
+    );
 
     Future.delayed(delay, () async {
+      if (_disposed) return;
       final latest = await _downloadTaskDao.getById(taskId);
       if (latest == null || latest.userPaused) return;
       if (latest.status != DownloadStatus.stalled) return;
@@ -1045,6 +904,8 @@ class DownloadRepository {
 
   /// 释放资源
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     // 取消所有活跃下载
     for (final entry in _activeDownloads.entries) {
       if (!entry.value.isCancelled) {

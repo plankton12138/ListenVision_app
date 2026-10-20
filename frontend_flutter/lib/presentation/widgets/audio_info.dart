@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
@@ -13,7 +14,17 @@ class AudioInfo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playbackViewModelProvider);
+    final playerState = ref.watch(
+      playbackViewModelProvider.select(
+        (s) => (
+          title: s.title,
+          albumTitle: s.albumTitle,
+          artist: s.artist,
+          coverData: s.coverData,
+          coverUrl: s.coverUrl,
+        ),
+      ),
+    );
 
     return GestureDetector(
       onTap: () {
@@ -25,9 +36,7 @@ class AudioInfo extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 专辑封面 - 自适应高度
-          Flexible(
-            child: _buildAlbumArt(context, playerState),
-          ),
+          Flexible(child: _buildAlbumArt(context, playerState)),
           // 音频信息（标题、艺术家）
           _buildAudioInfo(context, playerState),
         ],
@@ -77,7 +86,7 @@ class AudioInfo extends ConsumerWidget {
     if (coverUrl != null && coverUrl.isNotEmpty) {
       final proxyUrl = _buildProxyImageUrl(coverUrl);
 
-      return Image.network(
+      return ImageHelper.networkImage(
         proxyUrl,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
@@ -107,7 +116,6 @@ class AudioInfo extends ConsumerWidget {
     return originalUrl;
   }
 
-
   /// 构建音频信息（三行：标题 / 副标题 / 艺术家）
   Widget _buildAudioInfo(BuildContext context, playerState) {
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -130,7 +138,8 @@ class AudioInfo extends ConsumerWidget {
           ),
 
           // 第2行：副标题（仅分P音频）— 小字灰色
-          if (playerState.albumTitle != null && playerState.albumTitle!.isNotEmpty)
+          if (playerState.albumTitle != null &&
+              playerState.albumTitle!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(

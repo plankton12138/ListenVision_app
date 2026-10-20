@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,10 +14,7 @@ import 'queue_item_tile.dart';
 class QueueTabView extends ConsumerWidget {
   final ScrollController? scrollController;
 
-  const QueueTabView({
-    super.key,
-    this.scrollController,
-  });
+  const QueueTabView({super.key, this.scrollController});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,12 +74,7 @@ class QueueTabView extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: theme.dividerColor,
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
         children: [
@@ -110,7 +103,7 @@ class QueueTabView extends ConsumerWidget {
             const SizedBox(width: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: Image.network(
+              child: ImageHelper.networkImage(
                 source.coverUrl!,
                 width: 32,
                 height: 32,
@@ -154,16 +147,16 @@ class QueueTabView extends ConsumerWidget {
         children: [
           Text(
             '${queueState.queue?.tracks.length ?? 0} 首歌曲',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
           // 播放模式切换按钮
           InkWell(
             onTap: () {
-              AppLogger.logButtonClick('切换播放模式', 'QueueTabView',
-                parameters: {'currentMode': queueState.queue?.playMode.name});
+              AppLogger.logButtonClick(
+                '切换播放模式',
+                'QueueTabView',
+                parameters: {'currentMode': queueState.queue?.playMode.name},
+              );
               ref.read(queueViewModelProvider.notifier).togglePlayMode();
             },
             borderRadius: BorderRadius.circular(16),
@@ -177,7 +170,9 @@ class QueueTabView extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _getPlayModeIcon(queueState.queue?.playMode ?? PlayMode.sequence),
+                    _getPlayModeIcon(
+                      queueState.queue?.playMode ?? PlayMode.sequence,
+                    ),
                     style: const TextStyle(fontSize: 14),
                   ),
                   const SizedBox(width: 4),
@@ -213,15 +208,15 @@ class QueueTabView extends ConsumerWidget {
     switch (source.type) {
       case SourceType.userPlaylist:
         // 后续可跳转到歌单详情页
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('即将跳转到歌单: ${source.name}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('即将跳转到歌单: ${source.name}')));
         break;
       case SourceType.favorites:
         // 后续可跳转到收藏页
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('即将跳转到收藏页')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('即将跳转到收藏页')));
         break;
       case SourceType.history:
         // 后续可切换到历史 Tab
@@ -243,25 +238,23 @@ class QueueTabView extends ConsumerWidget {
         children: [
           Icon(Icons.queue_music, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          const Text(
-            '播放列表为空',
-            style: TextStyle(fontSize: 16),
-          ),
+          const Text('播放列表为空', style: TextStyle(fontSize: 16)),
         ],
       ),
     );
   }
 
   /// 构建底部操作栏
-  Widget _buildBottomActions(BuildContext context, WidgetRef ref, QueueState queueState) {
+  Widget _buildBottomActions(
+    BuildContext context,
+    WidgetRef ref,
+    QueueState queueState,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Row(

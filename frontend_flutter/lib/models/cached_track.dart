@@ -7,6 +7,65 @@ import 'local_audio.dart';
 /// 音轨来源类型
 enum TrackSource { bilibili, local, network }
 
+/// 在线源可用性
+///
+/// 正交于 file_status，追踪 B 站在线源是否仍可访问。
+/// [unchecked] = 尚未验证（新导入或很久没检查）。
+enum OnlineStatus {
+  available,
+  unavailable,
+  unchecked,
+}
+
+/// 在线源状态扩展
+extension OnlineStatusExtension on OnlineStatus {
+  String get value {
+    switch (this) {
+      case OnlineStatus.available:
+        return 'available';
+      case OnlineStatus.unavailable:
+        return 'unavailable';
+      case OnlineStatus.unchecked:
+        return 'unchecked';
+    }
+  }
+
+  static OnlineStatus fromString(String? value) {
+    switch (value) {
+      case 'available':
+        return OnlineStatus.available;
+      case 'unavailable':
+        return OnlineStatus.unavailable;
+      default:
+        return OnlineStatus.unchecked;
+    }
+  }
+}
+
+/// 音轨综合可用性（双轴组合状态）
+///
+/// 由 file_status（本地文件）和 online_status（在线源）两轴正交计算得出。
+/// UI 层据此决定渲染样式和播放策略。
+enum TrackAvailability {
+  /// 双源可用（最佳）
+  bothAvailable,
+  /// 仅本地可用（在线下架但本地有文件）
+  localOnly,
+  /// 仅在线可用（正常在线播放）
+  onlineOnly,
+  /// 本地文件丢失但在线源还在（可重新下载）
+  recoverable,
+  /// 两端都断了（最差）
+  completelyUnavailable,
+  /// 状态未确定
+  unknown,
+}
+
+/// 本地文件状态
+///
+/// 从 is_downloaded / localPath 推导，表示本地文件的存在性。
+enum FileStatus { localAvailable, localMissing, remote }
+
 /// 音轨来源类型扩展
 extension TrackSourceExtension on TrackSource {
   String get value {
@@ -64,6 +123,10 @@ class CachedTrack {
   final String? localPath;
   final bool isDownloaded;
 
+  // 在线源状态
+  final OnlineStatus onlineStatus;
+  final DateTime? lastOnlineCheckAt;
+
   // 用户数据
   final bool isFavorite;
   final int localPlayCount;
@@ -93,6 +156,8 @@ class CachedTrack {
     this.playCount,
     this.localPath,
     this.isDownloaded = false,
+    this.onlineStatus = OnlineStatus.unchecked,
+    this.lastOnlineCheckAt,
     this.isFavorite = false,
     this.localPlayCount = 0,
     this.lastPlayedAt,
@@ -101,6 +166,27 @@ class CachedTrack {
     this.addedAt,
     this.updatedAt,
   });
+
+  /// 本地文件状态
+  FileStatus get fileStatus {
+    if (isDownloaded && localPath != null) return FileStatus.localAvailable;
+    if (isDownloaded && localPath == null) return FileStatus.localMissing;
+    return FileStatus.remote;
+  }
+
+  /// 计算综合可用性
+  TrackAvailability get availability {
+    final hasLocal = fileStatus == FileStatus.localAvailable;
+    final hasOnline = onlineStatus == OnlineStatus.available;
+
+    if (hasLocal && hasOnline) return TrackAvailability.bothAvailable;
+    if (hasLocal && onlineStatus == OnlineStatus.unavailable) return TrackAvailability.localOnly;
+    if (hasLocal && onlineStatus == OnlineStatus.unchecked) return TrackAvailability.bothAvailable; // 乐观
+    if (!hasLocal && hasOnline) return TrackAvailability.onlineOnly;
+    if (fileStatus == FileStatus.localMissing && hasOnline) return TrackAvailability.recoverable;
+    if (!hasLocal && onlineStatus == OnlineStatus.unavailable) return TrackAvailability.completelyUnavailable;
+    return TrackAvailability.unknown;
+  }
 
   /// 是否可离线播放
   bool get isAvailableOffline => isDownloaded && localPath != null;
@@ -143,6 +229,12 @@ class CachedTrack {
       playCount: map['play_count'] as int?,
       localPath: map['local_path'] as String?,
       isDownloaded: map['is_downloaded'] == 1,
+      onlineStatus: OnlineStatusExtension.fromString(
+        map['online_status'] as String?,
+      ),
+      lastOnlineCheckAt: map['last_online_check_at'] != null
+          ? DateTime.tryParse(map['last_online_check_at'] as String)
+          : null,
       isFavorite: map['is_favorite'] == 1,
       localPlayCount: map['local_play_count'] as int? ?? 0,
       lastPlayedAt: map['last_played_at'] != null
@@ -177,6 +269,8 @@ class CachedTrack {
       'play_count': playCount,
       'local_path': localPath,
       'is_downloaded': isDownloaded ? 1 : 0,
+      'online_status': onlineStatus.value,
+      'last_online_check_at': lastOnlineCheckAt?.toIso8601String(),
       'is_favorite': isFavorite ? 1 : 0,
       'local_play_count': localPlayCount,
       'last_played_at': lastPlayedAt?.toIso8601String(),
@@ -209,6 +303,8 @@ class CachedTrack {
     int? playCount,
     String? localPath,
     bool? isDownloaded,
+    OnlineStatus? onlineStatus,
+    DateTime? lastOnlineCheckAt,
     bool? isFavorite,
     int? localPlayCount,
     DateTime? lastPlayedAt,
@@ -233,6 +329,8 @@ class CachedTrack {
       playCount: playCount ?? this.playCount,
       localPath: localPath ?? this.localPath,
       isDownloaded: isDownloaded ?? this.isDownloaded,
+      onlineStatus: onlineStatus ?? this.onlineStatus,
+      lastOnlineCheckAt: lastOnlineCheckAt ?? this.lastOnlineCheckAt,
       isFavorite: isFavorite ?? this.isFavorite,
       localPlayCount: localPlayCount ?? this.localPlayCount,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,

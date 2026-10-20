@@ -24,9 +24,9 @@ class SpeedButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playbackViewModelProvider);
-
-    final currentSpeed = playerState.speed;
+    final currentSpeed = ref.watch(
+      playbackViewModelProvider.select((s) => s.speed),
+    );
     final isDefaultSpeed = currentSpeed == 1.0;
 
     return IconButton(
@@ -35,14 +35,15 @@ class SpeedButton extends ConsumerWidget {
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
-          color: isDefaultSpeed
-              ? null
-              : Theme.of(context).colorScheme.primary,
+          color: isDefaultSpeed ? null : Theme.of(context).colorScheme.primary,
         ),
       ),
       onPressed: () {
-        AppLogger.logButtonClick('倍速按钮', 'SpeedButton',
-          parameters: {'currentSpeed': currentSpeed});
+        AppLogger.logButtonClick(
+          '倍速按钮',
+          'SpeedButton',
+          parameters: {'currentSpeed': currentSpeed},
+        );
         _showSpeedMenu(context, ref, currentSpeed);
       },
       tooltip: '播放倍速',
@@ -50,7 +51,11 @@ class SpeedButton extends ConsumerWidget {
   }
 
   /// 显示倍速选择菜单
-  void _showSpeedMenu(BuildContext context, WidgetRef ref, double currentSpeed) {
+  void _showSpeedMenu(
+    BuildContext context,
+    WidgetRef ref,
+    double currentSpeed,
+  ) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset offset = button.localToGlobal(Offset.zero);
     final Size buttonSize = button.size;
@@ -83,8 +88,11 @@ class SpeedButton extends ConsumerWidget {
       }).toList(),
     ).then((selectedSpeed) {
       if (selectedSpeed != null) {
-        AppLogger.logButtonClick('倍速选择-${kSpeedLabels[selectedSpeed]}', 'SpeedButton',
-          parameters: {'speed': selectedSpeed});
+        AppLogger.logButtonClick(
+          '倍速选择-${kSpeedLabels[selectedSpeed]}',
+          'SpeedButton',
+          parameters: {'speed': selectedSpeed},
+        );
         ref.read(playbackViewModelProvider.notifier).setSpeed(selectedSpeed);
       }
     });

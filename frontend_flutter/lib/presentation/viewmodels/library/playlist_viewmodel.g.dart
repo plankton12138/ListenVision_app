@@ -10,19 +10,19 @@ part of 'playlist_viewmodel.dart';
 // ignore_for_file: type=lint, type=warning
 /// 歌单列表 Notifier
 ///
-/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+/// 管理用户歌单列表，使用 Riverpod 内置 `AsyncValue<List<Playlist>>`
 
 @ProviderFor(PlaylistListNotifier)
 final playlistListProvider = PlaylistListNotifierProvider._();
 
 /// 歌单列表 Notifier
 ///
-/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+/// 管理用户歌单列表，使用 Riverpod 内置 `AsyncValue<List<Playlist>>`
 final class PlaylistListNotifierProvider
     extends $AsyncNotifierProvider<PlaylistListNotifier, List<Playlist>> {
   /// 歌单列表 Notifier
   ///
-  /// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+  /// 管理用户歌单列表，使用 Riverpod 内置 `AsyncValue<List<Playlist>>`
   PlaylistListNotifierProvider._()
     : super(
         from: null,
@@ -47,7 +47,7 @@ String _$playlistListNotifierHash() =>
 
 /// 歌单列表 Notifier
 ///
-/// 管理用户歌单列表，使用 Riverpod 内置 AsyncValue<List<Playlist>>
+/// 管理用户歌单列表，使用 Riverpod 内置 `AsyncValue<List<Playlist>>`
 
 abstract class _$PlaylistListNotifier extends $AsyncNotifier<List<Playlist>> {
   FutureOr<List<Playlist>> build();

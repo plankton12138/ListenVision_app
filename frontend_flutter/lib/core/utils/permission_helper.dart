@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// 权限请求工具类
@@ -19,13 +20,20 @@ class PermissionHelper {
 
     // Android 和 iOS 需分开处理
     if (Platform.isAndroid) {
-      // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE
-      final status = await Permission.manageExternalStorage.status;
+      final modern =
+          await const MethodChannel(
+            'listenvision/background_audio',
+          ).invokeMethod<bool>('modernStorage') ??
+          true;
+      final permission = modern
+          ? Permission.manageExternalStorage
+          : Permission.storage;
+      final status = await permission.status;
       if (status.isGranted) {
         return true;
       } else {
         // 请求权限（会跳转到系统设置页面）
-        final result = await Permission.manageExternalStorage.request();
+        final result = await permission.request();
         return result.isGranted;
       }
     }

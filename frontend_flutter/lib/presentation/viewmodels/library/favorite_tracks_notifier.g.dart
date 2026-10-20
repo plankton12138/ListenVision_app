@@ -10,19 +10,19 @@ part of 'favorite_tracks_notifier.dart';
 // ignore_for_file: type=lint, type=warning
 /// 收藏状态 Notifier
 ///
-/// 独立管理收藏曲目 ID 集合，返回 Set<String>。
+/// 独立管理收藏曲目 ID 集合，返回 `Set<String>`。
 
 @ProviderFor(FavoriteTracksNotifier)
 final favoriteTracksProvider = FavoriteTracksNotifierProvider._();
 
 /// 收藏状态 Notifier
 ///
-/// 独立管理收藏曲目 ID 集合，返回 Set<String>。
+/// 独立管理收藏曲目 ID 集合，返回 `Set<String>`。
 final class FavoriteTracksNotifierProvider
     extends $AsyncNotifierProvider<FavoriteTracksNotifier, Set<String>> {
   /// 收藏状态 Notifier
   ///
-  /// 独立管理收藏曲目 ID 集合，返回 Set<String>。
+  /// 独立管理收藏曲目 ID 集合，返回 `Set<String>`。
   FavoriteTracksNotifierProvider._()
     : super(
         from: null,
@@ -47,7 +47,7 @@ String _$favoriteTracksNotifierHash() =>
 
 /// 收藏状态 Notifier
 ///
-/// 独立管理收藏曲目 ID 集合，返回 Set<String>。
+/// 独立管理收藏曲目 ID 集合，返回 `Set<String>`。
 
 abstract class _$FavoriteTracksNotifier extends $AsyncNotifier<Set<String>> {
   FutureOr<Set<String>> build();

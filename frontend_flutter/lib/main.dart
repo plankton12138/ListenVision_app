@@ -2,14 +2,12 @@ import 'dart:io';
 
 // ========== Core Imports ==========
 import 'package:listenvision/core/storage/shared_storage_service.dart';
-import 'package:listenvision/core/utils/permission_helper.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 
 // ========== Framework Imports ==========
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:media_kit/media_kit.dart';
@@ -21,10 +19,9 @@ import 'app.dart';
 /// 1. WidgetsFlutterBinding
 /// 2. MediaKit 初始化（音频播放库底层引擎）
 /// 3. 日志系统
-/// 4. 首次启动权限处理
-/// 5. 桌面数据库工厂
-/// 6. 共享存储服务初始化
-/// 7. runApp (ProviderScope 包裹)
+/// 4. 桌面数据库工厂
+/// 5. 共享存储服务初始化
+/// 6. runApp (ProviderScope 包裹)
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
@@ -37,22 +34,8 @@ void main() async {
   // ========== 1. 日志系统（最先初始化）==========
   await AppLogger.instance.initialize();
 
-  // ========== 2. 首次启动权限处理 ==========
-  final prefs = await SharedPreferences.getInstance();
-  final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
-  if (isFirstLaunch) {
-    final hasPermission = await requestManageStoragePermission();
-    if (hasPermission) {
-      AppLogger.info('Main', '存储权限请求成功');
-    } else {
-      AppLogger.warn('Main', '用户拒绝存储权限');
-    }
-    await prefs.setBool('isFirstLaunch', false);
-  }
-
   // ========== 3. 桌面平台数据库工厂 ==========
-  if (!kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     databaseFactory = databaseFactoryFfi;
   }
 
@@ -60,9 +43,5 @@ void main() async {
   await SharedStorageService.init();
 
   // ========== 5. 启动应用 ==========
-  runApp(
-    const ProviderScope(
-      child: App(),
-    ),
-  );
+  runApp(const ProviderScope(child: App()));
 }

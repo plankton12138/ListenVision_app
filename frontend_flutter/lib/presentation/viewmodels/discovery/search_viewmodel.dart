@@ -1,18 +1,21 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/state/state_utils.dart';
+import '../../../core/errors/exceptions.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../models/search_suggestion.dart';
+import '../../../models/audio.dart';
 import '../../../services/bilibili_api_service.dart';
 
 part 'search_viewmodel.freezed.dart';
 part 'search_viewmodel.g.dart';
 
 /// 搜索平台枚举（预留扩展）
-enum SearchPlatform {
-  bilibili,
-}
+enum SearchPlatform { bilibili }
 
 /// 搜索状态
 @freezed
@@ -37,9 +40,7 @@ abstract class SearchState with _$SearchState {
     @Default(SearchPlatform.bilibili) SearchPlatform platform,
   }) = SearchStateIdle;
 
-  const factory SearchState.error({
-    required String message,
-  }) = SearchStateError;
+  const factory SearchState.error({required String message}) = SearchStateError;
 }
 
 /// 搜索结果项
@@ -68,208 +69,231 @@ class SearchResultItem {
 /// 直接调用 B站 API，搜索历史本地存储。
 @Riverpod(keepAlive: true)
 class SearchViewModel extends _$SearchViewModel {
-  BilibiliApiService? _api;
+  late BilibiliApiService _api;
+  int _searchId = 0;
+  int _suggestionId = 0;
+  CancelToken? _searchToken;
+  CancelToken? _pageToken;
+  CancelToken? _suggestionToken;
+  Timer? _suggestionTimer;
+  Completer<bool>? _suggestionCompleter;
+  bool _loadingPage = false;
 
   @override
   Future<SearchState> build() async {
     _api = ref.watch(bilibiliApiServiceProvider);
-
-    try {
-      AppLogger.debug('SearchViewModel', '初始化');
-      return const SearchState.idle();
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '初始化失败: $e');
-      return const SearchState.idle();
-    }
+    ref.onDispose(() {
+      _cancelSearch();
+      _cancelSuggestions();
+    });
+    return const SearchState.idle();
   }
 
-  /// 执行B站搜索
+  void _cancelSearch() {
+    _searchId++;
+    _searchToken?.cancel();
+    _pageToken?.cancel();
+    _searchToken = null;
+    _pageToken = null;
+    _loadingPage = false;
+  }
+
+  void _cancelSuggestions() {
+    _suggestionId++;
+    _suggestionTimer?.cancel();
+    _suggestionToken?.cancel();
+    _suggestionToken = null;
+    final pending = _suggestionCompleter;
+    if (pending != null && !pending.isCompleted) pending.complete(false);
+    _suggestionCompleter = null;
+  }
+
+  bool _isCurrent(int id) => ref.mounted && id == _searchId;
+
+  SearchResultItem _toResult(Audio audio) => SearchResultItem(
+    bvid: audio.id,
+    title: audio.title,
+    author: audio.artist,
+    coverUrl: audio.coverUrl,
+    duration: audio.duration,
+    platform: SearchPlatform.bilibili,
+    videos: audio.videos,
+  );
+
   Future<bool> search(String keyword, {int page = 1}) async {
-    if (keyword.trim().isEmpty) {
-      if (!ref.mounted) return false;
-      state = AsyncData(SearchState.resultsLoaded(
-        results: const [],
-        query: keyword,
-        platform: SearchPlatform.bilibili,
-        currentPage: 1,
-        pageSize: 20,
-        totalCount: 0,
-        hasMore: false,
-      ));
-      return false;
-    }
-
-    try {
-      AppLogger.info('SearchViewModel', 'B站搜索: $keyword, page=$page');
-
-      if (!ref.mounted) return false;
-      state = const AsyncLoading();
-
-      final audios = await _api!.search(keyword: keyword, page: page, pageSize: 20);
-
-      final results = audios.map((audio) => SearchResultItem(
-        bvid: audio.id,
-        title: audio.title,
-        author: audio.artist,
-        coverUrl: audio.coverUrl,
-        duration: audio.duration,
-        platform: SearchPlatform.bilibili,
-        videos: audio.videos,
-      )).toList();
-
-      final hasMore = results.length >= 20;
-
-      if (!ref.mounted) return false;
-      state = AsyncData(SearchState.resultsLoaded(
-        results: results,
-        query: keyword,
-        platform: SearchPlatform.bilibili,
-        currentPage: page,
-        pageSize: 20,
-        totalCount: 0,
-        hasMore: hasMore,
-      ));
-
-      AppLogger.info('SearchViewModel', '搜索成功: ${results.length}条结果, hasMore=$hasMore');
-      return true;
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '搜索失败: $e');
-      if (!ref.mounted) return false;
-      state = AsyncError(e, StackTrace.current);
-      return false;
-    }
-  }
-
-  /// 加载下一页搜索结果
-  Future<bool> loadNextPage() async {
-    final currentState = state.valueOrNull;
-    if (currentState is! SearchStateResultsLoaded) {
-      AppLogger.warn('SearchViewModel', '当前非搜索结果状态，无法加载下一页');
-      return false;
-    }
-
-    if (!currentState.hasMore) {
-      AppLogger.debug('SearchViewModel', '没有更多结果');
-      return false;
-    }
-
-    final nextPage = currentState.currentPage + 1;
-    AppLogger.info('SearchViewModel', '加载下一页: $nextPage');
-
-    try {
-      final audios = await _api!.search(
-        keyword: currentState.query,
-        page: nextPage,
-        pageSize: currentState.pageSize,
-      );
-
-      final newResults = audios.map((audio) => SearchResultItem(
-        bvid: audio.id,
-        title: audio.title,
-        author: audio.artist,
-        coverUrl: audio.coverUrl,
-        duration: audio.duration,
-        platform: SearchPlatform.bilibili,
-        videos: audio.videos,
-      )).toList();
-
-      final mergedResults = [...currentState.results, ...newResults];
-      final hasMore = newResults.length >= currentState.pageSize;
-
-      if (!ref.mounted) return false;
-      state = AsyncData(currentState.copyWith(
-        results: mergedResults,
-        currentPage: nextPage,
-        hasMore: hasMore,
-      ));
-
-      AppLogger.info('SearchViewModel', '加载下一页成功: ${newResults.length}条新结果, 总计${mergedResults.length}条');
-      return true;
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '加载下一页失败: $e');
-      return false;
-    }
-  }
-
-  /// 获取搜索建议
-  Future<bool> getSearchSuggestions(String prefix) async {
-    if (prefix.trim().isEmpty) {
-      _updateIdleState(suggestions: const []);
-      return false;
-    }
-
-    try {
-      AppLogger.debug('SearchViewModel', '获取搜索建议: $prefix');
-
-      final rawSuggestions = await _api!.getSearchSuggestions(prefix);
-
-      final suggestions = rawSuggestions.map((s) => SearchSuggestion(
-        value: s,
-        name: s,
-      )).toList();
-
-      _updateIdleState(suggestions: suggestions);
-
-      AppLogger.debug('SearchViewModel', '搜索建议: ${suggestions.length}条');
-      return true;
-    } catch (e) {
-      AppLogger.error('SearchViewModel', '获取搜索建议失败: $e');
-      return false;
-    }
-  }
-
-  /// 清空搜索建议
-  void clearSearchSuggestions() {
-    _updateIdleState(suggestions: const []);
-  }
-
-  /// 清空搜索结果
-  void clearSearchResults() {
-    final current = state.valueOrNull;
-    if (current is SearchStateResultsLoaded) {
+    _cancelSearch();
+    _cancelSuggestions();
+    if (!ref.mounted) return false;
+    final query = keyword.trim();
+    if (query.isEmpty) {
       state = const AsyncData(SearchState.idle());
+      return false;
+    }
+    final id = _searchId;
+    final token = _searchToken = CancelToken();
+    AppLogger.info('SearchViewModel', '搜索: $query, page=$page');
+    state = const AsyncLoading();
+    try {
+      final audios = await _api.search(
+        keyword: query,
+        page: page,
+        pageSize: 20,
+        cancelToken: token,
+      );
+      if (!_isCurrent(id)) return false;
+      final results = audios.map(_toResult).toList();
+      state = AsyncData(
+        SearchState.resultsLoaded(
+          results: results,
+          query: query,
+          platform: SearchPlatform.bilibili,
+          currentPage: page,
+          hasMore: results.length >= 20,
+        ),
+      );
+      return true;
+    } catch (error, stack) {
+      if (!_isCurrent(id) ||
+          token.isCancelled ||
+          error is TaskCanceledException) {
+        return false;
+      }
+      AppLogger.error('SearchViewModel', '搜索失败: $error');
+      state = AsyncError(error, stack);
+      return false;
     }
   }
 
-  /// 清空搜索历史
+  Future<bool> loadNextPage() async {
+    final current = state.valueOrNull;
+    if (_loadingPage ||
+        current is! SearchStateResultsLoaded ||
+        !current.hasMore) {
+      return false;
+    }
+    _loadingPage = true;
+    final id = _searchId;
+    final token = _pageToken = CancelToken();
+    try {
+      final audios = await _api.search(
+        keyword: current.query,
+        page: current.currentPage + 1,
+        pageSize: current.pageSize,
+        cancelToken: token,
+      );
+      if (!_isCurrent(id) || token.isCancelled) return false;
+      final seen = current.results.map((item) => item.bvid).toSet();
+      final added = audios.map(_toResult).where((item) => seen.add(item.bvid));
+      state = AsyncData(
+        current.copyWith(
+          results: [...current.results, ...added],
+          currentPage: current.currentPage + 1,
+          hasMore: audios.length >= current.pageSize,
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (_isCurrent(id) &&
+          !token.isCancelled &&
+          error is! TaskCanceledException) {
+        AppLogger.error('SearchViewModel', '加载下一页失败: $error');
+      }
+      return false;
+    } finally {
+      if (identical(_pageToken, token)) {
+        _pageToken = null;
+        _loadingPage = false;
+      }
+    }
+  }
+
+  /// 防抖与过期检查放在 ViewModel，所有入口使用相同规则。
+  Future<bool> getSearchSuggestions(String prefix) {
+    _cancelSuggestions();
+    if (!ref.mounted) return Future.value(false);
+    final query = prefix.trim();
+    if (query.length < 2) {
+      _updateIdleState(suggestions: const []);
+      return Future.value(false);
+    }
+    final id = _suggestionId;
+    final pending = _suggestionCompleter = Completer<bool>();
+    _suggestionTimer = Timer(const Duration(milliseconds: 300), () async {
+      final token = _suggestionToken = CancelToken();
+      var success = false;
+      try {
+        final raw = await _api.getSearchSuggestions(query, cancelToken: token);
+        if (ref.mounted &&
+            id == _suggestionId &&
+            !token.isCancelled &&
+            state.valueOrNull is SearchStateIdle &&
+            state is! AsyncLoading<SearchState>) {
+          _updateIdleState(
+            suggestions: raw
+                .map((s) => SearchSuggestion(value: s, name: s))
+                .toList(),
+          );
+          success = true;
+        }
+      } catch (error) {
+        if (ref.mounted &&
+            id == _suggestionId &&
+            !token.isCancelled &&
+            error is! TaskCanceledException) {
+          AppLogger.error('SearchViewModel', '获取搜索建议失败: $error');
+        }
+      } finally {
+        if (!pending.isCompleted) pending.complete(success);
+        if (identical(_suggestionCompleter, pending)) {
+          _suggestionCompleter = null;
+        }
+      }
+    });
+    return pending.future;
+  }
+
+  void clearSearchSuggestions() {
+    _cancelSuggestions();
+    if (ref.mounted) _updateIdleState(suggestions: const []);
+  }
+
+  void clearSearchResults() {
+    _cancelSearch();
+    _cancelSuggestions();
+    if (ref.mounted) state = const AsyncData(SearchState.idle());
+  }
+
   Future<void> clearSearchHistory() async {
     _updateIdleState(searchHistory: const []);
-    AppLogger.info('SearchViewModel', '清空搜索历史成功');
   }
 
-  /// 从搜索历史中删除关键词
   void removeFromHistory(String keyword) {
     final current = state.valueOrNull;
     if (current is SearchStateIdle) {
-      final updated = [...current.searchHistory]..remove(keyword);
-      state = AsyncData(current.copyWith(searchHistory: updated));
+      _updateIdleState(
+        searchHistory: [...current.searchHistory]..remove(keyword),
+      );
     }
   }
 
-  /// 清除错误信息
   void clearError() {
-    if (state.valueOrNull is SearchStateError) {
-      state = const AsyncData(SearchState.idle());
+    if (state.hasError || state.valueOrNull is SearchStateError) {
+      clearSearchResults();
     }
   }
-
-  // ==================== 私有方法 ====================
 
   void _updateIdleState({
     List<String>? searchHistory,
     List<SearchSuggestion>? suggestions,
   }) {
     final current = state.valueOrNull;
-    if (current is SearchStateIdle) {
-      state = AsyncData(current.copyWith(
-        searchHistory: searchHistory ?? current.searchHistory,
-        suggestions: suggestions ?? current.suggestions,
-      ));
-    } else {
-      state = AsyncData(SearchState.idle(
-        searchHistory: searchHistory ?? const <String>[],
-        suggestions: suggestions ?? const <SearchSuggestion>[],
-      ));
+    if (current is SearchStateIdle && state is! AsyncLoading<SearchState>) {
+      state = AsyncData(
+        current.copyWith(
+          searchHistory: searchHistory ?? current.searchHistory,
+          suggestions: suggestions ?? current.suggestions,
+        ),
+      );
     }
   }
 }

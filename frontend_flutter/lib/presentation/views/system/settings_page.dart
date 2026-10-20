@@ -1,3 +1,4 @@
+import 'package:listenvision/services/ffmpeg_service.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/presentation/viewmodels/settings/scan_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/library/local_music_viewmodel.dart';
@@ -30,9 +31,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       appBar: AppBar(
         title: Text(
           '设置',
-          style: TextStyle(
-            fontSize: UIConstants.fontSizeLarge,
-          ),
+          style: TextStyle(fontSize: UIConstants.fontSizeLarge),
         ),
         actions: <Widget>[
           // 返回首页按钮
@@ -84,10 +83,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 12),
           Text(
             '扫描设备中的音频文件',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -168,7 +164,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _startScan(BuildContext context) async {
-    await ref.read(scanViewModelProvider.notifier).startScan(minDurationSeconds: 10);
+    await ref
+        .read(scanViewModelProvider.notifier)
+        .startScan(minDurationSeconds: 10);
 
     if (mounted) {
       final result = ref.read(scanViewModelProvider);
@@ -180,11 +178,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           DialogHelper.showSnackBar(
             context,
             '扫描完成: ${scanResult.summary}',
-            backgroundColor: scanResult.addedCount > 0 ? Colors.green : Colors.grey[700]!,
+            backgroundColor: scanResult.addedCount > 0
+                ? Colors.green
+                : Colors.grey[700]!,
           );
         },
         error: (message) {
-          DialogHelper.showSnackBar(context, message, backgroundColor: Colors.red);
+          DialogHelper.showSnackBar(
+            context,
+            message,
+            backgroundColor: Colors.red,
+          );
         },
         orElse: () {},
       );
@@ -192,7 +196,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// 深色模式开关卡片
-  Widget _buildDarkModeCard(BuildContext context, {required AppThemeMode themeMode}) {
+  Widget _buildDarkModeCard(
+    BuildContext context, {
+    required AppThemeMode themeMode,
+  }) {
     final isDarkMode = themeMode == AppThemeMode.dark;
     return Container(
       decoration: BoxDecoration(
@@ -203,13 +210,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            '深色模式',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          const Text('深色模式', style: TextStyle(fontWeight: FontWeight.bold)),
           Switch(
             value: isDarkMode,
-            onChanged: (_) => ref.read(themeViewModelProvider.notifier).toggleTheme(),
+            onChanged: (_) =>
+                ref.read(themeViewModelProvider.notifier).toggleTheme(),
           ),
         ],
       ),
@@ -219,7 +224,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// 下载音频格式选择卡片
   Widget _buildDownloadFormatCard(BuildContext context) {
     final storage = SharedStorageService.instance;
-    final currentFormat = storage.getDownloadFormat();
+    final canConvert = FfmpegService().supportsConversion;
+    final currentFormat = canConvert ? storage.getDownloadFormat() : 'm4a';
 
     return Container(
       decoration: BoxDecoration(
@@ -233,25 +239,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '下载音质',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              const Text('下载格式', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(
-                currentFormat == 'mp3' ? 'MP3 格式（跨平台兼容）' : '默认格式（M4A，零转换）',
+                !canConvert
+                    ? '此平台支持 M4A 下载'
+                    : currentFormat == 'mp3'
+                    ? 'MP3 格式（需要安装 FFmpeg）'
+                    : 'M4A 原始音频',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),
           Switch(
             value: currentFormat == 'mp3',
-            onChanged: (isMp3) async {
-              final success = await storage.setDownloadFormat(isMp3 ? 'mp3' : 'm4a');
-              if (success) {
-                setState(() {});
-              }
-            },
+            onChanged: !canConvert
+                ? null
+                : (isMp3) async {
+                    final success = await storage.setDownloadFormat(
+                      isMp3 ? 'mp3' : 'm4a',
+                    );
+                    if (success) {
+                      setState(() {});
+                    }
+                  },
           ),
         ],
       ),
@@ -279,10 +290,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 children: [
                   Icon(Icons.image, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    '下载封面',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  Text('下载封面', style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -303,5 +311,4 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
   }
-
 }

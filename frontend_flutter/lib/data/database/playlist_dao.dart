@@ -51,10 +51,7 @@ class PlaylistDao {
   /// 获取所有歌单
   Future<List<Map<String, dynamic>>> getAllPlaylists() async {
     final db = await _db.database;
-    return await db.query(
-      'playlists',
-      orderBy: 'updated_at DESC',
-    );
+    return await db.query('playlists', orderBy: 'updated_at DESC');
   }
 
   /// 获取系统歌单
@@ -80,7 +77,9 @@ class PlaylistDao {
   }
 
   /// 根据系统类型获取歌单
-  Future<Map<String, dynamic>?> getSystemPlaylistByType(String systemType) async {
+  Future<Map<String, dynamic>?> getSystemPlaylistByType(
+    String systemType,
+  ) async {
     final db = await _db.database;
     final maps = await db.query(
       'playlists',
@@ -95,12 +94,7 @@ class PlaylistDao {
   Future<void> updatePlaylist(int id, Map<String, dynamic> data) async {
     final db = await _db.database;
     data['updated_at'] = DateTime.now().toIso8601String();
-    await db.update(
-      'playlists',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('playlists', data, where: 'id = ?', whereArgs: [id]);
     AppLogger.info('PlaylistDao', '更新歌单: $id');
   }
 
@@ -109,11 +103,7 @@ class PlaylistDao {
   /// 会级联删除歌单项（由外键约束自动处理）
   Future<void> deletePlaylist(int id) async {
     final db = await _db.database;
-    await db.delete(
-      'playlists',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('playlists', where: 'id = ?', whereArgs: [id]);
     AppLogger.info('PlaylistDao', '删除歌单: $id');
   }
 
@@ -167,7 +157,8 @@ class PlaylistDao {
     final db = await _db.database;
 
     // 联表查询，获取完整的 track 信息
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT
         pi.id, pi.playlist_id, pi.position, pi.added_at,
         t.id as track_id, t.source_id, t.source_type, t.title, t.artist,
@@ -177,7 +168,9 @@ class PlaylistDao {
       INNER JOIN tracks t ON pi.track_id = t.id
       WHERE pi.playlist_id = ?
       ORDER BY pi.position ASC
-    ''', [playlistId]);
+    ''',
+      [playlistId],
+    );
   }
 
   /// 从歌单移除歌曲
@@ -214,14 +207,16 @@ class PlaylistDao {
     final db = await _db.database;
 
     await db.transaction((txn) async {
+      final batch = txn.batch();
       for (var i = 0; i < items.length; i++) {
-        await txn.update(
+        batch.update(
           'playlist_items',
           {'position': i},
-          where: 'id = ?',
-          whereArgs: [items[i]['id']],
+          where: 'id = ? AND playlist_id = ?',
+          whereArgs: [items[i]['id'], playlistId],
         );
       }
+      await batch.commit(noResult: true);
     });
 
     AppLogger.info('PlaylistDao', '重排序歌单项: 歌单=$playlistId, ${items.length}项');
@@ -314,8 +309,12 @@ class PlaylistDao {
   Future<Map<String, int>> getStats() async {
     final db = await _db.database;
 
-    final playlistResult = await db.rawQuery('SELECT COUNT(*) as count FROM playlists');
-    final itemResult = await db.rawQuery('SELECT COUNT(*) as count FROM playlist_items');
+    final playlistResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM playlists',
+    );
+    final itemResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM playlist_items',
+    );
 
     return {
       'playlists': playlistResult.first['count'] as int? ?? 0,

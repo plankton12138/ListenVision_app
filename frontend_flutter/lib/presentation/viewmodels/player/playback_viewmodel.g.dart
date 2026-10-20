@@ -74,7 +74,7 @@ final class PlaybackViewModelProvider
   }
 }
 
-String _$playbackViewModelHash() => r'e1df3a5a5ce4a22df2659a6477c7531e9852b367';
+String _$playbackViewModelHash() => r'0808abd9fd1b7d64ec3b184a93fb6c2f7fe1f17d';
 
 /// 播放控制器 ViewModel
 ///
@@ -152,4 +152,4 @@ final class AudioPlayerServiceProvider
 }
 
 String _$audioPlayerServiceHash() =>
-    r'92102d1c8bbcc116200f5493d4e24bc7a5269b7f';
+    r'848c0c2de0c2b56f7ce97e756329a3c1eb3f185a';

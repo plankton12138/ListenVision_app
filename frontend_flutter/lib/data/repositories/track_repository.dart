@@ -28,10 +28,10 @@ class TrackRepository {
     TrackDao? trackDao,
     DownloadTaskDao? downloadTaskDao,
     BilibiliApiService? bilibiliApi,
-  })  : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
-        _downloadTaskDao = downloadTaskDao ??
-            DownloadTaskDao(AppDatabase.instance),
-        _bilibiliApi = bilibiliApi ?? BilibiliApiService();
+  }) : _trackDao = trackDao ?? TrackDao(AppDatabase.instance),
+       _downloadTaskDao =
+           downloadTaskDao ?? DownloadTaskDao(AppDatabase.instance),
+       _bilibiliApi = bilibiliApi ?? BilibiliApiService();
 
   /// 下载进度事件流
   Stream<DownloadProgressEvent> get downloadProgressStream =>
@@ -87,8 +87,10 @@ class TrackRepository {
   ///
   /// [keyword] 搜索关键词
   /// [forceRemote] 是否强制从网络获取（默认 false）
-  Future<List<CachedTrack>> search(String keyword,
-      {bool forceRemote = false}) async {
+  Future<List<CachedTrack>> search(
+    String keyword, {
+    bool forceRemote = false,
+  }) async {
     // 如果强制网络，跳过本地
     if (!forceRemote) {
       // 先返回本地历史记录
@@ -177,6 +179,102 @@ class TrackRepository {
     return '${track.bvid}_$sanitizedTitle.mp3';
   }
 
+  // ==================== 在线源状态 ====================
+
+  /// 在线源解析结果
+  ///
+  /// 区分永久不可用（下架）和临时不可用（网络问题）
+  Future<OnlineSourceResult> resolveOnlineSource(
+    String sourceId, {
+    int? cid,
+  }) async {
+    try {
+      final track = await _trackDao.getBySourceId(sourceId);
+      final bvid = track?.bvid ?? sourceId.replaceFirst(RegExp(r'_p\d+$'), '');
+      final partCid =
+          cid ??
+          int.tryParse(
+            RegExp(r'_p(\d+)$').firstMatch(sourceId)?.group(1) ?? '',
+          );
+      final streamsData = await _bilibiliApi.getAudioStreams(
+        bvid,
+        cid: partCid,
+      );
+      if (streamsData.streams.isNotEmpty) {
+        // 源可用 → 更新状态
+        await _trackDao.updateOnlineStatus(sourceId, OnlineStatus.available);
+        return OnlineSourceResult(
+          url: streamsData.streams.first.url,
+          isAvailable: true,
+        );
+      }
+      // 无音频流
+      await _trackDao.updateOnlineStatus(sourceId, OnlineStatus.unavailable);
+      return OnlineSourceResult(isAvailable: false, reason: '该视频没有可用的音频流');
+    } on BilibiliApiException catch (e) {
+      if (e.code == -404 || e.code == 62002) {
+        // 视频不存在/被限制/已删除
+        await _trackDao.updateOnlineStatus(sourceId, OnlineStatus.unavailable);
+        return OnlineSourceResult(isAvailable: false, reason: e.userMessage);
+      }
+      // 其他 API 错误视为临时性问题
+      return OnlineSourceResult(
+        isAvailable: false,
+        reason: e.userMessage,
+        isTempError: true,
+      );
+    } catch (e) {
+      // 网络错误等临时性问题 → 不改状态
+      return OnlineSourceResult(
+        isAvailable: false,
+        reason: '网络连接失败: $e',
+        isTempError: true,
+      );
+    }
+  }
+
+  /// 批量检查在线源可用性（用于歌单加载时的懒检测）
+  ///
+  /// 只检查 source_type=bilibili 且 online_status 为 unchecked 或过期的条目。
+  /// [bvids] 需要检查的 BVID 列表
+  /// 返回可用性变化数量。
+  Future<int> batchCheckOnlineStatus(List<String> bvids) async {
+    if (bvids.isEmpty) return 0;
+
+    final tracks = await _trackDao.getBySourceIds(bvids);
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final toCheck = tracks.values
+        .where(
+          (track) =>
+              track.sourceType == TrackSource.bilibili &&
+              (track.lastOnlineCheckAt == null ||
+                  track.lastOnlineCheckAt!.isBefore(cutoff)),
+        )
+        .toList();
+
+    if (toCheck.isEmpty) return 0;
+
+    AppLogger.info('TrackRepository', '批量检查在线状态: ${toCheck.length} 个视频');
+
+    final results = await _bilibiliApi.batchCheckVideosExist(
+      toCheck.map((track) => track.bvid ?? track.sourceId).toSet().toList(),
+    );
+    int changed = 0;
+
+    for (final track in toCheck) {
+      final exists = results[track.bvid ?? track.sourceId];
+      if (exists == null) continue;
+      final newStatus = exists
+          ? OnlineStatus.available
+          : OnlineStatus.unavailable;
+      if (track.onlineStatus != newStatus) changed++;
+      await _trackDao.updateOnlineStatus(track.sourceId, newStatus);
+    }
+
+    AppLogger.info('TrackRepository', '批量检查完成: $changed 个状态变化');
+    return changed;
+  }
+
   // ==================== 收藏 ====================
 
   /// 切换收藏状态（本地优先）
@@ -189,7 +287,10 @@ class TrackRepository {
     String? coverUrl,
   }) async {
     await _trackDao.toggleFavorite(trackId, isFavorite);
-    AppLogger.debug('TrackRepository', '收藏状态已更新: trackId=$trackId, isFavorite=$isFavorite');
+    AppLogger.debug(
+      'TrackRepository',
+      '收藏状态已更新: trackId=$trackId, isFavorite=$isFavorite',
+    );
   }
 
   /// 获取收藏列表
@@ -251,72 +352,91 @@ class TrackRepository {
 
   // ==================== 已下载 ====================
 
-/// 获取已下载列表
-Future<List<CachedTrack>> getDownloadedTracks() async {
-  return await _trackDao.getDownloadedTracks();
-}
-
-/// 获取最近下载的轨道
-Future<List<CachedTrack>> getRecentlyDownloadedTracks({
-  required DateTime since,
-}) async {
-  return await _trackDao.getRecentlyDownloadedTracks(since: since);
-}
-
-/// 检查是否已下载
-Future<bool> isDownloaded(String bvid) async {
-  return await _trackDao.isDownloaded(bvid);
-}
-
-/// 根据 sourceId 获取本地文件路径（如果文件有效）
-Future<String?> getLocalPath(String sourceId) async {
-  final track = await _trackDao.getBySourceId(sourceId);
-  if (track == null || track.localPath == null) return null;
-
-  final file = File(track.localPath!);
-  final exists = await file.exists();
-  final isValid = exists && await file.length() > 0;
-
-  if (!isValid && track.isDownloaded) {
-    await _trackDao.markAsNotDownloaded(sourceId);
-    return null;
+  /// 获取已下载列表
+  Future<List<CachedTrack>> getDownloadedTracks() async {
+    return await _trackDao.getDownloadedTracks();
   }
 
-  return isValid ? track.localPath : null;
-}
+  /// 获取最近下载的轨道
+  Future<List<CachedTrack>> getRecentlyDownloadedTracks({
+    required DateTime since,
+  }) async {
+    return await _trackDao.getRecentlyDownloadedTracks(since: since);
+  }
 
-/// 验证本地文件是否有效
-Future<bool> validateLocalFile(String sourceId) async {
-  final track = await _trackDao.getBySourceId(sourceId);
-  if (track?.localPath == null) return false;
+  /// 检查是否已下载
+  Future<bool> isDownloaded(String bvid) async {
+    return await _trackDao.isDownloaded(bvid);
+  }
 
-  final file = File(track!.localPath!);
-  final exists = await file.exists();
-  final isValid = exists && await file.length() > 0;
+  /// 根据 sourceId 获取本地文件路径（如果文件有效）
+  Future<String?> getLocalPath(String sourceId) async {
+    final track = await _trackDao.getBySourceId(sourceId);
+    if (track == null || track.localPath == null) return null;
 
-  if (!isValid && track.isDownloaded) {
+    final file = File(track.localPath!);
+    final exists = await file.exists();
+    final isValid = exists && await file.length() > 0;
+
+    if (!isValid && track.isDownloaded) {
+      await _trackDao.markAsNotDownloaded(sourceId);
+      return null;
+    }
+
+    return isValid ? track.localPath : null;
+  }
+
+  /// 验证本地文件是否有效
+  Future<bool> validateLocalFile(String sourceId) async {
+    final track = await _trackDao.getBySourceId(sourceId);
+    if (track?.localPath == null) return false;
+
+    final file = File(track!.localPath!);
+    final exists = await file.exists();
+    final isValid = exists && await file.length() > 0;
+
+    if (!isValid && track.isDownloaded) {
+      await _trackDao.markAsNotDownloaded(sourceId);
+    }
+
+    return isValid;
+  }
+
+  /// 标记为未下载
+  Future<void> markAsNotDownloaded(String sourceId) async {
     await _trackDao.markAsNotDownloaded(sourceId);
   }
 
-  return isValid;
-}
+  /// 批量标记为未下载
+  Future<void> batchMarkAsNotDownloaded(List<String> sourceIds) async {
+    await _trackDao.batchUpdateDownloadStatus(sourceIds, false);
+  }
 
-/// 标记为未下载
-Future<void> markAsNotDownloaded(String sourceId) async {
-  await _trackDao.markAsNotDownloaded(sourceId);
-}
-
-/// 批量标记为未下载
-Future<void> batchMarkAsNotDownloaded(List<String> sourceIds) async {
-  await _trackDao.batchUpdateDownloadStatus(sourceIds, false);
-}
-
-// ==================== 资源释放 ====================
+  // ==================== 资源释放 ====================
 
   /// 释放资源
   void dispose() {
     _downloadProgressController.close();
   }
+}
+
+/// 在线源解析结果
+///
+/// 区分永久不可用（下架）和临时不可用（网络问题）
+class OnlineSourceResult {
+  final String? url;
+  final bool isAvailable;
+  final String? reason;
+  final bool isTempError;
+
+  const OnlineSourceResult({
+    this.url,
+    required this.isAvailable,
+    this.reason,
+    this.isTempError = false,
+  });
+
+  bool get isOk => isAvailable && url != null;
 }
 
 /// 下载进度事件

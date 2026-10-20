@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/permission_helper.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,10 +9,10 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/state/state_utils.dart';
 import '../../../core/utils/app_logger.dart';
-import '../../../data/database/app_database.dart';
 import '../../../data/repositories/playlist_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../models/audio.dart';
+import '../../../models/cached_track.dart'; // TrackAvailability
 import '../../../models/local_audio.dart';
 import '../../../models/local_playable.dart';
 import '../../../models/online_playable.dart';
@@ -43,9 +44,8 @@ abstract class PlaylistDetailState with _$PlaylistDetailState {
   }) = PlaylistDetailStateLoaded;
 
   /// 错误
-  const factory PlaylistDetailState.error({
-    required String message,
-  }) = PlaylistDetailStateError;
+  const factory PlaylistDetailState.error({required String message}) =
+      PlaylistDetailStateError;
 }
 
 /// 批量操作状态
@@ -97,6 +97,15 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     const BatchOperationState(),
   );
 
+  /// 已失效条目的 BVID 集合
+  final _expiredBvids = ValueNotifier<Set<String>>({});
+
+  /// 获取失效条目状态监听器
+  ValueNotifier<Set<String>> get expiredBvidsNotifier => _expiredBvids;
+
+  /// 获取当前失效条目 BVID 集合
+  Set<String> get expiredBvids => _expiredBvids.value;
+
   /// 获取批量操作状态监听器
   ValueNotifier<BatchOperationState> get batchStateNotifier => _batchState;
 
@@ -108,6 +117,31 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     _repository = ref.watch(playlistRepositoryProvider);
     await _loadDetail(playlistId);
     return state.valueOrNull ?? const PlaylistDetailState.initial();
+  }
+
+  /// 计算已失效条目的 BVID 集合
+  ///
+  /// 根据 CachedTrack.availability 判断哪些条目已完全不可用。
+  Future<void> _computeExpiredBvids(List<PlaylistItem> items) async {
+    try {
+      final trackDao = ref.read(trackDaoProvider);
+      final tracks = await trackDao.getBySourceIds(
+        items.map((item) => item.bvid),
+      );
+      if (!ref.mounted) return;
+      final expired = <String>{};
+      for (final item in items) {
+        if (item.bvid.isEmpty) continue;
+        final track = tracks[item.bvid];
+        if (track != null &&
+            track.availability == TrackAvailability.completelyUnavailable) {
+          expired.add(item.bvid);
+        }
+      }
+      _expiredBvids.value = expired;
+    } catch (error) {
+      AppLogger.warn('PlaylistDetailViewModel', '检测曲目状态失败: $error');
+    }
   }
 
   /// 加载歌单详情
@@ -163,6 +197,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
         if (!ref.mounted) return;
         state = AsyncData(newState);
+        await _computeExpiredBvids(items);
         AppLogger.info('PlaylistDetailViewModel', '加载我喜欢成功: ${items.length}首');
         return;
       } catch (e) {
@@ -192,6 +227,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
       if (!ref.mounted) return;
       state = AsyncData(newState);
+      await _computeExpiredBvids(items);
 
       AppLogger.info('PlaylistDetailViewModel', '加载歌单详情成功: ${items.length}首');
     } catch (e) {
@@ -232,16 +268,17 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       final removedItem = currentState.items[index];
 
       // 乐观更新：立即从本地列表移除
-      final updatedItems = currentState.items.where((item) => item.bvid != bvid).toList();
+      final updatedItems = currentState.items
+          .where((item) => item.bvid != bvid)
+          .toList();
       final updatedPlaylist = currentState.playlist.copyWith(
         itemCount: updatedItems.length,
       );
 
       if (!ref.mounted) return false;
-      state = AsyncData(currentState.copyWith(
-        playlist: updatedPlaylist,
-        items: updatedItems,
-      ));
+      state = AsyncData(
+        currentState.copyWith(playlist: updatedPlaylist, items: updatedItems),
+      );
 
       _undone = false;
       _removedItem = removedItem;
@@ -294,10 +331,9 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     );
 
     if (!ref.mounted) return;
-    state = AsyncData(currentState.copyWith(
-      playlist: updatedPlaylist,
-      items: updatedItems,
-    ));
+    state = AsyncData(
+      currentState.copyWith(playlist: updatedPlaylist, items: updatedItems),
+    );
 
     _removedItem = null;
     _removedIndex = -1;
@@ -362,14 +398,15 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       }
 
       // 替换队列
-      await ref.read(queueViewModelProvider.notifier).setQueue(
-        queueItems,
-        initialIndex: 0,
-      );
+      await ref
+          .read(queueViewModelProvider.notifier)
+          .setQueue(queueItems, initialIndex: 0);
 
       // 开始播放第一首
       final firstItem = queueItems.first;
-      await ref.read(playbackViewModelProvider.notifier).play(firstItem, index: 0);
+      await ref
+          .read(playbackViewModelProvider.notifier)
+          .play(firstItem, index: 0);
 
       return true;
     } catch (e) {
@@ -415,7 +452,10 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
     }
 
     try {
-      AppLogger.info('PlaylistDetailViewModel', '播放歌曲: bvid=$bvid, 索引=$startIndex');
+      AppLogger.info(
+        'PlaylistDetailViewModel',
+        '播放歌曲: bvid=$bvid, 索引=$startIndex',
+      );
 
       // 获取本地音乐列表（用于匹配本地路径）
       final localMusicState = ref.read(localMusicViewModelProvider);
@@ -476,14 +516,15 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       }
 
       // 替换队列（从点击的歌曲索引开始）
-      await ref.read(queueViewModelProvider.notifier).setQueue(
-        queueItems,
-        initialIndex: startIndex,
-      );
+      await ref
+          .read(queueViewModelProvider.notifier)
+          .setQueue(queueItems, initialIndex: startIndex);
 
       // 播放点击的歌曲（使用 startIndex）
       final clickedPlayable = queueItems[startIndex];
-      await ref.read(playbackViewModelProvider.notifier).play(clickedPlayable, index: startIndex);
+      await ref
+          .read(playbackViewModelProvider.notifier)
+          .play(clickedPlayable, index: startIndex);
 
       return true;
     } catch (e) {
@@ -544,8 +585,10 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
       }
 
-      AppLogger.info('PlaylistDetailViewModel',
-        '批量下载完成: 添加$addedCount, 跳过本地$skippedLocal, 跳过无BVID$skippedNoBvid');
+      AppLogger.info(
+        'PlaylistDetailViewModel',
+        '批量下载完成: 添加$addedCount, 跳过本地$skippedLocal, 跳过无BVID$skippedNoBvid',
+      );
 
       return addedCount;
     } catch (e) {
@@ -556,12 +599,17 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
   Future<String> _getDownloadDirectory() async {
     try {
+      if (!await PermissionHelper.requestManageStoragePermission()) {
+        throw const FileSystemException('需要存储权限才能保存到下载目录');
+      }
       final downloadDir = await getDownloadsDirectory();
       if (downloadDir == null) {
         throw Exception('系统下载目录不可用');
       }
 
-      final appDownloadDir = Directory('${downloadDir.path}${path.separator}ListenVision');
+      final appDownloadDir = Directory(
+        '${downloadDir.path}${path.separator}ListenVision',
+      );
       if (!await appDownloadDir.exists()) {
         await appDownloadDir.create(recursive: true);
       }
@@ -571,7 +619,9 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       AppLogger.error('PlaylistDetailViewModel', '获取下载目录失败: $e');
       try {
         final docDir = await getApplicationDocumentsDirectory();
-        final fallbackDir = Directory('${docDir.path}${path.separator}Downloads');
+        final fallbackDir = Directory(
+          '${docDir.path}${path.separator}Downloads',
+        );
         if (!await fallbackDir.exists()) {
           await fallbackDir.create(recursive: true);
         }
@@ -584,7 +634,9 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   }
 
   String _sanitizeTitle(String input) {
-    const pattern = r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""''·！？，。：；、—…]';
+    const pattern =
+        r'[^\u4e00-\u9fa5a-zA-Z0-9\s（）\(\)【】\[\]{}《》《》""'
+        '·！？，。：；、—…]';
     final sanitized = input.replaceAll(RegExp(pattern), '');
     return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
@@ -620,7 +672,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
         }
 
         // 触发 PlaylistViewModel 刷新以同步状态
-          AppLogger.info('PlaylistDetailViewModel', '更新歌单成功');
+        AppLogger.info('PlaylistDetailViewModel', '更新歌单成功');
         return true;
       }
       return false;
@@ -656,10 +708,12 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
   /// 进入批量操作模式
   void enterBatchMode() {
-    final items = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, _) => items,
-      orElse: () => <PlaylistItem>[],
-    ) ?? [];
+    final items =
+        state.valueOrNull?.maybeWhen(
+          loaded: (_, items, _) => items,
+          orElse: () => <PlaylistItem>[],
+        ) ??
+        [];
 
     _batchState.value = BatchOperationState(
       isInBatchMode: true,
@@ -697,10 +751,12 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       _batchState.value = current.copyWith(selectedBvids: {});
     } else {
       // 全选
-      final items = state.valueOrNull?.maybeWhen(
-        loaded: (_, items, _) => items,
-        orElse: () => <PlaylistItem>[],
-      ) ?? [];
+      final items =
+          state.valueOrNull?.maybeWhen(
+            loaded: (_, items, _) => items,
+            orElse: () => <PlaylistItem>[],
+          ) ??
+          [];
       final allBvids = items.map((i) => i.bvid).toSet();
       _batchState.value = current.copyWith(selectedBvids: allBvids);
     }
@@ -758,10 +814,9 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
           itemCount: updatedItems.length,
         );
 
-        state = AsyncData(currentState.copyWith(
-          playlist: updatedPlaylist,
-          items: updatedItems,
-        ));
+        state = AsyncData(
+          currentState.copyWith(playlist: updatedPlaylist, items: updatedItems),
+        );
       }
 
       // 同步更新批量状态中的总数和清空选中
@@ -774,10 +829,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
       ref.invalidate(playlistListProvider);
     }
 
-    AppLogger.info(
-      'PlaylistDetailViewModel',
-      '批量移除完成: 成功$success, 失败$failed',
-    );
+    AppLogger.info('PlaylistDetailViewModel', '批量移除完成: 成功$success, 失败$failed');
 
     return BatchOperationResult(
       success: success,
@@ -791,7 +843,8 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 拖拽重排
   Future<void> reorderItems(int oldIndex, int newIndex) async {
     final current = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, _) => items, orElse: () => null,
+      loaded: (_, items, _) => items,
+      orElse: () => null,
     );
     if (current == null) return;
 
@@ -810,7 +863,8 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
   /// 自动排序
   Future<void> sortItems(SortField field) async {
     final current = state.valueOrNull?.maybeWhen(
-      loaded: (_, items, _) => items, orElse: () => null,
+      loaded: (_, items, _) => items,
+      orElse: () => null,
     );
     if (current == null) return;
 
@@ -827,7 +881,10 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
           ..sort((a, b) => (a.duration ?? 0).compareTo(b.duration ?? 0));
       case SortField.addedAt:
         sorted = List<PlaylistItem>.from(current)
-          ..sort((a, b) => (b.addedAt ?? DateTime(0)).compareTo(a.addedAt ?? DateTime(0)));
+          ..sort(
+            (a, b) =>
+                (b.addedAt ?? DateTime(0)).compareTo(a.addedAt ?? DateTime(0)),
+          );
     }
     _updateItems(sorted);
     await _persistReorder(sorted);
@@ -848,19 +905,7 @@ class PlaylistDetailViewModel extends _$PlaylistDetailViewModel {
 
   /// 持久化排序结果到数据库
   Future<void> _persistReorder(List<PlaylistItem> items) async {
-    final db = await AppDatabase.instance.database;
-    await db.transaction((txn) async {
-      for (var i = 0; i < items.length; i++) {
-        if (items[i].id != null) {
-          await txn.update(
-            'playlist_items',
-            {'position': i},
-            where: 'id = ?',
-            whereArgs: [int.tryParse(items[i].id!)],
-          );
-        }
-      }
-    });
+    await _repository!.reorderItems(items);
   }
 }
 

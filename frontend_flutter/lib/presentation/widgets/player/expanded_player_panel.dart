@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +16,7 @@ class ExpandedPlayerPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playbackState = ref.watch(playbackViewModelProvider);
+    final playbackState = ref.watch(playbackControlsProvider);
     final queueState = ref.watch(queueViewModelProvider);
 
     return SafeArea(
@@ -34,7 +35,13 @@ class ExpandedPlayerPanel extends ConsumerWidget {
               _buildTrackTitle(context, playbackState),
               const SizedBox(height: 16),
               // 4. 进度条
-              _buildProgressSection(context, playbackState, ref),
+              Consumer(
+                builder: (context, ref, _) => _buildProgressSection(
+                  context,
+                  ref.watch(playbackViewModelProvider),
+                  ref,
+                ),
+              ),
               const SizedBox(height: 8),
               // 5. 控制按钮
               _buildControls(context, playbackState, queueState, ref),
@@ -74,7 +81,7 @@ class ExpandedPlayerPanel extends ConsumerWidget {
     if (coverData != null) {
       coverWidget = Image.memory(coverData, fit: BoxFit.cover);
     } else if (coverUrl != null && coverUrl.isNotEmpty) {
-      coverWidget = Image.network(
+      coverWidget = ImageHelper.networkImage(
         coverUrl,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _defaultCover(context),
@@ -86,11 +93,7 @@ class ExpandedPlayerPanel extends ConsumerWidget {
     return Center(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          width: 270,
-          height: 270,
-          child: coverWidget,
-        ),
+        child: SizedBox(width: 270, height: 270, child: coverWidget),
       ),
     );
   }
@@ -154,8 +157,10 @@ class ExpandedPlayerPanel extends ConsumerWidget {
           ),
           child: Slider(
             value: hasValidDuration
-                ? (position.inMilliseconds / duration.inMilliseconds)
-                    .clamp(0.0, 1.0)
+                ? (position.inMilliseconds / duration.inMilliseconds).clamp(
+                    0.0,
+                    1.0,
+                  )
                 : 0.0,
             onChanged: hasValidDuration
                 ? (value) {
@@ -177,9 +182,7 @@ class ExpandedPlayerPanel extends ConsumerWidget {
                 style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
               ),
               Text(
-                hasValidDuration
-                    ? duration.toString().split('.')[0]
-                    : '--:--',
+                hasValidDuration ? duration.toString().split('.')[0] : '--:--',
                 style: TextStyle(
                   fontSize: 12,
                   fontFamily: 'monospace',
@@ -235,7 +238,9 @@ class ExpandedPlayerPanel extends ConsumerWidget {
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 3),
                 )
-              : Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+              : Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                ),
           iconSize: 48,
           tooltip: isPlaying ? '暂停' : '播放',
           onPressed: () {

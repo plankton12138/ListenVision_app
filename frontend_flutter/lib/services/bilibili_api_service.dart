@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/network/dio_client.dart';
+import '../core/errors/exceptions.dart';
 import '../models/audio.dart';
 import '../models/recommendation.dart';
 import 'bilibili_headers.dart';
 
 final bilibiliApiServiceProvider = Provider<BilibiliApiService>((ref) {
-  return BilibiliApiService();
+  return BilibiliApiService(dio: ref.watch(apiDioProvider));
 });
 
 class AudioStreamInfo {
@@ -39,40 +41,95 @@ class AudioStreamsData {
 class BilibiliApiService {
   final Dio _dio;
 
-  BilibiliApiService({Dio? dio})
-      : _dio = dio ?? Dio();
+  BilibiliApiService({Dio? dio}) : _dio = dio ?? DioClient.instance.dio;
 
   static const _baseUrl = 'https://api.bilibili.com';
 
-  Future<Map<String, dynamic>> getVideoInfo(String bvid) async {
-    final response = await _dio.get(
+  Future<Map<String, dynamic>> getVideoInfo(
+    String bvid, {
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _get(
       '$_baseUrl/x/web-interface/view',
       queryParameters: {'bvid': bvid},
+      cancelToken: cancelToken,
       options: Options(headers: bilibiliHeaders),
     );
     final data = _extractData(response.data);
     return data;
   }
 
+  /// 检查视频是否仍然可访问
+  ///
+  /// 返回 true = 可访问；false = 明确不存在；null = 未能确认。
+  /// 不会抛出异常，网络错误等临时性问题返回 null，保留已有状态。
+  Future<bool?> checkVideoExists(String bvid) async {
+    try {
+      final response = await _get(
+        '$_baseUrl/x/web-interface/view',
+        queryParameters: {'bvid': bvid},
+        options: Options(headers: bilibiliHeaders),
+      );
+      final body = response.data;
+      if (body is Map && body['code'] == 0) return true;
+
+      final code = body is Map ? (body['code'] ?? -1) : -1;
+      if (code == -404 || code == 62002) return false;
+      return null; // 临时问题：保留原状态
+    } catch (_) {
+      return null; // 网络错误不代表源可用或失效
+    }
+  }
+
+  /// 批量检查视频是否存在（并发，带限制）
+  ///
+  /// 返回 `Map<String, bool?>`（bvid -> exists）。不会抛出异常。
+  Future<Map<String, bool?>> batchCheckVideosExist(
+    List<String> bvids, {
+    int concurrency = 5,
+  }) async {
+    final results = <String, bool?>{};
+    final semaphore = <Future<void>>[];
+    int index = 0;
+
+    Future<void> worker() async {
+      while (true) {
+        final i = index++;
+        if (i >= bvids.length) break;
+        results[bvids[i]] = await checkVideoExists(bvids[i]);
+      }
+    }
+
+    for (int i = 0; i < concurrency.clamp(1, 5) && i < bvids.length; i++) {
+      semaphore.add(worker());
+    }
+    await Future.wait(semaphore);
+    return results;
+  }
+
   Future<AudioStreamsData> getAudioStreams(
     String bvid, {
     int? cid,
+    CancelToken? cancelToken,
   }) async {
+    final elapsed = Stopwatch()..start();
     int resolvedCid;
     String title = '';
 
     if (cid != null) {
       resolvedCid = cid;
     } else {
-      final videoInfo = await getVideoInfo(bvid);
+      final videoInfo = await getVideoInfo(bvid, cancelToken: cancelToken);
       final c = videoInfo['cid'];
       if (c == null) throw Exception('无法获取 cid');
       resolvedCid = c is int ? c : int.parse('$c');
       title = videoInfo['title'] ?? '';
     }
 
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/player/wbi/playurl',
+      cancelToken: cancelToken,
+      budget: const Duration(seconds: 30) - elapsed.elapsed,
       queryParameters: {
         'bvid': bvid,
         'cid': resolvedCid,
@@ -87,9 +144,7 @@ class BilibiliApiService {
 
     final streams = dashAudio.map((audio) {
       return AudioStreamInfo(
-        url: normalizeBilibiliUrl(
-          audio['baseUrl'] ?? audio['base_url'] ?? '',
-        ),
+        url: normalizeBilibiliUrl(audio['baseUrl'] ?? audio['base_url'] ?? ''),
         qualityId: audio['id'] ?? 0,
         size: audio['size'] ?? 0,
         codecs: audio['codecs'] ?? '',
@@ -108,8 +163,11 @@ class BilibiliApiService {
   ///
   /// 调用 x/web-interface/view 获取 pages 数组
   /// 返回视频的全部分P信息，单P视频返回1个元素的列表
-  Future<List<AudioPage>> getVideoPages(String bvid) async {
-    final videoInfo = await getVideoInfo(bvid);
+  Future<List<AudioPage>> getVideoPages(
+    String bvid, {
+    CancelToken? cancelToken,
+  }) async {
+    final videoInfo = await getVideoInfo(bvid, cancelToken: cancelToken);
     final pages = videoInfo['pages'] as List<dynamic>? ?? [];
     return pages.map((page) {
       final cid = page['cid'];
@@ -126,9 +184,11 @@ class BilibiliApiService {
     required String keyword,
     int page = 1,
     int pageSize = 20,
+    CancelToken? cancelToken,
   }) async {
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/web-interface/wbi/search/type',
+      cancelToken: cancelToken,
       queryParameters: {
         'search_type': 'video',
         'keyword': keyword,
@@ -143,21 +203,26 @@ class BilibiliApiService {
     return result
         .where((item) => item['type'] == 'video' && item['bvid'] != null)
         .map((item) {
-      return Audio.fromDto({
-        'bvid': item['bvid'],
-        'title': _cleanHtmlTags(item['title'] ?? ''),
-        'author': item['author'] ?? '',
-        'pic': normalizeBilibiliUrl(item['pic'] ?? ''),
-        'duration': parseBilibiliDuration(item['duration']),
-        'play': item['play'] ?? 0,
-        'videos': item['videos'] ?? 1,
-      });
-    }).toList();
+          return Audio.fromDto({
+            'bvid': item['bvid'],
+            'title': _cleanHtmlTags(item['title'] ?? ''),
+            'author': item['author'] ?? '',
+            'pic': normalizeBilibiliUrl(item['pic'] ?? ''),
+            'duration': parseBilibiliDuration(item['duration']),
+            'play': item['play'] ?? 0,
+            'videos': item['videos'] ?? 1,
+          });
+        })
+        .toList();
   }
 
-  Future<List<String>> getSearchSuggestions(String keyword) async {
-    final response = await _dio.get(
+  Future<List<String>> getSearchSuggestions(
+    String keyword, {
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _get(
       'https://s.search.bilibili.com/main/suggest',
+      cancelToken: cancelToken,
       queryParameters: {'term': keyword},
       options: Options(headers: bilibiliHeaders),
     );
@@ -172,7 +237,7 @@ class BilibiliApiService {
   }
 
   Future<List<Recommendation>> getRecommendations({int page = 1}) async {
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/web-interface/popular',
       queryParameters: {'ps': 50, 'pn': page},
       options: Options(headers: bilibiliHeaders),
@@ -193,7 +258,7 @@ class BilibiliApiService {
       'life': 160,
     };
     final rid = typeMap[type] ?? 1;
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/web-interface/ranking/v2',
       queryParameters: {'rid': rid},
       options: Options(headers: bilibiliHeaders),
@@ -204,7 +269,7 @@ class BilibiliApiService {
   }
 
   Future<List<Map<String, dynamic>>> getZones() async {
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/web-interface/archive/zone',
       options: Options(headers: bilibiliHeaders),
     );
@@ -228,7 +293,7 @@ class BilibiliApiService {
     int tid, {
     bool newest = false,
   }) async {
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/web-interface/newlist',
       queryParameters: {'rid': tid, 'type': newest ? 1 : 0},
       options: Options(headers: bilibiliHeaders),
@@ -239,13 +304,31 @@ class BilibiliApiService {
   }
 
   Future<Map<String, dynamic>> getUploaderInfo(int mid) async {
-    final response = await _dio.get(
+    final response = await _get(
       '$_baseUrl/x/space/wbi/acc/info',
       queryParameters: {'mid': mid},
       options: Options(headers: bilibiliHeaders),
     );
     final data = _extractData(response.data);
     return data;
+  }
+
+  Future<Response<dynamic>> _get(
+    String url, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    Duration budget = const Duration(seconds: 30),
+  }) {
+    if (budget <= Duration.zero) throw NetworkException.timeout();
+    return DioClient.get(
+      _dio,
+      url,
+      queryParameters: queryParameters,
+      headers: options?.headers,
+      cancelToken: cancelToken,
+      budget: budget,
+    );
   }
 
   Map<String, dynamic> _extractData(dynamic responseBody) {
@@ -303,7 +386,6 @@ class BilibiliApiService {
       'play': item['stat']?['view'] ?? item['play'] ?? 0,
     });
   }
-
 }
 
 class BilibiliApiException implements Exception {

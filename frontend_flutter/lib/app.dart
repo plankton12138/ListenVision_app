@@ -9,6 +9,8 @@ import 'presentation/theme/dark_mode.dart';
 import 'presentation/viewmodels/system/theme_viewmodel.dart';
 import 'presentation/widgets/common/network_status_listener.dart';
 import 'services/download_integrity_service.dart';
+import 'services/background_audio_service.dart';
+import 'presentation/viewmodels/player/playback_viewmodel.dart';
 import 'data/database/app_database.dart';
 import 'data/database/track_dao.dart';
 
@@ -50,10 +52,44 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeViewModelProvider);
+    final background = ref.watch(backgroundAudioServiceProvider);
+    // 只同步整秒进度，系统通知更新不触发 App 或播放器 UI 重建。
+    ref.listen(
+      playbackViewModelProvider.select(
+        (s) => (
+          id: s.currentPlayable?.id,
+          title: s.title,
+          artist: s.artist,
+          album: s.albumTitle,
+          playing: s.isPlaying,
+          loading: s.isLoading,
+          position: s.position.inSeconds,
+          duration: s.duration?.inMilliseconds ?? 0,
+          speed: s.speed,
+          error: s.errorMessage,
+        ),
+      ),
+      (_, state) {
+        background.update({
+          'hasContent': state.id != null,
+          'title': state.title,
+          'artist': state.artist,
+          'album': state.album,
+          'playing': state.playing,
+          'loading': state.loading,
+          'position': state.position * 1000,
+          'duration': state.duration,
+          'speed': state.speed,
+        });
+      },
+    );
 
     // 监听主题变化日志
     ref.listen<AppThemeMode>(themeViewModelProvider, (previous, next) {
-      AppLogger.debug('App', 'Theme changed: ${previous?.name} -> ${next.name}');
+      AppLogger.debug(
+        'App',
+        'Theme changed: ${previous?.name} -> ${next.name}',
+      );
     });
 
     return MaterialApp.router(

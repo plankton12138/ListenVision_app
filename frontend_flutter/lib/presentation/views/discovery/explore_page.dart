@@ -1,3 +1,4 @@
+import 'package:listenvision/core/utils/image_helper.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
 import 'package:listenvision/models/audio.dart';
@@ -40,7 +41,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   void _loadRecommendIfNeed() {
     final state = ref.read(exploreViewModelProvider);
     state.whenData((s) {
-      if (s is ExploreStateInitial || (s is ExploreStateLoaded && s.type != ExploreType.recommended)) {
+      if (s is ExploreStateInitial ||
+          (s is ExploreStateLoaded && s.type != ExploreType.recommended)) {
         ref.read(exploreViewModelProvider.notifier).loadRecommended();
       }
     });
@@ -69,7 +71,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           IconButton(
             icon: const Icon(Icons.refresh),
             iconSize: UIConstants.iconMedium,
-            onPressed: () => ref.read(exploreViewModelProvider.notifier).refresh(),
+            onPressed: () =>
+                ref.read(exploreViewModelProvider.notifier).refresh(),
             tooltip: '刷新',
           ),
           IconButton(
@@ -94,9 +97,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       drawer: const MyDrawer(),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildBilibiliTab(exploreState),
-        ],
+        children: [_buildBilibiliTab(exploreState)],
       ),
     );
   }
@@ -117,16 +118,23 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   Widget _buildBilibiliTab(AsyncValue<ExploreState> exploreState) {
     return exploreState.when(
       loading: () => _buildLoadingView(),
-      error: (e, _) => _buildErrorView(e.toString(), () => ref.read(exploreViewModelProvider.notifier).refresh()),
+      error: (e, _) => _buildErrorView(
+        e.toString(),
+        () => ref.read(exploreViewModelProvider.notifier).refresh(),
+      ),
       data: (state) {
         return state.when(
           initial: () => _buildLoadingView(),
           loading: () => _buildLoadingView(),
           notBound: () => _buildLoadingView(),
-          loaded: (items, hasMore, currentPage, type) => type == ExploreType.recommended
+          loaded: (items, hasMore, currentPage, type) =>
+              type == ExploreType.recommended
               ? _buildRecommendList(items, hasMore)
               : _buildLoadingView(),
-          error: (message) => _buildErrorView(message, () => ref.read(exploreViewModelProvider.notifier).refresh()),
+          error: (message) => _buildErrorView(
+            message,
+            () => ref.read(exploreViewModelProvider.notifier).refresh(),
+          ),
         );
       },
     );
@@ -151,7 +159,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollEndNotification &&
-            notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+            notification.metrics.pixels >=
+                notification.metrics.maxScrollExtent - 200) {
           if (hasMore) {
             ref.read(exploreViewModelProvider.notifier).loadNext();
           }
@@ -190,7 +199,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: item.coverUrl != null && item.coverUrl!.isNotEmpty
-                    ? Image.network(
+                    ? ImageHelper.networkImage(
                         item.coverUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
@@ -208,7 +217,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   bottom: 2,
                   right: 2,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     color: Colors.black54,
                     child: Text(
                       _formatDuration(item.duration!),
@@ -219,11 +231,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
             ],
           ),
         ),
-        title: Text(
-          item.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Row(
           children: [
             Expanded(
@@ -253,19 +261,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       iconSize: 20,
       onSelected: (action) => _onItemAction(action, item),
       itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'add_to_playlist',
-          child: Text('添加到歌单'),
-        ),
-        const PopupMenuItem(
-          value: 'favorite',
-          child: Text('收藏'),
-        ),
-        const PopupMenuItem(
-          value: 'download',
-          child: Text('下载'),
-        ),
-
+        const PopupMenuItem(value: 'add_to_playlist', child: Text('添加到歌单')),
+        const PopupMenuItem(value: 'favorite', child: Text('收藏')),
+        const PopupMenuItem(value: 'download', child: Text('下载')),
       ],
     );
   }
@@ -308,7 +306,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           showAddToPlaylist: false,
         );
         break;
-
     }
   }
 
@@ -340,10 +337,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: onRetry,
-            child: const Text('重试'),
-          ),
+          ElevatedButton(onPressed: onRetry, child: const Text('重试')),
         ],
       ),
     );

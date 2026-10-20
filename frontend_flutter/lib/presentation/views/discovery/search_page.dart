@@ -1,3 +1,5 @@
+import 'package:listenvision/core/utils/permission_helper.dart';
+import 'package:dio/dio.dart';
 import 'package:listenvision/core/constants/app_constants.dart';
 import 'package:listenvision/core/state/state_utils.dart';
 import 'package:listenvision/core/utils/app_logger.dart';
@@ -34,9 +36,13 @@ class SearchPage extends ConsumerStatefulWidget {
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
+  int _resultRequestId = 0;
+  CancelToken? _resultToken;
 
   @override
   void dispose() {
+    _resultRequestId++;
+    _resultToken?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -51,12 +57,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onResultTap(SearchResultItem item) async {
+    final requestId = ++_resultRequestId;
+    _resultToken?.cancel();
+    final token = _resultToken = CancelToken();
     try {
       // B站搜索 API 不返回 videos 字段，需通过视频详情 API 获取分P数量
       final api = ref.read(bilibiliApiServiceProvider);
-      final pages = await api.getVideoPages(item.bvid);
+      final pages = await api.getVideoPages(item.bvid, cancelToken: token);
 
-      if (!mounted) return;
+      if (!mounted || requestId != _resultRequestId || token.isCancelled) {
+        return;
+      }
 
       if (pages.length <= 1) {
         // 单P视频，直接播放
@@ -122,7 +133,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         },
       );
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestId == _resultRequestId && !token.isCancelled) {
         // 降级：API 失败时作为单P播放
         await _playSingleAudio(
           bvid: item.bvid,
@@ -166,10 +177,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final queueIndex = queueState.queue?.currentIndex ?? -1;
       final tracks = queueState.queue?.tracks;
       if (queueIndex >= 0 && tracks != null && queueIndex < tracks.length) {
-        ref.read(playbackViewModelProvider.notifier).play(
-          tracks[queueIndex],
-          index: queueIndex,
-        );
+        ref
+            .read(playbackViewModelProvider.notifier)
+            .play(tracks[queueIndex], index: queueIndex);
       }
 
       if (mounted) {
@@ -224,11 +234,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 获取下载目录路径
   Future<String> _getDownloadDirectory() async {
+    if (!await PermissionHelper.requestManageStoragePermission()) {
+      throw const FileSystemException('需要存储权限才能保存到下载目录');
+    }
     final downloadDir = await getDownloadsDirectory();
     if (downloadDir == null) {
       throw Exception('系统下载目录不可用');
     }
-    final appDownloadDir = Directory('${downloadDir.path}${p.separator}ListenVision');
+    final appDownloadDir = Directory(
+      '${downloadDir.path}${p.separator}ListenVision',
+    );
     if (!await appDownloadDir.exists()) {
       await appDownloadDir.create(recursive: true);
     }
@@ -331,8 +346,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     // 找到最长公共前缀
     int commonLen = 0;
-    final maxLen =
-        pageTitle.length < videoTitle.length ? pageTitle.length : videoTitle.length;
+    final maxLen = pageTitle.length < videoTitle.length
+        ? pageTitle.length
+        : videoTitle.length;
     for (int i = 0; i < maxLen; i++) {
       if (pageTitle[i] != videoTitle[i]) break;
       commonLen = i + 1;
@@ -398,11 +414,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     onSubmitted: (_) => _performSearch(),
                     onChanged: (value) {
                       // 获取搜索建议
-                      if (value.length >= 2) {
-                        ref
-                            .read(searchViewModelProvider.notifier)
-                            .getSearchSuggestions(value);
-                      }
+                      ref
+                          .read(searchViewModelProvider.notifier)
+                          .getSearchSuggestions(value);
                     },
                   ),
                 ),
@@ -421,10 +435,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: searchState.when(
               data: (state) => state.map(
                 initial: (_) => _buildInitialState(),
-                loading: (_) => const Center(child: CircularProgressIndicator()),
+                loading: (_) =>
+                    const Center(child: CircularProgressIndicator()),
                 resultsLoaded: (data) {
                   // DEBUG: 打印搜索结果变化
-                  AppLogger.debug('SearchPage', '渲染结果: page=${data.currentPage}, results.length=${data.results.length}, first bvid=${data.results.isNotEmpty ? data.results.first.bvid : "empty"}');
+                  AppLogger.debug(
+                    'SearchPage',
+                    '渲染结果: page=${data.currentPage}, results.length=${data.results.length}, first bvid=${data.results.isNotEmpty ? data.results.first.bvid : "empty"}',
+                  );
                   return _buildResultsList(
                     data.results,
                     data.currentPage,
@@ -433,10 +451,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     data.hasMore,
                   );
                 },
-                idle: (data) => _buildIdleState(
-                  data.searchHistory,
-                  data.suggestions,
-                ),
+                idle: (data) =>
+                    _buildIdleState(data.searchHistory, data.suggestions),
                 error: (data) => Center(child: Text('错误: ${data.message}')),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -562,20 +578,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       Container(
                         margin: const EdgeInsets.only(left: 6),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 1),
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .secondaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
                           '共${item.videos}P',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSecondaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSecondaryContainer,
                           ),
                         ),
                       ),
@@ -610,7 +628,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   /// 分页控制栏
-  Widget _buildPaginationBar(int currentPage, int totalCount, int pageSize, bool hasMore) {
+  Widget _buildPaginationBar(
+    int currentPage,
+    int totalCount,
+    int pageSize,
+    bool hasMore,
+  ) {
     // 格式化页码显示
     String pageText;
     if (totalCount > 0) {
@@ -626,10 +649,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Row(
@@ -644,16 +664,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             tooltip: '上一页',
           ),
           // 页码信息
-          Text(
-            pageText,
-            style: const TextStyle(fontSize: 16),
-          ),
+          Text(pageText, style: const TextStyle(fontSize: 16)),
           // 下一页按钮
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: hasMore
-                ? () => _loadPage(currentPage + 1)
-                : null,
+            onPressed: hasMore ? () => _loadPage(currentPage + 1) : null,
             tooltip: '下一页',
           ),
         ],
@@ -665,13 +680,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _loadPage(int page) {
     AppLogger.debug('SearchPage', '_loadPage called: page=$page');
     final currentState = ref.read(searchViewModelProvider);
-    final query = currentState.valueOrNull?.map(
-      initial: (_) => '',
-      loading: (_) => '',
-      resultsLoaded: (state) => state.query,
-      idle: (_) => '',
-      error: (_) => '',
-    ) ?? '';
+    final query =
+        currentState.valueOrNull?.map(
+          initial: (_) => '',
+          loading: (_) => '',
+          resultsLoaded: (state) => state.query,
+          idle: (_) => '',
+          error: (_) => '',
+        ) ??
+        '';
     AppLogger.debug('SearchPage', 'query=$query');
     if (query.isNotEmpty) {
       AppLogger.debug('SearchPage', '调用 search with page=$page');
@@ -679,29 +696,30 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
   }
 
-
   /// 空闲状态（搜索历史和搜索建议）
-  Widget _buildIdleState(List<String> history, List<SearchSuggestion> suggestions) {
+  Widget _buildIdleState(
+    List<String> history,
+    List<SearchSuggestion> suggestions,
+  ) {
     return ListView(
       children: [
         // 搜索建议
         if (suggestions.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              '搜索建议',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Text('搜索建议', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ...suggestions.map(
+            (s) => ListTile(
+              leading: const Icon(Icons.search, color: Colors.grey),
+              title: _buildHighlightedText(s.name, s.value),
+              dense: true,
+              onTap: () {
+                _searchController.text = s.value;
+                _performSearch();
+              },
             ),
           ),
-          ...suggestions.map((s) => ListTile(
-                leading: const Icon(Icons.search, color: Colors.grey),
-                title: _buildHighlightedText(s.name, s.value),
-                dense: true,
-                onTap: () {
-                  _searchController.text = s.value;
-                  _performSearch();
-                },
-              )),
         ],
         // 搜索历史
         if (history.isNotEmpty) ...[
@@ -725,23 +743,25 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               ],
             ),
           ),
-          ...history.map((h) => ListTile(
-                leading: const Icon(Icons.history, color: Colors.grey),
-                title: Text(h),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () {
-                    ref
-                        .read(searchViewModelProvider.notifier)
-                        .removeFromHistory(h);
-                  },
-                ),
-                dense: true,
-                onTap: () {
-                  _searchController.text = h;
-                  _performSearch();
+          ...history.map(
+            (h) => ListTile(
+              leading: const Icon(Icons.history, color: Colors.grey),
+              title: Text(h),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  ref
+                      .read(searchViewModelProvider.notifier)
+                      .removeFromHistory(h);
                 },
-              )),
+              ),
+              dense: true,
+              onTap: () {
+                _searchController.text = h;
+                _performSearch();
+              },
+            ),
+          ),
         ],
         // 为空状态
         if (history.isEmpty && suggestions.isEmpty)
@@ -765,23 +785,32 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     for (final match in regex.allMatches(htmlText)) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: htmlText.substring(lastEnd, match.start),
-          style: const TextStyle(color: Colors.black87),
-        ));
+        spans.add(
+          TextSpan(
+            text: htmlText.substring(lastEnd, match.start),
+            style: const TextStyle(color: Colors.black87),
+          ),
+        );
       }
-      spans.add(TextSpan(
-        text: match.group(1),
-        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w500),
-      ));
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
       lastEnd = match.end;
     }
 
     if (lastEnd < htmlText.length) {
-      spans.add(TextSpan(
-        text: htmlText.substring(lastEnd),
-        style: const TextStyle(color: Colors.black87),
-      ));
+      spans.add(
+        TextSpan(
+          text: htmlText.substring(lastEnd),
+          style: const TextStyle(color: Colors.black87),
+        ),
+      );
     }
 
     if (spans.isEmpty) {

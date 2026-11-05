@@ -73,6 +73,10 @@ class ControlledAudioService extends Mock implements AudioPlayerService {
   @override
   Future<void> seek(Duration position) async {}
   @override
+  Future<bool> waitUntilSeekable({
+    Duration timeout = const Duration(seconds: 3),
+  }) async => true;
+  @override
   Future<void> stop() async {
     current = null;
     stops++;

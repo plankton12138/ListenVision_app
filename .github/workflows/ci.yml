@@ -74,7 +74,7 @@ jobs:
           # 未接受时 Gradle 配置阶段会直接 LicenseNotAccepted 失败。
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - run: flutter build apk --release --no-pub
-      - run: sha256sum build/app/outputs/flutter-apk/app-*-release.apk build/app/outputs/flutter-apk/app-release.apk > build/app/outputs/flutter-apk/SHA256SUMS
+      - run: sha256sum build/app/outputs/flutter-apk/app-release.apk > build/app/outputs/flutter-apk/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: listenvision-${{ steps.version.outputs.version }}-verification-${{ github.run_number }}

@@ -46,11 +46,13 @@ class AudioInfo extends ConsumerWidget {
   }
 
   /// 构建专辑封面
+  ///
+  /// 封面展示区域使用固定高度：图片仍按原始宽高比 contain 显示，
+  /// 但不同比例封面不会改变标题和控制区的布局位置。
   Widget _buildAlbumArt(BuildContext context, playerState) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.35,
-      ),
+      height: MediaQuery.of(context).size.height * 0.35,
+      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: _buildAlbumArtContent(context, playerState),
     );

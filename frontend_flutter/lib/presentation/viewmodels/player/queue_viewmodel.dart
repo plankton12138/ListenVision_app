@@ -188,6 +188,9 @@ class QueueViewModel extends _$QueueViewModel {
   ///
   /// [playable] 要添加的音频
   /// [playImmediately] 是否立即播放（设置为当前音频）
+  ///
+  /// 立即播放的音频会移除已有重复项后插入列表首位，使正在播放的音乐
+  /// 显示在播放列表第一项。
   Future<void> add(
     PlayableAudio playable, {
     bool playImmediately = false,
@@ -197,23 +200,16 @@ class QueueViewModel extends _$QueueViewModel {
     final q = state.queue ?? PlayQueue(tracks: [], currentIndex: -1);
     final newTracks = List<PlayableAudio>.from(q.tracks);
 
-    // 检查是否已存在
-    final existingIndex = newTracks.indexWhere((p) => p.id == playable.id);
-
     int newIndex = q.currentIndex;
 
     if (playImmediately) {
-      if (existingIndex != -1) {
-        // 已存在，直接设置为当前
-        newIndex = existingIndex;
-      } else {
-        // 不存在，添加并设置为当前
-        newTracks.add(playable);
-        newIndex = newTracks.length - 1;
-      }
+      // 立即播放：移除重复项后插入首位，当前播放项即列表第一项
+      newTracks.removeWhere((p) => p.id == playable.id);
+      newTracks.insert(0, playable);
+      newIndex = 0;
     } else {
       // 不立即播放，添加到末尾（如果不存在）
-      if (existingIndex == -1) {
+      if (!newTracks.any((p) => p.id == playable.id)) {
         newTracks.add(playable);
       }
     }
@@ -245,6 +241,40 @@ class QueueViewModel extends _$QueueViewModel {
 
     await _saveToStorage();
     AppLogger.info('QueueViewModel', '批量添加 ${playables.length} 首音频');
+  }
+
+  /// 批量添加并立即播放第一首
+  ///
+  /// 整组音频保持原有顺序插入列表首位，当前播放索引指向第一首，
+  /// 确保正在播放的音乐显示在播放列表第一项。
+  Future<void> addAllAndPlayFirst(List<PlayableAudio> playables) async {
+    if (playables.isEmpty) return;
+
+    _markQueueMutated();
+
+    final q = state.queue ?? PlayQueue(tracks: [], currentIndex: -1);
+
+    // 组内去重，避免同一音频重复入列
+    final addedIds = <String>{};
+    final insertedTracks = <PlayableAudio>[
+      for (final playable in playables)
+        if (addedIds.add(playable.id)) playable,
+    ];
+
+    final newTracks = <PlayableAudio>[
+      ...insertedTracks,
+      ...q.tracks.where((p) => !addedIds.contains(p.id)),
+    ];
+
+    state = state.copyWith(
+      queue: q.copyWith(tracks: newTracks, currentIndex: 0),
+    );
+
+    await _saveToStorage();
+    AppLogger.info(
+      'QueueViewModel',
+      '批量添加并播放 ${insertedTracks.length} 首音频，置于列表首位',
+    );
   }
 
   /// 从队列移除指定索引的项

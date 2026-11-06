@@ -101,23 +101,17 @@ class _HomePageState extends ConsumerState<HomePage> {
             AppLogger.info('HomePage', '音频已存在于本地音乐歌单，跳过保存');
           }
           
-          // 创建 PlayableAudio 并添加到队列末尾
+          // 创建 PlayableAudio，添加到播放列表首位并立即播放
           final playable = LocalPlayable(localAudio);
           await ref.read(queueViewModelProvider.notifier).add(
             playable,
-            playImmediately: false,
+            playImmediately: true,
           );
           
-          // 开始播放（播放刚添加的最后一首）
-          final queueState = ref.read(queueViewModelProvider);
-          final newIndex = (queueState.queue?.tracks.length ?? 1) - 1;
-          // 使用 PlaybackViewModel 播放
-          ref.read(playbackViewModelProvider.notifier).play(
-            queueState.queue!.tracks[newIndex],
-            index: newIndex,
-          );
+          // 开始播放（播放列表现已将该音频置于第一项）
+          ref.read(playbackViewModelProvider.notifier).play(playable, index: 0);
           
-          AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
+          AppLogger.info('HomePage', '已添加到播放队列首位并开始播放');
           
           // 用户反馈
           if (context.mounted) {
@@ -168,23 +162,17 @@ class _HomePageState extends ConsumerState<HomePage> {
         AppLogger.warn('HomePage', 'Web 平台：仅支持会话内播放，不持久化导入到本地音乐歌单');
       }
 
-      // 5. 创建 PlayableAudio 并添加到队列末尾
+      // 5. 创建 PlayableAudio，添加到播放列表首位并立即播放
       final playable = LocalPlayable(localAudio);
       await ref.read(queueViewModelProvider.notifier).add(
         playable,
-        playImmediately: false, // 添加到末尾，不清空队列
+        playImmediately: true, // 当前播放项置于播放列表第一项
       );
 
-      // 6. 开始播放（播放刚添加的最后一首）
-      final queueState = ref.read(queueViewModelProvider);
-      final newIndex = (queueState.queue?.tracks.length ?? 1) - 1;
-      // 使用 PlaybackViewModel 播放
-      ref.read(playbackViewModelProvider.notifier).play(
-        queueState.queue!.tracks[newIndex],
-        index: newIndex,
-      );
+      // 6. 开始播放（播放列表现已将该音频置于第一项）
+      ref.read(playbackViewModelProvider.notifier).play(playable, index: 0);
 
-      AppLogger.info('HomePage', '已添加到播放队列并开始播放，索引：$newIndex');
+      AppLogger.info('HomePage', '已添加到播放队列首位并开始播放');
 
       // 7. 用户反馈
       if (context.mounted) {

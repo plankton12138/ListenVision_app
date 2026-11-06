@@ -205,8 +205,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final queueNotifier = ref.read(queueViewModelProvider.notifier);
 
-      for (int i = 0; i < pages.length; i++) {
-        final page = pages[i];
+      final playables = <OnlinePlayable>[];
+      for (final page in pages) {
         final episodeTitle = _extractEpisodeTitle(albumTitle, page.title);
         final audio = Audio(
           id: bvid,
@@ -218,10 +218,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           cid: page.cid,
           videos: videos,
         );
-        final playable = OnlinePlayable.withProxyUrl(audio);
-        // 第一首立即播放，其余仅加入队列
-        await queueNotifier.add(playable, playImmediately: i == 0);
+        playables.add(OnlinePlayable.withProxyUrl(audio));
       }
+
+      // 整组分P置于播放列表首位，第一首为当前播放项
+      await queueNotifier.addAllAndPlayFirst(playables);
 
       if (mounted) {
         SnackbarHelper.showToast('已添加 ${pages.length} 首到播放队列');

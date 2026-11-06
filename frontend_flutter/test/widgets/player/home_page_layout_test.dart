@@ -13,13 +13,14 @@ import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.d
 import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 import 'package:listenvision/presentation/views/player/home_page.dart';
 import 'package:listenvision/presentation/widgets/audio_info.dart';
+import 'package:listenvision/presentation/widgets/controls_panel.dart';
 import 'package:listenvision/presentation/widgets/player_action_bar.dart';
 
 /// 首页布局 widget 测试
 ///
-/// 首页封面使用 BoxFit.contain 自适应显示，不同宽高比的封面会得到不同的
-/// 显示高度。这里固定手机视口，分别渲染宽幅（16:9）和近方形封面，
-/// 验证播放器内容整体垂直居中，而不是贴顶排列。
+/// 首页封面使用固定高度的展示区域，图片按原始宽高比 contain 居中显示。
+/// 这里固定手机视口，分别渲染宽幅（16:9）和近方形封面，验证内容整体
+/// 垂直居中，且标题/控制区位置不随封面比例变化。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -115,6 +116,66 @@ void main() {
       );
     });
   }
+
+  testWidgets('不同封面比例下标题与控制区布局位置保持不变', (tester) async {
+    tester.view.physicalSize = viewSize;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final wideCover = (await rootBundle.load(
+      'assets/images/1.png',
+    )).buffer.asUint8List();
+    final squareCover = (await rootBundle.load(
+      'assets/images/default_album_art.png',
+    )).buffer.asUint8List();
+
+    final container = createContainer(wideCover);
+    addTearDown(container.dispose);
+    await pumpHomePage(tester, container, wideCover);
+
+    final wideAudio = tester.getRect(find.byType(AudioInfo));
+    final wideControls = tester.getRect(find.byType(ControlsPanel));
+    final wideActionBar = tester.getRect(find.byType(PlayerActionBar));
+
+    // 在同一个页面内切换封面，避免重建路由/页面引入额外状态。
+    final playback =
+        container.read(playbackViewModelProvider.notifier)
+            as _FakePlaybackViewModel;
+    playback.cover = squareCover;
+    await tester.runAsync(() async {
+      await precacheImage(
+        MemoryImage(squareCover),
+        tester.element(find.byType(AudioInfo)),
+      );
+    });
+    await tester.pumpAndSettle();
+
+    final squareAudio = tester.getRect(find.byType(AudioInfo));
+    final squareControls = tester.getRect(find.byType(ControlsPanel));
+    final squareActionBar = tester.getRect(find.byType(PlayerActionBar));
+
+    expect(
+      squareAudio.top,
+      closeTo(wideAudio.top, 1.0),
+      reason: '封面比例变化不应改变音频信息位置',
+    );
+    expect(
+      squareAudio.height,
+      closeTo(wideAudio.height, 1.0),
+      reason: '封面展示区域高度应固定',
+    );
+    expect(
+      squareControls.top,
+      closeTo(wideControls.top, 1.0),
+      reason: '封面比例变化不应改变控制区位置',
+    );
+    expect(
+      squareActionBar.top,
+      closeTo(wideActionBar.top, 1.0),
+      reason: '封面比例变化不应改变底部操作栏位置',
+    );
+  });
 }
 
 PlaybackState _buildPlaybackState(Uint8List cover) {
@@ -133,7 +194,12 @@ PlaybackState _buildPlaybackState(Uint8List cover) {
 class _FakePlaybackViewModel extends PlaybackViewModel {
   _FakePlaybackViewModel(this._cover);
 
-  final Uint8List _cover;
+  Uint8List _cover;
+
+  set cover(Uint8List value) {
+    _cover = value;
+    state = _buildPlaybackState(value);
+  }
 
   @override
   PlaybackState build() => _buildPlaybackState(_cover);

@@ -68,6 +68,11 @@ jobs:
             echo "Version tag must match pubspec.yaml version $VERSION"
             exit 1
           fi
+      - name: Accept Android SDK licenses
+        run: |
+          # 运行器预装的 SDK license 不含 NDK 29（app/build.gradle.kts 指定的版本），
+          # 未接受时 Gradle 配置阶段会直接 LicenseNotAccepted 失败。
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - run: flutter build apk --release --split-per-abi --no-pub
       - run: sha256sum build/app/outputs/flutter-apk/app-*-release.apk > build/app/outputs/flutter-apk/SHA256SUMS
       - uses: actions/upload-artifact@v4

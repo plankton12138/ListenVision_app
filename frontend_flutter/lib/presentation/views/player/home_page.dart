@@ -420,6 +420,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 核心内容：音频播放器
       body: SafeArea(
         child: Column(
+          key: const ValueKey('home-content'),
+          // 封面高度随图片宽高比变化，居中排列避免内容整体贴顶、
+          // 切换不同比例封面时看起来整体上移
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // 音频信息（封面、标题、艺术家）- 自适应高度
             const Flexible(

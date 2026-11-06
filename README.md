@@ -1,8 +1,8 @@
 # ListenVision
 
-直接从 Bilibili 获取音频内容并播放。无论是音乐、相声、播客、ASMR 还是其他音频内容，搜索即播，也可以下载到本地离线收听。
+从 B 站获取音频内容并播放。音乐、翻唱、相声评书、播客电台、ASMR、白噪音……搜索即播，也可以下载到本地离线收听。
 
-> 纯前端应用，无需服务器。Flutter 构建，Android / Windows 平台支持。当前源码版本以 frontend_flutter/pubspec.yaml 为准（0.1.0+1），历史 releases 文件名不作为版本依据。
+> 纯本地应用，无需注册，也没有服务器。支持 Android 与 Windows；Web 版功能受限。当前源码版本以 `frontend_flutter/pubspec.yaml` 为准（0.1.0+1）。
 
 <div align="center">
   <img src="frontend_flutter/assets/homepage.png" alt="首页播放器" width="30%"/>
@@ -10,127 +10,102 @@
   <img src="frontend_flutter/assets/searchpage.png" alt="搜索页" width="30%"/>
 </div>
 
-## 核心功能
+## 功能
 
-B站有丰富的音频内容：音乐、翻唱、相声评书、播客电台、ASMR、白噪音等，但官方客户端必须保持视频画面开启。ListenVision 只获取 DASH 音频流，支持后台播放和锁屏收听。
+### 搜索与发现
 
-**搜索与播放。** 输入关键词搜索 B站，点击结果直接在线播放。多P视频和章节视频可以切换不同分段，提取对应音频。
+- 输入关键词搜索 B 站音频，支持搜索建议和分页加载。
+- 搜索结果可直接播放、收藏、添加到歌单或加入下载队列。
+- 多 P 视频按选集拆分，可选择任意一 P 单独播放。
+- 发现页浏览 B 站推荐内容，支持下拉刷新和继续加载。
+- 一键跳转到 B 站原视频页面。
 
-**下载与格式转换。** 支持将音频下载到本地。Android 当前提供 M4A 原始音频；桌面端安装 FFmpeg 后可选择 MP3，转换失败会保留 M4A 并反馈实际保存格式。支持暂停和基于 CDN 响应校验的续传。
+### 播放
 
-**本地音频导入。** 设备上的音频文件可以导入应用，自动提取封面、标题、艺术家等元数据。
+- 直接播放 B 站音频流，无需先下载。
+- Android 支持后台播放、锁屏与通知栏媒体控制，拔出耳机自动暂停。
+- 完整播放控制：拖动进度、上一首 / 下一首、音量调节，以及 0.5x–2.0x 倍速。
+- 顺序播放、列表循环、随机播放、单曲循环四种播放模式。
+- 播放队列支持定位当前曲目和一键清空。
+- 离开首页后底部保留浮动播放条，点击可展开完整播放面板。
+- 播放失败时给出提示，可直接重试。
 
-**歌单与收藏。** 创建歌单、添加曲目、拖拽排序。"我喜欢"为默认收藏歌单，点击心形图标即可收藏。播放历史自动记录。
+### 下载与离线
 
-**浮动播放条。** 离开首页后，底部显示当前播放信息和基本控制，点击展开完整面板。
+- 下载队列展示进度和任务状态，支持暂停、继续、删除和失败重试。
+- 最多同时下载 3 个任务，其余任务自动排队。
+- 基于 CDN 响应校验的断点续传：中断或暂停后可从已完成部分继续。
+- Android 保存 M4A 原始音频；Windows 等桌面端安装 FFmpeg 后可选择转为 MP3。
+- 可选择是否同时下载封面。
+- 下载页可查看任务状态和文件保存位置。
+- 多 P 视频支持「下载全部」。
 
-**其他。** 启动时自动扫描下载目录，标记被外部删除的文件。支持浅色/深色主题切换。
+### 本地音乐
 
-## 技术概况
+- 导入单个或多个本地音频文件，支持 MP3、M4A、FLAC、WAV、OGG。
+- 自动读取标题、艺术家、专辑和封面信息。
+- 扫描设备中的音频文件，统一加入「本地音乐」。
+- 支持批量选择和移除；移除只影响应用内列表，不会删除原始文件。
 
-| 层面 | 选型 |
-|------|------|
-| 框架 | Flutter 3.41，Dart 3.11 |
-| 音频播放 | media_kit（底层 libmpv），支持自定义 HTTP 请求头 |
-| 状态管理 | Riverpod 3，配合 Freezed 代码生成 |
-| 本地数据库 | SQLite（sqflite），存储歌单、历史、下载记录 |
-| 网络请求 | Dio，直连 B站 REST API |
-| 音频转换 | FFmpeg（桌面端调用系统 ffmpeg，移动端目前不提供格式转换） |
-| 路由 | go_router |
-| 元数据 | audio_metadata_reader（读取）+ metadata_god（写入） |
+### 歌单、收藏与历史
 
-项目结构遵循 MVVM 分层：`models`（数据模型）→ `data`（数据库和仓库）→ `services`（业务逻辑和第三方封装）→ `presentation`（ViewModel + View）。
+- 创建、编辑、删除歌单，填写名称与描述。
+- 将歌曲添加到歌单，支持批量移除歌单内的曲目。
+- 「我喜欢」是默认收藏歌单，点击心形图标即可收藏。
+- 自动记录播放历史，支持清空历史记录。
 
-## 开发环境
+### 设置与维护
+
+- 浅色 / 深色主题切换。
+- 下载格式与下载封面开关。
+- 启动时自动扫描下载目录，标记被外部删除的文件，并定期复查。
+- Android 端下载和扫描文件时按需申请权限。
+
+## 安装与部署
+
+### Android
+
+1. 打开 [Releases](https://github.com/plankton12138/ListenVision_app/releases) 下载最新 APK。
+2. 在手机上允许安装未知来源应用后安装，要求 Android 7.0 及以上。
+
+> 当前安装包沿用开发签名，正式分发前需要配置生产签名。
+
+### Windows
+
+Releases 中暂未提供与当前源码版本对应的 Windows 安装包，可按下面的「从源码构建」步骤生成。
+
+### Web
+
+Web 版可以构建为静态站点部署，但浏览器无法访问本地文件系统，下载、后台播放和本地文件扫描不可用；受浏览器跨域策略影响，部分在线功能也可能受限。完整体验建议使用 Android 或 Windows 桌面版。
+
+### 从源码构建
+
+环境要求：
+
+- Flutter 3.41 及以上（Dart 3.11 及以上）。
+- 可选：安装 FFmpeg 并确保命令行可调用，用于桌面端格式转换。
 
 ```bash
-# 必备
-Flutter SDK >= 3.41
-Dart SDK >= 3.11
-
-# 可选（音频格式转换需要）
-FFmpeg（命令行可调用即可）
-```
-
-```bash
-git clone https://github.com/plankton12138/listen-vision-audio-app.git
-cd listen-vision-audio-app/frontend_flutter
+git clone https://github.com/plankton12138/ListenVision_app.git
+cd ListenVision_app/frontend_flutter
 
 flutter pub get
-flutter run         # 连接设备或模拟器后启动
+flutter run          # 连接设备或模拟器后启动
 
 # 构建
 flutter build apk --release --split-per-abi   # Android，按 CPU 架构拆包
-flutter build windows  # Windows
-flutter build web   # Web（部分功能受限，见下文）
+flutter build windows                         # Windows
+flutter build web                             # Web 静态资源，输出到 build/web
 ```
 
-**Web 平台的限制：** 浏览器无法写入本地文件系统，所以下载、后台播放、本地文件扫描在 Web 版都不可用。完整体验建议使用 Android 或 Windows 桌面版。
+## 使用须知
 
-## 项目结构
+- B 站的反爬机制可能影响音频流获取，播放失败可以稍后重试。
+- 下载的音频仅供个人使用，请遵守 B 站用户协议和版权法规。
+- 桌面端音频格式转换需要系统已安装 FFmpeg 并能在命令行调用。
+- Android 系统回收进程后需要重新打开应用恢复播放队列；不能保证强制停止后持续播放。锁屏连续播放和不同厂商的电量策略建议在真机上验收。
+- 文件访问权限在下载或扫描操作时请求，启动时不会要求用户授予所有文件管理权限。
 
-```
-frontend_flutter/lib/
-├── main.dart                    # 应用入口，初始化顺序
-├── app.dart                     # MaterialApp.router 配置
-├── core/                        # 基础设施（常量、网络、存储、工具）
-│   ├── constants/               # UI 和 API 常量
-│   ├── network/                 # Dio 实例和网络状态监听
-│   ├── storage/                 # 共享存储服务
-│   └── utils/                   # 日志、权限、图片等工具
-├── models/                      # 数据模型（Audio, Playlist, PlayQueue 等）
-│   └── dto/                     # API 响应 DTO
-├── data/                        # 数据层
-│   ├── database/                # DAO（TrackDao, PlaylistDao, PlayHistoryDao 等）
-│   └── repositories/            # 仓库层（封装 DAO 操作）
-├── services/                    # 服务层
-│   ├── audio_player_service.dart    # 播放器封装（media_kit）
-│   ├── bilibili_api_service.dart    # B站 API 直连
-│   ├── bilibili_downloader.dart     # B站 音频下载
-│   ├── download_service.dart        # 通用下载
-│   ├── download_integrity_service.dart  # 文件完整性检查
-│   ├── ffmpeg_service.dart          # 音频格式转换
-│   ├── metadata_service.dart        # 元数据读取
-│   └── platform/                    # 平台相关（媒体扫描）
-└── presentation/                # 表现层
-    ├── routes/router.dart           # 路由配置（go_router）
-    ├── theme/                       # 浅色/深色主题
-    ├── viewmodels/                  # ViewModel（Riverpod Notifier）
-    │   ├── discovery/               # 搜索、发现
-    │   ├── library/                 # 歌单、历史、本地音乐
-    │   ├── player/                  # 播放器、队列、元数据
-    │   ├── settings/                # 扫描设置
-    │   └── system/                  # 主题、下载管理
-    ├── views/                       # 页面
-    │   ├── player/                  # 首页播放器、播放列表
-    │   ├── discovery/               # 搜索、发现
-    │   ├── library/                 # 歌单库、歌单详情、本地音乐、历史
-    │   └── system/                  # 下载管理、设置
-    └── widgets/                     # 可复用组件
-        ├── player/                  # 浮动播放条、展开面板、控制按钮
-        ├── audio/                   # 音频操作菜单
-        └── common/                  # 通用组件（网络状态、SnackBar 等）
-```
+## 开源协议
 
-## 注意事项
-
-- B站 的反爬机制可能会影响音频流获取，如果播放失败可以稍后重试
-- 下载的音频仅供个人使用，请遵守 B站 用户协议和版权法规
-- 桌面版音频转换需要系统已安装 FFmpeg 并可在命令行调用
-
-## 开发验证与发布
-
-```bash
-cd frontend_flutter
-flutter pub get
-dart run build_runner build
-flutter analyze
-flutter test
-flutter build apk --release --split-per-abi --no-pub
-```
-
-GitHub Actions 对 Windows / Linux 执行生成结果、静态分析和测试检查。版本标签或手动运行会生成按 ABI 拆分的 Android 验证产物，不自动发布版本；标签需匹配 pubspec.yaml 的版本。项目当前 Android release 沿用开发签名，正式分发前需配置生产签名。
-
-Android 已接入前台媒体服务、MediaSession、音频焦点及耳机拔出暂停，Flutter 引擎在 Activity 退出后继续由进程持有。系统回收进程后仍需重新打开应用恢复队列；不能保证强制停止后持续播放。锁屏连续播放、不同厂商电量策略和系统媒体控制需要真机验收。
-
-文件访问权限在下载操作时请求，扫描音频时由媒体扫描服务请求。启动时不再要求用户授予所有文件管理权限。
+本项目使用 [MIT License](LICENSE) 开源，Copyright (c) 2026 plankton12138。

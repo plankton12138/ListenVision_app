@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:listenvision/models/audio.dart';
 import 'package:listenvision/models/online_playable.dart';
+import 'package:listenvision/models/play_queue.dart';
 import 'package:listenvision/presentation/viewmodels/library/history_viewmodel.dart';
 import 'package:listenvision/presentation/viewmodels/player/playback_viewmodel.dart';
+import 'package:listenvision/presentation/viewmodels/player/queue_viewmodel.dart';
 import 'package:listenvision/services/audio_player_service.dart';
 import 'package:listenvision/services/bilibili_api_service.dart';
 import 'package:listenvision/services/background_audio_service.dart';
@@ -243,6 +245,75 @@ void main() {
     expect(audio.played, isEmpty);
     expect(history.recorded, isEmpty);
     expect(container.read(playbackViewModelProvider).isPaused, isTrue);
+  });
+
+  test('恢复队列元信息不解析音源，准备音源延后触发', () async {
+    final playable = OnlinePlayable(
+      Audio(
+        id: 'A',
+        title: 'A',
+        duration: 180,
+        streamUrl: 'https://example.com/A',
+      ),
+    );
+    final queueNotifier = container.read(queueViewModelProvider.notifier);
+    queueNotifier.state = QueueState(
+      queue: PlayQueue(tracks: [playable], currentIndex: 0),
+    );
+
+    vm.restoreQueueMetadata();
+
+    final restored = container.read(playbackViewModelProvider);
+    expect(restored.currentPlayable?.id, 'A');
+    expect(restored.title, 'A');
+    expect(restored.duration, const Duration(seconds: 180));
+    expect(restored.isPaused, isTrue);
+    expect(restored.isPlaying, isFalse);
+    expect(restored.isLoading, isFalse);
+    expect(audio.opened, isEmpty);
+    expect(history.recorded, isEmpty);
+
+    await vm.prepareCurrentFromQueue();
+    expect(audio.opened, ['https://example.com/A']);
+    expect(audio.played, isEmpty);
+    expect(container.read(playbackViewModelProvider).isPaused, isTrue);
+  });
+
+  test('已有播放内容时不覆盖队列元信息', () async {
+    await vm.play(track('B', resolved: true));
+
+    final queueNotifier = container.read(queueViewModelProvider.notifier);
+    queueNotifier.state = QueueState(
+      queue: PlayQueue(
+        tracks: [track('A', resolved: true)],
+        currentIndex: 0,
+      ),
+    );
+
+    vm.restoreQueueMetadata();
+
+    expect(container.read(playbackViewModelProvider).currentPlayable?.id, 'B');
+  });
+
+  test('用户已开始加载时跳过启动音源恢复', () async {
+    final playable = track('A');
+    final queueNotifier = container.read(queueViewModelProvider.notifier);
+    queueNotifier.state = QueueState(
+      queue: PlayQueue(tracks: [playable], currentIndex: 0),
+    );
+
+    vm.restoreQueueMetadata();
+    final pending = vm.play(playable);
+    expect(container.read(playbackViewModelProvider).isLoading, isTrue);
+
+    await vm.prepareCurrentFromQueue();
+    expect(api.requests.keys, ['A']);
+    expect(audio.opened, isEmpty);
+
+    api.complete('A');
+    await pending;
+    expect(audio.opened, ['https://example.com/A']);
+    expect(container.read(playbackViewModelProvider).isPlaying, isTrue);
   });
 
   test('临时音频中断后恢复，但用户主动暂停取消自动恢复意图', () async {

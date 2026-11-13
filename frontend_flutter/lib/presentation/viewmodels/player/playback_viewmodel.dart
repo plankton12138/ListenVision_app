@@ -650,15 +650,57 @@ class PlaybackViewModel extends _$PlaybackViewModel {
 
   // ==================== 辅助方法 ====================
 
+  /// 恢复队列当前曲目的展示信息（不解析音源、不初始化播放器）。
+  ///
+  /// 应用启动时先用它填充首屏；音源解析/准备延后到首帧之后，
+  /// 避免启动阶段与首帧争用网络、磁盘和播放器引擎。
+  void restoreQueueMetadata() {
+    if (_disposed) return;
+    if (state.currentPlayable != null) return;
+
+    final queue = ref.read(queueViewModelProvider).queue;
+    final currentIndex = queue?.currentIndex ?? -1;
+    if (queue == null ||
+        currentIndex < 0 ||
+        currentIndex >= queue.tracks.length) {
+      AppLogger.debug('PlaybackViewModel', '队列索引无效，跳过元信息恢复');
+      return;
+    }
+
+    final playable = queue.tracks[currentIndex];
+    final savedSeconds = _rememberedPosition(playable.id);
+
+    _updatePlayableState(playable, index: currentIndex);
+    state = state.copyWith(
+      position: Duration(seconds: savedSeconds),
+      duration: playable.duration != null
+          ? Duration(seconds: playable.duration!)
+          : null,
+      isPlaying: false,
+      isPaused: true,
+      isLoading: false,
+      isCompleted: false,
+    );
+    AppLogger.info('PlaybackViewModel', '恢复队列元信息: ${playable.title}');
+  }
+
   /// 从队列准备当前音频（不自动播放）
   ///
   /// 用于应用启动时恢复上次播放位置。
   /// 依赖 QueueViewModel 已恢复完成。
   ///
-  /// 如果当前音频源已就绪（相同 ID 且播放器已加载有效时长），
-  /// 则跳过重复准备，仅恢复到保存的播放位置。
+  /// 启动恢复是后台行为：用户已经开始播放、加载或上次播放报错时跳过，
+  /// 避免覆盖用户操作；音源已就绪时也跳过重复准备。
   Future<void> prepareCurrentFromQueue() async {
     if (_disposed) return;
+
+    if (state.isLoading ||
+        state.isPlaying ||
+        state.errorMessage != null ||
+        _loadedPlayableId != null) {
+      AppLogger.debug('PlaybackViewModel', '已有播放/加载中的音源，跳过启动恢复');
+      return;
+    }
 
     final queueNotifier = ref.read(queueViewModelProvider.notifier);
     final queueState = ref.read(queueViewModelProvider);
@@ -672,15 +714,6 @@ class PlaybackViewModel extends _$PlaybackViewModel {
     }
 
     final playable = queueState.queue!.tracks[currentIndex];
-
-    // 如果当前音频源已就绪且为同一音频项，无需重复准备
-    // isReady: _currentSourceUrl != null && duration > 0
-    if (state.currentPlayable?.id == playable.id &&
-        _audioService != null &&
-        _audioService!.isReady) {
-      AppLogger.info('PlaybackViewModel', '音频源已就绪，无需恢复');
-      return;
-    }
 
     final recoveryId = _requestId;
     final savedPosition = await queueNotifier.restorePosition() ?? 0;

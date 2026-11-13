@@ -328,16 +328,27 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
 
     // 注册队列恢复完成回调（仅首次启动时生效）
-    ref.read(queueViewModelProvider.notifier).onQueueRestored(() async {
+    ref.read(queueViewModelProvider.notifier).onQueueRestored(() {
       // 如果播放器已有内容（正在播放或暂停中），说明是重新进入页面，
-      // 跳过 prepare 和 pause，避免打断当前播放状态
+      // 跳过恢复，避免打断当前播放状态
       final playbackState = ref.read(playbackViewModelProvider);
       if (playbackState.currentPlayable != null) return;
 
-      // 准备当前音频（不自动播放）
-      await ref.read(playbackViewModelProvider.notifier).prepareCurrentFromQueue();
-      // 启动时音乐应处于暂停状态
-      await ref.read(playbackViewModelProvider.notifier).pause();
+      final playbackNotifier = ref.read(playbackViewModelProvider.notifier);
+
+      // 首屏只恢复曲目展示信息；音源解析和播放器初始化延后到首帧之后，
+      // 避免启动阶段与首帧争用网络、磁盘和播放器引擎。
+      playbackNotifier.restoreQueueMetadata();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(const Duration(milliseconds: 300), () async {
+          if (!mounted) return;
+          // 用户如果在延迟窗口内停止了播放，就不再自动恢复音源。
+          if (ref.read(playbackViewModelProvider).currentPlayable == null) {
+            return;
+          }
+          await playbackNotifier.prepareCurrentFromQueue();
+        });
+      });
     });
 
     // 延迟处理，等待页面构建完成
